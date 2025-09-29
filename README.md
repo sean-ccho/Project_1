@@ -1,5 +1,13 @@
 # Trend Ranking Screener
 
+## 사용법
+1. 프로젝트 루트(`/Users/seancho/Desktop/Code/Project_1`)로 이동합니다.
+2. `python3 -m venv venv`로 가상환경을 생성합니다. (이미 있으면 생략)
+3. `source venv/bin/activate`로 가상환경을 활성화합니다.
+4. `pip install pandas numpy yfinance ta openpyxl gspread google-auth` 등 필요한 패키지를 설치합니다.
+5. `python main.py`를 실행합니다.
+6. 작업이 끝나면 `deactivate`로 가상환경을 종료할 수 있습니다.
+
 Python 기반으로 S&P 500 전 종목을 내려받아 기술적 지표를 계산하고, 종합 스코어 및 매수/매도 권장 메시지를 생성하는 스크립트입니다.
 
 ## 1. 워크플로우
