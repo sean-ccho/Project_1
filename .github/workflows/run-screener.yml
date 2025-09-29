@@ -1,0 +1,51 @@
+name: Run Screener
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 6 * * 1-5'
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Restore Google service account credentials
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then
+            echo "GOOGLE_SERVICE_ACCOUNT_JSON secret is not set" >&2
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICE_ACCOUNT_JSON" | base64 --decode > gspread-service-account.json
+
+      - name: Run screener pipeline
+        run: |
+          set -o pipefail
+          python main.py | tee run.log
+
+      - name: Upload run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screener-log
+          path: run.log
+          retention-days: 7

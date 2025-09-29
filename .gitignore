@@ -14,3 +14,6 @@ venv/
 
 # Logs and temp files
 *.log
+
+# Google Sheets credentials
+gspread-service-account.json
