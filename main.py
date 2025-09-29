@@ -48,6 +48,8 @@ def main() -> None:
         "트렌드점수",
         "RSI",
         "macd",
+        "annual_dividend",
+        "dividend_yield",
         "5일수익률",
         "1일수익률",
         "52주포지션",
@@ -71,8 +73,6 @@ def main() -> None:
         "obv_z20",
         "cmf_20",
         "accdist_slope_5",
-        "annual_dividend",
-        "dividend_yield",
         "최근20일평균거래대금",
     ]
 
