@@ -49,10 +49,6 @@ for ticker in LIQUIDITY_WHITELIST:
     if ticker not in TICKERS:
         TICKERS.append(ticker)
 
-for _extra in LIQUIDITY_WHITELIST:
-    if _extra not in TICKERS:
-        TICKERS.append(_extra)
-
 # Google Sheets 연결 설정(기본 비활성화)
 GOOGLE_SHEETS_ENABLED = True
 GOOGLE_SHEETS_CREDENTIALS_PATH: str | None = "gspread-service-account.json"
@@ -79,13 +75,47 @@ OBV_Z_BUY_THRESHOLD = 0.0
 CMF_BUY_THRESHOLD = 0.0
 BOLLINGER_BREAKOUT_PBAND = 0.85
 BOLLINGER_OVERBOUGHT_PBAND = 0.98
+BOLLINGER_OVERSOLD_PBAND = 0.10
+
+STOCH_OVERSOLD = 20
+RSI_OVERSOLD = 35
+
+BOTTOM_POS_THRESHOLD = 0.35
+BOTTOM_TREND_SCORE = -0.02
+BOTTOM_VOLUME_Z = -0.3
+MACD_BOTTOM_THRESHOLD = -0.3
+
+# 저점 탐색 보조 지표 임계치
+FUND_HEALTH_ROE_MIN = 0.08
+FUND_HEALTH_REVENUE_GROWTH_MIN = 0.03
+FUND_HEALTH_PROFIT_MARGIN_MIN = 0.05
+FUND_HEALTH_EARNINGS_GROWTH_MIN = 0.02
+FUND_HEALTH_DEBT_TO_EQUITY_MAX = 200.0
+FUND_HEALTH_CURRENT_RATIO_MIN = 1.0
+
+REL_STRENGTH_LOOKBACK = 20
+REL_STRENGTH_SECTOR_BUFFER = -0.05
+REL_STRENGTH_MARKET_BUFFER = -0.05
+
+VOLUME_STABILITY_RATIO_MIN = 0.6
+LONG_TERM_SLOPE_LOOKBACK = 20
+LONG_TERM_SLOPE_MIN = -0.03
+EMA200_DISTANCE_MIN = -0.25
+
+GAP_DOWN_EXTREME = -0.04
+HAMMER_LOWER_SHADOW_MIN = 0.5
+HAMMER_UPPER_SHADOW_MAX = 0.25
+INTRADAY_RECOVERY_MIN = 0.04
+
+EARNINGS_EVENT_WINDOW_DAYS = 5
 
 # 시그널 우선순위 매핑(테이블 정렬 순서를 통제).
 SIGNAL_PRIORITY = {
     "매수 후보": 0,
-    "관심 관찰": 1,
-    "관망 과열": 2,
-    "관망 약세": 3,
+    "저점 관찰": 1,
+    "관심 관찰": 2,
+    "관망 과열": 3,
+    "관망 약세": 4,
 }
 
 # 퍼센티지로 표현할 지표 목록(콘솔 및 CSV 출력 시 사용).
@@ -93,6 +123,8 @@ PERCENT_COLUMNS = [
     "트렌드점수_최종",
     "트렌드점수",
     "5일수익률",
+    "20일수익률",
+    "63일수익률",
     "1일수익률",
     "52주포지션",
     "ATR%",
@@ -103,6 +135,13 @@ PERCENT_COLUMNS = [
     "keltner_pband",
     "accdist_slope_5",
     "dividend_yield",
+    "close_to_ema200_pct",
+    "거래대금안정비",
+    "시장상대강도",
+    "섹터상대강도",
+    "장중반등률",
+    "10일저점괴리",
+    "갭하락률",
 ]
 
 # 실행 때마다 백업(타임스탬프) CSV를 추가로 만들 것인지 여부.
@@ -132,3 +171,102 @@ TECH_COLUMN_LABELS = {
     "dividend_yield": "배당수익률",
     "최근20일평균거래대금": "최근20일평균거래대금(M)",
 }
+
+# 후처리 및 출력 단계에서 공통으로 사용하는 컬럼 정의.
+NEUTRALIZE_COLUMNS = ["트렌드점수", "5일수익률", "거래량Z(20)"]
+
+DISPLAY_COLUMNS = [
+    # "판단",
+    # "추천",
+    # "회사",
+    # "긍정",
+    # "저점",
+    # "저점강도",
+    # "저점근거",
+    # "저점점수",
+    # "저점건강",
+    # "상대강도",
+    # "이벤트주의",
+    # "경계",
+    # "티커",
+    # "현재가격",
+    # "우선순위",
+    # "트렌드점수_최종",
+    # "트렌드점수",
+    # "RSI",
+    # "macd",
+    # "annual_dividend",
+    # "dividend_yield",
+    # "5일수익률",
+    # "1일수익률",
+    # "52주포지션",
+    # "거래량Z(20)",
+    # "ATR%",
+    # "macd_signal",
+    # "macd_hist",
+    # "stoch_k",
+    # "stoch_d",
+    # "roc_10",
+    # "adx",
+    # "adx_pos",
+    # "adx_neg",
+    # "ema_gap_20_50",
+    # "ema_gap_50_200",
+    # "ema_gap_20_200",
+    # "bollinger_pband",
+    # "bollinger_width",
+    # "keltner_pband",
+    # "keltner_width",
+    # "obv_z20",
+    # "cmf_20",
+    # "accdist_slope_5",
+    # "최근20일평균거래대금",
+]
+
+EXPORT_COLUMNS = [
+    "티커",
+    "회사",
+    "현재가격",
+    "우선순위",
+    "판단",
+    "추천",
+    "긍정",
+    "저점",
+    "저점강도",
+    "저점근거",
+    "저점점수",
+    "저점건강",
+    "상대강도",
+    "경계",
+    "트렌드점수_최종",
+    # "트렌드점수",
+    "RSI",
+    "macd",
+    "dividend_yield",
+    "이벤트주의",
+    # "annual_dividend",
+    # "5일수익률",
+    # "1일수익률",
+    # "52주포지션",
+    # "거래량Z(20)",
+    # "ATR%",
+    # "macd_signal",
+    # "macd_hist",
+    # "stoch_k",
+    # "stoch_d",
+    # "roc_10",
+    # "adx",
+    # "adx_pos",
+    # "adx_neg",
+    # "ema_gap_20_50",
+    # "ema_gap_50_200",
+    # "ema_gap_20_200",
+    # "bollinger_pband",
+    # "bollinger_width",
+    # "keltner_pband",
+    # "keltner_width",
+    # "obv_z20",
+    # "cmf_20",
+    # "accdist_slope_5",
+    # "최근20일평균거래대금",
+]

@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from config import LIQUIDITY_QUANTILE, LIQUIDITY_WHITELIST
+from config import LIQUIDITY_QUANTILE, LIQUIDITY_WHITELIST, NEUTRALIZE_COLUMNS
 
 
 def zscore_by_group(series: pd.Series, group: pd.Series) -> pd.Series:
@@ -15,13 +15,13 @@ def apply_neutralization(df: pd.DataFrame) -> pd.DataFrame:
     """시장/섹터 단위로 값을 정규화해 특정 집단에 치우친 효과를 줄인다."""
 
     out = df.copy()
-    for col in ["트렌드점수", "5일수익률", "거래량Z(20)"]:
+    for col in NEUTRALIZE_COLUMNS:
         # 시장(US/CA) 단위 중립화: 전체 지표가 시장 방향성만 반영하지 않도록 보정.
         out[col + "_mktz"] = zscore_by_group(out[col], out["시장"])
 
     if (out["섹터"] != "Unknown").any():
         # 섹터 정보가 있으면 추가로 섹터 단위 중립화를 적용한다.
-        for col in ["트렌드점수", "5일수익률", "거래량Z(20)"]:
+        for col in NEUTRALIZE_COLUMNS:
             out[col + "_secz"] = zscore_by_group(out[col], out["섹터"])
         out["트렌드점수_최종"] = (
             0.5 * out["트렌드점수"]

@@ -1,0 +1,16 @@
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.venv/
+
+# macOS metadata
+.DS_Store
+
+# Local editor settings
+.vscode/
+
+# Logs and temp files
+*.log

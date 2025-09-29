@@ -1,0 +1,8 @@
+pandas>=2.0
+numpy>=1.24
+yfinance>=0.2
+ta>=0.10
+# Optional for Google Sheets export
+gspread>=6.0
+google-auth>=2.0
+google-auth-oauthlib>=1.0

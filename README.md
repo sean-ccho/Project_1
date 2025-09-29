@@ -1,109 +1,138 @@
 # Trend Ranking Screener
 
-## 사용법
-1. 프로젝트 루트(`/Users/seancho/Desktop/Code/Project_1`)로 이동합니다.
-2. `python3 -m venv venv`로 가상환경을 생성합니다. (이미 있으면 생략)
-3. `source venv/bin/activate`로 가상환경을 활성화합니다.
-4. `pip install pandas numpy yfinance ta openpyxl gspread google-auth` 등 필요한 패키지를 설치합니다.
-5. `python main.py`를 실행합니다.
-6. 작업이 끝나면 `deactivate`로 가상환경을 종료할 수 있습니다.
-
-Python 기반으로 S&P 500 전 종목을 내려받아 기술적 지표를 계산하고, 종합 스코어 및 매수/매도 권장 메시지를 생성하는 스크립트입니다.
-
-## 1. 워크플로우
-
-1. **데이터 수집** – `yfinance`로 1년 일봉 데이터를 다운로드합니다. 분할·배당을 반영한 수정주가와 배당금(`actions=True`)을 함께 가져옵니다.
-2. **피처 계산** – `features.py`가 다음 지표를 생성합니다.
-   - 수익률: 1일(`ret_1d`), 5일(`ret_5d`), 10일 ROC
-   - 추세 & 모멘텀: 트렌드 점수(가중합), RSI, MACD(+시그널, 히스토그램), Stochastic %K/%D, ADX(+DI/-DI), 52주 포지션, 이동평균 갭(EMA20-50/50-200/20-200)
-   - 변동성: ATR%, Bollinger Band P-band/width, Keltner Channel P-band/width
-   - 거래량 & 자금 흐름: 20일 거래량 Z-score, OBV Z-score, Chaikin Money Flow(20), Acc/Dist 기울기(5)
-   - 배당: 최근 1년 배당 합계, 배당수익률
-3. **중립화 & 필터** – 시장·섹터별 z-score를 추가해 트렌드 점수를 조정하고(`processing.apply_neutralization`), 거래대금 하위 40%를 제거합니다. 화이트리스트(`LIQUIDITY_WHITELIST`)에 등록된 종목은 항상 유지됩니다.
-4. **신호 & 추천** – `signals.py`가 지표들을 긍정/부정/과열 요소로 분류해 `판단`(매수 후보/관심 관찰/관망 과열/관망 약세)과 `추천`(적극 매수, 조건 충족 시 매수, 차익 실현 고려 등)을 생성합니다.
-5. **출력** – `main.py`가 결과를 콘솔과 `output/신호_최신.xlsx`에 저장합니다. 숫자는 소수점 1자리, 거래대금은 백만 달러 단위로 반올림되며, `메모` 컬럼에 주요 긍정/경계 지표 요약이 들어갑니다.
-6. **Google Sheets(선택)** – `config.py`에서 연결 정보를 채우면 같은 DataFrame이 구글 시트에도 업로드됩니다.
-
-## 2. 주요 기술 지표와 해석
-
-| 분류 | 지표 | 매수 관점 | 매도/관망 관점 |
-| --- | --- | --- | --- |
-| 모멘텀 | RSI | 55~75: 건강한 상승 추세, 과매수가 아니면 매수 가점 | ≥80: 과열, 40 이하: 약세 관망 |
-| | MACD 히스토그램 | ≥ +0.5: 상승 가속 | ≤ –0.5: 하락 위험 |
-| | Stochastic %K/%D | ≥40: 단기 반등, ≥85: 과열 경계 | ≤20: 침체 구간 |
-| 추세 | ADX(+DI/-DI) | ≥20(또는 30 이상): 추세 확립, +DI 우위 | ≤15: 추세 약, –DI 우위 |
-| | EMA 20/50/200 갭 | 양수이면 정배열, 추세 동행 | 음수이면 역배열, 하락 가능 |
-| | 52주 포지션 | ≥0.7: 돌파/강세 | ≤0.3: 저점 부근 |
-| 변동성 | ATR% | ≤5%: 안정적 추세 | ≥8%: 변동성 확대 |
-| | Bollinger P-band | ≥0.85: 상단 돌파(강세) | ≥0.98: 과열, ≤0.2: 하단 테스트 |
-| 거래량/자금 | 거래량 Z-score | ≥0: 거래량 지지 | ≤-1.5: 거래량 감소 |
-| | OBV Z-score & CMF | ≥0: 자금 유입, 지지 | <0: 자금 유출 |
-| 배당 | 배당수익률 | ≥2%: 안정적 현금흐름 | ≤0.2%: 배당 매력 낮음 |
-
-`signals.collect_signal_evidence`는 위 기준을 긍정/부정/과열 증거로 분류해 종합 판단을 내립니다.
-
-### 트렌드 점수 계산 방법
-
-1. **기본 트렌드 점수(`트렌드점수`)** – `features.py`에서 아래 가중합으로 계산합니다. (가중치는 `config.WEIGHTS`)
-
-   
-   `0.30 × 5일 수익률` (단기 모멘텀)  
-   `+ 0.30 × tanh(거래량Z(20)/3)` (거래량 급증)  
-   `+ 0.25 × clip(52주포지션, 0, 1)` (52주 돌파 정도)  
-   `+ 0.05 × clip(ATR%, 0, 0.1)/0.1` (낮은 변동성 보상)  
-   `+ 0.10 × tanh((RSI-55)/10)` (RSI 기반 스무딩)
-
-2. **최종 트렌드 점수(`트렌드점수_최종`)** – `processing.apply_neutralization`에서 시장/섹터 편향을 제거합니다.
-
-   - 시장별 z-score (`트렌드점수_mktz`) + 섹터별 z-score (`_secz`)를 추가
-   - 섹터 정보가 있으면 `0.5 × 원본 + 0.3 × 시장z + 0.2 × 섹터z`
-   - 섹터가 Unknown이면 `0.7 × 원본 + 0.3 × 시장z`
-
-   → 결과적으로 전체 시장 흐름과 섹터 편차를 보정한 비교 가능한 점수가 `트렌드점수_최종`입니다.
-
-## 3. 판단 & 추천 로직 요약
-
-- **매수 후보 → 적극/분할 매수**: 긍정 요소가 6개 이상이며 부정 요소가 거의 없고, MACD와 ADX가 강세일 때 `적극 매수`, 그 외엔 `분할 매수`.
-- **관심 관찰**: 긍정 요소가 부정보다 많지만 추세 강도가 부족하면 `조건 충족 시 매수` 또는 `추가 관찰`.
-- **관망 과열 → 차익 실현 고려**: RSI/스토캐스틱/볼린저가 과열 신호를 2개 이상 띄우면 차익 실현 권장.
-- **관망 약세**: 부정 요인이 우위일 때 `관망/보유` 혹은 `추가 관찰`.
-
-## 4. 설정 파일(`config.py`) 주요 항목
-
-- `SP500_TICKERS`: 위키에서 스크랩한 S&P 500 티커 목록. 필요 시 직접 추가 가능(`LIQUIDITY_WHITELIST` 포함).
-- `SECTOR_MAP`: 섹터 중립화를 위한 매핑. Unknown은 시장 중립화만 적용됩니다.
-- `LIQUIDITY_QUANTILE`: 거래대금 컷 비율(0.40이면 하위 40% 제거). 손쉽게 조절 가능.
-- `LIQUIDITY_WHITELIST`: 필터를 통과시키고 싶은 종목 목록. `GRRR`, `COIN` 등이 기본 등록되어 있습니다.
-- `WEIGHTS`: 트렌드 점수에서 각 요소에 부여할 가중치.
-- `PERCENT_COLUMNS`, `TECH_COLUMN_LABELS`: 출력 포맷과 헤더 명칭을 정의합니다.
-
-## 5. 실행 방법
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt  # yfinance, pandas, numpy, ta, openpyxl 등
-python main.py
-```
-
-S&P 500 전체를 처리하면 2~3분 이상 걸릴 수 있으며, Yahoo Finance 요청이 간헐적으로 실패할 수 있습니다. `data.fetch.MAX_DOWNLOAD_RETRIES`와 `RETRY_DELAY_SECONDS`로 재시도 횟수와 대기 시간을 조절하세요.
-
-## 6. 출력 파일
-
-- `output/신호_최신.xlsx`: 최신 랭킹과 주석이 포함된 시그널 표 (엑셀 시트 `Signals`).
-  - `긍정`, `경계` 컬럼이 각 지표에서 뽑힌 상위 증거(최대 3개)를 요약해 줍니다.
-  - `최근20일평균거래대금(M)`은 백만 달러 단위로 환산됩니다.
-- `output/신호_YYYYMMDD_HHMMSS.xlsx`: 백업 파일(옵션). `EXPORT_WITH_BACKUP = False`로 되어 있으니 필요 시 `True`로 변경.
- - *(옵션)* `config.GOOGLE_SHEETS_ENABLED = True`로 설정하면 동일 데이터를 Google Sheets에도 업데이트합니다.
-
-콘솔에서도 같은 표가 출력되며, 거래대금은 `XX,XXX.XM` 포맷을 유지합니다.
-
-## 7. 트러블슈팅
-
-- **DNS 오류 / Failed download**: yfinance 서버가 응답하지 않을 때 발생합니다. 스크립트가 최대 3회 재시도하며, 반복될 경우 잠시 후 다시 실행하거나 티커 리스트를 나눠서 처리하세요.
-- **속도 문제**: S&P 500 전체 요청은 데이터가 많으므로, 필요 시 `TICKERS`를 섹터별로 나눠 실행하거나 `period`를 줄여 가속할 수 있습니다.
-- **Unknown 섹터**: `SECTOR_MAP`을 보강하면 중립화精度가 향상됩니다.
-- **Google Sheets**: `pip install gspread google-auth` 후 서비스 계정 JSON 경로(`GOOGLE_SHEETS_CREDENTIALS_PATH`)와 `GOOGLE_SHEETS_SPREADSHEET_ID`를 설정하세요. 서비스 계정을 해당 시트에 편집 권한으로 공유해야 합니다.
+Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데이터를 내려받아 기술 지표·거래/자금 흐름·기초 재무 지표를 종합 평가하고, 매수/관망 신호를 Google Sheets로 배포합니다.
 
 ---
-지표 해석 기준과 추천 로직은 README에 모두 요약되어 있으므로, 생성된 추천을 확인할 때 각 지표가 어떤 역할을 했는지 빠르게 추적할 수 있습니다. 필요하다면 `signals.collect_signal_evidence`에 로그를 추가하여 어떤 증거가 쌓였는지 더 자세히 확인할 수 있습니다.
+## 빠른 시작
+1. 프로젝트 루트에서 가상환경 생성 및 활성화
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
+2. 환경 설정(`config.py`)에서 필요한 값 수정
+   - `TICKERS`: 분석할 티커 목록 (기본 S&P500)
+   - `GOOGLE_SHEETS_*`: 서비스 계정 JSON 경로와 스프레드시트 ID 등
+3. 실행
+   ```bash
+   python main.py
+   ```
+4. 종료 후 `deactivate`로 가상환경을 빠져나옵니다.
+
+콘솔에는 업로드 결과와 총 실행 시간이 출력되고, 세부 결과는 Google Sheets에 반영됩니다.
+
+---
+## 파이프라인 개요
+1. **데이터 수집** – `data.fetch.fetch_ohlcv`가 1년 일봉 OHLCV와 배당 정보를 다운로드합니다. 다운로드 실패 시 `MAX_DOWNLOAD_RETRIES`와 `RETRY_DELAY_SECONDS` 동안 재시도합니다.
+2. **특징 생성(`features.py`)**
+   - 수익률 & 모멘텀
+     - 1일/5일/20일/63일 수익률, 10일 ROC, RSI, MACD(+시그널/히스토그램), Stochastic %K/%D
+   - 추세 & 변동성
+     - 트렌드 점수 (가중합), ADX(+DI/-DI), 52주 포지션, EMA(20/50/200) 갭, EMA200 기울기, ATR%, Bollinger/Keltner 밴드 위치·폭, EMA200 이탈률, 10일 저점 괴리
+   - 거래량 & 자금 흐름
+     - 20일 거래량 Z-score, 60일 대비 거래대금 안정 비율, Chaikin Money Flow(20), OBV Z-score, Acc/Dist 기울기, 장중 반등률
+   - 이벤트 & 패턴
+     - 갭 하락률, 망치형(반전) 캔들 탐지, 최근 실적 발표 일정(Days to Earnings)
+   - 재무 체력(`fundamentals.py`)
+     - ROE, 부채/자본 비율, 매출/이익 성장률, 이익률, 유동·당좌 비율, 자유/영업 현금흐름, 다음 실적 발표일 등
+   - 상대 강도
+     - 20일 수익률 기준 시장/섹터 평균 대비 초과 성과(`시장상대강도`, `섹터상대강도`)
+3. **유동성 필터(`processing.liquidity_filter`)** – 시장별 20일 평균 거래대금 분위수 하위 `LIQUIDITY_QUANTILE` 비율을 제거합니다. `LIQUIDITY_WHITELIST`는 항상 유지됩니다.
+4. **중립화(`processing.apply_neutralization`)** – 트렌드 점수를 시장/섹터 z-score로 스무딩하여 비교 가능성을 높입니다.
+5. **신호 평가(`signals.py`)**
+   - 긍정/부정/과열/과매도 증거 수집
+   - `evaluate_bottom_context`로 저점 스코어링: 과매도 지표, EMA 이탈, 거래량 회복, 상대 강도, 재무 체력, 실적 이벤트 등을 가중 합산해 `BottomContext` 생성
+   - `classify_signal`이 트렌드점수·저점 강도·상대 강도·재무 체력을 종합해 `판단`(매수 후보 / 저점 관찰 / 관심 관찰 / 관망 과열 / 관망 약세)을 결정
+   - `recommendation_from_signal`이 저점 강도·거래량 지지·실적 이벤트 등을 고려해 실행 액션(적극/분할 매수, 반등 모니터링 등) 제안
+6. **출력(`main.py`)**
+   - `exporter.prepare_export_dataframe`가 최종 테이블을 정돈
+   - Google Sheets 업로드 성공 여부 출력
+   - 파이프라인 총 소요 시간을 초/분 단위로 요약
+
+---
+## Google Sheets로 전달되는 컬럼
+아래 항목만 `config.EXPORT_COLUMNS`에 정의되어 있으며, 시트에서도 같은 순서로 표시됩니다.
+
+| 컬럼 | 설명 |
+| --- | --- |
+| `티커` | 종목 코드 (대문자) |
+| `회사` | 종목명 (`fetch_company_names`로 yfinance에서 조회) |
+| `현재가격` | `fetch_latest_prices`가 가져온 최신 종가 |
+| `우선순위` | `SIGNAL_PRIORITY`에 기반한 정렬 우선순위 숫자 (작을수록 상단) |
+| `판단` | 매수 후보 / 저점 관찰 / 관심 관찰 / 관망 과열 / 관망 약세 |
+| `추천` | 실행 가이드 (적극 매수, 저점 매수 대기, 추가 관찰 등) |
+| `긍정` | 긍정 시그널 요약 (최대 3개) |
+| `저점` | 과매도·저점 관련 근거 요약 |
+| `저점강도` | BottomContext 등급 (강한 저점 / 진입 탐색 / 관찰 저점 / 약한 저점 / 저점 미흡) |
+| `저점근거` | 저점 스코어에 기여한 핵심 시그널 (3개 요약) |
+| `저점점수` | 저점 스코어 합계(소수 2째 자리) |
+| `저점건강` | 재무 체력 평가: `건강` 또는 `확인 필요` |
+| `상대강도` | 시장·섹터 대비 성과: `방어` 또는 `약세` |
+| `경계` | 부정·과열 경고 요약 |
+| `트렌드점수_최종` | 시장/섹터 중립화까지 반영한 추세 점수 |
+| `RSI` | 현재 RSI 값 |
+| `macd` | 현재 MACD 값 |
+| `dividend_yield` | 최근 1년 배당수익률 |
+| `이벤트주의` | `실적 임박` 경고 (±5일 내 실적 발표 예정) 또는 공백 |
+
+원하는 컬럼만 노출하고 싶으면 `config.EXPORT_COLUMNS`에서 문자열을 주석 처리하거나 제거하면 됩니다.
+
+---
+## 주요 기술·재무 신호 요약
+- **모멘텀**
+  - RSI ≤35 : 과매도, ≥80 : 과열
+  - MACD 히스토그램 ≤ -0.3 : 하락 심화, ≥ +0.5 : 강세
+  - Stochastic %K ≤20 : 침체, ≥85 : 과열
+- **추세/저점 파악**
+  - EMA20/50/200 역배열, EMA200 이탈 ≤ -25% → 과도한 하락 여부 평가
+  - 20·63일 수익률 급락(≤ -15%, ≤ -20%) → 저점 탐색 가중치 상승
+  - 10일 저점 괴리 ≤ 3% → 직전 저점 근접
+- **거래/자금 흐름**
+  - 거래량 Z ≥ 0 또는 거래대금 안정비 ≥ 0.6 → 저점 지지 가점
+  - CMF ≥ 0, OBV Z ≥ 0 → 자금 유입
+  - 장중 반등률 ≥ 4% → intraday 매수세 확인
+- **상대 강도**
+  - 최근 20일 수익률이 시장/섹터 평균보다 높으면 `방어`, 미달 시 `약세`
+  - 상대 강도가 약하면 저점 관찰/매수 후보에서 제외
+- **재무 체력**
+  - ROE ≥ 8%, 매출/이익 성장률 ≥ 설정값, 부채/자본 ≤ 200, 유동비율 ≥ 1.0 등 충족 시 `저점건강 = 건강`
+  - 자유/영업 현금흐름이 음수면 감점
+- **이벤트 리스크**
+  - 실적 발표 D-day ±5일 안이면 저점 점수 감점, 표에서 `이벤트주의 = 실적 임박`
+
+상세 조건은 `config.py` 임계치(예: `REL_STRENGTH_*`, `GAP_DOWN_EXTREME`, `HAMMER_*`, 재무 임계값 등)로 조정할 수 있습니다.
+
+---
+## 설정 가이드 (`config.py`)
+- **티커/섹터 관리**
+  - `TICKERS`: 분석 대상 목록 (S&P500 기본 제공)
+  - `SECTOR_MAP`: 섹터 중립화용 매핑, 없으면 `Unknown`
+- **유동성 필터링**
+  - `LIQUIDITY_QUANTILE`: 제거할 하위 분위수 (0.40 → 하위 40% 제거)
+  - `LIQUIDITY_WHITELIST`: 필수 포함 종목 리스트
+- **저점 탐지 임계치**
+  - `FUND_HEALTH_*`, `REL_STRENGTH_*`, `VOLUME_STABILITY_RATIO_MIN`, `EMA200_DISTANCE_MIN`, `GAP_DOWN_EXTREME`, `INTRADAY_RECOVERY_MIN` 등
+- **Google Sheets 설정**
+  - `GOOGLE_SHEETS_ENABLED`, `GOOGLE_SHEETS_CREDENTIALS_PATH`, `GOOGLE_SHEETS_SPREADSHEET_ID`, `GOOGLE_SHEETS_WORKSHEET`
+- **출력 형식**
+  - `EXPORT_COLUMNS`: 시트에 보낼 컬럼 순서
+  - `PERCENT_COLUMNS`, `TECH_COLUMN_LABELS`: 값 포맷팅과 헤더 이름 매핑
+
+---
+## 실행 결과 예시 (콘솔)
+```
+Google Sheets 업데이트 완료
+[요약] 파이프라인 완료 – 총 152.6초 (2.54분) 소요
+```
+
+상세 데이터는 Google Sheets에서 확인하세요. (콘솔 표는 출력하지 않습니다.)
+
+---
+## 문제 해결 팁
+- **yfinance 다운로드 실패**: 간헐적으로 발생합니다. 잠시 후 재시도하거나 티커 수를 줄이세요.
+- **실행 시간이 길다**: `TICKERS`를 섹터별로 나누거나, `fetch_ohlcv`의 `period`를 `6mo` 등으로 줄일 수 있습니다.
+- **서비스 계정 권한 오류**: Google Sheets 공유 설정에서 서비스 계정을 편집 권한으로 추가해야 합니다.
+- **캐시/가상환경이 Git에 잡힘**: `.gitignore`에 `__pycache__/`, `.venv/` 등을 이미 포함해 두었으니, 과거 이력에 있다면 `git rm --cached`로 한 번 정리하세요.
+
+---
+문의나 개선 아이디어가 있다면 `signals.py`의 증거 수집/저점 스코어링 로직을 참고해 원하는 지표를 추가해 보세요.

@@ -23,7 +23,15 @@ from ta.volume import (
     OnBalanceVolumeIndicator,
 )
 
-from config import SECTOR_MAP, WEIGHTS
+from config import (
+    HAMMER_LOWER_SHADOW_MIN,
+    HAMMER_UPPER_SHADOW_MAX,
+    LONG_TERM_SLOPE_LOOKBACK,
+    REL_STRENGTH_LOOKBACK,
+    SECTOR_MAP,
+    WEIGHTS,
+)
+from fundamentals import fetch_fundamental_snapshots
 
 
 def to_market(ticker: str) -> str:
@@ -53,11 +61,15 @@ class FeatureSet:
     trend_score: float
     ret_1d: float
     ret_5d: float
+    ret_20d: float
+    ret_63d: float
     vol_z20: float
     pos_52w: float
     atr_pct: float
     rsi: float
     avg_dollar_vol_20d: float
+    avg_dollar_vol_60d: float
+    volume_stability_ratio: float
     macd: float
     macd_signal: float
     macd_hist: float
@@ -70,6 +82,8 @@ class FeatureSet:
     ema_gap_20_50: float
     ema_gap_50_200: float
     ema_gap_20_200: float
+    ema200_slope_20: float
+    close_to_ema200_pct: float
     bollinger_pband: float
     bollinger_width: float
     keltner_pband: float
@@ -79,6 +93,10 @@ class FeatureSet:
     accdist_slope_5: float
     annual_dividend: float
     dividend_yield: float
+    gap_down_pct: float
+    hammer_candle: bool
+    intraday_recovery: float
+    distance_from_10d_low: float
 
 
 def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
@@ -96,6 +114,8 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
 
     p["ret_1d"] = p["Close"].pct_change(1)
     p["ret_5d"] = p["Close"].pct_change(5)
+    p["ret_20d"] = p["Close"].pct_change(REL_STRENGTH_LOOKBACK)
+    p["ret_63d"] = p["Close"].pct_change(63)
 
     # 거래량 기반 Z-score: 최근 거래량이 얼마나 평소와 다른지 확인한다.
     p["vol_ma20"] = p["Volume"].rolling(20).mean()
@@ -136,6 +156,17 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     p["ema_gap_20_50"] = (ema20 - ema50) / (ema50 + 1e-9)
     p["ema_gap_50_200"] = (ema50 - ema200) / (ema200 + 1e-9)
     p["ema_gap_20_200"] = (ema20 - ema200) / (ema200 + 1e-9)
+
+    ema200_latest = ema200.iloc[-1]
+    ema200_reference = np.nan
+    if len(ema200.dropna()) > LONG_TERM_SLOPE_LOOKBACK:
+        ema200_reference = ema200.iloc[-(LONG_TERM_SLOPE_LOOKBACK + 1)]
+    ema200_slope = np.nan
+    if not np.isnan(ema200_latest) and not np.isnan(ema200_reference) and ema200_reference != 0:
+        ema200_slope = (ema200_latest / ema200_reference) - 1.0
+    close_to_ema200 = np.nan
+    if not np.isnan(ema200_latest) and ema200_latest != 0:
+        close_to_ema200 = (p["Close"].iloc[-1] - ema200_latest) / ema200_latest
 
     # Bollinger Bands: 밴드 위치와 폭.
     bb = BollingerBands(p["Close"], window=20, window_dev=2)
@@ -186,6 +217,49 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     )
 
     avg_dollar_vol = (p["Close"].iloc[-20:] * p["Volume"].iloc[-20:]).mean()
+    avg_dollar_vol_60d = np.nan
+    if len(p) >= 60:
+        avg_dollar_vol_60d = (p["Close"].iloc[-60:] * p["Volume"].iloc[-60:]).mean()
+    volume_stability_ratio = np.nan
+    if not np.isnan(avg_dollar_vol_60d) and avg_dollar_vol_60d != 0:
+        volume_stability_ratio = avg_dollar_vol / avg_dollar_vol_60d
+
+    gap_down_pct = np.nan
+    if len(p) >= 2:
+        prev_close = p["Close"].iloc[-2]
+        latest_open = p["Open"].iloc[-1]
+        if prev_close and prev_close != 0:
+            gap_down_pct = (latest_open - prev_close) / prev_close
+
+    range_total = latest["High"] - latest["Low"]
+    hammer_candle = False
+    if range_total and range_total > 0:
+        body = abs(latest["Close"] - latest["Open"])
+        lower_shadow = min(latest["Open"], latest["Close"]) - latest["Low"]
+        upper_shadow = latest["High"] - max(latest["Open"], latest["Close"])
+        if lower_shadow < 0:
+            lower_shadow = 0.0
+        if upper_shadow < 0:
+            upper_shadow = 0.0
+        lower_ratio = lower_shadow / range_total
+        upper_ratio = upper_shadow / range_total
+        body_ratio = body / range_total
+        hammer_candle = (
+            latest["Close"] > latest["Open"]
+            and lower_ratio >= HAMMER_LOWER_SHADOW_MIN
+            and upper_ratio <= HAMMER_UPPER_SHADOW_MAX
+            and body_ratio <= 0.4
+        )
+
+    intraday_recovery = np.nan
+    if latest["Low"] and latest["Low"] > 0:
+        intraday_recovery = (latest["Close"] / latest["Low"]) - 1.0
+
+    distance_from_10d_low = np.nan
+    if len(p) >= 10:
+        recent_low = p["Close"].iloc[-10:].min()
+        if recent_low and recent_low > 0:
+            distance_from_10d_low = (latest["Close"] / recent_low) - 1.0
 
     total_div_1y = p["Dividends"].iloc[-252:].sum()
     latest_close = p["Close"].iloc[-1]
@@ -197,11 +271,19 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         trend_score=float(trend_score),
         ret_1d=float(latest["ret_1d"]),
         ret_5d=float(latest["ret_5d"]),
+        ret_20d=float(latest["ret_20d"]),
+        ret_63d=float(latest["ret_63d"]),
         vol_z20=float(latest["vol_z20"]),
         pos_52w=float(latest["pos_52w"]),
         atr_pct=float(latest["atr_pct"]),
         rsi=float(latest["rsi"]),
         avg_dollar_vol_20d=float(avg_dollar_vol),
+        avg_dollar_vol_60d=float(avg_dollar_vol_60d)
+        if not np.isnan(avg_dollar_vol_60d)
+        else float("nan"),
+        volume_stability_ratio=float(volume_stability_ratio)
+        if not np.isnan(volume_stability_ratio)
+        else float("nan"),
         macd=float(latest["macd"]),
         macd_signal=float(latest["macd_signal"]),
         macd_hist=float(latest["macd_hist"]),
@@ -214,6 +296,10 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         ema_gap_20_50=float(latest["ema_gap_20_50"]),
         ema_gap_50_200=float(latest["ema_gap_50_200"]),
         ema_gap_20_200=float(latest["ema_gap_20_200"]),
+        ema200_slope_20=float(ema200_slope) if not np.isnan(ema200_slope) else float("nan"),
+        close_to_ema200_pct=float(close_to_ema200)
+        if not np.isnan(close_to_ema200)
+        else float("nan"),
         bollinger_pband=float(latest["bollinger_pband"]),
         bollinger_width=float(latest["bollinger_width"]),
         keltner_pband=float(latest["keltner_pband"]),
@@ -223,6 +309,14 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         accdist_slope_5=float(latest["accdist_slope_5"]),
         annual_dividend=float(total_div_1y),
         dividend_yield=float(dividend_yield) if not np.isnan(dividend_yield) else np.nan,
+        gap_down_pct=float(gap_down_pct) if not np.isnan(gap_down_pct) else float("nan"),
+        hammer_candle=bool(hammer_candle),
+        intraday_recovery=float(intraday_recovery)
+        if not np.isnan(intraday_recovery)
+        else float("nan"),
+        distance_from_10d_low=float(distance_from_10d_low)
+        if not np.isnan(distance_from_10d_low)
+        else float("nan"),
     )
 
 
@@ -241,11 +335,15 @@ def compute_all_features(df: pd.DataFrame) -> pd.DataFrame:
                 "트렌드점수": features.trend_score,
                 "1일수익률": features.ret_1d,
                 "5일수익률": features.ret_5d,
+                "20일수익률": features.ret_20d,
+                "63일수익률": features.ret_63d,
                 "거래량Z(20)": features.vol_z20,
                 "52주포지션": features.pos_52w,
                 "ATR%": features.atr_pct,
                 "RSI": features.rsi,
                 "최근20일평균거래대금": features.avg_dollar_vol_20d,
+                "최근60일평균거래대금": features.avg_dollar_vol_60d,
+                "거래대금안정비": features.volume_stability_ratio,
                 "macd": features.macd,
                 "macd_signal": features.macd_signal,
                 "macd_hist": features.macd_hist,
@@ -258,6 +356,8 @@ def compute_all_features(df: pd.DataFrame) -> pd.DataFrame:
                 "ema_gap_20_50": features.ema_gap_20_50,
                 "ema_gap_50_200": features.ema_gap_50_200,
                 "ema_gap_20_200": features.ema_gap_20_200,
+                "ema200_slope_20": features.ema200_slope_20,
+                "close_to_ema200_pct": features.close_to_ema200_pct,
                 "bollinger_pband": features.bollinger_pband,
                 "bollinger_width": features.bollinger_width,
                 "keltner_pband": features.keltner_pband,
@@ -267,9 +367,35 @@ def compute_all_features(df: pd.DataFrame) -> pd.DataFrame:
                 "accdist_slope_5": features.accdist_slope_5,
                 "annual_dividend": features.annual_dividend,
                 "dividend_yield": features.dividend_yield,
+                "갭하락률": features.gap_down_pct,
+                "저점반전캔들": int(features.hammer_candle),
+                "장중반등률": features.intraday_recovery,
+                "10일저점괴리": features.distance_from_10d_low,
                 "시장": to_market(ticker),
                 "섹터": SECTOR_MAP.get(ticker, "Unknown"),
             }
         )
 
-    return pd.DataFrame(rows)
+    out = pd.DataFrame(rows)
+    if out.empty:
+        return out
+
+    if "20일수익률" in out.columns:
+        out["시장상대강도"] = out["20일수익률"] - out.groupby("시장")["20일수익률"].transform(
+            "mean"
+        )
+        if (out["섹터"] != "Unknown").any():
+            out["섹터상대강도"] = out["20일수익률"] - out.groupby("섹터")[
+                "20일수익률"
+            ].transform("mean")
+        else:
+            out["섹터상대강도"] = np.nan
+    else:
+        out["시장상대강도"] = np.nan
+        out["섹터상대강도"] = np.nan
+
+    fundamentals = fetch_fundamental_snapshots(out["티커"].tolist())
+    if not fundamentals.empty:
+        out = out.merge(fundamentals, on="티커", how="left")
+
+    return out
