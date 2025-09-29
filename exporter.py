@@ -1,6 +1,6 @@
 """출력 및 연동 유틸리티."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
@@ -81,20 +81,13 @@ def export_to_google_sheet(df: pd.DataFrame) -> bool:
 
         cleaned_df = df.where(pd.notnull(df), "")
         columns = cleaned_df.columns.tolist()
+        est = timezone(timedelta(hours=-5), name="EST")
+        timestamp = datetime.now(est).strftime("%Y-%m-%d %H:%M:%S EST")
 
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        num_cols = len(columns)
-        if num_cols == 0:
-            timestamp_row = [f"생성시각: {timestamp}"]
-        else:
-            timestamp_row = [""] * num_cols
-            if num_cols == 1:
-                timestamp_row[0] = f"생성시각: {timestamp}"
-            else:
-                timestamp_row[0] = "생성시각"
-                timestamp_row[1] = timestamp
-
-        rows = [timestamp_row, columns] + cleaned_df.values.tolist()
+        rows = [columns] + cleaned_df.values.tolist()
+        for row in rows:
+            row.append("")
+        rows[0][-1] = timestamp
         worksheet.update(rows)
         return True
     except Exception as exc:  # pragma: no cover - best effort
