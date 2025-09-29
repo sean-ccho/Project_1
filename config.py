@@ -42,7 +42,13 @@ WEIGHTS = {
 
 # 시장별(US/CA) 거래대금 분위수를 이용한 유동성 컷 비율.
 LIQUIDITY_QUANTILE = 0.40  # 하위 40% 제거 = 상위 60% 유지
-LIQUIDITY_WHITELIST = ["GRRR"]  # 필수 포함 종목(저유동성이라도 유지)
+LIQUIDITY_WHITELIST = ["GRRR", "COIN"]  # 필수 포함 종목(저유동성이라도 유지)
+
+# Google Sheets 연결 설정(기본 비활성화)
+GOOGLE_SHEETS_ENABLED = True
+GOOGLE_SHEETS_CREDENTIALS_PATH: str | None = "gspread-service-account.json"
+GOOGLE_SHEETS_SPREADSHEET_ID: str | None = "1VxzTPfDvRX0UGJZcNnRsqTRex4gqmjv4P-1I_VcuXaw"
+GOOGLE_SHEETS_WORKSHEET = "Signals"
 
 # 시그널 판정 임계치.
 BUY_SCORE_THRESHOLD = 0.15

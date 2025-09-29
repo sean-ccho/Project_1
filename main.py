@@ -8,7 +8,7 @@ import numpy as np
 
 from config import PERCENT_COLUMNS, TECH_COLUMN_LABELS, TICKERS
 from data.fetch import fetch_ohlcv
-from exporter import export_table
+from exporter import export_table, export_to_google_sheet
 from features import compute_all_features
 from processing import apply_neutralization, liquidity_filter
 from signals import attach_signals_and_sort
@@ -95,11 +95,14 @@ def main() -> None:
     print(show.to_string(index=False))
 
     # 6) 최신 및 백업 파일을 저장한다.
-    stamped, latest = export_table(ranked)
+    stamped, latest, export_df = export_table(ranked)
     if stamped == latest:
         print(f"\nCSV 저장 완료 → {latest}")
     else:
         print(f"\nCSV 저장 완료 → {latest} (백업: {stamped})")
+
+    if export_to_google_sheet(export_df):
+        print("Google Sheets 업데이트 완료")
 
 
 if __name__ == "__main__":
