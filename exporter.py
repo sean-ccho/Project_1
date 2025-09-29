@@ -1,5 +1,7 @@
 """출력 및 연동 유틸리티."""
 
+from datetime import datetime, timezone
+
 import pandas as pd
 
 from config import (
@@ -78,7 +80,21 @@ def export_to_google_sheet(df: pd.DataFrame) -> bool:
             )
 
         cleaned_df = df.where(pd.notnull(df), "")
-        rows = [cleaned_df.columns.tolist()] + cleaned_df.values.tolist()
+        columns = cleaned_df.columns.tolist()
+
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        num_cols = len(columns)
+        if num_cols == 0:
+            timestamp_row = [f"생성시각: {timestamp}"]
+        else:
+            timestamp_row = [""] * num_cols
+            if num_cols == 1:
+                timestamp_row[0] = f"생성시각: {timestamp}"
+            else:
+                timestamp_row[0] = "생성시각"
+                timestamp_row[1] = timestamp
+
+        rows = [timestamp_row, columns] + cleaned_df.values.tolist()
         worksheet.update(rows)
         return True
     except Exception as exc:  # pragma: no cover - best effort
