@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from config import PERCENT_COLUMNS, TECH_COLUMN_LABELS, TICKERS
-from data.fetch import fetch_ohlcv
+from config import COMPANY_NAME_MAP, PERCENT_COLUMNS, TECH_COLUMN_LABELS, TICKERS
+from data.fetch import fetch_company_names, fetch_latest_prices, fetch_ohlcv
 from exporter import export_table, export_to_google_sheet
 from features import compute_all_features
 from processing import apply_neutralization, liquidity_filter
@@ -38,11 +38,31 @@ def main() -> None:
     # 5) 시그널을 붙이고 우선순위 순으로 정렬한다.
     ranked = attach_signals_and_sort(neutral)
 
+    unique_tickers = ranked["티커"].unique().tolist()
+    fetched_names = fetch_company_names(unique_tickers)
+    full_name_map = {**fetched_names, **COMPANY_NAME_MAP}
+    fetched_prices = fetch_latest_prices(unique_tickers)
+    if "티커" in ranked.columns:
+        insert_loc = ranked.columns.get_loc("티커")
+        ranked.insert(
+            insert_loc,
+            "회사",
+            ranked["티커"].map(lambda t: full_name_map.get(str(t).upper(), "")),
+        )
+        ranked.insert(
+            insert_loc + 1,
+            "현재가격",
+            ranked["티커"].map(lambda t: fetched_prices.get(str(t).upper(), float("nan"))),
+        )
+
     display_cols = [
         "판단",
         "추천",
-        "메모",
+        "회사",
+        "긍정",
+        "경계",
         "티커",
+        "현재가격",
         "우선순위",
         "트렌드점수_최종",
         "트렌드점수",

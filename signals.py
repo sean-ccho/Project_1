@@ -252,31 +252,23 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
             row, judgement, positives, negatives, overbought, oversold
         )
 
-        def summarise(label: str, items: list[str]) -> str | None:
+        def summarise(items: list[str]) -> str:
             if not items:
-                return None
+                return ""
             top = items[:3]
             text = ", ".join(top)
             if len(items) > 3:
                 text += " 등"
-            return f"{label}: {text}"
+            return text
 
-        memo_parts = []
-        pos_text = summarise("긍정", positives)
-        if pos_text:
-            memo_parts.append(pos_text)
-        neg_items = negatives + overbought
-        neg_text = summarise("경계", neg_items)
-        if neg_text:
-            memo_parts.append(neg_text)
-        if not memo_parts:
-            memo_parts.append("특이 지표 없음")
-        memo = " | ".join(memo_parts)
+        positive_text = summarise(positives)
+        warning_text = summarise(negatives + overbought)
 
         enriched = row.copy()
         enriched["판단"] = judgement
         enriched["추천"] = recommendation
-        enriched["메모"] = memo
+        enriched["긍정"] = positive_text
+        enriched["경계"] = warning_text
         enriched["_positives"] = len(positives)
         enriched["_negatives"] = len(negatives) + len(overbought)
         records.append(enriched)

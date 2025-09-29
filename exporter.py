@@ -25,11 +25,14 @@ except ImportError:  # pragma: no cover - optional path
     WorksheetNotFound = None
 
 EXPORT_COLUMNS = [
+    "티커",
+    "회사",
+    "현재가격",
+    "우선순위",
     "판단",
     "추천",
-    "메모",
-    "티커",
-    "우선순위",
+    "긍정",
+    "경계",
     "트렌드점수_최종",
     "트렌드점수",
     "RSI",

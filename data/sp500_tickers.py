@@ -505,4 +505,5 @@ SP500_TICKERS = [
     "ZBH",
     "ZTS",
     "GRRR",
+    "NBM.V"
 ]

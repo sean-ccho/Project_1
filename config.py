@@ -8,7 +8,8 @@ from typing import Dict
 from data.sp500_tickers import SP500_TICKERS
 
 # 분석 대상 종목 풀: S&P 500 편입 종목(유니버스 관리 파일은 data/sp500_tickers.py 참고).
-TICKERS = SP500_TICKERS
+TICKERS = SP500_TICKERS.copy()
+COMPANY_NAME_MAP = {}
 
 # 섹터 매핑: 섹터 중립화 시 Unknown 여부를 판단하는 기준이 된다.
 SECTOR_MAP: Dict[str, str] = {
@@ -42,7 +43,15 @@ WEIGHTS = {
 
 # 시장별(US/CA) 거래대금 분위수를 이용한 유동성 컷 비율.
 LIQUIDITY_QUANTILE = 0.40  # 하위 40% 제거 = 상위 60% 유지
-LIQUIDITY_WHITELIST = ["GRRR", "COIN"]  # 필수 포함 종목(저유동성이라도 유지)
+LIQUIDITY_WHITELIST = ["GRRR", "COIN", "NBM.V"]  # 필수 포함 종목(저유동성이라도 유지)
+
+for ticker in LIQUIDITY_WHITELIST:
+    if ticker not in TICKERS:
+        TICKERS.append(ticker)
+
+for _extra in LIQUIDITY_WHITELIST:
+    if _extra not in TICKERS:
+        TICKERS.append(_extra)
 
 # Google Sheets 연결 설정(기본 비활성화)
 GOOGLE_SHEETS_ENABLED = True

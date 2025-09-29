@@ -83,7 +83,7 @@ S&P 500 전체를 처리하면 2~3분 이상 걸릴 수 있으며, Yahoo Finance
 ## 6. 출력 파일
 
 - `output/신호_최신.xlsx`: 최신 랭킹과 주석이 포함된 시그널 표 (엑셀 시트 `Signals`).
-  - `메모`는 긍정·경계 지표를 3개까지 요약해 추천 이유를 빠르게 파악할 수 있게 합니다.
+  - `긍정`, `경계` 컬럼이 각 지표에서 뽑힌 상위 증거(최대 3개)를 요약해 줍니다.
   - `최근20일평균거래대금(M)`은 백만 달러 단위로 환산됩니다.
 - `output/신호_YYYYMMDD_HHMMSS.xlsx`: 백업 파일(옵션). `EXPORT_WITH_BACKUP = False`로 되어 있으니 필요 시 `True`로 변경.
  - *(옵션)* `config.GOOGLE_SHEETS_ENABLED = True`로 설정하면 동일 데이터를 Google Sheets에도 업데이트합니다.
