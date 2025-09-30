@@ -504,6 +504,4 @@ SP500_TICKERS = [
     "ZBRA",
     "ZBH",
     "ZTS",
-    "GRRR",
-    "NBM.V"
 ]
