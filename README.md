@@ -46,6 +46,8 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
    - `recommendation_from_signal`이 저점 강도·거래량 지지·실적 이벤트 등을 고려해 실행 액션(적극/분할 매수, 반등 모니터링 등) 제안
 6. **출력(`main.py`)**
    - `exporter.prepare_export_dataframe`가 최종 테이블을 정돈
+   - 기본 `Signals` 워크시트는 `config.TICKERS` 풀을 기반으로 업데이트하며, `GOOGLE_SHEETS_PORTFOLIO_WORKSHEET`가 설정되어 있으면 해당 워크시트의 `GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN`에 적힌 티커 목록을 읽어 별도의 파이프라인을 실행해 결과를 업데이트합니다.
+   - 보유주식 워크시트는 유동성 필터를 생략해 워크시트에 적힌 모든 티커를 그대로 유지합니다.
    - Google Sheets 업로드 성공 여부 출력
    - 파이프라인 총 소요 시간을 초/분 단위로 요약
 
@@ -113,7 +115,8 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
 - **저점 탐지 임계치**
   - `FUND_HEALTH_*`, `REL_STRENGTH_*`, `VOLUME_STABILITY_RATIO_MIN`, `EMA200_DISTANCE_MIN`, `GAP_DOWN_EXTREME`, `INTRADAY_RECOVERY_MIN` 등
 - **Google Sheets 설정**
-  - `GOOGLE_SHEETS_ENABLED`, `GOOGLE_SHEETS_CREDENTIALS_PATH`, `GOOGLE_SHEETS_SPREADSHEET_ID`, `GOOGLE_SHEETS_WORKSHEET`
+  - `GOOGLE_SHEETS_ENABLED`, `GOOGLE_SHEETS_CREDENTIALS_PATH`, `GOOGLE_SHEETS_SPREADSHEET_ID`, `GOOGLE_SHEETS_SIGNALS_WORKSHEET`, `GOOGLE_SHEETS_PORTFOLIO_WORKSHEET`
+  - `GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN`: 보유주식 워크시트에서 티커가 적힌 컬럼 이름(기본 `"티커"`)
 - **출력 형식**
   - `EXPORT_COLUMNS`: 시트에 보낼 컬럼 순서
   - `PERCENT_COLUMNS`, `TECH_COLUMN_LABELS`: 값 포맷팅과 헤더 이름 매핑

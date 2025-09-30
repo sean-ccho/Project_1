@@ -9,7 +9,9 @@ from config import (
     GOOGLE_SHEETS_CREDENTIALS_PATH,
     GOOGLE_SHEETS_ENABLED,
     GOOGLE_SHEETS_SPREADSHEET_ID,
-    GOOGLE_SHEETS_WORKSHEET,
+    GOOGLE_SHEETS_SIGNALS_WORKSHEET,
+    GOOGLE_SHEETS_PORTFOLIO_WORKSHEET,
+    GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN,
     PERCENT_COLUMNS,
     TECH_COLUMN_LABELS,
 )
@@ -29,6 +31,34 @@ GOOGLE_SCOPES = [
 ]
 
 
+def _open_sheet():
+    """Authorize gspread client and return spreadsheet handle."""
+
+    if not GOOGLE_SHEETS_ENABLED:
+        return None
+
+    if not GOOGLE_SHEETS_SPREADSHEET_ID or not GOOGLE_SHEETS_CREDENTIALS_PATH:
+        print(
+            "[Google Sheets] spreadsheet ID 또는 credentials path가 설정되지 않았습니다."
+        )
+        return None
+
+    if gspread is None or Credentials is None:
+        print("[Google Sheets] gspread / google-auth 라이브러리가 설치되어 있지 않습니다.")
+        return None
+
+    try:
+        credentials = Credentials.from_service_account_file(
+            GOOGLE_SHEETS_CREDENTIALS_PATH,
+            scopes=GOOGLE_SCOPES,
+        )
+        client = gspread.authorize(credentials)
+        return client.open_by_key(GOOGLE_SHEETS_SPREADSHEET_ID)
+    except Exception as exc:
+        print(f"[Google Sheets] 스프레드시트 열기 실패: {exc}")
+        return None
+
+
 def prepare_export_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     cols = [col for col in EXPORT_COLUMNS if col in df.columns]
     export_df = df[cols].copy()
@@ -38,7 +68,7 @@ def prepare_export_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             export_df[col] = (export_df[col] * 100).round(1)
 
     numeric_cols = export_df.select_dtypes(include="number").columns
-    export_df[numeric_cols] = export_df[numeric_cols].round(1)
+    export_df[numeric_cols] = export_df[numeric_cols].round(3)
 
     export_df = export_df.rename(columns=TECH_COLUMN_LABELS)
 
@@ -49,47 +79,105 @@ def prepare_export_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return export_df
 
 
-def export_to_google_sheet(df: pd.DataFrame) -> bool:
+def export_to_google_sheet(
+    df: pd.DataFrame,
+    worksheet_name: str | None = None,
+) -> bool:
     """Google Sheets에 DataFrame을 업로드한다. 성공 시 True."""
 
-    if not GOOGLE_SHEETS_ENABLED:
+    sheet = _open_sheet()
+    if sheet is None:
         return False
 
-    if not GOOGLE_SHEETS_SPREADSHEET_ID or not GOOGLE_SHEETS_CREDENTIALS_PATH:
-        print("[Google Sheets] spreadsheet ID 또는 credentials path가 설정되지 않았습니다.")
+    target_worksheet = worksheet_name or GOOGLE_SHEETS_SIGNALS_WORKSHEET
+    if not target_worksheet:
+        print("[Google Sheets] 업데이트할 워크시트가 지정되지 않았습니다.")
         return False
 
-    if gspread is None or Credentials is None:
-        print("[Google Sheets] gspread / google-auth 라이브러리가 설치되어 있지 않습니다.")
-        return False
+    cleaned_df = df.where(pd.notnull(df), "")
+    columns = cleaned_df.columns.tolist()
+    est = timezone(timedelta(hours=-5), name="EST")
+    timestamp = datetime.now(est).strftime("%Y-%m-%d %H:%M:%S EST")
+
+    rows = [columns] + cleaned_df.values.tolist()
+    for row in rows:
+        row.append("")
+    rows[0][-1] = timestamp
 
     try:
-        credentials = Credentials.from_service_account_file(
-            GOOGLE_SHEETS_CREDENTIALS_PATH,
-            scopes=GOOGLE_SCOPES,
-        )
-        client = gspread.authorize(credentials)
-        sheet = client.open_by_key(GOOGLE_SHEETS_SPREADSHEET_ID)
-
         try:
-            worksheet = sheet.worksheet(GOOGLE_SHEETS_WORKSHEET)
+            worksheet = sheet.worksheet(target_worksheet)
             worksheet.clear()
         except WorksheetNotFound:
             worksheet = sheet.add_worksheet(
-                title=GOOGLE_SHEETS_WORKSHEET, rows="1000", cols="50"
+                title=target_worksheet, rows="1000", cols="50"
             )
-
-        cleaned_df = df.where(pd.notnull(df), "")
-        columns = cleaned_df.columns.tolist()
-        est = timezone(timedelta(hours=-5), name="EST")
-        timestamp = datetime.now(est).strftime("%Y-%m-%d %H:%M:%S EST")
-
-        rows = [columns] + cleaned_df.values.tolist()
-        for row in rows:
-            row.append("")
-        rows[0][-1] = timestamp
         worksheet.update(rows)
         return True
     except Exception as exc:  # pragma: no cover - best effort
-        print(f"[Google Sheets] 업로드 실패: {exc}")
+        print(
+            f"[Google Sheets] '{target_worksheet}' 워크시트 업데이트 실패: {exc}"
+        )
         return False
+
+
+def fetch_tickers_from_sheet(
+    worksheet_name: str | None = GOOGLE_SHEETS_PORTFOLIO_WORKSHEET,
+    ticker_column: str | None = GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN,
+) -> list[str]:
+    """지정한 워크시트에서 티커 목록을 불러온다."""
+
+    if not worksheet_name:
+        return []
+
+    sheet = _open_sheet()
+    if sheet is None:
+        return []
+
+    try:
+        worksheet = sheet.worksheet(worksheet_name)
+    except WorksheetNotFound:
+        print(
+            f"[Google Sheets] '{worksheet_name}' 워크시트를 찾을 수 없습니다."
+        )
+        return []
+    except Exception as exc:  # pragma: no cover - best effort
+        print(
+            f"[Google Sheets] '{worksheet_name}' 워크시트 접근 실패: {exc}"
+        )
+        return []
+
+    try:
+        values = worksheet.get_all_values()
+    except Exception as exc:  # pragma: no cover - best effort
+        print(
+            f"[Google Sheets] '{worksheet_name}' 워크시트에서 값 읽기 실패: {exc}"
+        )
+        return []
+
+    if not values:
+        return []
+
+    header = values[0] if values else []
+    data_rows = values
+    column_index = 0
+
+    if header:
+        data_rows = values[1:]
+        if ticker_column:
+            normalized_target = ticker_column.strip().lower()
+            for idx, column_name in enumerate(header):
+                if column_name.strip().lower() == normalized_target:
+                    column_index = idx
+                    break
+
+    tickers: list[str] = []
+    for row in data_rows:
+        if column_index >= len(row):
+            continue
+        symbol = row[column_index].strip()
+        if not symbol:
+            continue
+        tickers.append(symbol.upper())
+
+    return tickers
