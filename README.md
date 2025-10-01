@@ -6,7 +6,7 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
 ## 빠른 시작
 1. 프로젝트 루트에서 가상환경 생성 및 활성화
    ```bash
-   python3 -m venv .venv
+   python3 -m .venv
    source .venv/bin/activate
    pip install -r requirements.txt
    ```

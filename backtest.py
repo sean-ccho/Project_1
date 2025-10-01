@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Any, Iterable
 
 import numpy as np
 import pandas as pd
@@ -24,8 +24,12 @@ class TradeRecord:
     entry_price: float
     exit_price: float
     return_pct: float
-    judgement: str
-    recommendation: str
+    entry_judgement: str
+    entry_recommendation: str
+    entry_trend_score_final: float | None
+    exit_judgement: str
+    exit_recommendation: str
+    exit_trend_score_final: float | None
 
 
 def _prepare_price_map(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
@@ -84,8 +88,69 @@ def run_backtest(
         max(1, rebalance_every),
     )
 
-    active_positions: list[dict] = []
+    active_positions: list[dict[str, Any]] = []
     trades: list[TradeRecord] = []
+
+    ranked_cache: dict[pd.Timestamp, pd.DataFrame] = {}
+    signal_lookup_cache: dict[pd.Timestamp, dict[str, dict[str, Any]]] = {}
+
+    def compute_ranked(cutoff_date: pd.Timestamp) -> pd.DataFrame:
+        if cutoff_date in ranked_cache:
+            return ranked_cache[cutoff_date]
+
+        snapshot: dict[str, pd.DataFrame] = {}
+        for ticker, frame in price_map.items():
+            history = frame.loc[:cutoff_date]
+            if history.empty:
+                continue
+            snapshot[ticker] = history.copy()
+        if not snapshot:
+            ranked_cache[cutoff_date] = pd.DataFrame()
+            signal_lookup_cache[cutoff_date] = {}
+            return ranked_cache[cutoff_date]
+
+        features = compute_features_snapshot(
+            snapshot, include_fundamentals=include_fundamentals
+        )
+        if features.empty:
+            ranked_cache[cutoff_date] = pd.DataFrame()
+            signal_lookup_cache[cutoff_date] = {}
+            return ranked_cache[cutoff_date]
+
+        liquid = liquidity_filter(features)
+        if liquid.empty:
+            ranked_cache[cutoff_date] = pd.DataFrame()
+            signal_lookup_cache[cutoff_date] = {}
+            return ranked_cache[cutoff_date]
+
+        neutral = apply_neutralization(liquid)
+        ranked = attach_signals_and_sort(neutral)
+        ranked_cache[cutoff_date] = ranked
+
+        lookup: dict[str, dict[str, Any]] = {}
+        if not ranked.empty and "티커" in ranked.columns:
+            signals_subset = ranked.assign(
+                티커=ranked["티커"].astype(str)
+            ).set_index("티커")
+            cols = [col for col in ["판단", "추천", "트렌드점수_최종"] if col in signals_subset]
+            if cols:
+                lookup = signals_subset[cols].to_dict("index")
+        signal_lookup_cache[cutoff_date] = lookup
+        return ranked
+
+    def exit_signals_for(ticker: str, exit_date: pd.Timestamp) -> dict[str, Any]:
+        if exit_date not in closes.index:
+            return {}
+        exit_idx = closes.index.get_loc(exit_date)
+        if isinstance(exit_idx, slice):
+            exit_idx = exit_idx.start
+        if exit_idx is None:
+            return {}
+        eval_idx = max(exit_idx - 1, 0)
+        eval_date = closes.index[eval_idx]
+        compute_ranked(eval_date)
+        lookup = signal_lookup_cache.get(eval_date, {})
+        return lookup.get(str(ticker), {})
 
     for idx in evaluation_indices:
         date = dates[idx]
@@ -97,7 +162,7 @@ def run_backtest(
         trade_date = dates[trade_idx]
         exit_date = dates[exit_idx]
 
-        next_positions: list[dict] = []
+        next_positions: list[dict[str, Any]] = []
         for pos in active_positions:
             if trade_date >= pos["exit_date"]:
                 exit_price = float(opens.at[pos["exit_date"], pos["ticker"]])
@@ -105,6 +170,7 @@ def run_backtest(
                 if np.isnan(exit_price) or np.isnan(entry_price) or entry_price == 0:
                     continue
                 return_pct = exit_price / entry_price - 1.0
+                exit_meta = exit_signals_for(pos["ticker"], pos["exit_date"])
                 trades.append(
                     TradeRecord(
                         ticker=pos["ticker"],
@@ -113,8 +179,12 @@ def run_backtest(
                         entry_price=entry_price,
                         exit_price=exit_price,
                         return_pct=return_pct,
-                        judgement=pos["judgement"],
-                        recommendation=pos["recommendation"],
+                        entry_judgement=pos.get("entry_judgement", ""),
+                        entry_recommendation=pos.get("entry_recommendation", ""),
+                        entry_trend_score_final=pos.get("entry_trend_score_final"),
+                        exit_judgement=exit_meta.get("판단", ""),
+                        exit_recommendation=exit_meta.get("추천", ""),
+                        exit_trend_score_final=exit_meta.get("트렌드점수_최종"),
                     )
                 )
             else:
@@ -122,21 +192,7 @@ def run_backtest(
 
         active_positions = next_positions
 
-        snapshot = {
-            ticker: frame.loc[:date].copy() for ticker, frame in price_map.items()
-        }
-        features = compute_features_snapshot(
-            snapshot, include_fundamentals=include_fundamentals
-        )
-        if features.empty:
-            continue
-
-        liquid = liquidity_filter(features)
-        if liquid.empty:
-            continue
-
-        neutral = apply_neutralization(liquid)
-        ranked = attach_signals_and_sort(neutral)
+        ranked = compute_ranked(date)
         selected = _selected_rows_for_backtest(
             ranked, top_n, select_bottom=select_bottom
         )
@@ -158,8 +214,9 @@ def run_backtest(
                 "entry_date": trade_date,
                 "exit_date": exit_date,
                 "entry_price": entry_price,
-                "judgement": row.get("판단", ""),
-                "recommendation": row.get("추천", ""),
+                "entry_judgement": row.get("판단", ""),
+                "entry_recommendation": row.get("추천", ""),
+                "entry_trend_score_final": row.get("트렌드점수_최종"),
             }
             active_positions.append(position)
 
@@ -169,6 +226,7 @@ def run_backtest(
         if np.isnan(exit_price) or np.isnan(entry_price) or entry_price == 0:
             continue
         return_pct = exit_price / entry_price - 1.0
+        exit_meta = exit_signals_for(pos["ticker"], pos["exit_date"])
         trades.append(
             TradeRecord(
                 ticker=pos["ticker"],
@@ -177,8 +235,12 @@ def run_backtest(
                 entry_price=entry_price,
                 exit_price=exit_price,
                 return_pct=return_pct,
-                judgement=pos["judgement"],
-                recommendation=pos["recommendation"],
+                entry_judgement=pos.get("entry_judgement", ""),
+                entry_recommendation=pos.get("entry_recommendation", ""),
+                entry_trend_score_final=pos.get("entry_trend_score_final"),
+                exit_judgement=exit_meta.get("판단", ""),
+                exit_recommendation=exit_meta.get("추천", ""),
+                exit_trend_score_final=exit_meta.get("트렌드점수_최종"),
             )
         )
 
@@ -207,14 +269,40 @@ def run_backtest(
             "entry_price": "진입가",
             "exit_price": "청산가",
             "return_pct": "수익률",
-            "judgement": "판단",
-            "recommendation": "추천",
+            "entry_judgement": "판단(진입)",
+            "entry_recommendation": "추천(진입)",
+            "entry_trend_score_final": "트렌드점수_최종(진입)",
+            "exit_judgement": "판단(청산)",
+            "exit_recommendation": "추천(청산)",
+            "exit_trend_score_final": "트렌드점수_최종(청산)",
         }
     )
 
     trades_df["진입가"] = trades_df["진입가"].map(lambda x: f"${x:,.2f}")
     trades_df["청산가"] = trades_df["청산가"].map(lambda x: f"${x:,.2f}")
     trades_df["수익률"] = trades_df["수익률"].map(lambda x: f"{x * 100:.2f}%")
+    for col in ["트렌드점수_최종(진입)", "트렌드점수_최종(청산)"]:
+        if col in trades_df.columns:
+            trades_df[col] = trades_df[col].map(
+                lambda x: f"{x * 100:.2f}%" if pd.notna(x) else ""
+            )
+
+    desired_order = [
+        "티커",
+        "진입일",
+        "판단(진입)",
+        "추천(진입)",
+        "트렌드점수_최종(진입)",
+        "청산일",
+        "판단(청산)",
+        "추천(청산)",
+        "트렌드점수_최종(청산)",
+        "진입가",
+        "청산가",
+        "수익률",
+    ]
+    existing_order = [col for col in desired_order if col in trades_df.columns]
+    trades_df = trades_df[existing_order]
 
     return {"trades": trades_df, "summary": summary}
 

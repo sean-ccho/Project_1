@@ -31,6 +31,14 @@ GOOGLE_SCOPES = [
 ]
 
 
+def _resize_worksheet_to_data(worksheet, rows: list[list[object]]) -> None:
+    """Shrink worksheet grid to match payload size and avoid row bloat."""
+
+    row_count = max(len(rows), 1)
+    max_cols = max((len(row) for row in rows), default=1)
+    worksheet.resize(rows=row_count, cols=max_cols)
+
+
 def _open_sheet():
     """Authorize gspread client and return spreadsheet handle."""
 
@@ -112,6 +120,7 @@ def export_to_google_sheet(
                 title=target_worksheet, rows="1000", cols="50"
             )
         worksheet.update(rows)
+        _resize_worksheet_to_data(worksheet, rows)
         return True
     except Exception as exc:  # pragma: no cover - best effort
         print(
@@ -164,6 +173,7 @@ def export_backtest_results(
 
         worksheet.clear()
         worksheet.update(rows)
+        _resize_worksheet_to_data(worksheet, rows)
         return True
     except Exception as exc:  # pragma: no cover - best effort
         print(f"[Google Sheets] 백테스트 결과 업로드 실패: {exc}")
