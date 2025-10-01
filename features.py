@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -320,61 +320,66 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     )
 
 
-def compute_all_features(df: pd.DataFrame) -> pd.DataFrame:
-    """모든 종목에 대해 특징을 계산하고 테이블 형태로 반환한다."""
+def _feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
+    return {
+        "티커": ticker,
+        "트렌드점수": feature_set.trend_score,
+        "1일수익률": feature_set.ret_1d,
+        "5일수익률": feature_set.ret_5d,
+        "20일수익률": feature_set.ret_20d,
+        "63일수익률": feature_set.ret_63d,
+        "거래량Z(20)": feature_set.vol_z20,
+        "52주포지션": feature_set.pos_52w,
+        "ATR%": feature_set.atr_pct,
+        "RSI": feature_set.rsi,
+        "최근20일평균거래대금": feature_set.avg_dollar_vol_20d,
+        "최근60일평균거래대금": feature_set.avg_dollar_vol_60d,
+        "거래대금안정비": feature_set.volume_stability_ratio,
+        "macd": feature_set.macd,
+        "macd_signal": feature_set.macd_signal,
+        "macd_hist": feature_set.macd_hist,
+        "stoch_k": feature_set.stoch_k,
+        "stoch_d": feature_set.stoch_d,
+        "roc_10": feature_set.roc_10,
+        "adx": feature_set.adx,
+        "adx_pos": feature_set.adx_pos,
+        "adx_neg": feature_set.adx_neg,
+        "ema_gap_20_50": feature_set.ema_gap_20_50,
+        "ema_gap_50_200": feature_set.ema_gap_50_200,
+        "ema_gap_20_200": feature_set.ema_gap_20_200,
+        "ema200_slope_20": feature_set.ema200_slope_20,
+        "close_to_ema200_pct": feature_set.close_to_ema200_pct,
+        "bollinger_pband": feature_set.bollinger_pband,
+        "bollinger_width": feature_set.bollinger_width,
+        "keltner_pband": feature_set.keltner_pband,
+        "keltner_width": feature_set.keltner_width,
+        "obv_z20": feature_set.obv_z20,
+        "cmf_20": feature_set.cmf_20,
+        "accdist_slope_5": feature_set.accdist_slope_5,
+        "annual_dividend": feature_set.annual_dividend,
+        "dividend_yield": feature_set.dividend_yield,
+        "갭하락률": feature_set.gap_down_pct,
+        "저점반전캔들": int(feature_set.hammer_candle),
+        "장중반등률": feature_set.intraday_recovery,
+        "10일저점괴리": feature_set.distance_from_10d_low,
+        "시장": to_market(ticker),
+        "섹터": SECTOR_MAP.get(ticker, "Unknown"),
+    }
+
+
+def compute_features_snapshot(
+    price_map: Mapping[str, pd.DataFrame],
+    *,
+    include_fundamentals: bool = True,
+) -> pd.DataFrame:
+    """주어진 종목별 시계열 스냅샷에서 특징 테이블을 생성한다."""
 
     rows = []
-    for ticker in df.columns.levels[0]:
-        p = df[ticker].dropna()
-        features = compute_features_for_ticker(p)
+    for ticker, frame in price_map.items():
+        features = compute_features_for_ticker(frame.dropna(how="all"))
         if features is None:
             continue
-        rows.append(
-            {
-                "티커": ticker,
-                "트렌드점수": features.trend_score,
-                "1일수익률": features.ret_1d,
-                "5일수익률": features.ret_5d,
-                "20일수익률": features.ret_20d,
-                "63일수익률": features.ret_63d,
-                "거래량Z(20)": features.vol_z20,
-                "52주포지션": features.pos_52w,
-                "ATR%": features.atr_pct,
-                "RSI": features.rsi,
-                "최근20일평균거래대금": features.avg_dollar_vol_20d,
-                "최근60일평균거래대금": features.avg_dollar_vol_60d,
-                "거래대금안정비": features.volume_stability_ratio,
-                "macd": features.macd,
-                "macd_signal": features.macd_signal,
-                "macd_hist": features.macd_hist,
-                "stoch_k": features.stoch_k,
-                "stoch_d": features.stoch_d,
-                "roc_10": features.roc_10,
-                "adx": features.adx,
-                "adx_pos": features.adx_pos,
-                "adx_neg": features.adx_neg,
-                "ema_gap_20_50": features.ema_gap_20_50,
-                "ema_gap_50_200": features.ema_gap_50_200,
-                "ema_gap_20_200": features.ema_gap_20_200,
-                "ema200_slope_20": features.ema200_slope_20,
-                "close_to_ema200_pct": features.close_to_ema200_pct,
-                "bollinger_pband": features.bollinger_pband,
-                "bollinger_width": features.bollinger_width,
-                "keltner_pband": features.keltner_pband,
-                "keltner_width": features.keltner_width,
-                "obv_z20": features.obv_z20,
-                "cmf_20": features.cmf_20,
-                "accdist_slope_5": features.accdist_slope_5,
-                "annual_dividend": features.annual_dividend,
-                "dividend_yield": features.dividend_yield,
-                "갭하락률": features.gap_down_pct,
-                "저점반전캔들": int(features.hammer_candle),
-                "장중반등률": features.intraday_recovery,
-                "10일저점괴리": features.distance_from_10d_low,
-                "시장": to_market(ticker),
-                "섹터": SECTOR_MAP.get(ticker, "Unknown"),
-            }
-        )
+        rows.append(_feature_row_from_set(ticker, features))
 
     out = pd.DataFrame(rows)
     if out.empty:
@@ -394,8 +399,22 @@ def compute_all_features(df: pd.DataFrame) -> pd.DataFrame:
         out["시장상대강도"] = np.nan
         out["섹터상대강도"] = np.nan
 
-    fundamentals = fetch_fundamental_snapshots(out["티커"].tolist())
-    if not fundamentals.empty:
-        out = out.merge(fundamentals, on="티커", how="left")
+    if include_fundamentals:
+        fundamentals = fetch_fundamental_snapshots(out["티커"].tolist())
+        if not fundamentals.empty:
+            out = out.merge(fundamentals, on="티커", how="left")
 
     return out
+
+
+def compute_all_features(
+    df: pd.DataFrame, *, include_fundamentals: bool = True
+) -> pd.DataFrame:
+    """모든 종목에 대해 특징을 계산하고 테이블 형태로 반환한다."""
+
+    price_map: Dict[str, pd.DataFrame] = {
+        ticker: df[ticker].dropna(how="all") for ticker in df.columns.levels[0]
+    }
+    return compute_features_snapshot(
+        price_map, include_fundamentals=include_fundamentals
+    )

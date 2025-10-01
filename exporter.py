@@ -96,10 +96,9 @@ def export_to_google_sheet(
 
     cleaned_df = df.where(pd.notnull(df), "")
     columns = cleaned_df.columns.tolist()
+    rows = [columns] + cleaned_df.values.tolist()
     est = timezone(timedelta(hours=-5), name="EST")
     timestamp = datetime.now(est).strftime("%Y-%m-%d %H:%M:%S EST")
-
-    rows = [columns] + cleaned_df.values.tolist()
     for row in rows:
         row.append("")
     rows[0][-1] = timestamp
@@ -118,6 +117,56 @@ def export_to_google_sheet(
         print(
             f"[Google Sheets] '{target_worksheet}' 워크시트 업데이트 실패: {exc}"
         )
+        return False
+
+
+def export_backtest_results(
+    results: dict[str, dict], worksheet_name: str = "백테스트"
+) -> bool:
+    """백테스트 결과를 Google Sheets에 업로드한다."""
+
+    if not results:
+        return False
+
+    sheet = _open_sheet()
+    if sheet is None or not worksheet_name:
+        return False
+
+    try:
+        try:
+            worksheet = sheet.worksheet(worksheet_name)
+        except WorksheetNotFound:
+            worksheet = sheet.add_worksheet(title=worksheet_name, rows="4000", cols="20")
+
+        rows: list[list[str]] = []
+        for label, outcome in results.items():
+            summary = outcome.get("summary", {})
+            trades = outcome.get("trades")
+
+            rows.append([str(label)])
+            rows.append(["Metric", "Value"])
+            for key, value in summary.items():
+                if isinstance(value, float):
+                    rows.append([key, f"{value:.6f}"])
+                else:
+                    rows.append([key, str(value)])
+            rows.append([])
+
+            if isinstance(trades, pd.DataFrame) and not trades.empty:
+                rows.append(["Trades"])
+                rows.append(trades.columns.tolist())
+                rows.extend(trades.astype(str).values.tolist())
+            else:
+                rows.append(["Trades", "No trades generated."])
+
+            rows.append([])
+            rows.append([])
+
+        worksheet.clear()
+        worksheet.update(rows)
+        return True
+    except Exception as exc:  # pragma: no cover - best effort
+        print(f"[Google Sheets] 백테스트 결과 업로드 실패: {exc}")
         return False
 
 

@@ -57,6 +57,32 @@ GOOGLE_SHEETS_SIGNALS_WORKSHEET = "Signals"
 GOOGLE_SHEETS_PORTFOLIO_WORKSHEET: str | None = "보유주식"
 GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
 
+# 백테스트 자동 실행 설정
+BACKTEST_ENABLED = True
+BACKTEST_WORKSHEET_NAME = "백테스트"
+BACKTEST_RUNS = [
+    {
+        "label": "Top10",
+        "max_tickers": 100,
+        "top_n": 10,
+        "period": "1y",
+        "hold_days": 10,
+        "rebalance_every": 10,
+        "include_fundamentals": True,
+        "select_bottom": False,
+    },
+    {
+        "label": "Bottom10",
+        "max_tickers": 100,
+        "top_n": 10,
+        "period": "1y",
+        "hold_days": 10,
+        "rebalance_every": 10,
+        "include_fundamentals": True,
+        "select_bottom": True,
+    },
+]
+
 # 시그널 판정 임계치.
 BUY_SCORE_THRESHOLD = 0.15
 BUY_POS_THRESHOLD = 0.70

@@ -7,16 +7,25 @@ from __future__ import annotations
 import time
 
 from config import (
+    BACKTEST_ENABLED,
+    BACKTEST_RUNS,
+    BACKTEST_WORKSHEET_NAME,
     COMPANY_NAME_MAP,
     TICKERS,
     GOOGLE_SHEETS_SIGNALS_WORKSHEET,
     GOOGLE_SHEETS_PORTFOLIO_WORKSHEET,
 )
 from data.fetch import fetch_company_names, fetch_latest_prices, fetch_ohlcv
-from exporter import export_to_google_sheet, fetch_tickers_from_sheet, prepare_export_dataframe
+from exporter import (
+    export_backtest_results,
+    export_to_google_sheet,
+    fetch_tickers_from_sheet,
+    prepare_export_dataframe,
+)
 from features import compute_all_features
 from processing import apply_neutralization, liquidity_filter
 from signals import attach_signals_and_sort
+from backtest import run_backtest
 
 
 def build_export_dataframe(
@@ -114,6 +123,29 @@ def main() -> None:
             print(
                 f"[{portfolio_label}] 워크시트에 티커가 없어 업데이트를 건너뜁니다."
             )
+
+        backtest_results: dict[str, dict] = {}
+        if BACKTEST_ENABLED:
+            for run in BACKTEST_RUNS:
+                label = str(run.get("label", "Backtest"))
+                params = {k: v for k, v in run.items() if k != "label"}
+                try:
+                    backtest_results[label] = run_backtest(**params)
+                    print(f"[Backtest] '{label}' 실행 완료")
+                except Exception as exc:  # pragma: no cover - best effort
+                    print(f"[Backtest] '{label}' 실행 실패: {exc}")
+
+            if backtest_results:
+                if export_backtest_results(
+                    backtest_results, BACKTEST_WORKSHEET_NAME
+                ):
+                    print(
+                        f"[{BACKTEST_WORKSHEET_NAME}] 백테스트 결과 업데이트 완료"
+                    )
+                else:
+                    print(
+                        f"[{BACKTEST_WORKSHEET_NAME}] 백테스트 결과 업데이트를 건너뜁니다."
+                    )
 
         success = True
     finally:
