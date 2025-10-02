@@ -27,8 +27,10 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
 2. **특징 생성(`features.py`)**
    - 수익률 & 모멘텀
      - 1일/5일/20일/63일 수익률, 10일 ROC, RSI, MACD(+시그널/히스토그램), Stochastic %K/%D
+     - 5일 대비 20일 수익률 가속도(`accel`)로 단·중기 모멘텀 변화를 추적
    - 추세 & 변동성
      - 트렌드 점수 (가중합), ADX(+DI/-DI), 52주 포지션, EMA(20/50/200) 갭, EMA200 기울기, ATR%, Bollinger/Keltner 밴드 위치·폭, EMA200 이탈률, 10일 저점 괴리
+     - ATR%가 `VOLATILITY_PENALTY_START~END` 범위를 벗어나면 비선형 패널티 부여
    - 거래량 & 자금 흐름
      - 20일 거래량 Z-score, 60일 대비 거래대금 안정 비율, Chaikin Money Flow(20), OBV Z-score, Acc/Dist 기울기, 장중 반등률
    - 이벤트 & 패턴
@@ -37,13 +39,13 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
      - ROE, 부채/자본 비율, 매출/이익 성장률, 이익률, 유동·당좌 비율, 자유/영업 현금흐름, 다음 실적 발표일 등
    - 상대 강도
      - 20일 수익률 기준 시장/섹터 평균 대비 초과 성과(`시장상대강도`, `섹터상대강도`)
-3. **유동성 필터(`processing.liquidity_filter`)** – 시장별 20일 평균 거래대금 분위수 하위 `LIQUIDITY_QUANTILE` 비율을 제거합니다. `LIQUIDITY_WHITELIST`는 항상 유지됩니다.
+3. **유동성 필터(`processing.liquidity_filter`)** – 시장별 20일 평균 거래대금 분위수 하위 `LIQUIDITY_QUANTILE` 비율을 제거하고, 절대 거래대금이 `LIQUIDITY_DOLLAR_MIN` 미만이면 제외합니다. `LIQUIDITY_WHITELIST`는 항상 유지됩니다.
 4. **중립화(`processing.apply_neutralization`)** – 트렌드 점수를 시장/섹터 z-score로 스무딩하여 비교 가능성을 높입니다.
 5. **신호 평가(`signals.py`)**
    - 긍정/부정/과열/과매도 증거 수집
    - `evaluate_bottom_context`로 저점 스코어링: 과매도 지표, EMA 이탈, 거래량 회복, 상대 강도, 재무 체력, 실적 이벤트 등을 가중 합산해 `BottomContext` 생성
-   - `classify_signal`이 트렌드점수·저점 강도·상대 강도·재무 체력을 종합해 `판단`(매수 후보 / 저점 관찰 / 관심 관찰 / 관망 과열 / 관망 약세)을 결정
-   - `recommendation_from_signal`이 저점 강도·거래량 지지·실적 이벤트 등을 고려해 실행 액션(적극/분할 매수, 반등 모니터링 등) 제안
+   - `classify_signal`이 트렌드 점수, 상대 강도, 긍정/부정 시그널 수(`BUY_POSITIVE_MIN`, `WATCH_POSITIVE_MIN`)와 과열·매도 트리거를 교차 검증해 `판단`(매도 경고 / 매수 후보 / 관심 관찰 / 관망 과열 / 관망 약세)을 결정
+   - `recommendation_from_signal`이 저점 강도·거래량 지지·실적 이벤트·RSI 과열 등을 고려해 실행 액션(적극/분할 매수, 반등 모니터링 등)을 제안
 6. **출력(`main.py`)**
    - `exporter.prepare_export_dataframe`가 최종 테이블을 정돈
    - 기본 `Signals` 워크시트는 `config.TICKERS` 풀을 기반으로 업데이트하며, `GOOGLE_SHEETS_PORTFOLIO_WORKSHEET`가 설정되어 있으면 해당 워크시트의 `GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN`에 적힌 티커 목록을 읽어 별도의 파이프라인을 실행해 결과를 업데이트합니다.
@@ -61,8 +63,9 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
 | `회사` | 종목명 (`fetch_company_names`로 yfinance에서 조회) |
 | `현재가격` | `fetch_latest_prices`가 가져온 최신 종가 |
 | `우선순위` | `SIGNAL_PRIORITY`에 기반한 정렬 우선순위 숫자 (작을수록 상단) |
-| `판단` | 매수 후보 / 저점 관찰 / 관심 관찰 / 관망 과열 / 관망 약세 |
-| `추천` | 실행 가이드 (적극 매수, 저점 매수 대기, 추가 관찰 등) |
+| `판단` | 매도 경고 / 매수 후보 / 관심 관찰 / 관망 과열 / 관망 약세 |
+| `추천` | 실행 가이드 (즉시 매수, 분할 매수, 조건 확인, 보유/관망, 차익/손절) |
+| `매도트리거` | 매도 경고 조건 충족 여부(`Y`/공백) |
 | `긍정` | 긍정 시그널 요약 (최대 3개) |
 | `저점` | 과매도·저점 관련 근거 요약 |
 | `저점강도` | BottomContext 등급 (강한 저점 / 진입 탐색 / 관찰 저점 / 약한 저점 / 저점 미흡) |
@@ -71,7 +74,7 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
 | `저점건강` | 재무 체력 평가: `건강` 또는 `확인 필요` |
 | `상대강도` | 시장·섹터 대비 성과: `방어` 또는 `약세` |
 | `경계` | 부정·과열 경고 요약 |
-| `트렌드점수_최종` | 시장/섹터 중립화까지 반영한 추세 점수 |
+| `트렌드점수_최종` | 시장/섹터 중립화까지 반영한 추세 점수 (0.6 원점수 + 0.25 시장 z + 0.15 섹터 z) |
 | `RSI` | 현재 RSI 값 |
 | `macd` | 현재 MACD 값 |
 | `dividend_yield` | 최근 1년 배당수익률 |
@@ -82,7 +85,7 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
 ---
 ## 주요 기술·재무 신호 요약
 - **모멘텀**
-  - RSI ≤35 : 과매도, ≥80 : 과열
+  - RSI ≤35 : 과매도, ≥78 : 과열
   - MACD 히스토그램 ≤ -0.3 : 하락 심화, ≥ +0.5 : 강세
   - Stochastic %K ≤20 : 침체, ≥85 : 과열
 - **추세/저점 파악**
@@ -95,7 +98,7 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
   - 장중 반등률 ≥ 4% → intraday 매수세 확인
 - **상대 강도**
   - 최근 20일 수익률이 시장/섹터 평균보다 높으면 `방어`, 미달 시 `약세`
-  - 상대 강도가 약하면 저점 관찰/매수 후보에서 제외
+  - 시장·섹터 상대 강도가 `BUY_REL_STRENGTH_MIN`, `SECTOR_REL_STRENGTH_MIN` 미만이면 매수 후보에서 제외
 - **재무 체력**
   - ROE ≥ 8%, 매출/이익 성장률 ≥ 설정값, 부채/자본 ≤ 200, 유동비율 ≥ 1.0 등 충족 시 `저점건강 = 건강`
   - 자유/영업 현금흐름이 음수면 감점
@@ -110,7 +113,8 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
   - `TICKERS`: 분석 대상 목록 (S&P500 기본 제공)
   - `SECTOR_MAP`: 섹터 중립화용 매핑, 없으면 `Unknown`
 - **유동성 필터링**
-  - `LIQUIDITY_QUANTILE`: 제거할 하위 분위수 (0.40 → 하위 40% 제거)
+  - `LIQUIDITY_QUANTILE`: 제거할 하위 분위수 (기본 0.25 → 하위 25% 제거)
+  - `LIQUIDITY_DOLLAR_MIN`: 최근 20일 평균 거래대금이 해당 금액(기본 5M USD) 미만이면 제외
   - `LIQUIDITY_WHITELIST`: 필수 포함 종목 리스트
 - **저점 탐지 임계치**
   - `FUND_HEALTH_*`, `REL_STRENGTH_*`, `VOLUME_STABILITY_RATIO_MIN`, `EMA200_DISTANCE_MIN`, `GAP_DOWN_EXTREME`, `INTRADAY_RECOVERY_MIN` 등
@@ -120,6 +124,34 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
 - **출력 형식**
   - `EXPORT_COLUMNS`: 시트에 보낼 컬럼 순서
   - `PERCENT_COLUMNS`, `TECH_COLUMN_LABELS`: 값 포맷팅과 헤더 이름 매핑
+
+---
+## 트렌드 점수 가중치
+- `ret5` (0.45): 5일 수익률을 그대로 반영
+- `vol` (0.20): 거래량 Z-score를 `tanh`로 스무딩해 급증 여부 판단
+- `break` (0.30): 52주 범위 대비 위치
+- `vola` (-0.15): ATR% 선형 감점
+- `rsi` (0.10): RSI 기반 스무딩 점수
+- `accel` (0.12): 5일 대비 20일 수익률 가속도
+- `vola_penalty` (-0.18): ATR%가 `VOLATILITY_PENALTY_START~END` 범위를 넘어설 때 추가 감점
+
+트렌드 점수는 이후 시장/섹터 z-score와 혼합돼 `트렌드점수_최종`(0.6/0.25/0.15 비율)으로 정규화됩니다.
+
+---
+## 신호 임계치 개요
+- **매도 경고**: RSI ≥ 78, 과열 신호 ≥1, 부정 신호가 긍정보다 1개 이상 많고 Bollinger P밴드 ≥0.95 또는 Keltner 상단(≥0.85) 돌파 시 즉시 매도 경고.
+- **매수 후보**: `트렌드점수_최종 ≥ 0.20`, `52주포지션 ≥ 0.75`, 긍정 신호 ≥6, 부정 신호 ≤1, 상대 강도·재무 체력이 양호하며 과열 신호 ≤1개.
+- **관심 관찰**: `트렌드점수_최종 ≥ 0.06`, `52주포지션 ≥ 0.52`, 긍정 신호 ≥4, 상대 강도가 최소 버퍼 이상, 과열 신호 ≤1개이거나 저점 요건(`is_bottom_ready`) 충족.
+- **관망 과열**: 과열 신호 ≥3 또는 과열 1개 이상이면서 트렌드 점수가 기준보다 부족.
+- **관망 약세**: 부정 신호가 긍정보다 많거나 과열 신호가 2개 이상.
+
+---
+## 기본 백테스트 파라미터
+- Top10 / Bottom10 두 가지 런을 실행합니다.
+  - `period`: 1y, `max_tickers`: 100, `top_n`: 10
+  - `hold_days`: 10, `rebalance_every`: 10 (보유 기간과 리밸런싱 주기를 동일하게 유지)
+  - `include_fundamentals`: True, Bottom10은 `select_bottom = True`
+- 동일 조건으로 테스트하려면 `python3 backtest.py --period 1y --hold-days 10 --rebalance-every 10 --top-n 10 --max-tickers 100` (Bottom10은 `--select-bottom` 추가)를 실행하면 됩니다.
 
 ---
 ## 실행 결과 예시 (콘솔)

@@ -42,7 +42,7 @@ def _selected_rows_for_backtest(
     if select_bottom:
         candidates = ranked.copy()
     else:
-        candidates = ranked[ranked["판단"].isin(["매수 후보", "저점 관찰", "관심 관찰"])].copy()
+        candidates = ranked[ranked["판단"].isin(["매수 후보", "관심 관찰"])].copy()
     if candidates.empty:
         return pd.DataFrame()
     if select_bottom:

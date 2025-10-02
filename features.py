@@ -29,6 +29,8 @@ from config import (
     LONG_TERM_SLOPE_LOOKBACK,
     REL_STRENGTH_LOOKBACK,
     SECTOR_MAP,
+    VOLATILITY_PENALTY_END,
+    VOLATILITY_PENALTY_START,
     WEIGHTS,
 )
 from fundamentals import fetch_fundamental_snapshots
@@ -207,13 +209,24 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     s_break = float(np.clip(latest["pos_52w"], 0, 1))
     s_vola = float(np.clip(latest["atr_pct"], 0, 0.1) / 0.1)
     s_rsi = rsi_smooth_score(latest["rsi"])
+    accel_raw = latest["ret_5d"] - latest["ret_20d"]
+    s_accel = smooth_tanh(accel_raw, scale=0.05)
+
+    penalty_span = max(VOLATILITY_PENALTY_END - VOLATILITY_PENALTY_START, 1e-6)
+    vola_penalty = np.clip(
+        (latest["atr_pct"] - VOLATILITY_PENALTY_START) / penalty_span,
+        0.0,
+        1.0,
+    )
 
     trend_score = (
-        WEIGHTS["ret5"] * s_ret5
-        + WEIGHTS["vol"] * s_vol
-        + WEIGHTS["break"] * s_break
-        + WEIGHTS["vola"] * s_vola
-        + WEIGHTS["rsi"] * s_rsi
+        WEIGHTS.get("ret5", 0.0) * s_ret5
+        + WEIGHTS.get("vol", 0.0) * s_vol
+        + WEIGHTS.get("break", 0.0) * s_break
+        + WEIGHTS.get("vola", 0.0) * s_vola
+        + WEIGHTS.get("rsi", 0.0) * s_rsi
+        + WEIGHTS.get("accel", 0.0) * s_accel
+        + WEIGHTS.get("vola_penalty", 0.0) * vola_penalty
     )
 
     avg_dollar_vol = (p["Close"].iloc[-20:] * p["Volume"].iloc[-20:]).mean()

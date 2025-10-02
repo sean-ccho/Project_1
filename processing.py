@@ -2,7 +2,12 @@
 
 import pandas as pd
 
-from config import LIQUIDITY_QUANTILE, LIQUIDITY_WHITELIST, NEUTRALIZE_COLUMNS
+from config import (
+    LIQUIDITY_DOLLAR_MIN,
+    LIQUIDITY_QUANTILE,
+    LIQUIDITY_WHITELIST,
+    NEUTRALIZE_COLUMNS,
+)
 
 
 def zscore_by_group(series: pd.Series, group: pd.Series) -> pd.Series:
@@ -24,13 +29,13 @@ def apply_neutralization(df: pd.DataFrame) -> pd.DataFrame:
         for col in NEUTRALIZE_COLUMNS:
             out[col + "_secz"] = zscore_by_group(out[col], out["섹터"])
         out["트렌드점수_최종"] = (
-            0.5 * out["트렌드점수"]
-            + 0.3 * out["트렌드점수_mktz"]
-            + 0.2 * out["트렌드점수_secz"]
+            0.6 * out["트렌드점수"]
+            + 0.25 * out["트렌드점수_mktz"]
+            + 0.15 * out["트렌드점수_secz"]
         )
     else:
         # 섹터 정보가 없으면 시장 중립화 지표만 혼합하여 활용한다.
-        out["트렌드점수_최종"] = 0.7 * out["트렌드점수"] + 0.3 * out["트렌드점수_mktz"]
+        out["트렌드점수_최종"] = 0.75 * out["트렌드점수"] + 0.25 * out["트렌드점수_mktz"]
 
     return out
 
@@ -43,6 +48,7 @@ def liquidity_filter(df: pd.DataFrame) -> pd.DataFrame:
         lambda s: s.quantile(1.0 - LIQUIDITY_QUANTILE)
     )
     mask = out["최근20일평균거래대금"] >= thresholds
+    mask &= out["최근20일평균거래대금"] >= LIQUIDITY_DOLLAR_MIN
     if LIQUIDITY_WHITELIST:
         mask |= out["티커"].isin(LIQUIDITY_WHITELIST)
     return out[mask]

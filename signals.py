@@ -22,6 +22,8 @@ from config import (
     BUY_RSI_MAX,
     BUY_RSI_MIN,
     BUY_SCORE_THRESHOLD,
+    BUY_NEGATIVE_MAX,
+    BUY_POSITIVE_MIN,
     CMF_BUY_THRESHOLD,
     FUND_HEALTH_CURRENT_RATIO_MIN,
     FUND_HEALTH_DEBT_TO_EQUITY_MAX,
@@ -40,6 +42,11 @@ from config import (
     REL_STRENGTH_MARKET_BUFFER,
     REL_STRENGTH_SECTOR_BUFFER,
     RSI_OVERSOLD,
+    SELL_KELTNER_THRESHOLD,
+    SELL_NEGATIVE_GAP,
+    SELL_OVERBOUGHT_MIN,
+    SELL_RSI_THRESHOLD,
+    SECTOR_REL_STRENGTH_MIN,
     SIGNAL_PRIORITY,
     STOCH_MIN_BUY,
     STOCH_OVERSOLD,
@@ -47,6 +54,10 @@ from config import (
     VOLUME_STABILITY_RATIO_MIN,
     WATCH_POS_THRESHOLD,
     WATCH_SCORE_THRESHOLD,
+    WATCH_NEGATIVE_MAX,
+    WATCH_POSITIVE_MIN,
+    BOTTOM_NEGATIVE_TOLERANCE,
+    BUY_REL_STRENGTH_MIN,
 )
 
 
@@ -63,6 +74,58 @@ class BottomContext:
     fundamentals_ok: bool
     relative_strength_ok: bool
     earnings_risk: bool
+
+
+def detect_sell_trigger(
+    row: pd.Series,
+    positives: list[str],
+    negatives: list[str],
+    overbought: list[str],
+) -> bool:
+    rsi = row.get("RSI", np.nan)
+    if np.isnan(rsi) or rsi < SELL_RSI_THRESHOLD:
+        return False
+
+    if len(overbought) < SELL_OVERBOUGHT_MIN:
+        return False
+
+    if len(negatives) < len(positives) + SELL_NEGATIVE_GAP:
+        return False
+
+    boll_p = row.get("bollinger_pband", np.nan)
+    keltner_p = row.get("keltner_pband", np.nan)
+
+    boll_threshold = max(0.95, BOLLINGER_OVERBOUGHT_PBAND)
+    boll_over = not np.isnan(boll_p) and boll_p >= boll_threshold
+    keltner_over = not np.isnan(keltner_p) and keltner_p >= SELL_KELTNER_THRESHOLD
+
+    return bool(boll_over or keltner_over)
+
+
+def is_bottom_ready(
+    bottom: BottomContext,
+    *,
+    score: float,
+    pos_52w: float,
+    positive_count: int,
+    negative_count: int,
+    overbought_count: int,
+) -> bool:
+    if np.isnan(score) or np.isnan(pos_52w):
+        return False
+
+    return (
+        bottom.score >= 4.0
+        and bottom.grade in ("강한 저점", "진입 탐색")
+        and pos_52w <= BOTTOM_POS_THRESHOLD + 0.04
+        and negative_count <= positive_count + BOTTOM_NEGATIVE_TOLERANCE
+        and bottom.volume_support
+        and (bottom.momentum_turn or score >= BOTTOM_TREND_SCORE)
+        and bottom.trend_ok
+        and bottom.relative_strength_ok
+        and bottom.fundamentals_ok
+        and overbought_count <= 1
+    )
 
 
 def collect_signal_evidence(row: pd.Series):
@@ -573,6 +636,9 @@ def classify_signal(
     overbought: list[str],
     oversold: list[str],
     bottom: BottomContext,
+    *,
+    sell_trigger: bool = False,
+    bottom_ready: bool = False,
 ) -> str:
     score = row.get("트렌드점수_최종", np.nan)
     pos_52w = row.get("52주포지션", np.nan)
@@ -583,56 +649,58 @@ def classify_signal(
     positive_count = len(positives)
     negative_count = len(negatives)
     overbought_count = len(overbought)
-    oversold_count = bottom.oversold_count
-    bottom_score = bottom.score
-    bottom_volume = bottom.volume_support
-    bottom_momentum = bottom.momentum_turn
-    bottom_trend = bottom.trend_ok
-    bottom_cautions = len(bottom.cautions)
-    bottom_grade = bottom.grade
-    bottom_fundamentals = bottom.fundamentals_ok
-    bottom_relative = bottom.relative_strength_ok
-    earnings_risk = bottom.earnings_risk
 
-    if overbought_count >= 2:
+    market_rel = row.get("시장상대강도", np.nan)
+    sector_rel = row.get("섹터상대강도", np.nan)
+    if sell_trigger:
+        return "매도 경고"
+
+    if overbought_count >= 3:
         return "관망 과열"
+
+    strong_relative = (
+        (np.isnan(market_rel) or market_rel >= BUY_REL_STRENGTH_MIN)
+        and (np.isnan(sector_rel) or sector_rel >= SECTOR_REL_STRENGTH_MIN)
+        and bottom.relative_strength_ok
+    )
 
     base_strong = (
         score >= BUY_SCORE_THRESHOLD
         and pos_52w >= BUY_POS_THRESHOLD
-        and positive_count >= 6
-        and negative_count <= 2
+        and positive_count >= BUY_POSITIVE_MIN
+        and negative_count <= BUY_NEGATIVE_MAX
+        and strong_relative
+        and bottom.fundamentals_ok
+        and (bottom.volume_support or bottom.momentum_turn)
+        and overbought_count <= 1
     )
     if base_strong:
         return "매수 후보"
 
-    bottom_ready = (
-        bottom_score >= 3.5
-        and bottom_grade != "저점 미흡"
-        and pos_52w <= BOTTOM_POS_THRESHOLD + 0.05
-        and negative_count <= positive_count + 4
-        and (bottom_volume or positive_count >= negative_count)
-        and (bottom_momentum or bottom_score >= 5)
-        and (bottom_trend or score >= BOTTOM_TREND_SCORE)
-        and bottom_relative
-        and bottom_fundamentals
+    if overbought_count >= 1 and score < BUY_SCORE_THRESHOLD + 0.04:
+        return "관망 과열"
+
+    watchable_relative = (
+        (np.isnan(market_rel) or market_rel >= REL_STRENGTH_MARKET_BUFFER)
+        and (np.isnan(sector_rel) or sector_rel >= REL_STRENGTH_SECTOR_BUFFER)
     )
-    if bottom_ready and bottom_cautions <= 3:
-        if earnings_risk and bottom_score < 6:
-            return "관심 관찰"
-        return "저점 관찰"
 
     watchable = (
         score >= WATCH_SCORE_THRESHOLD
         and pos_52w >= WATCH_POS_THRESHOLD
-        and positive_count >= 4
-        and negative_count <= 3
-        and (bottom_relative or bottom_score >= 5)
+        and positive_count >= WATCH_POSITIVE_MIN
+        and negative_count <= WATCH_NEGATIVE_MAX
+        and watchable_relative
+        and overbought_count <= 1
     )
-    if watchable:
+
+    if bottom_ready or watchable:
         return "관심 관찰"
 
-    if negative_count > positive_count + 1:
+    if overbought_count >= 1:
+        return "관망 과열"
+
+    if negative_count >= positive_count + 1:
         return "관망 약세"
 
     return "관심 관찰"
@@ -646,6 +714,9 @@ def recommendation_from_signal(
     overbought: list[str],
     oversold: list[str],
     bottom: BottomContext,
+    *,
+    sell_trigger: bool = False,
+    bottom_ready: bool = False,
 ) -> str:
     positive_count = len(positives)
     negative_count = len(negatives)
@@ -664,85 +735,58 @@ def recommendation_from_signal(
     dividend_yield = row.get("dividend_yield", np.nan)
     score = row.get("트렌드점수_최종", np.nan)
     vol_z = row.get("거래량Z(20)", np.nan)
+    market_rel = row.get("시장상대강도", np.nan)
+    sector_rel = row.get("섹터상대강도", np.nan)
+    rsi = row.get("RSI", np.nan)
+    if sell_trigger or judgement == "매도 경고":
+        return "차익/손절"
+
+    if judgement == "관망 과열":
+        return "차익/손절"
+
+    if judgement == "관망 약세":
+        return "보유/관망"
 
     if judgement == "매수 후보":
-        if not bottom_fundamentals or not bottom_relative:
-            return "조건 확인 후 매수"
-        if earnings_risk and bottom_score < 6.5:
-            return "조건 확인 후 매수"
         if (
-            positive_count >= 9
+            overbought_count >= 2
+            or (not np.isnan(rsi) and rsi >= OVERBOUGHT_RSI + 2)
+            or (not np.isnan(market_rel) and market_rel < BUY_REL_STRENGTH_MIN)
+            or (not np.isnan(sector_rel) and sector_rel < SECTOR_REL_STRENGTH_MIN)
+            or not bottom_fundamentals
+            or not bottom_relative
+            or (earnings_risk and bottom_score < 6.5)
+        ):
+            return "조건 확인"
+
+        strong_entry = (
+            positive_count >= BUY_POSITIVE_MIN + 1
             or (
                 (not np.isnan(macd_hist) and macd_hist >= MACD_BUY_HIST_THRESHOLD * 1.5)
                 and (not np.isnan(adx) and adx >= ADX_TREND_THRESHOLD + 10)
             )
-            or (bottom_grade == "강한 저점" and bottom_score >= 5.5 and bottom_cautions <= 2)
-        ):
-            return "적극 매수"
-        if not np.isnan(dividend_yield) and dividend_yield >= 0.03:
-            return "분할 매수"
-        if bottom_grade in ("강한 저점", "진입 탐색") and bottom_cautions <= 2:
-            return "분할 매수"
-        return "조건 확인 후 매수"
+            or (not np.isnan(score) and score >= BUY_SCORE_THRESHOLD + 0.06)
+        )
 
-    if judgement == "저점 관찰":
-        if not bottom_fundamentals:
-            return "반등 모니터링"
-        if not bottom_relative and bottom_score < 6:
-            return "반등 모니터링"
-        if earnings_risk and bottom_score < 6:
-            return "저점 매수 대기"
+        if strong_entry:
+            return "즉시 매수"
+
         if (
-            bottom_grade == "강한 저점"
-            and bottom_score >= 5.5
+            bottom_grade in ("강한 저점", "진입 탐색")
             and bottom_cautions <= 2
-            and (
-                bottom_volume
-                or positive_count >= negative_count
-                or (not np.isnan(vol_z) and vol_z >= 0)
-            )
-            and (
-                bottom_momentum
-                or np.isnan(macd_hist)
-                or macd_hist >= MACD_BOTTOM_THRESHOLD
-            )
-        ):
-            return "저점 분할 매수"
-        if (
-            bottom_score >= 3.5
-            and bottom_grade in ("강한 저점", "진입 탐색", "관찰 저점")
-            and bottom_cautions <= 3
-            and (np.isnan(score) or score >= BOTTOM_TREND_SCORE)
-            and (
-                bottom_volume
-                or bottom_momentum
-                or (np.isnan(vol_z) or vol_z >= BOTTOM_VOLUME_Z)
-            )
-        ):
-            return "저점 매수 대기"
-        return "반등 모니터링"
+        ) or bottom_ready or (not np.isnan(dividend_yield) and dividend_yield >= 0.03):
+            return "분할 매수"
+
+        return "조건 확인"
 
     if judgement == "관심 관찰":
-        if (
-            bottom_score >= 4
-            and bottom_volume
-            and bottom_cautions <= 3
-            and bottom_grade != "저점 미흡"
-            and bottom_fundamentals
-        ):
-            return "저점 매수 대기"
+        if bottom_ready and bottom_fundamentals and bottom_relative:
+            return "분할 매수"
         if positive_count >= negative_count + 2:
-            return "조건 충족 시 매수"
-        return "추가 관찰"
+            return "조건 확인"
+        return "보유/관망"
 
-    if judgement == "관망 과열":
-        if overbought_count >= 2 or negative_count >= positive_count:
-            return "차익 실현 고려"
-        return "고평가 관망"
-
-    if negative_count >= positive_count + 3:
-        return "관망/보유"
-    return "추가 관찰"
+    return "보유/관망"
 
 
 def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
@@ -752,11 +796,37 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
     for _, row in df.iterrows():
         positives, negatives, overbought, oversold = collect_signal_evidence(row)
         bottom_context = evaluate_bottom_context(row, positives, negatives, oversold)
+
+        sell_trigger = detect_sell_trigger(row, positives, negatives, overbought)
+        bottom_ready = is_bottom_ready(
+            bottom_context,
+            score=row.get("트렌드점수_최종", np.nan),
+            pos_52w=row.get("52주포지션", np.nan),
+            positive_count=len(positives),
+            negative_count=len(negatives),
+            overbought_count=len(overbought),
+        )
+
         judgement = classify_signal(
-            row, positives, negatives, overbought, oversold, bottom_context
+            row,
+            positives,
+            negatives,
+            overbought,
+            oversold,
+            bottom_context,
+            sell_trigger=sell_trigger,
+            bottom_ready=bottom_ready,
         )
         recommendation = recommendation_from_signal(
-            row, judgement, positives, negatives, overbought, oversold, bottom_context
+            row,
+            judgement,
+            positives,
+            negatives,
+            overbought,
+            oversold,
+            bottom_context,
+            sell_trigger=sell_trigger,
+            bottom_ready=bottom_ready,
         )
 
         def summarise(items: list[str]) -> str:
@@ -790,6 +860,7 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
         enriched["상대강도"] = relative_label
         enriched["이벤트주의"] = event_label
         enriched["경계"] = warning_text
+        enriched["매도트리거"] = "Y" if sell_trigger else ""
         enriched["_positives"] = len(positives)
         enriched["_negatives"] = len(negatives) + len(overbought)
         enriched["_oversold"] = len(oversold)

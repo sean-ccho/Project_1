@@ -34,16 +34,19 @@ SECTOR_MAP: Dict[str, str] = {
 
 # 트렌드 점수 계산에 사용되는 가중치.
 WEIGHTS = {
-    "ret5": 0.30,   # 5일 수익률 기반 단기 모멘텀
-    "vol": 0.30,    # 거래량 급증 정도
-    "break": 0.25,  # 52주 고저 대비 위치(돌파 정도)
-    "vola": 0.05,   # ATR% 변동성 (높을수록 감점)
-    "rsi": 0.10,    # RSI 기반 스무딩 점수
+    "ret5": 0.45,        # 5일 수익률 기반 단기 모멘텀 가중 강화
+    "vol": 0.20,         # 거래량 급증 정도
+    "break": 0.30,       # 52주 고저 대비 위치(돌파 정도)
+    "vola": -0.15,       # ATR% 변동성 (높을수록 감점)
+    "rsi": 0.10,         # RSI 기반 스무딩 점수
+    "accel": 0.12,       # 단기 대비 중기 모멘텀 가속도
+    "vola_penalty": -0.18,  # ATR% 비선형 패널티
 }
 
 # 시장별(US/CA) 거래대금 분위수를 이용한 유동성 컷 비율.
-LIQUIDITY_QUANTILE = 0.40  # 하위 40% 제거 = 상위 60% 유지
+LIQUIDITY_QUANTILE = 0.25  # 하위 25% 제거 = 상위 75% 유지
 LIQUIDITY_WHITELIST = []  # 필수 포함 종목(저유동성이라도 유지)
+LIQUIDITY_DOLLAR_MIN = 5_000_000  # 최근 20일 평균 거래대금 최소선
 
 for ticker in LIQUIDITY_WHITELIST:
     if ticker not in TICKERS:
@@ -84,13 +87,13 @@ BACKTEST_RUNS = [
 ]
 
 # 시그널 판정 임계치.
-BUY_SCORE_THRESHOLD = 0.15
-BUY_POS_THRESHOLD = 0.70
+BUY_SCORE_THRESHOLD = 0.20
+BUY_POS_THRESHOLD = 0.75
 BUY_RSI_MIN = 55
-BUY_RSI_MAX = 75
-WATCH_SCORE_THRESHOLD = 0.05
-WATCH_POS_THRESHOLD = 0.50
-OVERBOUGHT_RSI = 80
+BUY_RSI_MAX = 72
+WATCH_SCORE_THRESHOLD = 0.06
+WATCH_POS_THRESHOLD = 0.52
+OVERBOUGHT_RSI = 78
 
 # 추가 기술적 지표 임계치
 MACD_BUY_HIST_THRESHOLD = 0.5
@@ -135,12 +138,31 @@ HAMMER_LOWER_SHADOW_MIN = 0.5
 HAMMER_UPPER_SHADOW_MAX = 0.25
 INTRADAY_RECOVERY_MIN = 0.04
 
-EARNINGS_EVENT_WINDOW_DAYS = 5
+EARNINGS_EVENT_WINDOW_DAYS = 9
+
+# 판단·추천 강도를 위한 세부 임계치 조정
+BUY_POSITIVE_MIN = 6
+BUY_NEGATIVE_MAX = 1
+WATCH_POSITIVE_MIN = 4
+WATCH_NEGATIVE_MAX = 2
+BOTTOM_NEGATIVE_TOLERANCE = 3
+BUY_REL_STRENGTH_MIN = 0.02
+SECTOR_REL_STRENGTH_MIN = -0.01
+
+# 변동성 패널티 구간
+VOLATILITY_PENALTY_START = 0.025
+VOLATILITY_PENALTY_END = 0.08
+
+# 매도 트리거 임계치
+SELL_RSI_THRESHOLD = 78
+SELL_OVERBOUGHT_MIN = 1
+SELL_NEGATIVE_GAP = 1
+SELL_KELTNER_THRESHOLD = 0.85
 
 # 시그널 우선순위 매핑(테이블 정렬 순서를 통제).
 SIGNAL_PRIORITY = {
-    "매수 후보": 0,
-    "저점 관찰": 1,
+    "매도 경고": 0,
+    "매수 후보": 1,
     "관심 관찰": 2,
     "관망 과열": 3,
     "관망 약세": 4,
@@ -258,6 +280,7 @@ EXPORT_COLUMNS = [
     "우선순위",
     "판단",
     "추천",
+    "매도트리거",
     "긍정",
     "저점",
     "저점강도",
