@@ -39,10 +39,11 @@ def _prepare_price_map(df: pd.DataFrame) -> dict[str, pd.DataFrame]:
 def _selected_rows_for_backtest(
     ranked: pd.DataFrame, top_n: int, *, select_bottom: bool = False
 ) -> pd.DataFrame:
+    judgement_col = "_판단원본" if "_판단원본" in ranked.columns else "판단"
     if select_bottom:
         candidates = ranked.copy()
     else:
-        candidates = ranked[ranked["판단"].isin(["매수 후보", "관심 관찰"])].copy()
+        candidates = ranked[ranked[judgement_col].isin(["매수 후보", "관심 관찰"])].copy()
     if candidates.empty:
         return pd.DataFrame()
     if select_bottom:
