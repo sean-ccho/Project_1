@@ -60,6 +60,7 @@ GOOGLE_SHEETS_SIGNALS_WORKSHEET = "Signals"
 GOOGLE_SHEETS_PORTFOLIO_WORKSHEET: str | None = "보유주식"
 GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
 
+
 # 백테스트 자동 실행 설정
 BACKTEST_ENABLED = True
 BACKTEST_WORKSHEET_NAME = "백테스트"
@@ -293,6 +294,7 @@ EXPORT_COLUMNS = [
     "티커",
     "회사",
     "현재가격",
+    "최근뉴스",
     "우선순위",
     "판단",
     "추천",

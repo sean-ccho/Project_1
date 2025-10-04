@@ -15,7 +15,12 @@ from config import (
     GOOGLE_SHEETS_SIGNALS_WORKSHEET,
     GOOGLE_SHEETS_PORTFOLIO_WORKSHEET,
 )
-from data.fetch import fetch_company_names, fetch_latest_prices, fetch_ohlcv
+from data.fetch import (
+    fetch_company_names,
+    fetch_latest_news,
+    fetch_latest_prices,
+    fetch_ohlcv,
+)
 from exporter import (
     export_backtest_results,
     export_to_google_sheet,
@@ -65,6 +70,7 @@ def build_export_dataframe(
     fetched_names = fetch_company_names(unique_tickers)
     full_name_map = {**fetched_names, **COMPANY_NAME_MAP}
     fetched_prices = fetch_latest_prices(unique_tickers)
+    fetched_news = fetch_latest_news(unique_tickers)
 
     insert_loc = ranked.columns.get_loc("티커")
     ranked.insert(
@@ -77,6 +83,13 @@ def build_export_dataframe(
         "현재가격",
         ranked["티커"].map(
             lambda t: fetched_prices.get(str(t).upper(), float("nan"))
+        ),
+    )
+    ranked.insert(
+        insert_loc + 2,
+        "최근뉴스",
+        ranked["티커"].map(
+            lambda t: fetched_news.get(str(t).upper(), "")
         ),
     )
 

@@ -119,7 +119,7 @@ def export_to_google_sheet(
             worksheet = sheet.add_worksheet(
                 title=target_worksheet, rows="1000", cols="50"
             )
-        worksheet.update(rows)
+        worksheet.update(rows, value_input_option="USER_ENTERED")
         _resize_worksheet_to_data(worksheet, rows)
         return True
     except Exception as exc:  # pragma: no cover - best effort
@@ -172,7 +172,7 @@ def export_backtest_results(
             rows.append([])
 
         worksheet.clear()
-        worksheet.update(rows)
+        worksheet.update(rows, value_input_option="USER_ENTERED")
         _resize_worksheet_to_data(worksheet, rows)
         return True
     except Exception as exc:  # pragma: no cover - best effort
