@@ -16,7 +16,7 @@ from ta.momentum import (
     StochasticOscillator,
 )
 from ta.trend import ADXIndicator, EMAIndicator, MACD
-from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
+from ta.volatility import AverageTrueRange, BollingerBands
 from ta.volume import (
     AccDistIndexIndicator,
     ChaikinMoneyFlowIndicator,
@@ -61,44 +61,32 @@ class FeatureSet:
     """단일 종목의 핵심 지표를 담는 컨테이너."""
 
     trend_score: float
-    ret_1d: float
     ret_5d: float
     ret_20d: float
-    ret_63d: float
     vol_z20: float
     pos_52w: float
     atr_pct: float
     rsi: float
-    avg_dollar_vol_20d: float
-    avg_dollar_vol_60d: float
-    volume_stability_ratio: float
-    macd: float
-    macd_signal: float
     macd_hist: float
     stoch_k: float
-    stoch_d: float
     roc_10: float
     adx: float
-    adx_pos: float
-    adx_neg: float
     ema_gap_20_50: float
     ema_gap_50_200: float
-    ema_gap_20_200: float
     ema200_slope_20: float
     close_to_ema200_pct: float
     bollinger_pband: float
-    bollinger_width: float
-    keltner_pband: float
-    keltner_width: float
     obv_z20: float
     cmf_20: float
     accdist_slope_5: float
-    annual_dividend: float
-    dividend_yield: float
     gap_down_pct: float
+    avg_dollar_vol_20d: float
+    volume_stability_ratio: float
     hammer_candle: bool
     intraday_recovery: float
     distance_from_10d_low: float
+    dividend_yield: float
+    annual_dividend: float
 
 
 def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
@@ -114,10 +102,8 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     else:
         p["Dividends"] = 0.0
 
-    p["ret_1d"] = p["Close"].pct_change(1)
     p["ret_5d"] = p["Close"].pct_change(5)
     p["ret_20d"] = p["Close"].pct_change(REL_STRENGTH_LOOKBACK)
-    p["ret_63d"] = p["Close"].pct_change(63)
 
     # 거래량 기반 Z-score: 최근 거래량이 얼마나 평소와 다른지 확인한다.
     p["vol_ma20"] = p["Volume"].rolling(20).mean()
@@ -133,14 +119,11 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
 
     # MACD 지표(추세 방향 및 모멘텀).
     macd_indicator = MACD(p["Close"], window_slow=26, window_fast=12, window_sign=9)
-    p["macd"] = macd_indicator.macd()
-    p["macd_signal"] = macd_indicator.macd_signal()
     p["macd_hist"] = macd_indicator.macd_diff()
 
     # Stochastic Oscillator: 과매수/과매도 빠르게 포착.
     stoch = StochasticOscillator(p["High"], p["Low"], p["Close"], window=14, smooth_window=3)
     p["stoch_k"] = stoch.stoch()
-    p["stoch_d"] = stoch.stoch_signal()
 
     # 10일 ROC(가격 변화율).
     p["roc_10"] = ROCIndicator(p["Close"], window=10).roc()
@@ -148,8 +131,6 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     # ADX(추세 강도) 및 +DI/-DI.
     adx_indicator = ADXIndicator(p["High"], p["Low"], p["Close"], window=14)
     p["adx"] = adx_indicator.adx()
-    p["adx_pos"] = adx_indicator.adx_pos()
-    p["adx_neg"] = adx_indicator.adx_neg()
 
     # EMA 간격(추세 정배열/역배열 확인).
     ema20 = EMAIndicator(p["Close"], window=20).ema_indicator()
@@ -157,7 +138,6 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     ema200 = EMAIndicator(p["Close"], window=200).ema_indicator()
     p["ema_gap_20_50"] = (ema20 - ema50) / (ema50 + 1e-9)
     p["ema_gap_50_200"] = (ema50 - ema200) / (ema200 + 1e-9)
-    p["ema_gap_20_200"] = (ema20 - ema200) / (ema200 + 1e-9)
 
     ema200_latest = ema200.iloc[-1]
     ema200_reference = np.nan
@@ -173,12 +153,6 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     # Bollinger Bands: 밴드 위치와 폭.
     bb = BollingerBands(p["Close"], window=20, window_dev=2)
     p["bollinger_pband"] = bb.bollinger_pband()
-    p["bollinger_width"] = bb.bollinger_wband()
-
-    # Keltner Channel: 채널 위치와 폭.
-    kc = KeltnerChannel(p["High"], p["Low"], p["Close"], window=20)
-    p["keltner_pband"] = kc.keltner_channel_pband()
-    p["keltner_width"] = kc.keltner_channel_wband()
 
     # OBV 기반 수급 흐름: 20일 Z-score로 정규화.
     obv = OnBalanceVolumeIndicator(p["Close"], p["Volume"]).on_balance_volume()
@@ -282,47 +256,31 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
 
     return FeatureSet(
         trend_score=float(trend_score),
-        ret_1d=float(latest["ret_1d"]),
         ret_5d=float(latest["ret_5d"]),
         ret_20d=float(latest["ret_20d"]),
-        ret_63d=float(latest["ret_63d"]),
         vol_z20=float(latest["vol_z20"]),
         pos_52w=float(latest["pos_52w"]),
         atr_pct=float(latest["atr_pct"]),
         rsi=float(latest["rsi"]),
-        avg_dollar_vol_20d=float(avg_dollar_vol),
-        avg_dollar_vol_60d=float(avg_dollar_vol_60d)
-        if not np.isnan(avg_dollar_vol_60d)
-        else float("nan"),
-        volume_stability_ratio=float(volume_stability_ratio)
-        if not np.isnan(volume_stability_ratio)
-        else float("nan"),
-        macd=float(latest["macd"]),
-        macd_signal=float(latest["macd_signal"]),
         macd_hist=float(latest["macd_hist"]),
         stoch_k=float(latest["stoch_k"]),
-        stoch_d=float(latest["stoch_d"]),
         roc_10=float(latest["roc_10"]),
         adx=float(latest["adx"]),
-        adx_pos=float(latest["adx_pos"]),
-        adx_neg=float(latest["adx_neg"]),
         ema_gap_20_50=float(latest["ema_gap_20_50"]),
         ema_gap_50_200=float(latest["ema_gap_50_200"]),
-        ema_gap_20_200=float(latest["ema_gap_20_200"]),
         ema200_slope_20=float(ema200_slope) if not np.isnan(ema200_slope) else float("nan"),
         close_to_ema200_pct=float(close_to_ema200)
         if not np.isnan(close_to_ema200)
         else float("nan"),
         bollinger_pband=float(latest["bollinger_pband"]),
-        bollinger_width=float(latest["bollinger_width"]),
-        keltner_pband=float(latest["keltner_pband"]),
-        keltner_width=float(latest["keltner_width"]),
         obv_z20=float(latest["obv_z20"]),
         cmf_20=float(latest["cmf_20"]),
         accdist_slope_5=float(latest["accdist_slope_5"]),
-        annual_dividend=float(total_div_1y),
-        dividend_yield=float(dividend_yield) if not np.isnan(dividend_yield) else np.nan,
         gap_down_pct=float(gap_down_pct) if not np.isnan(gap_down_pct) else float("nan"),
+        avg_dollar_vol_20d=float(avg_dollar_vol),
+        volume_stability_ratio=float(volume_stability_ratio)
+        if not np.isnan(volume_stability_ratio)
+        else float("nan"),
         hammer_candle=bool(hammer_candle),
         intraday_recovery=float(intraday_recovery)
         if not np.isnan(intraday_recovery)
@@ -330,6 +288,8 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         distance_from_10d_low=float(distance_from_10d_low)
         if not np.isnan(distance_from_10d_low)
         else float("nan"),
+        dividend_yield=float(dividend_yield) if not np.isnan(dividend_yield) else np.nan,
+        annual_dividend=float(total_div_1y),
     )
 
 
@@ -337,44 +297,32 @@ def _feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
     return {
         "티커": ticker,
         "트렌드점수": feature_set.trend_score,
-        "1일수익률": feature_set.ret_1d,
         "5일수익률": feature_set.ret_5d,
         "20일수익률": feature_set.ret_20d,
-        "63일수익률": feature_set.ret_63d,
         "거래량Z(20)": feature_set.vol_z20,
         "52주포지션": feature_set.pos_52w,
         "ATR%": feature_set.atr_pct,
         "RSI": feature_set.rsi,
-        "최근20일평균거래대금": feature_set.avg_dollar_vol_20d,
-        "최근60일평균거래대금": feature_set.avg_dollar_vol_60d,
-        "거래대금안정비": feature_set.volume_stability_ratio,
-        "macd": feature_set.macd,
-        "macd_signal": feature_set.macd_signal,
         "macd_hist": feature_set.macd_hist,
         "stoch_k": feature_set.stoch_k,
-        "stoch_d": feature_set.stoch_d,
         "roc_10": feature_set.roc_10,
         "adx": feature_set.adx,
-        "adx_pos": feature_set.adx_pos,
-        "adx_neg": feature_set.adx_neg,
         "ema_gap_20_50": feature_set.ema_gap_20_50,
         "ema_gap_50_200": feature_set.ema_gap_50_200,
-        "ema_gap_20_200": feature_set.ema_gap_20_200,
         "ema200_slope_20": feature_set.ema200_slope_20,
         "close_to_ema200_pct": feature_set.close_to_ema200_pct,
         "bollinger_pband": feature_set.bollinger_pband,
-        "bollinger_width": feature_set.bollinger_width,
-        "keltner_pband": feature_set.keltner_pband,
-        "keltner_width": feature_set.keltner_width,
         "obv_z20": feature_set.obv_z20,
         "cmf_20": feature_set.cmf_20,
         "accdist_slope_5": feature_set.accdist_slope_5,
-        "annual_dividend": feature_set.annual_dividend,
-        "dividend_yield": feature_set.dividend_yield,
         "갭하락률": feature_set.gap_down_pct,
+        "최근20일평균거래대금": feature_set.avg_dollar_vol_20d,
+        "거래대금안정비": feature_set.volume_stability_ratio,
         "저점반전캔들": int(feature_set.hammer_candle),
         "장중반등률": feature_set.intraday_recovery,
         "10일저점괴리": feature_set.distance_from_10d_low,
+        "dividend_yield": feature_set.dividend_yield,
+        "annual_dividend": feature_set.annual_dividend,
         "시장": to_market(ticker),
         "섹터": SECTOR_MAP.get(ticker, "Unknown"),
     }

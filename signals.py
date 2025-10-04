@@ -178,16 +178,7 @@ def collect_signal_evidence(row: pd.Series):
         if boll_p <= BOLLINGER_OVERSOLD_PBAND:
             add_oversold("볼린저 하단 이탈")
 
-    keltner_p = row.get("keltner_pband", np.nan)
-    if not np.isnan(keltner_p):
-        if keltner_p >= 0.85:
-            add_positive("켈트너 상단 돌파")
-        elif keltner_p <= 0.2:
-            add_negative("켈트너 하단 부근")
-        if keltner_p <= 0.15:
-            add_oversold("켈트너 하단 이탈")
-
-    ema_gap = row.get("ema_gap_20_200", np.nan)
+    ema_gap = row.get("ema_gap_50_200", np.nan)
     if not np.isnan(ema_gap):
         if ema_gap >= 0:
             add_positive("EMA 정배열")
@@ -202,13 +193,6 @@ def collect_signal_evidence(row: pd.Series):
             add_positive("ATR 안정")
         elif atr_pct >= 0.08:
             add_negative("ATR 변동성 확대")
-
-    keltner_width = row.get("keltner_width", np.nan)
-    if not np.isnan(keltner_width):
-        if keltner_width >= 0.6:
-            add_positive("켈트너 채널 확장")
-        elif keltner_width <= 0.2:
-            add_negative("켈트너 채널 축소")
 
     roc_10 = row.get("roc_10", np.nan)
     if not np.isnan(roc_10):
@@ -289,13 +273,6 @@ def evaluate_bottom_context(
         elif boll_p >= 0.8:
             add_caution("볼린저 중단 회복", -0.2)
 
-    keltner_p = row.get("keltner_pband", np.nan)
-    if not np.isnan(keltner_p):
-        if keltner_p <= 0.15:
-            add_signal("켈트너 하단 이탈", 0.6)
-        elif keltner_p <= 0.25:
-            add_signal("켈트너 하단 근접", 0.3)
-
     pos_52w = row.get("52주포지션", np.nan)
     if not np.isnan(pos_52w):
         if pos_52w <= 0.2:
@@ -312,10 +289,6 @@ def evaluate_bottom_context(
         elif ret_20d >= 0.05:
             add_caution("20일 상승 지속", -0.4)
 
-    ret_63d = row.get("63일수익률", np.nan)
-    if not np.isnan(ret_63d) and ret_63d <= -0.2:
-        add_signal("분기 누적 급락", 0.5)
-
     macd_hist = row.get("macd_hist", np.nan)
     if not np.isnan(macd_hist):
         if macd_hist <= MACD_BOTTOM_THRESHOLD:
@@ -328,7 +301,7 @@ def evaluate_bottom_context(
             add_signal("MACD 반등", 0.3)
             momentum_turn = True
 
-    ema_gap = row.get("ema_gap_20_200", np.nan)
+    ema_gap = row.get("ema_gap_50_200", np.nan)
     if not np.isnan(ema_gap) and ema_gap <= -0.05:
         add_signal("EMA 장기 역배열", 0.5)
 
