@@ -24,13 +24,22 @@ from ta.volume import (
 )
 
 from config import (
+    ATR_BUY_THRESHOLD_MULTIPLIER,
+    ATR_MEDIAN_LOOKBACK,
+    ATR_POSITION_MULTIPLE,
+    ATR_SELL_THRESHOLD_MULTIPLIER,
+    DEFAULT_EQUITY,
     HAMMER_LOWER_SHADOW_MIN,
     HAMMER_UPPER_SHADOW_MAX,
     LONG_TERM_SLOPE_LOOKBACK,
+    OBV_MOMENTUM_LOOKBACK,
+    OBV_ROLLING_WINDOW,
     REL_STRENGTH_LOOKBACK,
+    RISK_PER_TRADE,
     SECTOR_MAP,
     VOLATILITY_PENALTY_END,
     VOLATILITY_PENALTY_START,
+    VOLUME_ROLLING_WINDOW,
     WEIGHTS,
 )
 from fundamentals import fetch_fundamental_snapshots
@@ -87,6 +96,21 @@ class FeatureSet:
     distance_from_10d_low: float
     dividend_yield: float
     annual_dividend: float
+    ema20: float
+    ema50: float
+    volume: float
+    volume_ma20: float
+    obv: float
+    obv_ma20: float
+    obv_mom_5: float
+    obv_mom_ratio: float
+    atr_med_252: float
+    atr_buy_max: float
+    atr_sell_max: float
+    close: float
+    atr_value: float
+    stop_dist: float
+    position_size: float
 
 
 def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
@@ -106,8 +130,8 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     p["ret_20d"] = p["Close"].pct_change(REL_STRENGTH_LOOKBACK)
 
     # 거래량 기반 Z-score: 최근 거래량이 얼마나 평소와 다른지 확인한다.
-    p["vol_ma20"] = p["Volume"].rolling(20).mean()
-    p["vol_std20"] = p["Volume"].rolling(20).std(ddof=0)
+    p["vol_ma20"] = p["Volume"].rolling(VOLUME_ROLLING_WINDOW).mean()
+    p["vol_std20"] = p["Volume"].rolling(VOLUME_ROLLING_WINDOW).std(ddof=0)
     p["vol_z20"] = (p["Volume"] - p["vol_ma20"]) / (p["vol_std20"] + 1e-9)
 
     # ATR%: 절대적 가격 수준과 무관한 변동성 지표로 사용.
@@ -156,8 +180,8 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
 
     # OBV 기반 수급 흐름: 20일 Z-score로 정규화.
     obv = OnBalanceVolumeIndicator(p["Close"], p["Volume"]).on_balance_volume()
-    obv_ma = obv.rolling(20).mean()
-    obv_std = obv.rolling(20).std(ddof=0)
+    obv_ma = obv.rolling(OBV_ROLLING_WINDOW).mean()
+    obv_std = obv.rolling(OBV_ROLLING_WINDOW).std(ddof=0)
     p["obv_z20"] = (obv - obv_ma) / (obv_std + 1e-9)
 
     # Chaikin Money Flow: 20일 자금 흐름지수.
@@ -248,11 +272,73 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         if recent_low and recent_low > 0:
             distance_from_10d_low = (latest["Close"] / recent_low) - 1.0
 
+    ema20_latest = float(ema20.iloc[-1]) if not np.isnan(ema20.iloc[-1]) else float("nan")
+    ema50_latest = float(ema50.iloc[-1]) if not np.isnan(ema50.iloc[-1]) else float("nan")
+
+    volume_latest = float(p["Volume"].iloc[-1]) if not np.isnan(p["Volume"].iloc[-1]) else float("nan")
+    volume_ma_latest = (
+        float(p["vol_ma20"].iloc[-1]) if not np.isnan(p["vol_ma20"].iloc[-1]) else float("nan")
+    )
+
+    obv_latest = float(obv.iloc[-1]) if not np.isnan(obv.iloc[-1]) else float("nan")
+    obv_ma_latest = float(obv_ma.iloc[-1]) if not np.isnan(obv_ma.iloc[-1]) else float("nan")
+    obv_mom_series = obv.diff(OBV_MOMENTUM_LOOKBACK)
+    obv_mom_latest = (
+        float(obv_mom_series.iloc[-1]) if not np.isnan(obv_mom_series.iloc[-1]) else float("nan")
+    )
+
+    atr_median_series = p["atr_pct"].rolling(ATR_MEDIAN_LOOKBACK).median()
+    atr_median_latest = (
+        float(atr_median_series.iloc[-1])
+        if not np.isnan(atr_median_series.iloc[-1])
+        else float("nan")
+    )
+
+    atr_buy_max = (
+        atr_median_latest * ATR_BUY_THRESHOLD_MULTIPLIER
+        if not np.isnan(atr_median_latest)
+        else float("nan")
+    )
+    atr_sell_max = (
+        atr_median_latest * ATR_SELL_THRESHOLD_MULTIPLIER
+        if not np.isnan(atr_median_latest)
+        else float("nan")
+    )
+
     total_div_1y = p["Dividends"].iloc[-252:].sum()
     latest_close = p["Close"].iloc[-1]
     dividend_yield = np.nan
     if not np.isnan(latest_close) and latest_close > 0:
         dividend_yield = total_div_1y / latest_close
+
+    atr_value = np.nan
+    if not np.isnan(latest_close) and not np.isnan(latest["atr_pct"]):
+        atr_value = latest["atr_pct"] * latest_close
+
+    stop_dist = np.nan
+    if not np.isnan(atr_value):
+        stop_dist = atr_value * ATR_POSITION_MULTIPLE
+
+    base_risk = DEFAULT_EQUITY * RISK_PER_TRADE
+
+    trend_weight = 0.0
+    if not np.isnan(latest["adx"]):
+        trend_weight = float(np.clip((latest["adx"] - 20.0) / 20.0, 0.0, 1.0))
+
+    obv_momentum = np.nan
+    if not np.isnan(obv_latest) and not np.isnan(obv_ma_latest) and obv_ma_latest != 0:
+        obv_momentum = (obv_latest - obv_ma_latest) / obv_ma_latest
+
+    vol_adj_size = 1.0
+    if (
+        not np.isnan(latest["atr_pct"])
+        and not np.isnan(atr_median_latest)
+        and atr_median_latest > 0
+        and latest["atr_pct"] > 0
+    ):
+        vol_adj_size = float(atr_median_latest / latest["atr_pct"])
+
+    position_size = base_risk * trend_weight * float(np.clip(vol_adj_size, 0.5, 2.0))
 
     return FeatureSet(
         trend_score=float(trend_score),
@@ -290,6 +376,21 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         else float("nan"),
         dividend_yield=float(dividend_yield) if not np.isnan(dividend_yield) else np.nan,
         annual_dividend=float(total_div_1y),
+        ema20=ema20_latest,
+        ema50=ema50_latest,
+        volume=volume_latest,
+        volume_ma20=volume_ma_latest,
+        obv=obv_latest,
+        obv_ma20=obv_ma_latest,
+        obv_mom_5=obv_mom_latest,
+        obv_mom_ratio=float(obv_momentum) if not np.isnan(obv_momentum) else float("nan"),
+        atr_med_252=atr_median_latest,
+        atr_buy_max=atr_buy_max,
+        atr_sell_max=atr_sell_max,
+        close=float(latest_close) if not np.isnan(latest_close) else float("nan"),
+        atr_value=float(atr_value) if not np.isnan(atr_value) else float("nan"),
+        stop_dist=float(stop_dist) if not np.isnan(stop_dist) else float("nan"),
+        position_size=float(position_size),
     )
 
 
@@ -325,6 +426,21 @@ def _feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "annual_dividend": feature_set.annual_dividend,
         "시장": to_market(ticker),
         "섹터": SECTOR_MAP.get(ticker, "Unknown"),
+        "ema20": feature_set.ema20,
+        "ema50": feature_set.ema50,
+        "volume": feature_set.volume,
+        "volume_ma20": feature_set.volume_ma20,
+        "obv": feature_set.obv,
+        "obv_ma20": feature_set.obv_ma20,
+        "obv_mom_5": feature_set.obv_mom_5,
+        "obv_mom_ratio": feature_set.obv_mom_ratio,
+        "atr_med_252": feature_set.atr_med_252,
+        "atr_buy_max": feature_set.atr_buy_max,
+        "atr_sell_max": feature_set.atr_sell_max,
+        "close": feature_set.close,
+        "atr_value": feature_set.atr_value,
+        "stop_dist": feature_set.stop_dist,
+        "position_size": feature_set.position_size,
     }
 
 

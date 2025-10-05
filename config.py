@@ -66,24 +66,22 @@ BACKTEST_ENABLED = True
 BACKTEST_WORKSHEET_NAME = "백테스트"
 BACKTEST_RUNS = [
     {
-        "label": "Top10",
-        "max_tickers": 100,
-        "top_n": 10,
+        "label": "Core_1y",
         "period": "1y",
-        "hold_days": 10,
-        "rebalance_every": 10,
+        "max_positions": 6,
+        "rebalance_every": 5,
+        "max_tickers": 60,
+        "min_history_days": 220,
         "include_fundamentals": True,
-        "select_bottom": False,
     },
     {
-        "label": "Bottom10",
-        "max_tickers": 100,
-        "top_n": 10,
-        "period": "1y",
-        "hold_days": 10,
-        "rebalance_every": 10,
-        "include_fundamentals": True,
-        "select_bottom": True,
+        "label": "Fast_6mo",
+        "period": "6mo",
+        "max_positions": 8,
+        "rebalance_every": 3,
+        "max_tickers": 40,
+        "min_history_days": 160,
+        "include_fundamentals": False,
     },
 ]
 
@@ -140,6 +138,27 @@ HAMMER_UPPER_SHADOW_MAX = 0.25
 INTRADAY_RECOVERY_MIN = 0.04
 
 EARNINGS_EVENT_WINDOW_DAYS = 9
+
+# --- Simplified signal configuration (indicator set restricted to EMA/RSI/MACD/Volume/ADX/OBV/ATR) ---
+VOLUME_ROLLING_WINDOW = 20
+VOLUME_BREAKOUT_MULTIPLIER = 1.2
+
+OBV_ROLLING_WINDOW = 20
+OBV_MOMENTUM_LOOKBACK = 5
+
+ATR_MEDIAN_LOOKBACK = 252
+ATR_BUY_THRESHOLD_MULTIPLIER = 1.5
+ATR_SELL_THRESHOLD_MULTIPLIER = 1.8
+
+RSI_BUY_MAX = 55
+RSI_SELL_MIN = 70
+
+ADX_BUY_MIN = 20
+ADX_SELL_MAX = 18
+
+RISK_PER_TRADE = 0.01
+ATR_POSITION_MULTIPLE = 2.5
+DEFAULT_EQUITY = 100_000
 
 # 판단·추천 강도를 위한 세부 임계치 조정
 BUY_POSITIVE_MIN = 6
@@ -205,6 +224,9 @@ PERCENT_COLUMNS = [
     "장중반등률",
     "10일저점괴리",
     "갭하락률",
+    "atr_med_252",
+    "atr_buy_max",
+    "atr_sell_max",
 ]
 
 # 실행 때마다 백업(타임스탬프) CSV를 추가로 만들 것인지 여부.
@@ -224,6 +246,24 @@ TECH_COLUMN_LABELS = {
     "annual_dividend": "연간 배당",
     "dividend_yield": "배당수익률",
     "최근20일평균거래대금": "최근20일평균거래대금(M)",
+    "ema20": "EMA20",
+    "ema50": "EMA50",
+    "volume": "거래량(최근)",
+    "volume_ma20": "거래량MA20",
+    "obv": "OBV",
+    "obv_ma20": "OBV MA20",
+    "obv_mom_5": "OBV 모멘텀(5)",
+    "obv_mom_ratio": "OBV 모멘텀(20)",
+    "atr_pct": "ATR%",
+    "atr_med_252": "ATR% 중앙값(1y)",
+    "atr_buy_max": "ATR 매수 한도",
+    "atr_sell_max": "ATR 매도 한도",
+    "atr_value": "ATR(가격기준)",
+    "stop_dist": "스탑 거리",
+    "position_size": "권장 수량",
+    "buy_signal": "매수 신호",
+    "sell_signal": "매도 신호",
+    "close": "종가",
 }
 
 # 후처리 및 출력 단계에서 공통으로 사용하는 컬럼 정의.
@@ -285,47 +325,23 @@ EXPORT_COLUMNS = [
     "우선순위",
     "판단",
     "추천",
-    "긍정",
-    "저점",
-    "저점강도",
-    "저점근거",
-    "저점점수",
-    "저점건강",
-    # "상대강도",
-    # "경계",
     "트렌드점수_최종",
-    # Trend
-    # "52주포지션",
-    # "ema_gap_20_50",
-    # "ema_gap_50_200",
-    # "ema200_slope_20",
-    # "close_to_ema200_pct",
-    # "adx",
-    # Momentum
-    # "5일수익률",
-    # "20일수익률",
-    # "roc_10",
-    # "macd_hist",
-    # Mean Reversion
+    "buy_signal",
+    "sell_signal",
+    "position_size",
+    "stop_dist",
     "RSI",
-    # "bollinger_pband",
-    # "10일저점괴리",
-    # "stoch_k",
-    # Flow
-    # "obv_z20",
-    # "cmf_20",
-    # "accdist_slope_5",
-    # # Risk & Liquidity
-    # "ATR%",
-    # "거래량Z(20)",
-    # "갭하락률",
-    # "최근20일평균거래대금",
-    # "거래대금안정비",
-    # # Candlestick & Intraday
-    # "저점반전캔들",
-    # "장중반등률",
-    # Value
+    "macd_hist",
+    "ema20",
+    "ema50",
+    "atr_pct",
+    "atr_buy_max",
+    "atr_sell_max",
+    "volume",
+    "volume_ma20",
+    "obv",
+    "obv_ma20",
+    "obv_mom_5",
+    "obv_mom_ratio",
     "dividend_yield",
-    # "annual_dividend",
-    # "이벤트주의",
 ]
