@@ -27,10 +27,10 @@ from exporter import (
     fetch_tickers_from_sheet,
     prepare_export_dataframe,
 )
+from backtest import run_backtest
 from features import compute_all_features
 from processing import apply_neutralization, liquidity_filter
 from signals import attach_signals_and_sort
-from backtest import run_backtest
 
 
 def build_export_dataframe(

@@ -70,19 +70,10 @@ BACKTEST_RUNS = [
         "period": "1y",
         "max_positions": 6,
         "rebalance_every": 5,
-        "max_tickers": 60,
+        "max_tickers": None,
         "min_history_days": 220,
         "include_fundamentals": True,
-    },
-    {
-        "label": "Fast_6mo",
-        "period": "6mo",
-        "max_positions": 8,
-        "rebalance_every": 3,
-        "max_tickers": 40,
-        "min_history_days": 160,
-        "include_fundamentals": False,
-    },
+    }
 ]
 
 # 시그널 판정 임계치.
