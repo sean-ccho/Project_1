@@ -254,6 +254,10 @@ TECH_COLUMN_LABELS = {
     "position_size": "권장 수량",
     "buy_signal": "매수 신호",
     "sell_signal": "매도 신호",
+    "buy_signal_text": "매수 신호",
+    "sell_signal_text": "매도 신호",
+    "buy_support_count": "매수 보조",
+    "sell_support_count": "매도 보조",
     "close": "종가",
 }
 
@@ -317,8 +321,10 @@ EXPORT_COLUMNS = [
     "판단",
     "추천",
     "트렌드점수_최종",
-    "buy_signal",
-    "sell_signal",
+    "buy_signal_text",
+    "sell_signal_text",
+    "buy_support_count",
+    "sell_support_count",
     "position_size",
     "stop_dist",
     "RSI",

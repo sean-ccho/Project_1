@@ -31,7 +31,7 @@ def _column(df: pd.DataFrame, name: str) -> pd.Series:
     return pd.Series(np.nan, index=df.index)
 
 
-def _compute_buy_signal(df: pd.DataFrame) -> pd.Series:
+def _compute_buy_signal(df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
     """EMA/MACD/RSI/Volume/ADX/OBV/ATR filters for entry."""
 
     ema20 = _column(df, "ema20")
@@ -62,10 +62,10 @@ def _compute_buy_signal(df: pd.DataFrame) -> pd.Series:
     support_count = support_stack.fillna(False).sum(axis=1)
 
     buy = core & (support_count >= 3)
-    return _safe_bool(buy)
+    return _safe_bool(buy), support_count
 
 
-def _compute_sell_signal(df: pd.DataFrame) -> pd.Series:
+def _compute_sell_signal(df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
     """Protective exit filters mirroring the simplified indicator set."""
 
     ema20 = _column(df, "ema20")
@@ -90,7 +90,7 @@ def _compute_sell_signal(df: pd.DataFrame) -> pd.Series:
     support_count = support_stack.fillna(False).sum(axis=1)
 
     sell = core & (support_count >= 2)
-    return _safe_bool(sell)
+    return _safe_bool(sell), support_count
 
 
 def _evaluate_judgement(buy: pd.Series, sell: pd.Series) -> tuple[pd.Series, pd.Series]:
@@ -122,8 +122,28 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
 
     out = df.copy()
 
-    out["buy_signal"] = _compute_buy_signal(out)
-    out["sell_signal"] = _compute_sell_signal(out)
+    buy_signal, buy_counts = _compute_buy_signal(out)
+    sell_signal, sell_counts = _compute_sell_signal(out)
+
+    buy_counts = buy_counts.fillna(0).astype(int)
+    sell_counts = sell_counts.fillna(0).astype(int)
+
+    out["buy_signal"] = buy_signal
+    out["sell_signal"] = sell_signal
+    out["buy_support_count"] = buy_counts
+    out["sell_support_count"] = sell_counts
+    out["support_count"] = buy_counts
+
+    def _format(flag: bool, count: int) -> str:
+        label = "TRUE" if bool(flag) else "FALSE"
+        return f"{label}({count})"
+
+    out["buy_signal_text"] = [
+        _format(flag, count) for flag, count in zip(buy_signal.tolist(), buy_counts.tolist())
+    ]
+    out["sell_signal_text"] = [
+        _format(flag, count) for flag, count in zip(sell_signal.tolist(), sell_counts.tolist())
+    ]
 
     judgement, recommendation = _evaluate_judgement(
         out["buy_signal"], out["sell_signal"]

@@ -74,8 +74,10 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
 | `상대강도` | 시장·섹터 대비 성과: `방어` 또는 `약세` |
 | `경계` | 부정·과열 경고 요약 |
 | `트렌드점수_최종` | 시장/섹터 중립화까지 반영한 추세 점수 (0.6 원점수 + 0.25 시장 z + 0.15 섹터 z) |
-| `buy_signal` | 매수 신호 여부 (핵심/보조 필터 동시 충족 시 True) |
-| `sell_signal` | 매도 신호 여부 |
+| `buy_signal_text` | 매수 신호 + 보조 충족 수 (`TRUE(3)` 형태) |
+| `sell_signal_text` | 매도 신호 + 보조 충족 수 |
+| `buy_support_count` | 매수 보조 조건 충족 개수 |
+| `sell_support_count` | 매도 보조 조건 충족 개수 |
 | `position_size` | ATR 기반 권장 수량(기본 자본 1% 리스크 기준) |
 | `stop_dist` | 진입 시점 추정 스탑 거리 (ATR × 2.5) |
 | `RSI` | 현재 RSI 값 |
