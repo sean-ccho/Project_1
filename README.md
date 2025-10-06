@@ -42,10 +42,10 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
 3. **유동성 필터(`processing.liquidity_filter`)** – 시장별 20일 평균 거래대금 분위수 하위 `LIQUIDITY_QUANTILE` 비율을 제거하고, 절대 거래대금이 `LIQUIDITY_DOLLAR_MIN` 미만이면 제외합니다. `LIQUIDITY_WHITELIST`는 항상 유지됩니다.
 4. **중립화(`processing.apply_neutralization`)** – 트렌드 점수를 시장/섹터 z-score로 스무딩하여 비교 가능성을 높입니다.
 5. **신호 평가(`signals.py`)**
-   - 긍정/부정/과열/과매도 증거 수집
-   - `evaluate_bottom_context`로 저점 스코어링: 과매도 지표, EMA 이탈, 거래량 회복, 상대 강도, 재무 체력, 실적 이벤트 등을 가중 합산해 `BottomContext` 생성
-   - `classify_signal`이 트렌드 점수, 상대 강도, 긍정/부정 시그널 수(`BUY_POSITIVE_MIN`, `WATCH_POSITIVE_MIN`)와 과열 조건을 교차 검증해 `판단`(매수 후보 / 저점 관찰 / 관심 관찰 / 관망 과열 / 관망 약세)을 결정
-   - `recommendation_from_signal`이 저점 강도·거래량 지지·실적 이벤트·RSI 과열 등을 고려해 실행 액션(적극/분할 매수, 반등 모니터링 등)을 제안
+   - **핵심 필터**: EMA20 > EMA50 & MACD 히스토그램 > 0일 때만 매수 후보로 고려
+   - **보조 필터**: RSI, 거래량(20일 평균 대비), ADX, OBV, ATR 안정성 가운데 충족한 개수를 집계
+   - 매수 신호는 보조 5개 중 3개 이상 충족 시 `TRUE(3)`처럼 보조 개수를 함께 표기하며, 매도 신호는 핵심 약화 + 보조 3개 중 2개 이상 충족 시 `TRUE(2)`로 표시됩니다.
+   - `evaluate_bottom_context`가 과매도·거래량·상대강도·재무 신호를 종합해 저점 스코어/등급을 계산하고, `classify_signal`과 `recommendation_from_signal`이 최종 `판단`과 `추천`을 결정합니다.
 6. **출력(`main.py`)**
    - `exporter.prepare_export_dataframe`가 최종 테이블을 정돈
    - 기본 `Signals` 워크시트는 `config.TICKERS` 풀을 기반으로 업데이트하며, `GOOGLE_SHEETS_PORTFOLIO_WORKSHEET`가 설정되어 있으면 해당 워크시트의 `GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN`에 적힌 티커 목록을 읽어 별도의 파이프라인을 실행해 결과를 업데이트합니다.
@@ -74,8 +74,11 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
 | `상대강도` | 시장·섹터 대비 성과: `방어` 또는 `약세` |
 | `경계` | 부정·과열 경고 요약 |
 | `트렌드점수_최종` | 시장/섹터 중립화까지 반영한 추세 점수 (0.6 원점수 + 0.25 시장 z + 0.15 섹터 z) |
+| `buy_signal` | 매수 신호 여부 (핵심/보조 필터 동시 충족 시 True) |
+| `sell_signal` | 매도 신호 여부 |
+| `position_size` | ATR 기반 권장 수량(기본 자본 1% 리스크 기준) |
+| `stop_dist` | 진입 시점 추정 스탑 거리 (ATR × 2.5) |
 | `RSI` | 현재 RSI 값 |
-| `macd` | 현재 MACD 값 |
 | `dividend_yield` | 최근 1년 배당수익률 |
 | `이벤트주의` | `실적 임박` 경고 (±5일 내 실적 발표 예정) 또는 공백 |
 
@@ -152,12 +155,21 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
 5. **차익/관망** – `차익 실현 고려`, `고평가 관망`
 
 ---
-## 기본 백테스트 파라미터
-- Top10 / Bottom10 두 가지 런을 실행합니다.
-  - `period`: 1y, `max_tickers`: 100, `top_n`: 10
-  - `hold_days`: 10, `rebalance_every`: 10 (보유 기간과 리밸런싱 주기를 동일하게 유지)
-  - `include_fundamentals`: True, Bottom10은 `select_bottom = True`
-- 동일 조건으로 테스트하려면 `python3 backtest.py --period 1y --hold-days 10 --rebalance-every 10 --top-n 10 --max-tickers 100` (Bottom10은 `--select-bottom` 추가)를 실행하면 됩니다.
+## 백테스트 개요
+- 파이프라인 기본 설정(`config.BACKTEST_RUNS`)은 `Core_1y` 한 가지 런입니다.
+  - `period="1y"`, `max_positions=6`, `rebalance_every=5`, `min_history_days=220`
+  - 신호 강도(보조 충족 개수)에 따라 ATR 기반 포지션 사이즈를 0.6~1.2배 가중
+  - 진입/청산 시 슬리피지+수수료(기본 10bps + 5bps)를 반영하고, 최대 60거래일 보유 및 ATR×2.5 트레일링 스탑을 사용합니다.
+  - 결과는 `BACKTEST_WORKSHEET_NAME`(기본 "백테스트") Google Sheets 워크시트로 내보냅니다.
+
+### 백테스트만 단독 실행하기
+신호/포트폴리오 업데이트 없이 백테스트만 재실행하려면 다음 스크립트를 사용하세요.
+
+```bash
+./.venv/bin/python scripts/run_backtest_only.py
+```
+
+`scripts/run_backtest_only.py`는 프로젝트 루트를 임포트 경로에 추가한 뒤 `config.BACKTEST_RUNS`를 순회하여 백테스트를 실행하고, `export_backtest_results`로 Google Sheets에 결과를 업데이트합니다.
 
 ---
 ## 실행 결과 예시 (콘솔)
@@ -172,6 +184,7 @@ Google Sheets 업데이트 완료
 ## 문제 해결 팁
 - **yfinance 다운로드 실패**: 간헐적으로 발생합니다. 잠시 후 재시도하거나 티커 수를 줄이세요.
 - **실행 시간이 길다**: `TICKERS`를 섹터별로 나누거나, `fetch_ohlcv`의 `period`를 `6mo` 등으로 줄일 수 있습니다.
+- **재실행 시 결과가 조금씩 다르다**: 현재 파이프라인과 백테스트 전용 스크립트 모두 실행할 때마다 yfinance에서 최신 데이터를 다시 받기 때문에 시점에 따라 수치가 달라질 수 있습니다.
 - **서비스 계정 권한 오류**: Google Sheets 공유 설정에서 서비스 계정을 편집 권한으로 추가해야 합니다.
 - **캐시/가상환경이 Git에 잡힘**: `.gitignore`에 `__pycache__/`, `.venv/` 등을 이미 포함해 두었으니, 과거 이력에 있다면 `git rm --cached`로 한 번 정리하세요.
 
