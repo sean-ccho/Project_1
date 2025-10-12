@@ -31,6 +31,9 @@ from config import (
     DEFAULT_EQUITY,
     HAMMER_LOWER_SHADOW_MIN,
     HAMMER_UPPER_SHADOW_MAX,
+    EARNINGS_SOON_DAYS,
+    EXTREME_HIGH_LOOKBACK,
+    EXTREME_LOW_LOOKBACK,
     LONG_TERM_SLOPE_LOOKBACK,
     OBV_MOMENTUM_LOOKBACK,
     OBV_ROLLING_WINDOW,
@@ -94,6 +97,9 @@ class FeatureSet:
     hammer_candle: bool
     intraday_recovery: float
     distance_from_10d_low: float
+    distance_from_10d_high: float
+    volume_breakout_ratio: float
+    volatility_contraction: float
     dividend_yield: float
     annual_dividend: float
     ema20: float
@@ -267,10 +273,16 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         intraday_recovery = (latest["Close"] / latest["Low"]) - 1.0
 
     distance_from_10d_low = np.nan
-    if len(p) >= 10:
-        recent_low = p["Close"].iloc[-10:].min()
+    if len(p) >= EXTREME_LOW_LOOKBACK:
+        recent_low = p["Close"].iloc[-EXTREME_LOW_LOOKBACK:].min()
         if recent_low and recent_low > 0:
             distance_from_10d_low = (latest["Close"] / recent_low) - 1.0
+
+    distance_from_10d_high = np.nan
+    if len(p) >= EXTREME_HIGH_LOOKBACK:
+        recent_high = p["Close"].iloc[-EXTREME_HIGH_LOOKBACK:].max()
+        if recent_high and recent_high > 0:
+            distance_from_10d_high = (latest["Close"] / recent_high) - 1.0
 
     ema20_latest = float(ema20.iloc[-1]) if not np.isnan(ema20.iloc[-1]) else float("nan")
     ema50_latest = float(ema50.iloc[-1]) if not np.isnan(ema50.iloc[-1]) else float("nan")
@@ -279,6 +291,9 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     volume_ma_latest = (
         float(p["vol_ma20"].iloc[-1]) if not np.isnan(p["vol_ma20"].iloc[-1]) else float("nan")
     )
+    volume_breakout_ratio = np.nan
+    if not np.isnan(volume_latest) and not np.isnan(volume_ma_latest) and volume_ma_latest != 0:
+        volume_breakout_ratio = volume_latest / volume_ma_latest
 
     obv_latest = float(obv.iloc[-1]) if not np.isnan(obv.iloc[-1]) else float("nan")
     obv_ma_latest = float(obv_ma.iloc[-1]) if not np.isnan(obv_ma.iloc[-1]) else float("nan")
@@ -293,6 +308,15 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         if not np.isnan(atr_median_series.iloc[-1])
         else float("nan")
     )
+
+    volatility_contraction = np.nan
+    if (
+        not np.isnan(latest["atr_pct"])
+        and not np.isnan(atr_median_latest)
+        and atr_median_latest > 0
+        and latest["atr_pct"] > 0
+    ):
+        volatility_contraction = latest["atr_pct"] / atr_median_latest
 
     atr_buy_max = (
         atr_median_latest * ATR_BUY_THRESHOLD_MULTIPLIER
@@ -374,6 +398,15 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         distance_from_10d_low=float(distance_from_10d_low)
         if not np.isnan(distance_from_10d_low)
         else float("nan"),
+        distance_from_10d_high=float(distance_from_10d_high)
+        if not np.isnan(distance_from_10d_high)
+        else float("nan"),
+        volume_breakout_ratio=float(volume_breakout_ratio)
+        if not np.isnan(volume_breakout_ratio)
+        else float("nan"),
+        volatility_contraction=float(volatility_contraction)
+        if not np.isnan(volatility_contraction)
+        else float("nan"),
         dividend_yield=float(dividend_yield) if not np.isnan(dividend_yield) else np.nan,
         annual_dividend=float(total_div_1y),
         ema20=ema20_latest,
@@ -394,7 +427,7 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     )
 
 
-def _feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
+def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
     return {
         "티커": ticker,
         "트렌드점수": feature_set.trend_score,
@@ -422,6 +455,9 @@ def _feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "저점반전캔들": int(feature_set.hammer_candle),
         "장중반등률": feature_set.intraday_recovery,
         "10일저점괴리": feature_set.distance_from_10d_low,
+        "10일고점괴리": feature_set.distance_from_10d_high,
+        "거래량돌파배수": feature_set.volume_breakout_ratio,
+        "변동성압축": feature_set.volatility_contraction,
         "dividend_yield": feature_set.dividend_yield,
         "annual_dividend": feature_set.annual_dividend,
         "시장": to_market(ticker),
@@ -456,7 +492,7 @@ def compute_features_snapshot(
         features = compute_features_for_ticker(frame.dropna(how="all"))
         if features is None:
             continue
-        rows.append(_feature_row_from_set(ticker, features))
+        rows.append(feature_row_from_set(ticker, features))
 
     out = pd.DataFrame(rows)
     if out.empty:
@@ -480,6 +516,15 @@ def compute_features_snapshot(
         fundamentals = fetch_fundamental_snapshots(out["티커"].tolist())
         if not fundamentals.empty:
             out = out.merge(fundamentals, on="티커", how="left")
+
+    if "days_to_next_earnings" in out.columns:
+        earnings_window = out["days_to_next_earnings"].between(
+            0, EARNINGS_SOON_DAYS, inclusive="both"
+        )
+        out["event_earnings_within_window"] = earnings_window.fillna(False)
+        out["event_earnings_within_window"] = out[
+            "event_earnings_within_window"
+        ].astype(bool)
 
     return out
 

@@ -149,6 +149,21 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
         out["buy_signal"], out["sell_signal"]
     )
 
+    low_prob = _column(out, "저점확률")
+    high_prob = _column(out, "고점확률")
+    judgement = judgement.copy()
+    recommendation = recommendation.copy()
+
+    if not low_prob.isna().all() or not high_prob.isna().all():
+        high_flag = high_prob >= 0.65
+        low_flag = (low_prob >= 0.65) & ~high_flag
+
+        judgement.loc[high_flag] = "관망 과열"
+        recommendation.loc[high_flag] = "차익 실현 고려"
+
+        judgement.loc[low_flag] = "저점 관찰"
+        recommendation.loc[low_flag] = "저점 분할 매수"
+
     out[judgement.name] = judgement
     out["판단"] = judgement.map(lambda value: JUDGEMENT_DISPLAY.get(value, value))
     out[recommendation.name] = recommendation

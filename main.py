@@ -11,6 +11,8 @@ from config import (
     BACKTEST_RUNS,
     BACKTEST_WORKSHEET_NAME,
     COMPANY_NAME_MAP,
+    EXTREME_MODEL_ENABLED,
+    EXTREME_MODEL_TRAIN_PERIOD,
     TICKERS,
     GOOGLE_SHEETS_SIGNALS_WORKSHEET,
     GOOGLE_SHEETS_PORTFOLIO_WORKSHEET,
@@ -31,6 +33,7 @@ from backtest import run_backtest
 from features import compute_all_features
 from processing import apply_neutralization, liquidity_filter
 from signals import attach_signals_and_sort
+from analytics.extremes import score_extremes_for_snapshot
 
 
 def build_export_dataframe(
@@ -61,12 +64,42 @@ def build_export_dataframe(
 
     neutral = apply_neutralization(liquid)
     ranked = attach_signals_and_sort(neutral)
+    unique_tickers = ranked["티커"].unique().tolist()
+
+    extreme_metrics: dict | None = None
+    if EXTREME_MODEL_ENABLED:
+        ranked, extreme_metrics = score_extremes_for_snapshot(
+            unique_tickers,
+            ranked,
+            period=EXTREME_MODEL_TRAIN_PERIOD,
+        )
+        if extreme_metrics:
+            for label, info in extreme_metrics.items():
+                status = info.get("status")
+                if status != "ok":
+                    print(
+                        f"[{context_label}] Extreme model '{label}' skipped: {info.get('reason', status)}"
+                    )
+                    continue
+                folds = info.get("folds") or []
+                if not folds:
+                    continue
+                mean_roc = sum(fold.get("roc_auc", 0.0) for fold in folds) / len(folds)
+                mean_ap = sum(fold.get("avg_precision", 0.0) for fold in folds) / len(folds)
+                print(
+                    f"[{context_label}] Extreme model '{label}' walk-forward ROC {mean_roc:.2f}, AP {mean_ap:.2f}"
+                )
+
+    if {"우선순위", "극점편차", "트렌드점수_최종"}.issubset(ranked.columns):
+        ranked = ranked.sort_values(
+            ["우선순위", "극점편차", "트렌드점수_최종"],
+            ascending=[True, False, False],
+        )
 
     if "티커" not in ranked.columns:
         print(f"[{context_label}] 결과에 티커 정보가 없어 건너뜁니다.")
         return None
 
-    unique_tickers = ranked["티커"].unique().tolist()
     fetched_names = fetch_company_names(unique_tickers)
     full_name_map = {**fetched_names, **COMPANY_NAME_MAP}
     fetched_prices = fetch_latest_prices(unique_tickers)

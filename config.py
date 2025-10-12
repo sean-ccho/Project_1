@@ -129,6 +129,38 @@ HAMMER_UPPER_SHADOW_MAX = 0.25
 INTRADAY_RECOVERY_MIN = 0.04
 
 EARNINGS_EVENT_WINDOW_DAYS = 9
+EARNINGS_SOON_DAYS = 7
+EXTREME_LOW_LOOKBACK = 10
+EXTREME_HIGH_LOOKBACK = 10
+
+# 극단 구간(저점/고점) 라벨링 및 모델링 설정
+EXTREME_LABEL_LOOKAHEAD = 10
+EXTREME_LOW_MIN_RETURN = 0.07
+EXTREME_HIGH_MAX_DRAWDOWN = -0.07
+EXTREME_HISTORY_STEP = 3
+EXTREME_MODEL_ENABLED = False
+EXTREME_MODEL_TRAIN_PERIOD = "3y"
+EXTREME_MODEL_MIN_SAMPLES = 400
+EXTREME_MODEL_REG_C = 1.5
+EXTREME_MODEL_FEATURES = [
+    "RSI",
+    "bollinger_pband",
+    "10일저점괴리",
+    "10일고점괴리",
+    "거래량돌파배수",
+    "변동성압축",
+    "장중반등률",
+    "accdist_slope_5",
+    "obv_z20",
+    "cmf_20",
+    "ema_gap_20_50",
+    "ema_gap_50_200",
+    "52주포지션",
+    "5일수익률",
+    "20일수익률",
+    "시장상대강도",
+    "섹터상대강도",
+]
 
 # --- Simplified signal configuration (indicator set restricted to EMA/RSI/MACD/Volume/ADX/OBV/ATR) ---
 VOLUME_ROLLING_WINDOW = 20
@@ -246,6 +278,9 @@ TECH_COLUMN_LABELS = {
     "obv_mom_5": "OBV 모멘텀(5)",
     "obv_mom_ratio": "OBV 모멘텀(20)",
     "atr_pct": "ATR%",
+    "거래량돌파배수": "거래량돌파배수",
+    "변동성압축": "변동성압축",
+    "10일고점괴리": "10일고점괴리",
     "atr_med_252": "ATR% 중앙값(1y)",
     "atr_buy_max": "ATR 매수 한도",
     "atr_sell_max": "ATR 매도 한도",
@@ -259,6 +294,9 @@ TECH_COLUMN_LABELS = {
     "buy_support_count": "매수 보조",
     "sell_support_count": "매도 보조",
     "close": "종가",
+    "저점확률": "저점확률",
+    "고점확률": "고점확률",
+    "극점편차": "극점편차",
 }
 
 # 후처리 및 출력 단계에서 공통으로 사용하는 컬럼 정의.
@@ -328,6 +366,9 @@ EXPORT_COLUMNS = [
     "position_size",
     "stop_dist",
     "RSI",
+    "저점확률",
+    "고점확률",
+    "극점편차",
     # "macd_hist",
     # "ema20",
     # "ema50",
