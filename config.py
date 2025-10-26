@@ -56,25 +56,8 @@ for ticker in LIQUIDITY_WHITELIST:
 GOOGLE_SHEETS_ENABLED = True
 GOOGLE_SHEETS_CREDENTIALS_PATH: str | None = "gspread-service-account.json"
 GOOGLE_SHEETS_SPREADSHEET_ID: str | None = "1VxzTPfDvRX0UGJZcNnRsqTRex4gqmjv4P-1I_VcuXaw"
-GOOGLE_SHEETS_SIGNALS_WORKSHEET = "Signals"
-GOOGLE_SHEETS_PORTFOLIO_WORKSHEET: str | None = "보유주식"
+GOOGLE_SHEETS_PORTFOLIO_WORKSHEET: str | None = "주식찾기"
 GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
-
-
-# 백테스트 자동 실행 설정
-BACKTEST_ENABLED = False
-BACKTEST_WORKSHEET_NAME = "백테스트"
-BACKTEST_RUNS = [
-    {
-        "label": "Core_1y",
-        "period": "1y",
-        "max_positions": 6,
-        "rebalance_every": 5,
-        "max_tickers": None,
-        "min_history_days": 220,
-        "include_fundamentals": True,
-    }
-]
 
 # 시그널 판정 임계치.
 BUY_SCORE_THRESHOLD = 0.20
@@ -132,35 +115,6 @@ EARNINGS_EVENT_WINDOW_DAYS = 9
 EARNINGS_SOON_DAYS = 7
 EXTREME_LOW_LOOKBACK = 10
 EXTREME_HIGH_LOOKBACK = 10
-
-# 극단 구간(저점/고점) 라벨링 및 모델링 설정
-EXTREME_LABEL_LOOKAHEAD = 10
-EXTREME_LOW_MIN_RETURN = 0.07
-EXTREME_HIGH_MAX_DRAWDOWN = -0.07
-EXTREME_HISTORY_STEP = 3
-EXTREME_MODEL_ENABLED = True
-EXTREME_MODEL_TRAIN_PERIOD = "2y"
-EXTREME_MODEL_MIN_SAMPLES = 400
-EXTREME_MODEL_REG_C = 1.5
-EXTREME_MODEL_FEATURES = [
-    "RSI",
-    "bollinger_pband",
-    "10일저점괴리",
-    "10일고점괴리",
-    "거래량돌파배수",
-    "변동성압축",
-    "장중반등률",
-    "accdist_slope_5",
-    "obv_z20",
-    "cmf_20",
-    "ema_gap_20_50",
-    "ema_gap_50_200",
-    "52주포지션",
-    "5일수익률",
-    "20일수익률",
-    "시장상대강도",
-    "섹터상대강도",
-]
 
 # --- Simplified signal configuration (indicator set restricted to EMA/RSI/MACD/Volume/ADX/OBV/ATR) ---
 VOLUME_ROLLING_WINDOW = 20
@@ -280,6 +234,17 @@ TECH_COLUMN_LABELS = {
     "atr_pct": "ATR%",
     "거래량돌파배수": "거래량돌파배수",
     "변동성압축": "변동성압축",
+    "squeeze_on": "Squeeze_On",
+    "squeeze_off": "Squeeze_Off",
+    "squeeze_momentum": "Squeeze_Momentum",
+    "squeeze_on_weekly": "Squeeze_On(주)",
+    "squeeze_off_weekly": "Squeeze_Off(주)",
+    "squeeze_momentum_weekly": "Squeeze_Momentum(주)",
+    "squeeze_on_monthly": "Squeeze_On(월)",
+    "squeeze_off_monthly": "Squeeze_Off(월)",
+    "squeeze_momentum_monthly": "Squeeze_Momentum(월)",
+    "RSI_weekly": "RSI(주봉)",
+    "RSI_monthly": "RSI(월봉)",
     "10일고점괴리": "10일고점괴리",
     "atr_med_252": "ATR% 중앙값(1y)",
     "atr_buy_max": "ATR 매수 한도",
@@ -355,31 +320,21 @@ EXPORT_COLUMNS = [
     "회사",
     "현재가격",
     "최근뉴스",
-    "우선순위",
-    "판단",
-    "추천",
     "트렌드점수_최종",
-    "buy_signal_text",
-    "sell_signal_text",
-    "buy_support_count",
-    "sell_support_count",
-    "position_size",
-    "stop_dist",
+    "squeeze_on",
+    "squeeze_off",
+    "squeeze_momentum",
+    "squeeze_on_weekly",
+    "squeeze_off_weekly",
+    "squeeze_momentum_weekly",
+    "squeeze_on_monthly",
+    "squeeze_off_monthly",
+    "squeeze_momentum_monthly",
     "RSI",
+    "RSI_weekly",
+    "RSI_monthly",
     "저점확률",
     "고점확률",
     "극점편차",
-    # "macd_hist",
-    # "ema20",
-    # "ema50",
-    # "atr_pct",
-    # "atr_buy_max",
-    # "atr_sell_max",
-    # "volume",
-    # "volume_ma20",
-    # "obv",
-    # "obv_ma20",
-    # "obv_mom_5",
-    # "obv_mom_ratio",
     "dividend_yield",
 ]

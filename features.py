@@ -16,7 +16,7 @@ from ta.momentum import (
     StochasticOscillator,
 )
 from ta.trend import ADXIndicator, EMAIndicator, MACD
-from ta.volatility import AverageTrueRange, BollingerBands
+from ta.volatility import AverageTrueRange, BollingerBands, KeltnerChannel
 from ta.volume import (
     AccDistIndexIndicator,
     ChaikinMoneyFlowIndicator,
@@ -46,6 +46,168 @@ from config import (
     WEIGHTS,
 )
 from fundamentals import fetch_fundamental_snapshots
+
+
+def _compute_squeeze_fields(
+    close: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    window: int = 20,
+    multiplier: float = 1.5,
+) -> tuple[pd.Series, pd.Series, pd.Series]:
+    """Bollinger/Keltner 조합으로 스퀴즈 온·오프 및 모멘텀을 계산한다."""
+
+    length = len(close)
+    if length < window or close.dropna().empty or high.dropna().empty or low.dropna().empty:
+        index = close.index
+        empty_bool = pd.Series(False, index=index, dtype=bool)
+        empty_float = pd.Series(np.nan, index=index, dtype=float)
+        return empty_bool, empty_bool, empty_float
+
+    bb = BollingerBands(close, window=window, window_dev=2)
+    kc = KeltnerChannel(
+        high=high,
+        low=low,
+        close=close,
+        window=window,
+        window_atr=window,
+        original_version=False,
+        multiplier=multiplier,
+    )
+
+    squeeze_on = (bb.bollinger_hband() < kc.keltner_channel_hband()) & (
+        bb.bollinger_lband() > kc.keltner_channel_lband()
+    )
+    squeeze_on = squeeze_on.fillna(False)
+    squeeze_off = squeeze_on.shift(1, fill_value=False) & (~squeeze_on)
+
+    highest_high = high.rolling(window).max()
+    lowest_low = low.rolling(window).min()
+    avg_range = (highest_high + lowest_low) / 2.0
+    midpoint = kc.keltner_channel_mband()
+    momentum_raw = close - (avg_range + midpoint) / 2.0
+    squeeze_momentum = momentum_raw.rolling(window).mean()
+
+    return squeeze_on.astype(bool), squeeze_off.astype(bool), squeeze_momentum
+
+
+def _timeframe_key(timestamp: pd.Timestamp, timeframe: str) -> tuple[int, int]:
+    if timeframe == "weekly":
+        iso = timestamp.isocalendar()
+        return int(iso[0]), int(iso[1])
+    if timeframe == "monthly":
+        return int(timestamp.year), int(timestamp.month)
+    raise ValueError(f"Unsupported timeframe '{timeframe}'")
+
+
+def _finalize_bucket(
+    bucket: list[tuple[pd.Timestamp, pd.Series]],
+) -> dict | None:
+    if not bucket:
+        return None
+
+    sub = pd.DataFrame([row for _, row in bucket])
+    close_series = sub["Close"].dropna()
+    if close_series.empty:
+        return None
+
+    open_series = sub["Open"].dropna()
+    open_val = float(open_series.iloc[0]) if not open_series.empty else float(close_series.iloc[0])
+    high_val = float(sub["High"].max(skipna=True))
+    low_val = float(sub["Low"].min(skipna=True))
+    close_val = float(close_series.iloc[-1])
+    volume_val = float(sub["Volume"].fillna(0.0).sum())
+
+    record: dict[str, object] = {
+        "Timestamp": bucket[-1][0],
+        "Open": open_val,
+        "High": high_val,
+        "Low": low_val,
+        "Close": close_val,
+        "Volume": volume_val,
+    }
+    if "Dividends" in sub.columns:
+        record["Dividends"] = float(sub["Dividends"].fillna(0.0).sum())
+    if "Adj Close" in sub.columns:
+        adj_close = sub["Adj Close"].dropna()
+        record["Adj Close"] = float(adj_close.iloc[-1]) if not adj_close.empty else float("nan")
+
+    return record
+
+
+def _aggregate_ohlcv(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
+    """일봉 데이터를 주봉/월봉으로 수동 집계한다."""
+
+    if df.empty:
+        return pd.DataFrame()
+
+    df = df.sort_index()
+    required = {"Open", "High", "Low", "Close", "Volume"}
+    missing_cols = required - set(df.columns)
+    if missing_cols:
+        raise ValueError(f"Missing OHLC columns for aggregation: {sorted(missing_cols)}")
+
+    aggregated: list[dict] = []
+    current_key: tuple[int, int] | None = None
+    bucket: list[tuple[pd.Timestamp, pd.Series]] = []
+
+    for timestamp, row in df.iterrows():
+        if row[["Open", "High", "Low", "Close"]].isna().all():
+            continue
+        key = _timeframe_key(pd.Timestamp(timestamp), timeframe)
+        if current_key is None:
+            current_key = key
+        if key != current_key:
+            record = _finalize_bucket(bucket)
+            if record is not None:
+                aggregated.append(record)
+            bucket = []
+            current_key = key
+        bucket.append((pd.Timestamp(timestamp), row))
+
+    if bucket:
+        record = _finalize_bucket(bucket)
+        if record is not None:
+            aggregated.append(record)
+
+    if not aggregated:
+        return pd.DataFrame()
+
+    result = pd.DataFrame(aggregated)
+    result = result.set_index("Timestamp").sort_index()
+    return result
+
+
+def _latest_timeframe_metrics(
+    df: pd.DataFrame,
+    timeframe: str,
+) -> tuple[bool, bool, float, float]:
+    """주어진 일봉 데이터를 기반으로 특정 주기 스퀴즈/RSI 최신값을 반환한다."""
+
+    aggregated = _aggregate_ohlcv(df, timeframe)
+    if aggregated.empty:
+        return False, False, float("nan"), float("nan")
+
+    squeeze_on, squeeze_off, squeeze_momentum = _compute_squeeze_fields(
+        aggregated["Close"],
+        aggregated["High"],
+        aggregated["Low"],
+    )
+    aggregated = aggregated.copy()
+    aggregated["squeeze_on"] = squeeze_on
+    aggregated["squeeze_off"] = squeeze_off
+    aggregated["squeeze_momentum"] = squeeze_momentum
+
+    rsi_series = RSIIndicator(aggregated["Close"], window=14).rsi()
+    aggregated["rsi"] = rsi_series
+
+    latest = aggregated.iloc[-1]
+    squeeze_on_value = bool(latest["squeeze_on"]) if not pd.isna(latest["squeeze_on"]) else False
+    squeeze_off_value = bool(latest["squeeze_off"]) if not pd.isna(latest["squeeze_off"]) else False
+    squeeze_momentum_value = float(latest["squeeze_momentum"]) if not np.isnan(latest["squeeze_momentum"]) else float("nan")
+    rsi_value = float(latest["rsi"]) if not np.isnan(latest["rsi"]) else float("nan")
+
+    return squeeze_on_value, squeeze_off_value, squeeze_momentum_value, rsi_value
 
 
 def to_market(ticker: str) -> str:
@@ -100,6 +262,17 @@ class FeatureSet:
     distance_from_10d_high: float
     volume_breakout_ratio: float
     volatility_contraction: float
+    squeeze_on: bool
+    squeeze_off: bool
+    squeeze_momentum: float
+    weekly_squeeze_on: bool
+    weekly_squeeze_off: bool
+    weekly_squeeze_momentum: float
+    weekly_rsi: float
+    monthly_squeeze_on: bool
+    monthly_squeeze_off: bool
+    monthly_squeeze_momentum: float
+    monthly_rsi: float
     dividend_yield: float
     annual_dividend: float
     ema20: float
@@ -204,6 +377,18 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     p["roll_min_252"] = p["Close"].rolling(252, min_periods=63).min()
     p["range_52w"] = (p["roll_max_252"] - p["roll_min_252"]).replace(0, np.nan)
     p["pos_52w"] = (p["Close"] - p["roll_min_252"]) / p["range_52w"]
+
+    squeeze_on_series, squeeze_off_series, squeeze_momentum_series = _compute_squeeze_fields(
+        p["Close"],
+        p["High"],
+        p["Low"],
+    )
+    p["squeeze_on"] = squeeze_on_series.astype(bool)
+    p["squeeze_off"] = squeeze_off_series.astype(bool)
+    p["squeeze_momentum"] = squeeze_momentum_series
+
+    weekly_on, weekly_off, weekly_momentum, weekly_rsi = _latest_timeframe_metrics(p, "weekly")
+    monthly_on, monthly_off, monthly_momentum, monthly_rsi = _latest_timeframe_metrics(p, "monthly")
 
     latest = p.iloc[-1]  # 최신 시점의 지표만 활용해 현재 상태를 평가한다.
 
@@ -407,6 +592,19 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         volatility_contraction=float(volatility_contraction)
         if not np.isnan(volatility_contraction)
         else float("nan"),
+        squeeze_on=bool(latest["squeeze_on"]) if not pd.isna(latest["squeeze_on"]) else False,
+        squeeze_off=bool(latest["squeeze_off"]) if not pd.isna(latest["squeeze_off"]) else False,
+        squeeze_momentum=float(latest["squeeze_momentum"])
+        if not np.isnan(latest["squeeze_momentum"])
+        else float("nan"),
+        weekly_squeeze_on=weekly_on,
+        weekly_squeeze_off=weekly_off,
+        weekly_squeeze_momentum=weekly_momentum,
+        weekly_rsi=float(weekly_rsi) if not np.isnan(weekly_rsi) else float("nan"),
+        monthly_squeeze_on=monthly_on,
+        monthly_squeeze_off=monthly_off,
+        monthly_squeeze_momentum=monthly_momentum,
+        monthly_rsi=float(monthly_rsi) if not np.isnan(monthly_rsi) else float("nan"),
         dividend_yield=float(dividend_yield) if not np.isnan(dividend_yield) else np.nan,
         annual_dividend=float(total_div_1y),
         ema20=ema20_latest,
@@ -458,6 +656,17 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "10일고점괴리": feature_set.distance_from_10d_high,
         "거래량돌파배수": feature_set.volume_breakout_ratio,
         "변동성압축": feature_set.volatility_contraction,
+        "squeeze_on": feature_set.squeeze_on,
+        "squeeze_off": feature_set.squeeze_off,
+        "squeeze_momentum": feature_set.squeeze_momentum,
+        "squeeze_on_weekly": feature_set.weekly_squeeze_on,
+        "squeeze_off_weekly": feature_set.weekly_squeeze_off,
+        "squeeze_momentum_weekly": feature_set.weekly_squeeze_momentum,
+        "RSI_weekly": feature_set.weekly_rsi,
+        "squeeze_on_monthly": feature_set.monthly_squeeze_on,
+        "squeeze_off_monthly": feature_set.monthly_squeeze_off,
+        "squeeze_momentum_monthly": feature_set.monthly_squeeze_momentum,
+        "RSI_monthly": feature_set.monthly_rsi,
         "dividend_yield": feature_set.dividend_yield,
         "annual_dividend": feature_set.annual_dividend,
         "시장": to_market(ticker),

@@ -6,17 +6,7 @@ from __future__ import annotations
 
 import time
 
-from config import (
-    BACKTEST_ENABLED,
-    BACKTEST_RUNS,
-    BACKTEST_WORKSHEET_NAME,
-    COMPANY_NAME_MAP,
-    EXTREME_MODEL_ENABLED,
-    EXTREME_MODEL_TRAIN_PERIOD,
-    TICKERS,
-    GOOGLE_SHEETS_SIGNALS_WORKSHEET,
-    GOOGLE_SHEETS_PORTFOLIO_WORKSHEET,
-)
+from config import COMPANY_NAME_MAP, GOOGLE_SHEETS_PORTFOLIO_WORKSHEET
 from data.fetch import (
     fetch_company_names,
     fetch_latest_news,
@@ -24,17 +14,12 @@ from data.fetch import (
     fetch_ohlcv,
 )
 from exporter import (
-    export_backtest_results,
     export_to_google_sheet,
     fetch_tickers_from_sheet,
     prepare_export_dataframe,
 )
-from backtest import run_backtest
 from features import compute_all_features
 from processing import apply_neutralization, liquidity_filter
-from signals import attach_signals_and_sort
-from analytics.extremes import score_extremes_for_snapshot
-
 
 def build_export_dataframe(
     tickers: list[str],
@@ -61,44 +46,31 @@ def build_export_dataframe(
             f"[{context_label}] 유동성 컷에 걸려 남는 종목이 없습니다. LIQUIDITY_QUANTILE을 조정해보세요."
         )
         return None
-
     neutral = apply_neutralization(liquid)
-    ranked = attach_signals_and_sort(neutral)
-    unique_tickers = ranked["티커"].unique().tolist()
-
-    extreme_metrics: dict | None = None
-    if EXTREME_MODEL_ENABLED:
-        ranked, extreme_metrics = score_extremes_for_snapshot(
-            unique_tickers,
-            ranked,
-            period=EXTREME_MODEL_TRAIN_PERIOD,
-        )
-        if extreme_metrics:
-            for label, info in extreme_metrics.items():
-                status = info.get("status")
-                if status != "ok":
-                    print(
-                        f"[{context_label}] Extreme model '{label}' skipped: {info.get('reason', status)}"
-                    )
-                    continue
-                folds = info.get("folds") or []
-                if not folds:
-                    continue
-                mean_roc = sum(fold.get("roc_auc", 0.0) for fold in folds) / len(folds)
-                mean_ap = sum(fold.get("avg_precision", 0.0) for fold in folds) / len(folds)
-                print(
-                    f"[{context_label}] Extreme model '{label}' walk-forward ROC {mean_roc:.2f}, AP {mean_ap:.2f}"
-                )
-
-    if {"우선순위", "극점편차", "트렌드점수_최종"}.issubset(ranked.columns):
-        ranked = ranked.sort_values(
-            ["우선순위", "극점편차", "트렌드점수_최종"],
-            ascending=[True, False, False],
-        )
+    ranked = neutral.copy()
 
     if "티커" not in ranked.columns:
         print(f"[{context_label}] 결과에 티커 정보가 없어 건너뜁니다.")
         return None
+
+    unique_tickers = ranked["티커"].astype(str).unique().tolist()
+
+    sort_columns: list[str] = []
+    ascending: list[bool] = []
+    if "우선순위" in ranked.columns:
+        sort_columns.append("우선순위")
+        ascending.append(True)
+    if "극점편차" in ranked.columns:
+        sort_columns.append("극점편차")
+        ascending.append(False)
+    if "트렌드점수_최종" in ranked.columns:
+        sort_columns.append("트렌드점수_최종")
+        ascending.append(False)
+
+    if sort_columns:
+        ranked = ranked.sort_values(sort_columns, ascending=ascending)
+    else:
+        ranked = ranked.sort_values("티커")
 
     fetched_names = fetch_company_names(unique_tickers)
     full_name_map = {**fetched_names, **COMPANY_NAME_MAP}
@@ -130,26 +102,14 @@ def build_export_dataframe(
 
 
 def main() -> None:
-    """데이터 수집부터 결과 출력, 백테스트까지 전체 파이프라인을 실행한다."""
+    """Google Sheets 보유주식 워크시트를 최신 데이터로 업데이트한다."""
 
     start_time = time.perf_counter()
     success = False
 
     try:
         portfolio_tickers = fetch_tickers_from_sheet()
-
-        signals_export = build_export_dataframe(TICKERS, GOOGLE_SHEETS_SIGNALS_WORKSHEET)
-        if signals_export is not None:
-            if export_to_google_sheet(
-                signals_export, GOOGLE_SHEETS_SIGNALS_WORKSHEET
-            ):
-                print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Google Sheets 업데이트 완료")
-            else:
-                print(
-                    f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Google Sheets 업데이트를 건너뛰었습니다."
-                )
-
-        portfolio_label = GOOGLE_SHEETS_PORTFOLIO_WORKSHEET or "보유주식"
+        portfolio_label = GOOGLE_SHEETS_PORTFOLIO_WORKSHEET or "주식찾기"
         if portfolio_tickers:
             portfolio_export = build_export_dataframe(
                 portfolio_tickers,
@@ -169,29 +129,6 @@ def main() -> None:
             print(
                 f"[{portfolio_label}] 워크시트에 티커가 없어 업데이트를 건너뜁니다."
             )
-
-        backtest_results: dict[str, dict] = {}
-        if BACKTEST_ENABLED:
-            for run in BACKTEST_RUNS:
-                label = str(run.get("label", "Backtest"))
-                params = {k: v for k, v in run.items() if k != "label"}
-                try:
-                    backtest_results[label] = run_backtest(**params)
-                    print(f"[Backtest] '{label}' 실행 완료")
-                except Exception as exc:  # pragma: no cover - best effort
-                    print(f"[Backtest] '{label}' 실행 실패: {exc}")
-
-            if backtest_results:
-                if export_backtest_results(
-                    backtest_results, BACKTEST_WORKSHEET_NAME
-                ):
-                    print(
-                        f"[{BACKTEST_WORKSHEET_NAME}] 백테스트 결과 업데이트 완료"
-                    )
-                else:
-                    print(
-                        f"[{BACKTEST_WORKSHEET_NAME}] 백테스트 결과 업데이트를 건너뜁니다."
-                    )
 
         success = True
     finally:
