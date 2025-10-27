@@ -21,6 +21,7 @@ from ta.volume import (
     ChaikinMoneyFlowIndicator,
     OnBalanceVolumeIndicator,
 )
+from numpy.lib.stride_tricks import sliding_window_view
 
 from config import (
     ATR_BUY_THRESHOLD_MULTIPLIER,
@@ -47,29 +48,88 @@ from config import (
 from fundamentals import fetch_fundamental_snapshots
 
 
-def _rolling_linear_regression(series: pd.Series, window: int) -> pd.Series:
-    """TradingView linreg(src, length, 0)와 동일한 선형회귀 추세값을 산출한다."""
+def _sliding_window(series: pd.Series, window: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    if window < 1:
+        raise ValueError("window must be positive")
+    values = series.to_numpy(dtype=float)
+    n = len(values)
+    if n < window:
+        return values, np.empty((0, window), dtype=float), np.array([], dtype=bool)
+    windowed = sliding_window_view(values, window_shape=window)
+    invalid = np.isnan(windowed).any(axis=1)
+    return values, windowed, invalid
 
+
+def _rolling_mean(series: pd.Series, window: int) -> pd.Series:
+    values, windowed, invalid = _sliding_window(series, window)
+    result = np.full(len(values), np.nan, dtype=float)
+    if windowed.size == 0:
+        return pd.Series(result, index=series.index, dtype=float)
+    means = windowed.mean(axis=1)
+    means[invalid] = np.nan
+    result[window - 1 :] = means
+    return pd.Series(result, index=series.index, dtype=float)
+
+
+def _rolling_highest(series: pd.Series, window: int) -> pd.Series:
+    values, windowed, invalid = _sliding_window(series, window)
+    result = np.full(len(values), np.nan, dtype=float)
+    if windowed.size == 0:
+        return pd.Series(result, index=series.index, dtype=float)
+    highest = windowed.max(axis=1)
+    highest[invalid] = np.nan
+    result[window - 1 :] = highest
+    return pd.Series(result, index=series.index, dtype=float)
+
+
+def _rolling_lowest(series: pd.Series, window: int) -> pd.Series:
+    values, windowed, invalid = _sliding_window(series, window)
+    result = np.full(len(values), np.nan, dtype=float)
+    if windowed.size == 0:
+        return pd.Series(result, index=series.index, dtype=float)
+    lowest = windowed.min(axis=1)
+    lowest[invalid] = np.nan
+    result[window - 1 :] = lowest
+    return pd.Series(result, index=series.index, dtype=float)
+
+
+def _rolling_std(series: pd.Series, window: int) -> pd.Series:
+    values, windowed, invalid = _sliding_window(series, window)
+    result = np.full(len(values), np.nan, dtype=float)
+    if windowed.size == 0:
+        return pd.Series(result, index=series.index, dtype=float)
+    means = windowed.mean(axis=1, keepdims=True)
+    variance = ((windowed - means) ** 2).mean(axis=1)
+    std = np.sqrt(variance)
+    std[invalid] = np.nan
+    result[window - 1 :] = std
+    return pd.Series(result, index=series.index, dtype=float)
+
+
+def _rolling_linear_regression(series: pd.Series, window: int) -> pd.Series:
     if window < 2:
         return pd.Series(np.nan, index=series.index, dtype=float)
+
+    values, windowed, invalid = _sliding_window(series, window)
+    result = np.full(len(values), np.nan, dtype=float)
+    if windowed.size == 0:
+        return pd.Series(result, index=series.index, dtype=float)
 
     x = np.arange(window, dtype=float)
     sum_x = x.sum()
     sum_x2 = (x * x).sum()
     denominator = window * sum_x2 - sum_x**2
     if denominator == 0:
-        return pd.Series(np.nan, index=series.index, dtype=float)
+        return pd.Series(result, index=series.index, dtype=float)
 
-    def _calc(window_values: np.ndarray) -> float:
-        if np.isnan(window_values).any():
-            return np.nan
-        sum_y = window_values.sum()
-        sum_xy = (x * window_values).sum()
-        slope = (window * sum_xy - sum_x * sum_y) / denominator
-        intercept = (sum_y - slope * sum_x) / window
-        return intercept + slope * (window - 1)
-
-    return series.rolling(window=window, min_periods=window).apply(_calc, raw=True)
+    sum_y = windowed.sum(axis=1)
+    sum_xy = (windowed * x).sum(axis=1)
+    slope = (window * sum_xy - sum_x * sum_y) / denominator
+    intercept = (sum_y - slope * sum_x) / window
+    linreg_values = intercept + slope * (window - 1)
+    linreg_values[invalid] = np.nan
+    result[window - 1 :] = linreg_values
+    return pd.Series(result, index=series.index, dtype=float)
 
 
 def _rma(values: pd.Series, length: int) -> pd.Series:
@@ -80,33 +140,31 @@ def _rma(values: pd.Series, length: int) -> pd.Series:
     if values.empty:
         return pd.Series(np.nan, index=values.index, dtype=float)
 
-    result = pd.Series(np.nan, index=values.index, dtype=float)
-    valid = values.to_numpy(dtype=float)
-    start_idx = np.flatnonzero(~np.isnan(valid))
-    if len(start_idx) == 0:
-        return result
-
-    first = start_idx[0]
-    if len(valid) - first < length:
-        return result
-
-    window_slice = valid[first : first + length]
-    if np.isnan(window_slice).any():
-        return result
-
+    result = np.full(len(values), np.nan, dtype=float)
+    data = values.to_numpy(dtype=float)
     alpha = 1.0 / float(length)
-    rma_prev = window_slice.mean()
-    result.iloc[first + length - 1] = rma_prev
-    for idx in range(first + length, len(valid)):
-        value = valid[idx]
-        if np.isnan(value):
-            rma_prev = np.nan
-        elif np.isnan(rma_prev):
-            rma_prev = value
+    sum_init = 0.0
+    count = 0
+    prev = np.nan
+    for idx, v in enumerate(data):
+        if np.isnan(v):
+            result[idx] = np.nan
+            continue
+        if count < length:
+            sum_init += v
+            count += 1
+            if count == length:
+                prev = sum_init / length
+                result[idx] = prev
+            else:
+                result[idx] = np.nan
+            continue
+        if np.isnan(prev):
+            prev = v
         else:
-            rma_prev = alpha * value + (1.0 - alpha) * rma_prev
-        result.iloc[idx] = rma_prev
-    return result
+            prev = (1.0 - alpha) * prev + alpha * v
+        result[idx] = prev
+    return pd.Series(result, index=values.index, dtype=float)
 
 
 def _wilders_rsi(series: pd.Series, length: int = 14) -> pd.Series:
@@ -155,12 +213,12 @@ def _compute_squeeze_fields(
         empty_float = pd.Series(np.nan, index=close.index, dtype=float)
         return empty_bool, empty_bool, empty_float, empty_bool
 
-    bb_basis = close.rolling(window=bb_length, min_periods=bb_length).mean()
-    bb_std = close.rolling(window=bb_length, min_periods=bb_length).std(ddof=0)
+    bb_basis = _rolling_mean(close, bb_length)
+    bb_std = _rolling_std(close, bb_length)
     upper_bb = bb_basis + bb_multiplier * bb_std
     lower_bb = bb_basis - bb_multiplier * bb_std
 
-    kc_ma = close.rolling(window=kc_length, min_periods=kc_length).mean()
+    kc_ma = _rolling_mean(close, kc_length)
     if use_true_range:
         prev_close = close.shift(1)
         tr_components = pd.concat(
@@ -175,7 +233,7 @@ def _compute_squeeze_fields(
     else:
         true_range = (high - low).abs()
 
-    range_ma = true_range.rolling(window=kc_length, min_periods=kc_length).mean()
+    range_ma = _rolling_mean(true_range, kc_length)
     upper_kc = kc_ma + kc_multiplier * range_ma
     lower_kc = kc_ma - kc_multiplier * range_ma
 
@@ -185,10 +243,10 @@ def _compute_squeeze_fields(
     squeeze_on = squeeze_on.fillna(False)
     squeeze_outside = squeeze_outside.fillna(False)
 
-    highest_high = high.rolling(window=kc_length, min_periods=kc_length).max()
-    lowest_low = low.rolling(window=kc_length, min_periods=kc_length).min()
+    highest_high = _rolling_highest(high, kc_length)
+    lowest_low = _rolling_lowest(low, kc_length)
     avg_range = (highest_high + lowest_low) / 2.0
-    sma_close = close.rolling(window=kc_length, min_periods=kc_length).mean()
+    sma_close = _rolling_mean(close, kc_length)
     composite_mid = (avg_range + sma_close) / 2.0
     diff_series = close - composite_mid
     squeeze_momentum = _rolling_linear_regression(diff_series, kc_length)
