@@ -23,7 +23,7 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
 
 ---
 ## 파이프라인 개요
-1. **데이터 수집** – `data.fetch.fetch_ohlcv`가 1년 일봉 OHLCV와 배당 정보를 다운로드합니다. 다운로드 실패 시 `MAX_DOWNLOAD_RETRIES`와 `RETRY_DELAY_SECONDS` 동안 재시도합니다.
+1. **데이터 수집** – `data.fetch.fetch_ohlcv`가 5년 일봉 OHLCV와 배당 정보를 다운로드합니다. 다운로드 실패 시 `MAX_DOWNLOAD_RETRIES`와 `RETRY_DELAY_SECONDS` 동안 재시도합니다.
 2. **특징 생성(`features.py`)**
    - 수익률 & 모멘텀
      - 1일/5일/20일/63일 수익률, 10일 ROC, RSI, MACD(+시그널/히스토그램), Stochastic %K/%D
@@ -149,7 +149,7 @@ Google Sheets 업데이트 완료
 ---
 ## 문제 해결 팁
 - **yfinance 다운로드 실패**: 간헐적으로 발생합니다. 잠시 후 재시도하거나 티커 수를 줄이세요.
-- **실행 시간이 길다**: `TICKERS`를 섹터별로 나누거나, `fetch_ohlcv`의 `period`를 `6mo` 등으로 줄일 수 있습니다.
+- **실행 시간이 길다**: `TICKERS`를 섹터별로 나누거나, `fetch_ohlcv`의 `period`를 `1y` 등으로 줄일 수 있습니다.
 - **재실행 시 결과가 조금씩 다르다**: 파이프라인은 실행할 때마다 yfinance에서 최신 데이터를 다시 받기 때문에 시점에 따라 수치가 달라질 수 있습니다.
 - **서비스 계정 권한 오류**: Google Sheets 공유 설정에서 서비스 계정을 편집 권한으로 추가해야 합니다.
 - **캐시/가상환경이 Git에 잡힘**: `.gitignore`에 `__pycache__/`, `.venv/` 등을 이미 포함해 두었으니, 과거 이력에 있다면 `git rm --cached`로 한 번 정리하세요.

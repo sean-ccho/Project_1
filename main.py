@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import time
 
-from config import COMPANY_NAME_MAP, GOOGLE_SHEETS_PORTFOLIO_WORKSHEET
+from config import COMPANY_NAME_MAP, GOOGLE_SHEETS_PORTFOLIO_WORKSHEET, HISTORY_PERIOD
 from data.fetch import (
     fetch_company_names,
     fetch_latest_news,
@@ -33,7 +33,7 @@ def build_export_dataframe(
         print(f"[{context_label}] 사용할 티커가 없어 건너뜁니다.")
         return None
 
-    df = fetch_ohlcv(tickers, period="1y")
+    df = fetch_ohlcv(tickers, period=HISTORY_PERIOD)
 
     features = compute_all_features(df)
     if features.empty:

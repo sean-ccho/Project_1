@@ -28,7 +28,7 @@ def _translate_text(payload: str) -> str:
     return payload
 
 
-def fetch_ohlcv(tickers: List[str], period: str = "1y") -> pd.DataFrame:
+def fetch_ohlcv(tickers: List[str], period: str = "5y") -> pd.DataFrame:
     """지정한 티커들의 일별 OHLCV 데이터를 내려받아 (티커, 필드) 멀티인덱스로 반환한다."""
 
     # auto_adjust=True 설정으로 분할/배당 효과가 반영된 수정주가를 수집한다.

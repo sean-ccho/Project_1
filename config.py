@@ -52,6 +52,8 @@ for ticker in LIQUIDITY_WHITELIST:
     if ticker not in TICKERS:
         TICKERS.append(ticker)
 
+HISTORY_PERIOD = "5y"
+
 # Google Sheets 연결 설정(기본 비활성화)
 GOOGLE_SHEETS_ENABLED = True
 GOOGLE_SHEETS_CREDENTIALS_PATH: str | None = "gspread-service-account.json"
