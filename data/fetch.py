@@ -28,8 +28,12 @@ def _translate_text(payload: str) -> str:
     return payload
 
 
-def fetch_ohlcv(tickers: List[str], period: str = "5y") -> pd.DataFrame:
-    """지정한 티커들의 일별 OHLCV 데이터를 내려받아 (티커, 필드) 멀티인덱스로 반환한다."""
+def fetch_ohlcv(
+    tickers: List[str],
+    period: str = "5y",
+    interval: str = "1d",
+) -> pd.DataFrame:
+    """지정한 티커들의 OHLCV 데이터를 내려받아 (티커, 필드) 멀티인덱스로 반환한다."""
 
     # auto_adjust=True 설정으로 분할/배당 효과가 반영된 수정주가를 수집한다.
     last_exception: Exception | None = None
@@ -38,7 +42,7 @@ def fetch_ohlcv(tickers: List[str], period: str = "5y") -> pd.DataFrame:
             data = yf.download(
                 tickers,
                 period=period,
-                interval="1d",
+                interval=interval,
                 auto_adjust=True,
                 threads=True,
                 progress=False,
@@ -67,6 +71,22 @@ def fetch_ohlcv(tickers: List[str], period: str = "5y") -> pd.DataFrame:
 
     # 단일 티커 요청 시에도 downstream 로직이 동일하게 동작하도록 멀티인덱스로 승격한다.
     return pd.concat({tickers[0]: data}, axis=1)
+
+
+def fetch_intraday_ohlcv(
+    tickers: List[str], *, period: str = "60d", interval: str = "1h"
+) -> pd.DataFrame:
+    """시간당 등 짧은 간격의 OHLCV 데이터를 수집한다."""
+
+    if not tickers:
+        return pd.DataFrame()
+
+    try:
+        return fetch_ohlcv(tickers, period=period, interval=interval)
+    except ValueError as exc:
+        raise ValueError(
+            f"yfinance가 interval='{interval}'과 period='{period}' 조합을 지원하지 않습니다."
+        ) from exc
 
 
 def fetch_company_names(tickers: List[str]) -> Dict[str, str]:

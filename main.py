@@ -12,6 +12,7 @@ from data.fetch import (
     fetch_latest_news,
     fetch_latest_prices,
     fetch_ohlcv,
+    fetch_intraday_ohlcv,
 )
 from exporter import (
     export_to_google_sheet,
@@ -35,7 +36,13 @@ def build_export_dataframe(
 
     df = fetch_ohlcv(tickers, period=HISTORY_PERIOD)
 
-    features = compute_all_features(df)
+    hourly_df = None
+    try:
+        hourly_df = fetch_intraday_ohlcv(tickers)
+    except Exception as exc:
+        print(f"[{context_label}] 1시간봉 데이터를 불러오지 못했습니다: {exc}")
+
+    features = compute_all_features(df, hourly_df=hourly_df)
     if features.empty:
         print(f"[{context_label}] 조건을 만족하는 종목이 없습니다.")
         return None

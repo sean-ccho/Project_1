@@ -390,6 +390,10 @@ class FeatureSet:
     squeeze_on: bool
     squeeze_off: bool
     squeeze_momentum: float
+    hourly_squeeze_on: bool
+    hourly_squeeze_off: bool
+    hourly_squeeze_momentum: float
+    hourly_rsi: float
     weekly_squeeze_on: bool
     weekly_squeeze_off: bool
     weekly_squeeze_momentum: float
@@ -417,7 +421,10 @@ class FeatureSet:
     position_size: float
 
 
-def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
+def compute_features_for_ticker(
+    p: pd.DataFrame,
+    hourly: Optional[pd.DataFrame] = None,
+) -> Optional[FeatureSet]:
     """종목별 히스토리 데이터에서 계산 가능한 모든 특징을 생성한다."""
 
     if len(p.dropna(how="all")) < 120:  # 데이터가 너무 짧으면 신뢰도가 떨어지므로 계산을 생략한다.
@@ -517,6 +524,40 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     p["squeeze_off"] = squeeze_release_series.astype(bool)
     p["squeeze_outside"] = squeeze_outside_series.astype(bool)
     p["squeeze_momentum"] = squeeze_momentum_series
+
+    hourly_on = False
+    hourly_off = False
+    hourly_momentum = float("nan")
+    hourly_rsi_value = float("nan")
+    if hourly is not None:
+        hourly_frame = hourly.dropna(how="all").copy()
+        if not hourly_frame.empty and {"Close", "High", "Low"}.issubset(hourly_frame.columns):
+            hourly_frame = hourly_frame.sort_index()
+            (
+                squeeze_on_h,
+                squeeze_release_h,
+                squeeze_momentum_h,
+                _,
+            ) = _compute_squeeze_fields(
+                hourly_frame["Close"],
+                hourly_frame["High"],
+                hourly_frame["Low"],
+            )
+            if not squeeze_on_h.empty:
+                hourly_on = bool(squeeze_on_h.iloc[-1])
+            if not squeeze_release_h.empty:
+                hourly_off = bool(squeeze_release_h.iloc[-1])
+            if not squeeze_momentum_h.empty:
+                last_hourly_momentum = squeeze_momentum_h.iloc[-1]
+                if not np.isnan(last_hourly_momentum):
+                    hourly_momentum = float(last_hourly_momentum)
+
+            if hourly_frame["Close"].dropna().size >= 14:
+                hourly_rsi_series = _wilders_rsi(hourly_frame["Close"], length=14)
+                if not hourly_rsi_series.empty:
+                    last_hourly_rsi = hourly_rsi_series.iloc[-1]
+                    if not np.isnan(last_hourly_rsi):
+                        hourly_rsi_value = float(last_hourly_rsi)
 
     weekly_on, weekly_off, weekly_momentum, weekly_rsi = _latest_timeframe_metrics(p, "W-FRI")
     monthly_on, monthly_off, monthly_momentum, monthly_rsi = _latest_timeframe_metrics(p, "M")
@@ -728,6 +769,14 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         squeeze_momentum=float(latest["squeeze_momentum"])
         if not np.isnan(latest["squeeze_momentum"])
         else float("nan"),
+        hourly_squeeze_on=hourly_on,
+        hourly_squeeze_off=hourly_off,
+        hourly_squeeze_momentum=float(hourly_momentum)
+        if not np.isnan(hourly_momentum)
+        else float("nan"),
+        hourly_rsi=float(hourly_rsi_value)
+        if not np.isnan(hourly_rsi_value)
+        else float("nan"),
         weekly_squeeze_on=weekly_on,
         weekly_squeeze_off=weekly_off,
         weekly_squeeze_momentum=weekly_momentum,
@@ -787,9 +836,13 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "10일고점괴리": feature_set.distance_from_10d_high,
         "거래량돌파배수": feature_set.volume_breakout_ratio,
         "변동성압축": feature_set.volatility_contraction,
+        "squeeze_on_hourly": feature_set.hourly_squeeze_on,
+        "squeeze_off_hourly": feature_set.hourly_squeeze_off,
+        "squeeze_momentum_hourly": feature_set.hourly_squeeze_momentum,
         "squeeze_on": feature_set.squeeze_on,
         "squeeze_off": feature_set.squeeze_off,
         "squeeze_momentum": feature_set.squeeze_momentum,
+        "RSI_hourly": feature_set.hourly_rsi,
         "squeeze_on_weekly": feature_set.weekly_squeeze_on,
         "squeeze_off_weekly": feature_set.weekly_squeeze_off,
         "squeeze_momentum_weekly": feature_set.weekly_squeeze_momentum,
@@ -824,12 +877,14 @@ def compute_features_snapshot(
     price_map: Mapping[str, pd.DataFrame],
     *,
     include_fundamentals: bool = True,
+    hourly_price_map: Mapping[str, pd.DataFrame] | None = None,
 ) -> pd.DataFrame:
     """주어진 종목별 시계열 스냅샷에서 특징 테이블을 생성한다."""
 
     rows = []
     for ticker, frame in price_map.items():
-        features = compute_features_for_ticker(frame.dropna(how="all"))
+        hourly_frame = hourly_price_map.get(ticker) if hourly_price_map else None
+        features = compute_features_for_ticker(frame.dropna(how="all"), hourly_frame)
         if features is None:
             continue
         rows.append(feature_row_from_set(ticker, features))
@@ -870,13 +925,32 @@ def compute_features_snapshot(
 
 
 def compute_all_features(
-    df: pd.DataFrame, *, include_fundamentals: bool = True
+    df: pd.DataFrame,
+    *,
+    include_fundamentals: bool = True,
+    hourly_df: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """모든 종목에 대해 특징을 계산하고 테이블 형태로 반환한다."""
 
     price_map: Dict[str, pd.DataFrame] = {
         ticker: df[ticker].dropna(how="all") for ticker in df.columns.levels[0]
     }
+
+    hourly_map: Dict[str, pd.DataFrame] | None = None
+    if hourly_df is not None and not hourly_df.empty:
+        hourly_map = {}
+        if isinstance(hourly_df.columns, pd.MultiIndex):
+            available_tickers = set(hourly_df.columns.get_level_values(0))
+            for ticker in price_map:
+                if ticker in available_tickers:
+                    hourly_map[ticker] = hourly_df[ticker].dropna(how="all")
+        else:
+            tickers = list(price_map.keys())
+            if tickers:
+                hourly_map[tickers[0]] = hourly_df.dropna(how="all")
+
     return compute_features_snapshot(
-        price_map, include_fundamentals=include_fundamentals
+        price_map,
+        include_fundamentals=include_fundamentals,
+        hourly_price_map=hourly_map,
     )
