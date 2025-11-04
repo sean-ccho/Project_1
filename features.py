@@ -193,7 +193,7 @@ def _compute_squeeze_fields(
     high: pd.Series,
     low: pd.Series,
     bb_length: int = 20,
-    bb_multiplier: float = 2.0,
+    bb_multiplier: float = 1.5,
     kc_length: int = 20,
     kc_multiplier: float = 1.5,
     use_true_range: bool = True,
@@ -215,6 +215,7 @@ def _compute_squeeze_fields(
 
     bb_basis = _rolling_mean(close, bb_length)
     bb_std = _rolling_std(close, bb_length)
+    # LazyBear 스크립트는 BB 폭에도 KC multiplier를 사용하므로 기본값을 1.5로 맞춘다.
     upper_bb = bb_basis + bb_multiplier * bb_std
     lower_bb = bb_basis - bb_multiplier * bb_std
 
@@ -251,17 +252,8 @@ def _compute_squeeze_fields(
     diff_series = close - composite_mid
     squeeze_momentum = _rolling_linear_regression(diff_series, kc_length)
 
-    positive_momentum = (squeeze_momentum >= 0).fillna(False)
-    prev_positive = positive_momentum.shift(1, fill_value=False)
-    prev_squeeze_on = squeeze_on.shift(1, fill_value=False)
-    prev_momentum = squeeze_momentum.shift(1)
-    crossed_from_negative = prev_momentum < 0
-
-    release_signal = (
-        (~squeeze_on)
-        & positive_momentum
-        & (crossed_from_negative.fillna(False) | prev_squeeze_on)
-    )
+    # LazyBear의 sqzOff 조건은 밴드가 다시 KC 바깥으로 나간 경우와 일치한다.
+    release_signal = squeeze_outside
 
     return squeeze_on, release_signal, squeeze_momentum, squeeze_outside
 
