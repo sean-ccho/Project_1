@@ -28,14 +28,6 @@ def apply_neutralization(df: pd.DataFrame) -> pd.DataFrame:
         # 섹터 정보가 있으면 추가로 섹터 단위 중립화를 적용한다.
         for col in NEUTRALIZE_COLUMNS:
             out[col + "_secz"] = zscore_by_group(out[col], out["섹터"])
-        out["트렌드점수_최종"] = (
-            0.6 * out["트렌드점수"]
-            + 0.25 * out["트렌드점수_mktz"]
-            + 0.15 * out["트렌드점수_secz"]
-        )
-    else:
-        # 섹터 정보가 없으면 시장 중립화 지표만 혼합하여 활용한다.
-        out["트렌드점수_최종"] = 0.75 * out["트렌드점수"] + 0.25 * out["트렌드점수_mktz"]
 
     return out
 

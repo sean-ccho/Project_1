@@ -198,7 +198,7 @@ def _compute_squeeze_fields(
     kc_multiplier: float = 1.5,
     use_true_range: bool = True,
 ) -> tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
-    """LazyBear Squeeze Momentum의 상태·모멘텀 및 스퀴즈 해제 신호를 계산한다."""
+    """LazyBear SQZ Momentum의 상태·모멘텀 및 스퀴즈 해제 신호를 계산한다."""
 
     if close.empty or high.empty or low.empty:
         index = close.index if not close.empty else high.index if not high.empty else low.index
