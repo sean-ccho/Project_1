@@ -3,7 +3,7 @@
 프로젝트 전반에서 공유하는 티커 목록, 섹터 매핑, 가중치, 임계치 등을 한 곳에서 관리하여
 파일이 나뉘어 있어도 수정 포인트를 명확히 하기 위한 모듈이다."""
 
-from typing import Dict
+from typing import Dict, List
 
 from data.sp500_tickers import SP500_TICKERS
 
@@ -61,6 +61,16 @@ GOOGLE_SHEETS_SPREADSHEET_ID: str | None = "1VxzTPfDvRX0UGJZcNnRsqTRex4gqmjv4P-1
 GOOGLE_SHEETS_PORTFOLIO_WORKSHEET: str | None = "주식찾기"
 GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
 
+# 이메일 알림 설정(비활성화가 기본값)
+EMAIL_NOTIFICATIONS_ENABLED = False
+EMAIL_SMTP_SERVER: str | None = "smtp.gmail.com"
+EMAIL_SMTP_PORT: int = 587
+EMAIL_USE_TLS = True
+EMAIL_USERNAME: str | None = "chunghwan14@gmail.com"
+EMAIL_PASSWORD: str | None = "pkhb cvqy ehpu jcqw"
+EMAIL_SENDER: str | None = "chunghwan14@gmail.com"
+EMAIL_RECIPIENTS: List[str] = ["chunghwan14@gmail.com"]
+# EMAIL_RECIPIENTS: List[str] = ["chunghwan14@gmail.com", "ssamjungtan@naver.com"]
 # 시그널 판정 임계치.
 BUY_SCORE_THRESHOLD = 0.20
 BUY_POS_THRESHOLD = 0.75

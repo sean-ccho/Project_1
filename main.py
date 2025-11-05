@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import time
 
+import pandas as pd
+
 from config import COMPANY_NAME_MAP, GOOGLE_SHEETS_PORTFOLIO_WORKSHEET, HISTORY_PERIOD
 from data.fetch import (
     fetch_company_names,
@@ -19,6 +21,7 @@ from exporter import (
     prepare_export_dataframe,
 )
 from features import compute_all_features
+from notifications import notify_signal_summary
 from processing import apply_neutralization, liquidity_filter
 
 def build_export_dataframe(
@@ -92,7 +95,10 @@ def build_export_dataframe(
             lambda t: fetched_prices.get(str(t).upper(), float("nan"))
         ),
     )
-    return prepare_export_dataframe(ranked)
+
+    export_df = prepare_export_dataframe(ranked)
+    notify_signal_summary(export_df, context_label)
+    return export_df
 
 
 def main() -> None:
