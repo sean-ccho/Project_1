@@ -60,15 +60,23 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
 | `현재가격` | `fetch_latest_prices`가 가져온 최신 종가 |
 | `SQZ_On(1H)` | 1시간봉 기준 볼린저 밴드 압축 여부(TRUE) |
 | `SQZ_Off(1H)` | 1시간봉에서 직전 스퀴즈 해제 여부(TRUE) |
+| `SQZ_Off Qual(1H)` | 1시간봉 해제 신호가 직전 연속 5+ 스퀴즈 이후인지 |
+| `SQZ_Off Dir(1H)` | 1시간봉 스퀴즈 해제 시 캔들 방향 (Up/Down/Flat) |
 | `SQZ_M(1H)` | 1시간봉 스퀴즈 모멘텀 (양수 상방, 음수 하방) |
 | `SQZ_On(1D)` | 일봉 기준 스퀴즈 압축 여부 |
 | `SQZ_Off(1D)` | 일봉에서 스퀴즈 해제 여부 |
+| `SQZ_Off Qual(1D)` | 일봉 해제 신호가 직전 연속 5+ 스퀴즈 이후인지 |
+| `SQZ_Off Dir(1D)` | 일봉 스퀴즈 해제 시 캔들 방향 (Up/Down/Flat) |
 | `SQZ_M(1D)` | 일봉 스퀴즈 모멘텀 값 |
 | `SQZ_On(1W)` | 주봉 기준 스퀴즈 압축 여부 |
 | `SQZ_Off(1W)` | 주봉 스퀴즈 해제 여부 |
+| `SQZ_Off Qual(1W)` | 주봉 해제 신호가 직전 연속 5+ 스퀴즈 이후인지 |
+| `SQZ_Off Dir(1W)` | 주봉 스퀴즈 해제 시 캔들 방향 (Up/Down/Flat) |
 | `SQZ_M(1W)` | 주봉 스퀴즈 모멘텀 값 |
 | `SQZ_On(1M)` | 월봉 기준 스퀴즈 압축 여부 |
 | `SQZ_Off(1M)` | 월봉 스퀴즈 해제 여부 |
+| `SQZ_Off Qual(1M)` | 월봉 해제 신호가 직전 연속 5+ 스퀴즈 이후인지 |
+| `SQZ_Off Dir(1M)` | 월봉 스퀴즈 해제 시 캔들 방향 (Up/Down/Flat) |
 | `SQZ_M(1M)` | 월봉 스퀴즈 모멘텀 값 |
 | `RSI(1H)` | 1시간봉 RSI |
 | `RSI(1D)` | 일봉 RSI |

@@ -193,12 +193,11 @@ def _compute_squeeze_fields(
     high: pd.Series,
     low: pd.Series,
     bb_length: int = 20,
-    bb_multiplier: float = 1.5,
+    bb_multiplier: float = 2.0,
     kc_length: int = 20,
     kc_multiplier: float = 1.5,
-    use_true_range: bool = True,
 ) -> tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
-    """LazyBear SQZ Momentum의 상태·모멘텀 및 스퀴즈 해제 신호를 계산한다."""
+    """LazyBear SQZ Momentum 구현과 최대한 동일하게 스퀴즈 상태를 계산한다."""
 
     if close.empty or high.empty or low.empty:
         index = close.index if not close.empty else high.index if not high.empty else low.index
@@ -213,48 +212,42 @@ def _compute_squeeze_fields(
         empty_float = pd.Series(np.nan, index=close.index, dtype=float)
         return empty_bool, empty_bool, empty_float, empty_bool
 
-    bb_basis = _rolling_mean(close, bb_length)
-    bb_std = _rolling_std(close, bb_length)
-    # LazyBear 스크립트는 BB 폭에도 KC multiplier를 사용하므로 기본값을 1.5로 맞춘다.
+    # LazyBear는 typical price(HLC/3)를 기준으로 계산한다.
+    typical_price = (high + low + close) / 3.0
+
+    # Bollinger Bands
+    bb_basis = _rolling_mean(typical_price, bb_length)
+    bb_std = _rolling_std(typical_price, bb_length)
     upper_bb = bb_basis + bb_multiplier * bb_std
     lower_bb = bb_basis - bb_multiplier * bb_std
 
-    kc_ma = _rolling_mean(close, kc_length)
-    if use_true_range:
-        prev_close = close.shift(1)
-        tr_components = pd.concat(
-            [
-                (high - low).abs(),
-                (high - prev_close).abs(),
-                (low - prev_close).abs(),
-            ],
-            axis=1,
-        )
-        true_range = tr_components.max(axis=1)
-    else:
-        true_range = (high - low).abs()
-
-    range_ma = _rolling_mean(true_range, kc_length)
-    upper_kc = kc_ma + kc_multiplier * range_ma
-    lower_kc = kc_ma - kc_multiplier * range_ma
+    # Wilder 기반 EMA(RMA)와 ATR로 켈트너 채널을 계산한다.
+    kc_ma = _rma(typical_price, kc_length)
+    prev_close = close.shift(1)
+    tr_components = pd.concat(
+        [
+            (high - low).abs(),
+            (high - prev_close).abs(),
+            (low - prev_close).abs(),
+        ],
+        axis=1,
+    )
+    true_range = tr_components.max(axis=1)
+    atr = _rma(true_range, kc_length)
+    upper_kc = kc_ma + kc_multiplier * atr
+    lower_kc = kc_ma - kc_multiplier * atr
 
     squeeze_on = (lower_bb > lower_kc) & (upper_bb < upper_kc)
     squeeze_outside = (lower_bb < lower_kc) & (upper_bb > upper_kc)
-
     squeeze_on = squeeze_on.fillna(False)
     squeeze_outside = squeeze_outside.fillna(False)
 
-    highest_high = _rolling_highest(high, kc_length)
-    lowest_low = _rolling_lowest(low, kc_length)
-    avg_range = (highest_high + lowest_low) / 2.0
-    sma_close = _rolling_mean(close, kc_length)
-    composite_mid = (avg_range + sma_close) / 2.0
-    diff_series = close - composite_mid
+    # LazyBear momentum: linreg(typical_price - sma(typical_price, kc_length), kc_length)
+    sma_tp = _rolling_mean(typical_price, kc_length)
+    diff_series = typical_price - sma_tp
     squeeze_momentum = _rolling_linear_regression(diff_series, kc_length)
 
-    # LazyBear의 sqzOff 조건은 밴드가 다시 KC 바깥으로 나간 경우와 일치한다.
     release_signal = squeeze_outside
-
     return squeeze_on, release_signal, squeeze_momentum, squeeze_outside
 
 
@@ -289,12 +282,60 @@ def _aggregate_ohlcv(df: pd.DataFrame, rule: str) -> pd.DataFrame:
     return resampled
 
 
-def _latest_timeframe_metrics(df: pd.DataFrame, rule: str) -> tuple[bool, bool, float, float]:
+def _last_candle_change(frame: Optional[pd.DataFrame]) -> float:
+    """리샘플링된 프레임 등에서 최근 캔들의 (종가-시가)를 반환한다."""
+
+    if frame is None or frame.empty:
+        return float("nan")
+    if "Open" not in frame.columns or "Close" not in frame.columns:
+        return float("nan")
+    valid = frame[["Open", "Close"]].dropna()
+    if valid.empty:
+        return float("nan")
+    latest = valid.iloc[-1]
+    open_value = latest["Open"]
+    close_value = latest["Close"]
+    if pd.isna(open_value) or pd.isna(close_value):
+        return float("nan")
+    return float(close_value - open_value)
+
+
+def _off_after_on_streak(
+    on_series: pd.Series,
+    release_series: pd.Series,
+    *,
+    min_length: int = 1,
+) -> tuple[bool, int]:
+    """스퀴즈 오프 직전에 최소 min_length 연속 On이 있었는지 판단한다."""
+
+    if on_series.empty or release_series.empty:
+        return False, 0
+
+    on_bool = on_series.astype(bool)
+    release_bool = release_series.astype(bool)
+    if not release_bool.iloc[-1]:
+        return False, 0
+
+    # 직전 봉까지의 스퀴즈 온 연속 길이 계산
+    prior_on = on_bool.iloc[:-1]
+    streak = 0
+    for value in reversed(prior_on.tolist()):
+        if value:
+            streak += 1
+        else:
+            break
+
+    if min_length <= 1:
+        return True, streak
+    return streak >= min_length, streak
+
+
+def _latest_timeframe_metrics(df: pd.DataFrame, rule: str) -> tuple[bool, bool, float, float, float, bool]:
     """주어진 일봉 데이터를 기반으로 특정 주기 스퀴즈/RSI 최신값을 반환한다."""
 
     aggregated = _aggregate_ohlcv(df, rule)
     if aggregated.empty:
-        return False, False, float("nan"), float("nan")
+        return False, False, float("nan"), float("nan"), float("nan"), False
 
     squeeze_on, squeeze_release, squeeze_momentum, squeeze_outside = _compute_squeeze_fields(
         aggregated["Close"],
@@ -314,7 +355,7 @@ def _latest_timeframe_metrics(df: pd.DataFrame, rule: str) -> tuple[bool, bool, 
 
     aggregated = aggregated.dropna(how="all")
     if aggregated.empty:
-        return False, False, float("nan"), float("nan")
+        return False, False, float("nan"), float("nan"), float("nan"), False
 
     latest = aggregated.iloc[-1]
     squeeze_on_value = bool(latest["squeeze_on"]) if not pd.isna(latest["squeeze_on"]) else False
@@ -324,7 +365,9 @@ def _latest_timeframe_metrics(df: pd.DataFrame, rule: str) -> tuple[bool, bool, 
     )
     rsi_value = float(latest["rsi"]) if not np.isnan(latest["rsi"]) else float("nan")
 
-    return squeeze_on_value, squeeze_off_value, squeeze_momentum_value, rsi_value
+    candle_change = _last_candle_change(aggregated)
+    qualified, _ = _off_after_on_streak(aggregated["squeeze_on"], aggregated["squeeze_off"], min_length=1)
+    return squeeze_on_value, squeeze_off_value, squeeze_momentum_value, rsi_value, candle_change, qualified
 
 
 def to_market(ticker: str) -> str:
@@ -382,17 +425,21 @@ class FeatureSet:
     squeeze_on: bool
     squeeze_off: bool
     squeeze_momentum: float
+    squeeze_off_qualified: bool
     hourly_squeeze_on: bool
     hourly_squeeze_off: bool
     hourly_squeeze_momentum: float
+    hourly_squeeze_off_qualified: bool
     hourly_rsi: float
     weekly_squeeze_on: bool
     weekly_squeeze_off: bool
     weekly_squeeze_momentum: float
+    weekly_squeeze_off_qualified: bool
     weekly_rsi: float
     monthly_squeeze_on: bool
     monthly_squeeze_off: bool
     monthly_squeeze_momentum: float
+    monthly_squeeze_off_qualified: bool
     monthly_rsi: float
     dividend_yield: float
     annual_dividend: float
@@ -411,6 +458,10 @@ class FeatureSet:
     atr_value: float
     stop_dist: float
     position_size: float
+    hourly_candle_change: float
+    daily_candle_change: float
+    weekly_candle_change: float
+    monthly_candle_change: float
 
 
 def compute_features_for_ticker(
@@ -516,11 +567,14 @@ def compute_features_for_ticker(
     p["squeeze_off"] = squeeze_release_series.astype(bool)
     p["squeeze_outside"] = squeeze_outside_series.astype(bool)
     p["squeeze_momentum"] = squeeze_momentum_series
+    daily_off_qualified, _ = _off_after_on_streak(p["squeeze_on"], p["squeeze_off"], min_length=1)
 
     hourly_on = False
     hourly_off = False
     hourly_momentum = float("nan")
     hourly_rsi_value = float("nan")
+    hourly_off_qualified = False
+    hourly_frame: Optional[pd.DataFrame] = None
     if hourly is not None:
         hourly_frame = hourly.dropna(how="all").copy()
         if not hourly_frame.empty and {"Close", "High", "Low"}.issubset(hourly_frame.columns):
@@ -539,6 +593,10 @@ def compute_features_for_ticker(
                 hourly_on = bool(squeeze_on_h.iloc[-1])
             if not squeeze_release_h.empty:
                 hourly_off = bool(squeeze_release_h.iloc[-1])
+            if not squeeze_on_h.empty and not squeeze_release_h.empty:
+                hourly_off_qualified, _ = _off_after_on_streak(
+                    squeeze_on_h.astype(bool), squeeze_release_h.astype(bool), min_length=1
+                )
             if not squeeze_momentum_h.empty:
                 last_hourly_momentum = squeeze_momentum_h.iloc[-1]
                 if not np.isnan(last_hourly_momentum):
@@ -551,10 +609,26 @@ def compute_features_for_ticker(
                     if not np.isnan(last_hourly_rsi):
                         hourly_rsi_value = float(last_hourly_rsi)
 
-    weekly_on, weekly_off, weekly_momentum, weekly_rsi = _latest_timeframe_metrics(p, "W-FRI")
-    monthly_on, monthly_off, monthly_momentum, monthly_rsi = _latest_timeframe_metrics(p, "M")
+    hourly_candle_change = _last_candle_change(hourly_frame)
+    (
+        weekly_on,
+        weekly_off,
+        weekly_momentum,
+        weekly_rsi,
+        weekly_candle_change,
+        weekly_off_qualified,
+    ) = _latest_timeframe_metrics(p, "W-FRI")
+    (
+        monthly_on,
+        monthly_off,
+        monthly_momentum,
+        monthly_rsi,
+        monthly_candle_change,
+        monthly_off_qualified,
+    ) = _latest_timeframe_metrics(p, "M")
 
     latest = p.iloc[-1]  # 최신 시점의 지표만 활용해 현재 상태를 평가한다.
+    daily_candle_change = _last_candle_change(p)
 
     # 가중 점수 계산을 위한 전처리.
     s_ret5 = latest["ret_5d"]
@@ -761,21 +835,25 @@ def compute_features_for_ticker(
         squeeze_momentum=float(latest["squeeze_momentum"])
         if not np.isnan(latest["squeeze_momentum"])
         else float("nan"),
+        squeeze_off_qualified=bool(daily_off_qualified),
         hourly_squeeze_on=hourly_on,
         hourly_squeeze_off=hourly_off,
         hourly_squeeze_momentum=float(hourly_momentum)
         if not np.isnan(hourly_momentum)
         else float("nan"),
+        hourly_squeeze_off_qualified=bool(hourly_off_qualified),
         hourly_rsi=float(hourly_rsi_value)
         if not np.isnan(hourly_rsi_value)
         else float("nan"),
         weekly_squeeze_on=weekly_on,
         weekly_squeeze_off=weekly_off,
         weekly_squeeze_momentum=weekly_momentum,
+        weekly_squeeze_off_qualified=bool(weekly_off_qualified),
         weekly_rsi=float(weekly_rsi) if not np.isnan(weekly_rsi) else float("nan"),
         monthly_squeeze_on=monthly_on,
         monthly_squeeze_off=monthly_off,
         monthly_squeeze_momentum=monthly_momentum,
+        monthly_squeeze_off_qualified=bool(monthly_off_qualified),
         monthly_rsi=float(monthly_rsi) if not np.isnan(monthly_rsi) else float("nan"),
         dividend_yield=float(dividend_yield) if not np.isnan(dividend_yield) else np.nan,
         annual_dividend=float(total_div_1y),
@@ -794,10 +872,31 @@ def compute_features_for_ticker(
         atr_value=float(atr_value) if not np.isnan(atr_value) else float("nan"),
         stop_dist=float(stop_dist) if not np.isnan(stop_dist) else float("nan"),
         position_size=float(position_size),
+        hourly_candle_change=float(hourly_candle_change)
+        if not np.isnan(hourly_candle_change)
+        else float("nan"),
+        daily_candle_change=float(daily_candle_change)
+        if not np.isnan(daily_candle_change)
+        else float("nan"),
+        weekly_candle_change=float(weekly_candle_change)
+        if not np.isnan(weekly_candle_change)
+        else float("nan"),
+        monthly_candle_change=float(monthly_candle_change)
+        if not np.isnan(monthly_candle_change)
+        else float("nan"),
     )
 
 
 def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
+    def _direction_label(change: float) -> str:
+        if np.isnan(change):
+            return ""
+        if change > 0:
+            return "Up"
+        if change < 0:
+            return "Down"
+        return "Flat"
+
     return {
         "티커": ticker,
         "트렌드점수": feature_set.trend_score,
@@ -830,17 +929,25 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "변동성압축": feature_set.volatility_contraction,
         "squeeze_on_hourly": feature_set.hourly_squeeze_on,
         "squeeze_off_hourly": feature_set.hourly_squeeze_off,
+        "squeeze_off_hourly_qualified": feature_set.hourly_squeeze_off_qualified,
+        "squeeze_off_hourly_direction": _direction_label(feature_set.hourly_candle_change),
         "squeeze_momentum_hourly": feature_set.hourly_squeeze_momentum,
         "squeeze_on": feature_set.squeeze_on,
         "squeeze_off": feature_set.squeeze_off,
+        "squeeze_off_qualified": feature_set.squeeze_off_qualified,
+        "squeeze_off_direction": _direction_label(feature_set.daily_candle_change),
         "squeeze_momentum": feature_set.squeeze_momentum,
         "RSI_hourly": feature_set.hourly_rsi,
         "squeeze_on_weekly": feature_set.weekly_squeeze_on,
         "squeeze_off_weekly": feature_set.weekly_squeeze_off,
+        "squeeze_off_weekly_qualified": feature_set.weekly_squeeze_off_qualified,
+        "squeeze_off_weekly_direction": _direction_label(feature_set.weekly_candle_change),
         "squeeze_momentum_weekly": feature_set.weekly_squeeze_momentum,
         "RSI_weekly": feature_set.weekly_rsi,
         "squeeze_on_monthly": feature_set.monthly_squeeze_on,
         "squeeze_off_monthly": feature_set.monthly_squeeze_off,
+        "squeeze_off_monthly_qualified": feature_set.monthly_squeeze_off_qualified,
+        "squeeze_off_monthly_direction": _direction_label(feature_set.monthly_candle_change),
         "squeeze_momentum_monthly": feature_set.monthly_squeeze_momentum,
         "RSI_monthly": feature_set.monthly_rsi,
         "dividend_yield": feature_set.dividend_yield,

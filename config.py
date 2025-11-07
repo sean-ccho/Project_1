@@ -62,7 +62,7 @@ GOOGLE_SHEETS_PORTFOLIO_WORKSHEET: str | None = "주식찾기"
 GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
 
 # 이메일 알림 설정(비활성화가 기본값)
-EMAIL_NOTIFICATIONS_ENABLED = False
+EMAIL_NOTIFICATIONS_ENABLED = True
 EMAIL_SMTP_SERVER: str | None = "smtp.gmail.com"
 EMAIL_SMTP_PORT: int = 587
 EMAIL_USE_TLS = True
@@ -247,15 +247,23 @@ TECH_COLUMN_LABELS = {
     "변동성압축": "변동성압축",
     "squeeze_on_hourly": "SQZ_On(1H)",
     "squeeze_off_hourly": "SQZ_Off(1H)",
+    "squeeze_off_hourly_qualified": "SQZ_Off Qual(1H)",
+    "squeeze_off_hourly_direction": "SQZ_Off Dir(1H)",
     "squeeze_momentum_hourly": "SQZ_M(1H)",
     "squeeze_on": "SQZ_On(1D)",
     "squeeze_off": "SQZ_Off(1D)",
+    "squeeze_off_qualified": "SQZ_Off Qual(1D)",
+    "squeeze_off_direction": "SQZ_Off Dir(1D)",
     "squeeze_momentum": "SQZ_M(1D)",
     "squeeze_on_weekly": "SQZ_On(1W)",
     "squeeze_off_weekly": "SQZ_Off(1W)",
+    "squeeze_off_weekly_qualified": "SQZ_Off Qual(1W)",
+    "squeeze_off_weekly_direction": "SQZ_Off Dir(1W)",
     "squeeze_momentum_weekly": "SQZ_M(1W)",
     "squeeze_on_monthly": "SQZ_On(1M)",
     "squeeze_off_monthly": "SQZ_Off(1M)",
+    "squeeze_off_monthly_qualified": "SQZ_Off Qual(1M)",
+    "squeeze_off_monthly_direction": "SQZ_Off Dir(1M)",
     "squeeze_momentum_monthly": "SQZ_M(1M)",
     "RSI": "RSI(1D)",
     "RSI_hourly": "RSI(1H)",
@@ -337,15 +345,23 @@ EXPORT_COLUMNS = [
     "현재가격",
     "squeeze_on_hourly",
     "squeeze_off_hourly",
+    "squeeze_off_hourly_qualified",
+    "squeeze_off_hourly_direction",
     "squeeze_momentum_hourly",
     "squeeze_on",
     "squeeze_off",
+    "squeeze_off_qualified",
+    "squeeze_off_direction",
     "squeeze_momentum",
     "squeeze_on_weekly",
     "squeeze_off_weekly",
+    "squeeze_off_weekly_qualified",
+    "squeeze_off_weekly_direction",
     "squeeze_momentum_weekly",
     "squeeze_on_monthly",
     "squeeze_off_monthly",
+    "squeeze_off_monthly_qualified",
+    "squeeze_off_monthly_direction",
     "squeeze_momentum_monthly",
     "RSI_hourly",
     "RSI",

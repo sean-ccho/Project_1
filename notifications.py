@@ -27,6 +27,18 @@ SQZ_LABELS: Dict[str, str] = {
     "SQZ_Off(1W)": "1W",
     "SQZ_Off(1M)": "1M",
 }
+SQZ_DIRECTION_COLUMNS: Dict[str, str] = {
+    "SQZ_Off(1H)": "SQZ_Off Dir(1H)",
+    "SQZ_Off(1D)": "SQZ_Off Dir(1D)",
+    "SQZ_Off(1W)": "SQZ_Off Dir(1W)",
+    "SQZ_Off(1M)": "SQZ_Off Dir(1M)",
+}
+SQZ_QUAL_COLUMNS: Dict[str, str] = {
+    "SQZ_Off(1H)": "SQZ_Off Qual(1H)",
+    "SQZ_Off(1D)": "SQZ_Off Qual(1D)",
+    "SQZ_Off(1W)": "SQZ_Off Qual(1W)",
+    "SQZ_Off(1M)": "SQZ_Off Qual(1M)",
+}
 
 
 def notify_signal_summary(df: pd.DataFrame, context_label: str) -> None:
@@ -70,7 +82,7 @@ def build_summary_lines(df: pd.DataFrame) -> List[str]:
 
 
 def _format_sqz_section(sqz_matches: Dict[str, List[str]]) -> List[str]:
-    lines = ["SQZ Off (True timeframes shown):"]
+    lines = ["SQZ Off (Up candles only; timeframes shown):"]
     if sqz_matches:
         for ticker, periods in sqz_matches.items():
             label = ", ".join(periods) if periods else "N/A"
@@ -141,7 +153,22 @@ def _sqz_true_timeframes(df: pd.DataFrame, ticker_col: str) -> Dict[str, List[st
     sqz_frame = df[available].apply(lambda col: col.map(_coerce_bool)).fillna(False)
     results: Dict[str, List[str]] = {}
     for idx, row in sqz_frame.iterrows():
-        periods = [SQZ_LABELS.get(col, col) for col in available if row[col]]
+        periods: List[str] = []
+        for col in available:
+            if not row[col]:
+                continue
+            direction_col = SQZ_DIRECTION_COLUMNS.get(col)
+            if not direction_col or direction_col not in df.columns:
+                continue
+            direction_value = str(df.at[idx, direction_col]).strip().lower()
+            if direction_value != "up":
+                continue
+            qual_col = SQZ_QUAL_COLUMNS.get(col)
+            if not qual_col or qual_col not in df.columns:
+                continue
+            if not _coerce_bool(df.at[idx, qual_col]):
+                continue
+            periods.append(SQZ_LABELS.get(col, col))
         if periods:
             ticker = str(df.at[idx, ticker_col])
             results[ticker] = periods
