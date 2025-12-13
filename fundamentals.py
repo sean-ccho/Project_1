@@ -87,6 +87,8 @@ def fetch_fundamental_snapshots(tickers: List[str]) -> pd.DataFrame:
             "fund_quick_ratio": _safe_float(info.get("quickRatio")),
             "fund_free_cashflow": _safe_float(info.get("freeCashflow")),
             "fund_operating_cashflow": _safe_float(info.get("operatingCashflow")),
+            "fund_market_cap": _safe_float(info.get("marketCap")),
+            "fund_float_shares": _safe_float(info.get("floatShares")),
             "next_earnings_date": next_earnings_date,
             "days_to_next_earnings": days_to_next_earnings,
         }
@@ -108,6 +110,8 @@ def fetch_fundamental_snapshots(tickers: List[str]) -> pd.DataFrame:
         "fund_quick_ratio",
         "fund_free_cashflow",
         "fund_operating_cashflow",
+        "fund_market_cap",
+        "fund_float_shares",
         "days_to_next_earnings",
     ]
     for col in numeric_cols:

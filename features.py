@@ -517,6 +517,22 @@ def compute_features_snapshot(
         if not fundamentals.empty:
             out = out.merge(fundamentals, on="티커", how="left")
 
+    if "최근20일평균거래대금" in out.columns:
+        # fund_market_cap 우선 사용, 없으면 유통주식수 * 현재가로 대체.
+        market_cap = out["fund_market_cap"] if "fund_market_cap" in out.columns else np.nan
+        float_cap = np.nan
+        if "fund_float_shares" in out.columns and "close" in out.columns:
+            float_cap = out["fund_float_shares"] * out["close"]
+        effective_cap = market_cap
+        if isinstance(market_cap, pd.Series):
+            effective_cap = market_cap.copy()
+            if isinstance(float_cap, pd.Series):
+                effective_cap = effective_cap.fillna(float_cap)
+
+        turnover = out["최근20일평균거래대금"] / effective_cap
+        turnover = turnover.where(np.isfinite(turnover))
+        out["거래대금회전율"] = turnover
+
     if "days_to_next_earnings" in out.columns:
         earnings_window = out["days_to_next_earnings"].between(
             0, EARNINGS_SOON_DAYS, inclusive="both"

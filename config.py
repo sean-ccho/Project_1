@@ -47,6 +47,7 @@ WEIGHTS = {
 LIQUIDITY_QUANTILE = 0.25  # 하위 25% 제거 = 상위 75% 유지
 LIQUIDITY_WHITELIST = []  # 필수 포함 종목(저유동성이라도 유지)
 LIQUIDITY_DOLLAR_MIN = 5_000_000  # 최근 20일 평균 거래대금 최소선
+LIQUIDITY_TURNOVER_MIN = 0.0  # 거래대금/시가총액(또는 유통시가) 회전율 하한(0=미사용)
 
 for ticker in LIQUIDITY_WHITELIST:
     if ticker not in TICKERS:
@@ -279,6 +280,7 @@ TECH_COLUMN_LABELS = {
     "obv_mom_ratio": "OBV 모멘텀(20)",
     "atr_pct": "ATR%",
     "거래량돌파배수": "거래량돌파배수",
+    "거래량Z(20)": "거래량Z(20)",
     "변동성압축": "변동성압축",
     "10일고점괴리": "10일고점괴리",
     "atr_med_252": "ATR% 중앙값(1y)",
@@ -366,6 +368,7 @@ EXPORT_COLUMNS = [
     "position_size",
     "stop_dist",
     "RSI",
+    "거래량Z(20)",
     "저점확률",
     "고점확률",
     "극점편차",

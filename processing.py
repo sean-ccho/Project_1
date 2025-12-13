@@ -5,6 +5,7 @@ import pandas as pd
 from config import (
     LIQUIDITY_DOLLAR_MIN,
     LIQUIDITY_QUANTILE,
+    LIQUIDITY_TURNOVER_MIN,
     LIQUIDITY_WHITELIST,
     NEUTRALIZE_COLUMNS,
 )
@@ -49,6 +50,8 @@ def liquidity_filter(df: pd.DataFrame) -> pd.DataFrame:
     )
     mask = out["최근20일평균거래대금"] >= thresholds
     mask &= out["최근20일평균거래대금"] >= LIQUIDITY_DOLLAR_MIN
+    if LIQUIDITY_TURNOVER_MIN > 0 and "거래대금회전율" in out.columns:
+        mask &= out["거래대금회전율"] >= LIQUIDITY_TURNOVER_MIN
     if LIQUIDITY_WHITELIST:
         mask |= out["티커"].isin(LIQUIDITY_WHITELIST)
     return out[mask]
