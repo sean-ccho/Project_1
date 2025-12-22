@@ -104,6 +104,7 @@ class FeatureSet:
     annual_dividend: float
     ema20: float
     ema50: float
+    ema200: float
     volume: float
     volume_ma20: float
     obv: float
@@ -411,6 +412,7 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         annual_dividend=float(total_div_1y),
         ema20=ema20_latest,
         ema50=ema50_latest,
+        ema200=float(ema200_latest) if not np.isnan(ema200_latest) else float("nan"),
         volume=volume_latest,
         volume_ma20=volume_ma_latest,
         obv=obv_latest,
@@ -464,6 +466,7 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "섹터": SECTOR_MAP.get(ticker, "Unknown"),
         "ema20": feature_set.ema20,
         "ema50": feature_set.ema50,
+        "ema200": feature_set.ema200,
         "volume": feature_set.volume,
         "volume_ma20": feature_set.volume_ma20,
         "obv": feature_set.obv,

@@ -6,9 +6,11 @@
 from typing import Dict
 
 from data.sp500_tickers import SP500_TICKERS
+from data.nasdaq_tickers import NASDAQ_TICKERS
 
-# 분석 대상 종목 풀: S&P 500 편입 종목(유니버스 관리 파일은 data/sp500_tickers.py 참고).
-TICKERS = SP500_TICKERS.copy()
+# 분석 대상 종목 풀: S&P 500 + Nasdaq 100 + Market Indices
+INDICES = ["SPY", "QQQ", "IWM"]
+TICKERS = list(set(SP500_TICKERS + NASDAQ_TICKERS + INDICES))
 COMPANY_NAME_MAP = {}
 
 # 섹터 매핑: 섹터 중립화 시 Unknown 여부를 판단하는 기준이 된다.
@@ -85,6 +87,10 @@ BUY_RSI_MAX = 72
 WATCH_SCORE_THRESHOLD = 0.06
 WATCH_POS_THRESHOLD = 0.52
 OVERBOUGHT_RSI = 78
+
+# 시장 상황 필터 및 전략 모드 설정
+MARKET_FILTER_ENABLED = True  # SPY 200일 이평선 하회 시 매수 제한
+STRATEGY_MODE = "AGGRESSIVE"  # "STANDARD", "AGGRESSIVE"
 
 # 추가 기술적 지표 임계치
 MACD_BUY_HIST_THRESHOLD = 0.5

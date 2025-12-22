@@ -13,7 +13,10 @@ from config import (
     RSI_BUY_MAX,
     RSI_SELL_MIN,
     SIGNAL_PRIORITY,
+    SIGNAL_PRIORITY,
     VOLUME_BREAKOUT_MULTIPLIER,
+    MARKET_FILTER_ENABLED,
+    STRATEGY_MODE,
 )
 
 
@@ -50,9 +53,17 @@ def _compute_buy_signal(df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
     atr_pct = _column(df, "atr_pct")
     atr_buy_max = _column(df, "atr_buy_max")
 
-    support_rsi = rsi < RSI_BUY_MAX
+    # Strategy Mode Adjustments
+    rsi_threshold = RSI_BUY_MAX
+    adx_threshold = ADX_BUY_MIN
+
+    if STRATEGY_MODE == "AGGRESSIVE":
+        rsi_threshold = 60  # Relax RSI requirement (allow higher momentum)
+        adx_threshold = 15  # Relax Trend Strength requirement
+
+    support_rsi = rsi < rsi_threshold
     support_volume = volume > volume_ma * VOLUME_BREAKOUT_MULTIPLIER
-    support_adx = adx > ADX_BUY_MIN
+    support_adx = adx > adx_threshold
     support_obv = (obv > obv_ma) | (obv_mom > 0)
     support_atr = atr_pct < atr_buy_max
 
@@ -124,6 +135,22 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
 
     buy_signal, buy_counts = _compute_buy_signal(out)
     sell_signal, sell_counts = _compute_sell_signal(out)
+
+    # --- Market Regime Filter ---
+    # If enabled, disable NEW buy signals when SPY is below EMA200 (Bear Market).
+    if MARKET_FILTER_ENABLED:
+        spy_row = out[out["티커"] == "SPY"]
+        if not spy_row.empty:
+            spy_close = spy_row["close"].values[0]
+            spy_ema200 = spy_row["ema200"].values[0]
+            
+            # Check if SPY is valid and below EMA200
+            if pd.notna(spy_close) and pd.notna(spy_ema200) and spy_close < spy_ema200:
+                # Market is Bearish -> Force Buy Signal to False
+                buy_signal[:] = False
+                # Optional: We could leave "low_prob" (Bottom Fishing) active, 
+                # but for safety, we suppress standard momentum buys.
+    # ----------------------------
 
     buy_counts = buy_counts.fillna(0).astype(int)
     sell_counts = sell_counts.fillna(0).astype(int)
