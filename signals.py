@@ -13,10 +13,10 @@ from config import (
     RSI_BUY_MAX,
     RSI_SELL_MIN,
     SIGNAL_PRIORITY,
-    SIGNAL_PRIORITY,
     VOLUME_BREAKOUT_MULTIPLIER,
     MARKET_FILTER_ENABLED,
     STRATEGY_MODE,
+    SECTOR_ROTATION_ENABLED,
 )
 
 
@@ -148,9 +148,17 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
             if pd.notna(spy_close) and pd.notna(spy_ema200) and spy_close < spy_ema200:
                 # Market is Bearish -> Force Buy Signal to False
                 buy_signal[:] = False
-                # Optional: We could leave "low_prob" (Bottom Fishing) active, 
-                # but for safety, we suppress standard momentum buys.
     # ----------------------------
+
+    # --- Sector Rotation Filter ---
+    # If enabled, disable buy signals for stocks NOT in strong sectors.
+    if SECTOR_ROTATION_ENABLED and "섹터" in out.columns:
+        # 강한 섹터 판별을 위해 출력 데이터에 표시 (섹터 강도는 main.py에서 계산)
+        # 여기서는 "in_strong_sector" 컴럼이 있으면 그것을 사용
+        if "in_strong_sector" in out.columns:
+            weak_sector_mask = ~out["in_strong_sector"].fillna(True).astype(bool)
+            buy_signal = buy_signal & ~weak_sector_mask
+    # ------------------------------
 
     buy_counts = buy_counts.fillna(0).astype(int)
     sell_counts = sell_counts.fillna(0).astype(int)

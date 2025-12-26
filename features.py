@@ -519,6 +519,9 @@ def compute_features_snapshot(
         fundamentals = fetch_fundamental_snapshots(out["티커"].tolist())
         if not fundamentals.empty:
             out = out.merge(fundamentals, on="티커", how="left")
+            # yfinance에서 가져온 섹터 정보로 업데이트
+            if "fund_sector" in out.columns:
+                out["섹터"] = out["fund_sector"].fillna(out["섹터"])
 
     if "최근20일평균거래대금" in out.columns:
         # fund_market_cap 우선 사용, 없으면 유통주식수 * 현재가로 대체.

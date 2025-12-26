@@ -77,6 +77,7 @@ def fetch_fundamental_snapshots(tickers: List[str]) -> pd.DataFrame:
 
         record = {
             "티커": symbol,
+            "fund_sector": info.get("sector", "Unknown"),  # 섹터 정보 추가
             "fund_roe": _safe_float(info.get("returnOnEquity")),
             "fund_debt_to_equity": _safe_float(info.get("debtToEquity")),
             "fund_revenue_growth": _safe_float(info.get("revenueGrowth")),

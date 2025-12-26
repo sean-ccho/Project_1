@@ -92,6 +92,26 @@ OVERBOUGHT_RSI = 78
 MARKET_FILTER_ENABLED = True  # SPY 200일 이평선 하회 시 매수 제한
 STRATEGY_MODE = "AGGRESSIVE"  # "STANDARD", "AGGRESSIVE"
 
+# 섹터 로테이션 설정
+SECTOR_ROTATION_ENABLED = True  # 강한 섹터 종목만 매수
+SECTOR_STRENGTH_LOOKBACK = 20   # 상대 강도 계산 기간 (거래일)
+SECTOR_STRENGTH_THRESHOLD = 0.0  # SPY 대비 초과 수익률 기준 (0 = SPY보다 높으면 강함)
+
+# 섹터 ETF 매핑 (섹터명 → ETF 티커)
+SECTOR_ETFS: Dict[str, str] = {
+    "Information Technology": "XLK",
+    "Financials": "XLF",
+    "Health Care": "XLV",
+    "Consumer Discretionary": "XLY",
+    "Communication Services": "XLC",
+    "Industrials": "XLI",
+    "Consumer Staples": "XLP",
+    "Energy": "XLE",
+    "Utilities": "XLU",
+    "Real Estate": "XLRE",
+    "Materials": "XLB",
+}
+
 # 추가 기술적 지표 임계치
 MACD_BUY_HIST_THRESHOLD = 0.5
 MACD_SELL_HIST_THRESHOLD = -0.5
@@ -364,6 +384,8 @@ EXPORT_COLUMNS = [
     "현재가격",
     "최근뉴스",
     "우선순위",
+    "섹터",
+    "섹터강도",
     "판단",
     "추천",
     "트렌드점수_최종",

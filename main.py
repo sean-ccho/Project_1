@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import time
 
+import pandas as pd
+
 from config import (
     BACKTEST_ENABLED,
     BACKTEST_RUNS,
@@ -16,6 +18,8 @@ from config import (
     TICKERS,
     GOOGLE_SHEETS_SIGNALS_WORKSHEET,
     GOOGLE_SHEETS_PORTFOLIO_WORKSHEET,
+    SECTOR_ROTATION_ENABLED,
+    SECTOR_ETFS,
 )
 from data.fetch import (
     fetch_company_names,
@@ -34,6 +38,7 @@ from features import compute_all_features
 from processing import apply_neutralization, liquidity_filter
 from signals import attach_signals_and_sort
 from analytics.extremes import score_extremes_for_snapshot
+from sector_rotation import get_strong_sectors
 
 
 def build_export_dataframe(
@@ -63,6 +68,35 @@ def build_export_dataframe(
         return None
 
     neutral = apply_neutralization(liquid)
+
+    # --- 섹터 로테이션: 강한 섹터 판별 ---
+    if SECTOR_ROTATION_ENABLED:
+        # 섹터 ETF 데이터 가져오기
+        sector_etf_tickers = list(SECTOR_ETFS.values()) + ["SPY"]
+        etf_raw = fetch_ohlcv(sector_etf_tickers, period="1y")
+        
+        if not etf_raw.empty:
+            etf_data = {
+                ticker: etf_raw[ticker].dropna(how="all")
+                for ticker in etf_raw.columns.levels[0]
+                if ticker in sector_etf_tickers
+            }
+            spy_data = etf_data.get("SPY", pd.DataFrame())
+            
+            if not spy_data.empty:
+                strong_sectors = get_strong_sectors(etf_data, spy_data)
+                print(f"[{context_label}] 강한 섹터: {strong_sectors if strong_sectors else '없음'}")
+                
+                # in_strong_sector 컴럼 추가
+                neutral["in_strong_sector"] = neutral["섹터"].apply(
+                    lambda s: s in strong_sectors or s == "Unknown"
+                )
+                # 섹터강도 컴럼 추가 (엑셀에 표시용)
+                neutral["섹터강도"] = neutral["섹터"].apply(
+                    lambda s: "✅ 강함" if (s in strong_sectors or s == "Unknown") else "❌ 약함"
+                )
+    # -----------------------------------
+
     ranked = attach_signals_and_sort(neutral)
     unique_tickers = ranked["티커"].unique().tolist()
 
