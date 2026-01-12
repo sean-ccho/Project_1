@@ -46,6 +46,7 @@ from config import (
     WEIGHTS,
 )
 from fundamentals import fetch_fundamental_snapshots
+from patterns import detect_all_patterns, AllPatterns
 
 
 def to_market(ticker: str) -> str:
@@ -118,6 +119,13 @@ class FeatureSet:
     atr_value: float
     stop_dist: float
     position_size: float
+    # 차트 패턴
+    pattern_triangle: str
+    pattern_wedge: str
+    pattern_double: str
+    pattern_head_shoulders: str
+    pattern_cup_handle: bool
+    pattern_candlestick: str
 
 
 def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
@@ -365,6 +373,9 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
 
     position_size = base_risk * trend_weight * float(np.clip(vol_adj_size, 0.5, 2.0))
 
+    # 차트 패턴 감지
+    patterns = detect_all_patterns(p)
+
     return FeatureSet(
         trend_score=float(trend_score),
         ret_5d=float(latest["ret_5d"]),
@@ -426,6 +437,13 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         atr_value=float(atr_value) if not np.isnan(atr_value) else float("nan"),
         stop_dist=float(stop_dist) if not np.isnan(stop_dist) else float("nan"),
         position_size=float(position_size),
+        # 차트 패턴
+        pattern_triangle=patterns.triangle,
+        pattern_wedge=patterns.wedge,
+        pattern_double=patterns.double,
+        pattern_head_shoulders=patterns.head_shoulders,
+        pattern_cup_handle=patterns.cup_handle,
+        pattern_candlestick=patterns.candlestick,
     )
 
 
@@ -480,6 +498,13 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "atr_value": feature_set.atr_value,
         "stop_dist": feature_set.stop_dist,
         "position_size": feature_set.position_size,
+        # 차트 패턴
+        "패턴_삼각형": feature_set.pattern_triangle,
+        "패턴_쐐기": feature_set.pattern_wedge,
+        "패턴_더블": feature_set.pattern_double,
+        "패턴_헤드숄더": feature_set.pattern_head_shoulders,
+        "패턴_컵핸들": feature_set.pattern_cup_handle,
+        "패턴_캔들": feature_set.pattern_candlestick,
     }
 
 

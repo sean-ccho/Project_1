@@ -97,6 +97,12 @@ SECTOR_ROTATION_ENABLED = True  # 강한 섹터 종목만 매수
 SECTOR_STRENGTH_LOOKBACK = 20   # 상대 강도 계산 기간 (거래일)
 SECTOR_STRENGTH_THRESHOLD = 0.0  # SPY 대비 초과 수익률 기준 (0 = SPY보다 높으면 강함)
 
+# 차트 패턴 인식 설정
+PATTERN_LOOKBACK_DAYS = 60          # 패턴 탐색 기간 (거래일)
+PATTERN_MIN_TOUCHES = 2             # 추세선 최소 터치 횟수
+PATTERN_CONVERGENCE_THRESHOLD = 0.03  # 수렴 판정 기준 (가격 대비 %)
+PEAK_PROMINENCE = 0.02              # 고점/저점 탐지 민감도 (가격 대비 %)
+
 # 섹터 ETF 매핑 (섹터명 → ETF 티커)
 SECTOR_ETFS: Dict[str, str] = {
     "Information Technology": "XLK",
@@ -325,6 +331,12 @@ TECH_COLUMN_LABELS = {
     "저점확률": "저점확률",
     "고점확률": "고점확률",
     "극점편차": "극점편차",
+    "패턴_삼각형": "삼각형 패턴",
+    "패턴_쐐기": "쐐기 패턴",
+    "패턴_더블": "더블바텀/탑",
+    "패턴_헤드숄더": "헤드앤숄더",
+    "패턴_컵핸들": "컵위드핸들",
+    "패턴_캔들": "캔들스틱",
 }
 
 # 후처리 및 출력 단계에서 공통으로 사용하는 컬럼 정의.
@@ -391,15 +403,21 @@ EXPORT_COLUMNS = [
     "트렌드점수_최종",
     "buy_signal_text",
     "sell_signal_text",
-    "buy_support_count",
-    "sell_support_count",
-    "position_size",
-    "stop_dist",
+    # "buy_support_count",  # 매수 보조
+    # "sell_support_count",  # 매도 보조
+    # "position_size",  # 권장 수량
+    # "stop_dist",  # 스탑 거리
     "RSI",
     "거래량Z(20)",
-    "저점확률",
-    "고점확률",
-    "극점편차",
+    # "저점확률",
+    # "고점확률",
+    # "극점편차",
+    "패턴_삼각형",
+    "패턴_쐐기",
+    "패턴_더블",
+    "패턴_헤드숄더",
+    "패턴_컵핸들",
+    "패턴_캔들",
     # "macd_hist",
     # "ema20",
     # "ema50",
