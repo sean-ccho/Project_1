@@ -8,6 +8,7 @@ import pandas as pd
 from config import (
     ADX_BUY_MIN,
     ADX_SELL_MAX,
+    BOTTOM_REVERSAL_THRESHOLD,
     JUDGEMENT_DISPLAY,
     RECOMMENDATION_DISPLAY,
     RSI_BUY_MAX,
@@ -198,6 +199,14 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
 
         judgement.loc[low_flag] = "저점 관찰"
         recommendation.loc[low_flag] = "저점 분할 매수"
+
+    # --- 저점 반등 스코어 판단 ---
+    reversal_score = _column(out, "반등스코어")
+    if not reversal_score.isna().all():
+        reversal_flag = reversal_score >= BOTTOM_REVERSAL_THRESHOLD
+        # 반등 스코어가 높으면 '저점 반등'으로 우선 판단
+        judgement.loc[reversal_flag] = "저점 반등"
+        recommendation.loc[reversal_flag] = "반등 매수 고려"
 
     out[judgement.name] = judgement
     out["판단"] = judgement.map(lambda value: JUDGEMENT_DISPLAY.get(value, value))

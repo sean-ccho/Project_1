@@ -24,6 +24,9 @@ from config import (
     PATTERN_MIN_TOUCHES,
     PATTERN_CONVERGENCE_THRESHOLD,
     PEAK_PROMINENCE,
+    PATTERN_TREND_LOOKBACK,
+    PATTERN_MIN_R2,
+    PATTERN_BREAKOUT_CONFIRM,
 )
 
 
@@ -116,6 +119,54 @@ def fit_trendline(x: np.ndarray, y: np.ndarray) -> Tuple[float, float, float]:
 # 패턴 감지 함수
 # =============================================================================
 
+def get_trend_context(df: pd.DataFrame, lookback: int = None) -> str:
+    """최근 트렌드 방향을 판단한다.
+    
+    Args:
+        df: OHLC 데이터프레임
+        lookback: 트렌드 판단 기간 (기본값: PATTERN_TREND_LOOKBACK)
+    
+    Returns:
+        "uptrend" / "downtrend" / "sideways"
+    """
+    if lookback is None:
+        lookback = PATTERN_TREND_LOOKBACK
+    
+    if len(df) < lookback:
+        return "sideways"
+    
+    recent = df.tail(lookback)
+    close_vals = recent["Close"].values.flatten()
+    start_price = float(close_vals[0])
+    end_price = float(close_vals[-1])
+    
+    if start_price <= 0:
+        return "sideways"
+    
+    change_pct = (end_price - start_price) / start_price
+    
+    # EMA 기반 추가 판단 (사용 가능한 경우)
+    ema_slope = change_pct  # 기본값
+    
+    # 20일 EMA 계산
+    if len(df) >= 20:
+        close_series = pd.Series(df["Close"].values.flatten()[-lookback:])
+        ema20_recent = close_series.ewm(span=20, adjust=False).mean()
+        if len(ema20_recent) >= lookback:
+            ema_start = float(ema20_recent.iloc[0])
+            ema_end = float(ema20_recent.iloc[-1])
+            if ema_start > 0:
+                ema_slope = (ema_end - ema_start) / ema_start
+    
+    # 상승 추세: 5% 이상 상승 + EMA 상승
+    if change_pct > 0.05 and ema_slope > 0:
+        return "uptrend"
+    # 하락 추세: 5% 이상 하락 + EMA 하락
+    elif change_pct < -0.05 and ema_slope < 0:
+        return "downtrend"
+    
+    return "sideways"
+
 def detect_triangle(df: pd.DataFrame, lookback: int = 60) -> PatternResult:
     """삼각형 수렴 패턴을 감지한다.
     
@@ -127,7 +178,8 @@ def detect_triangle(df: pd.DataFrame, lookback: int = 60) -> PatternResult:
         return PatternResult(False, "none", 0.0)
     
     recent = df.tail(lookback)
-    closes = recent["Close"]
+    close_vals = recent["Close"].values.flatten()
+    closes = pd.Series(close_vals, index=range(len(close_vals)))
     
     peaks, troughs = find_peaks_and_troughs(closes, order=5, prominence_pct=PEAK_PROMINENCE)
     
@@ -186,36 +238,50 @@ def detect_wedge(df: pd.DataFrame, lookback: int = 60) -> PatternResult:
         return PatternResult(False, "none", 0.0)
     
     recent = df.tail(lookback)
-    closes = recent["Close"]
+    close_vals = recent["Close"].values.flatten()
+    closes = pd.Series(close_vals, index=range(len(close_vals)))
     
     peaks, troughs = find_peaks_and_troughs(closes, order=5, prominence_pct=PEAK_PROMINENCE)
     
-    if len(peaks) < PATTERN_MIN_TOUCHES or len(troughs) < PATTERN_MIN_TOUCHES:
+    # 최소 3개의 터치 포인트 필요 (wedge는 더 엄격하게)
+    if len(peaks) < 3 or len(troughs) < 3:
         return PatternResult(False, "none", 0.0)
     
     peak_slope, _, peak_r2 = fit_trendline(peaks, closes.iloc[peaks].values)
     trough_slope, _, trough_r2 = fit_trendline(troughs, closes.iloc[troughs].values)
     
-    avg_price = closes.mean()
-    slope_threshold = PATTERN_CONVERGENCE_THRESHOLD / lookback
-    
     pattern_type = "none"
     confidence = 0.0
     
-    # 수렴 확인: 두 기울기 차이가 줄어들고 있는지
-    is_converging = abs(peak_slope - trough_slope) < abs(peak_slope) * 0.5
+    # R² 값이 모두 충분히 높아야 함 (명확한 추세선)
+    min_r2 = min(peak_r2, trough_r2)
+    if min_r2 < PATTERN_MIN_R2:
+        return PatternResult(False, "none", 0.0)
     
-    # 상승 쐐기: 둘 다 상승하지만 수렴
-    if peak_slope > 0 and trough_slope > 0 and peak_slope < trough_slope and is_converging:
+    # 수렴 판정 강화: 기울기 차이 비율 계산
+    max_slope = max(abs(peak_slope), abs(trough_slope), 0.001)
+    slope_diff_ratio = abs(peak_slope - trough_slope) / max_slope
+    
+    # 수렴 조건: 기울기 차이가 30% 이하
+    is_converging = slope_diff_ratio < 0.3
+    
+    # 추가: 두 기울기의 부호가 같아야 함 (wedge 특성)
+    same_direction = (peak_slope > 0 and trough_slope > 0) or (peak_slope < 0 and trough_slope < 0)
+    
+    if not same_direction or not is_converging:
+        return PatternResult(False, "none", 0.0)
+    
+    # 상승 쐐기: 둘 다 상승하지만 수렴 (저점 기울기 > 고점 기울기)
+    if peak_slope > 0 and trough_slope > 0 and trough_slope > peak_slope:
         pattern_type = "rising_wedge"
-        confidence = (peak_r2 + trough_r2) / 2
+        confidence = min_r2
     
-    # 하락 쐐기: 둘 다 하락하지만 수렴
-    elif peak_slope < 0 and trough_slope < 0 and peak_slope > trough_slope and is_converging:
+    # 하락 쐐기: 둘 다 하락하지만 수렴 (고점 기울기 > 저점 기울기)
+    elif peak_slope < 0 and trough_slope < 0 and peak_slope > trough_slope:
         pattern_type = "falling_wedge"
-        confidence = (peak_r2 + trough_r2) / 2
+        confidence = min_r2
     
-    if pattern_type != "none" and confidence > 0.4:
+    if pattern_type != "none" and confidence > 0.5:
         return PatternResult(True, pattern_type, confidence)
     
     return PatternResult(False, "none", 0.0)
@@ -231,7 +297,12 @@ def detect_double_bottom_top(df: pd.DataFrame, lookback: int = 60) -> PatternRes
         return PatternResult(False, "none", 0.0)
     
     recent = df.tail(lookback)
-    closes = recent["Close"]
+    close_vals = recent["Close"].values.flatten()
+    closes = pd.Series(close_vals, index=range(len(close_vals)))
+    current_price = float(close_vals[-1])
+    
+    # 트렌드 컨텍스트 확인
+    trend = get_trend_context(df, lookback=PATTERN_TREND_LOOKBACK)
     
     peaks, troughs = find_peaks_and_troughs(closes, order=7, prominence_pct=PEAK_PROMINENCE)
     
@@ -239,7 +310,7 @@ def detect_double_bottom_top(df: pd.DataFrame, lookback: int = 60) -> PatternRes
     confidence = 0.0
     breakout_level = None
     
-    # 더블 바텀 체크
+    # 더블 바텀 체크 (우선순위: 하락/횡보 추세에서 더 유효)
     if len(troughs) >= 2:
         # 마지막 두 저점
         last_two_troughs = troughs[-2:]
@@ -252,11 +323,21 @@ def detect_double_bottom_top(df: pd.DataFrame, lookback: int = 60) -> PatternRes
         between_peaks = [p for p in peaks if last_two_troughs[0] < p < last_two_troughs[1]]
         
         if price_diff_pct < 0.03 and len(between_peaks) >= 1:
-            pattern_type = "double_bottom"
-            confidence = 1.0 - price_diff_pct * 10  # 가격 차이가 작을수록 높은 신뢰도
-            breakout_level = closes.iloc[between_peaks[0]]  # 네크라인
+            neckline = float(closes.iloc[between_peaks[0]])
+            
+            # 돌파 확인: 현재 가격이 두 저점보다 높아야 함
+            breakout_confirmed = current_price > max(trough_prices) * (1 + PATTERN_BREAKOUT_CONFIRM)
+            
+            if breakout_confirmed:
+                pattern_type = "double_bottom"
+                confidence = 1.0 - price_diff_pct * 10
+                breakout_level = neckline
+                
+                # 상승 추세에서 double_bottom 신뢰도 강화
+                if trend == "uptrend":
+                    confidence = min(1.0, confidence * 1.1)
     
-    # 더블 탑 체크
+    # 더블 탑 체크 (우선순위: 상승/횡보 추세에서 더 유효)
     if pattern_type == "none" and len(peaks) >= 2:
         last_two_peaks = peaks[-2:]
         peak_prices = closes.iloc[last_two_peaks].values
@@ -266,9 +347,25 @@ def detect_double_bottom_top(df: pd.DataFrame, lookback: int = 60) -> PatternRes
         between_troughs = [t for t in troughs if last_two_peaks[0] < t < last_two_peaks[1]]
         
         if price_diff_pct < 0.03 and len(between_troughs) >= 1:
-            pattern_type = "double_top"
-            confidence = 1.0 - price_diff_pct * 10
-            breakout_level = closes.iloc[between_troughs[0]]
+            neckline = float(closes.iloc[between_troughs[0]])
+            
+            # 돌파 확인: 현재 가격이 두 고점보다 낮아야 함
+            breakdown_confirmed = current_price < min(peak_prices) * (1 - PATTERN_BREAKOUT_CONFIRM)
+            
+            if breakdown_confirmed:
+                pattern_type = "double_top"
+                confidence = 1.0 - price_diff_pct * 10
+                breakout_level = neckline
+                
+                # 하락 추세에서 double_top 신뢰도 강화
+                if trend == "downtrend":
+                    confidence = min(1.0, confidence * 1.1)
+    
+    # 트렌드에 반하는 패턴은 신뢰도 감소
+    if pattern_type == "double_top" and trend == "uptrend":
+        confidence *= 0.5  # 상승 추세에서 천장 패턴은 의심
+    if pattern_type == "double_bottom" and trend == "downtrend":
+        confidence *= 0.7  # 하락 추세에서 바닥 패턴도 신중히
     
     if pattern_type != "none" and confidence > 0.5:
         return PatternResult(True, pattern_type, confidence, breakout_level)
@@ -286,7 +383,12 @@ def detect_head_and_shoulders(df: pd.DataFrame, lookback: int = 60) -> PatternRe
         return PatternResult(False, "none", 0.0)
     
     recent = df.tail(lookback)
-    closes = recent["Close"]
+    close_vals = recent["Close"].values.flatten()
+    closes = pd.Series(close_vals, index=range(len(close_vals)))
+    current_price = float(close_vals[-1])
+    
+    # 트렌드 컨텍스트 확인
+    trend = get_trend_context(df, lookback=PATTERN_TREND_LOOKBACK)
     
     peaks, troughs = find_peaks_and_troughs(closes, order=5, prominence_pct=PEAK_PROMINENCE)
     
@@ -296,24 +398,27 @@ def detect_head_and_shoulders(df: pd.DataFrame, lookback: int = 60) -> PatternRe
     
     # 헤드앤숄더 (천장) 체크
     if len(peaks) >= 3:
-        # 마지막 3개 고점
         last_three = peaks[-3:]
         prices = closes.iloc[last_three].values
         
-        # 중앙(머리)이 양쪽(어깨)보다 높은지
         left_shoulder, head, right_shoulder = prices
         
         if head > left_shoulder and head > right_shoulder:
-            # 양쪽 어깨가 비슷한 높이인지 (5% 이내)
             shoulder_diff = abs(left_shoulder - right_shoulder) / left_shoulder
-            if shoulder_diff < 0.05:
-                pattern_type = "head_and_shoulders"
-                confidence = 1.0 - shoulder_diff * 5
-                
-                # 네크라인 (어깨 사이 저점들의 평균)
+            
+            # 머리가 어깨보다 충분히 높은지 (3% 이상)
+            head_prominence = (head - max(left_shoulder, right_shoulder)) / head
+            
+            if shoulder_diff < 0.05 and head_prominence > 0.03:
                 between_troughs = [t for t in troughs if last_three[0] < t < last_three[2]]
                 if between_troughs:
-                    breakout_level = closes.iloc[between_troughs].mean()
+                    neckline = float(closes.iloc[between_troughs].mean())
+                    
+                    # 돌파 확인: 현재 가격이 네크라인 아래
+                    if current_price < neckline * (1 - PATTERN_BREAKOUT_CONFIRM):
+                        pattern_type = "head_and_shoulders"
+                        confidence = 1.0 - shoulder_diff * 5
+                        breakout_level = neckline
     
     # 역헤드앤숄더 (바닥) 체크
     if pattern_type == "none" and len(troughs) >= 3:
@@ -324,13 +429,26 @@ def detect_head_and_shoulders(df: pd.DataFrame, lookback: int = 60) -> PatternRe
         
         if head < left_shoulder and head < right_shoulder:
             shoulder_diff = abs(left_shoulder - right_shoulder) / left_shoulder
-            if shoulder_diff < 0.05:
-                pattern_type = "inverse_head_and_shoulders"
-                confidence = 1.0 - shoulder_diff * 5
-                
+            
+            # 머리가 어깨보다 충분히 낮은지 (3% 이상)
+            head_depth = (min(left_shoulder, right_shoulder) - head) / min(left_shoulder, right_shoulder)
+            
+            if shoulder_diff < 0.05 and head_depth > 0.03:
                 between_peaks = [p for p in peaks if last_three[0] < p < last_three[2]]
                 if between_peaks:
-                    breakout_level = closes.iloc[between_peaks].mean()
+                    neckline = float(closes.iloc[between_peaks].mean())
+                    
+                    # 돌파 확인: 현재 가격이 네크라인 위
+                    if current_price > neckline * (1 + PATTERN_BREAKOUT_CONFIRM):
+                        pattern_type = "inverse_head_and_shoulders"
+                        confidence = 1.0 - shoulder_diff * 5
+                        breakout_level = neckline
+    
+    # 트렌드에 따른 신뢰도 조정
+    if pattern_type == "head_and_shoulders" and trend == "uptrend":
+        confidence *= 0.6  # 상승 추세에서 천장 패턴은 신뢰도 감소
+    if pattern_type == "inverse_head_and_shoulders" and trend == "uptrend":
+        confidence = min(1.0, confidence * 1.1)  # 상승 추세에서 바닥 패턴 완성은 신뢰도 증가
     
     if pattern_type != "none" and confidence > 0.6:
         return PatternResult(True, pattern_type, confidence, breakout_level)
@@ -347,7 +465,8 @@ def detect_cup_with_handle(df: pd.DataFrame, lookback: int = 90) -> PatternResul
         return PatternResult(False, "none", 0.0)
     
     recent = df.tail(lookback)
-    closes = recent["Close"]
+    close_vals = recent["Close"].values.flatten()
+    closes = pd.Series(close_vals, index=range(len(close_vals)))
     
     # 컵 형태 체크: 시작 고점 → 바닥 → 복귀
     first_third = closes.iloc[:lookback // 3]
@@ -358,7 +477,7 @@ def detect_cup_with_handle(df: pd.DataFrame, lookback: int = 90) -> PatternResul
     left_high = float(first_third.max())
     cup_low = float(middle_third.min())
     right_high = float(last_third.max())
-    current = float(closes.iloc[-1])
+    current = float(close_vals[-1])
     
     # 컵 깊이 (10~35% 되돌림이 이상적)
     cup_depth = (left_high - cup_low) / left_high if left_high > 0 else 0

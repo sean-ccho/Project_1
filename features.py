@@ -28,6 +28,12 @@ from config import (
     ATR_MEDIAN_LOOKBACK,
     ATR_POSITION_MULTIPLE,
     ATR_SELL_THRESHOLD_MULTIPLIER,
+    BOTTOM_MACD_DIV_LOOKBACK,
+    BOTTOM_RSI_LOOKBACK,
+    BOTTOM_RSI_OVERSOLD,
+    BOTTOM_RSI_RECOVERY,
+    BOTTOM_SUPPORT_TOLERANCE,
+    BOTTOM_VOLUME_SURGE_MULT,
     DEFAULT_EQUITY,
     HAMMER_LOWER_SHADOW_MIN,
     HAMMER_UPPER_SHADOW_MAX,
@@ -126,6 +132,13 @@ class FeatureSet:
     pattern_head_shoulders: str
     pattern_cup_handle: bool
     pattern_candlestick: str
+    # 저점 반등 지표
+    rsi_reversal: bool           # RSI 과매도 후 반등
+    bollinger_bounce: bool       # 볼린저 하단 터치 후 복귀
+    volume_surge_bottom: bool    # 저점 부근 거래량 급증
+    support_test: bool           # 지지선 2회 테스트
+    macd_divergence: bool        # MACD 다이버전스
+    bottom_reversal_score: float # 반등 점수 (최대 10점)
 
 
 def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
@@ -373,6 +386,87 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
 
     position_size = base_risk * trend_weight * float(np.clip(vol_adj_size, 0.5, 2.0))
 
+    # =========================================================================
+    # 저점 반등 지표 계산
+    # =========================================================================
+    
+    # 1. RSI 반등: 최근 N일 내 RSI가 과매도 수준에서 반등했는지
+    rsi_reversal = False
+    if len(p) >= BOTTOM_RSI_LOOKBACK + 1:
+        rsi_recent = p["rsi"].iloc[-(BOTTOM_RSI_LOOKBACK + 1):].dropna()
+        if len(rsi_recent) >= 2:
+            rsi_min = rsi_recent.min()
+            rsi_current = rsi_recent.iloc[-1]
+            # 최근에 RSI 30 이하를 터치했고, 현재 35 이상으로 반등
+            if rsi_min <= BOTTOM_RSI_OVERSOLD and rsi_current >= BOTTOM_RSI_RECOVERY:
+                rsi_reversal = True
+    
+    # 2. 볼린저 바운스: 저점이 하단밴드 터치 후 현재 밴드 안쪽
+    bollinger_bounce = False
+    if len(p) >= 10:
+        bb_lower = bb.bollinger_lband()
+        recent_low = p["Low"].iloc[-10:]
+        recent_bb_lower = bb_lower.iloc[-10:]
+        # 최근 10일 내 저점이 하단밴드 터치
+        touched_lower = (recent_low <= recent_bb_lower * 1.01).any()
+        # 현재 종가가 하단밴드 위
+        current_above_lower = latest["Close"] > bb_lower.iloc[-1]
+        if touched_lower and current_above_lower:
+            bollinger_bounce = True
+    
+    # 3. 거래량 급증 (저점 부근): 최근 저점일에 거래량이 급증
+    volume_surge_bottom = False
+    if len(p) >= 10:
+        recent_closes = p["Close"].iloc[-10:]
+        recent_volumes = p["Volume"].iloc[-10:]
+        recent_vol_ma = p["vol_ma20"].iloc[-10:]
+        low_idx = recent_closes.idxmin()
+        if low_idx in recent_volumes.index and low_idx in recent_vol_ma.index:
+            vol_at_low = recent_volumes.loc[low_idx]
+            vol_ma_at_low = recent_vol_ma.loc[low_idx]
+            if not np.isnan(vol_at_low) and not np.isnan(vol_ma_at_low) and vol_ma_at_low > 0:
+                if vol_at_low > vol_ma_at_low * BOTTOM_VOLUME_SURGE_MULT:
+                    volume_surge_bottom = True
+    
+    # 4. 지지선 2회 테스트 (Double Bottom 유사)
+    support_test = False
+    if len(p) >= 30:
+        recent_lows = p["Low"].iloc[-30:]
+        sorted_lows = recent_lows.nsmallest(5)
+        if len(sorted_lows) >= 2:
+            low1 = sorted_lows.iloc[0]
+            low2 = sorted_lows.iloc[1]
+            # 두 저점이 유사한 가격대 (허용 오차 내)
+            if abs(low1 - low2) / low1 < BOTTOM_SUPPORT_TOLERANCE:
+                # 현재 가격이 저점보다 높음 (반등 확인)
+                if latest["Close"] > max(low1, low2) * 1.02:
+                    support_test = True
+    
+    # 5. MACD 다이버전스: 가격은 하락하는데 MACD는 상승
+    macd_divergence = False
+    if len(p) >= BOTTOM_MACD_DIV_LOOKBACK + 1:
+        macd_recent = p["macd_hist"].iloc[-(BOTTOM_MACD_DIV_LOOKBACK + 1):].dropna()
+        close_recent = p["Close"].iloc[-(BOTTOM_MACD_DIV_LOOKBACK + 1):]
+        if len(macd_recent) >= BOTTOM_MACD_DIV_LOOKBACK and len(close_recent) >= BOTTOM_MACD_DIV_LOOKBACK:
+            # 가격: 초반 저점 vs 최근 저점 (가격 하락)
+            price_early = close_recent.iloc[:BOTTOM_MACD_DIV_LOOKBACK // 2].min()
+            price_late = close_recent.iloc[-(BOTTOM_MACD_DIV_LOOKBACK // 2):].min()
+            # MACD: 초반 저점 vs 최근 저점 (MACD 상승)
+            macd_early = macd_recent.iloc[:BOTTOM_MACD_DIV_LOOKBACK // 2].min()
+            macd_late = macd_recent.iloc[-(BOTTOM_MACD_DIV_LOOKBACK // 2):].min()
+            
+            if price_late < price_early * 0.99 and macd_late > macd_early:
+                macd_divergence = True
+    
+    # 반등 스코어 계산 (최대 10점)
+    bottom_reversal_score = (
+        (2.0 if rsi_reversal else 0.0) +
+        (1.5 if bollinger_bounce else 0.0) +
+        (2.0 if volume_surge_bottom else 0.0) +
+        (2.5 if support_test else 0.0) +
+        (2.0 if macd_divergence else 0.0)
+    )
+
     # 차트 패턴 감지
     patterns = detect_all_patterns(p)
 
@@ -444,6 +538,13 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         pattern_head_shoulders=patterns.head_shoulders,
         pattern_cup_handle=patterns.cup_handle,
         pattern_candlestick=patterns.candlestick,
+        # 저점 반등 지표
+        rsi_reversal=rsi_reversal,
+        bollinger_bounce=bollinger_bounce,
+        volume_surge_bottom=volume_surge_bottom,
+        support_test=support_test,
+        macd_divergence=macd_divergence,
+        bottom_reversal_score=float(bottom_reversal_score),
     )
 
 
@@ -505,6 +606,13 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "패턴_헤드숄더": feature_set.pattern_head_shoulders,
         "패턴_컵핸들": feature_set.pattern_cup_handle,
         "패턴_캔들": feature_set.pattern_candlestick,
+        # 저점 반등 지표
+        "RSI반등": int(feature_set.rsi_reversal),
+        "볼린저바운스": int(feature_set.bollinger_bounce),
+        "저점거래량급증": int(feature_set.volume_surge_bottom),
+        "지지선테스트": int(feature_set.support_test),
+        "MACD다이버전스": int(feature_set.macd_divergence),
+        "반등스코어": feature_set.bottom_reversal_score,
     }
 
 

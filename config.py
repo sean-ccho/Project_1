@@ -100,8 +100,13 @@ SECTOR_STRENGTH_THRESHOLD = 0.0  # SPY 대비 초과 수익률 기준 (0 = SPY�
 # 차트 패턴 인식 설정
 PATTERN_LOOKBACK_DAYS = 60          # 패턴 탐색 기간 (거래일)
 PATTERN_MIN_TOUCHES = 2             # 추세선 최소 터치 횟수
-PATTERN_CONVERGENCE_THRESHOLD = 0.03  # 수렴 판정 기준 (가격 대비 %)
-PEAK_PROMINENCE = 0.02              # 고점/저점 탐지 민감도 (가격 대비 %)
+PATTERN_CONVERGENCE_THRESHOLD = 0.02  # 수렴 판정 기준 (가격 대비 %) - 더 엄격하게
+PEAK_PROMINENCE = 0.025             # 고점/저점 탐지 민감도 (가격 대비 %) - 조정됨
+
+# 패턴 필터링 추가 설정
+PATTERN_TREND_LOOKBACK = 20         # 트렌드 판단 기간
+PATTERN_MIN_R2 = 0.5                # 추세선 최소 R² 값
+PATTERN_BREAKOUT_CONFIRM = 0.02     # 돌파 확인 기준 (2%)
 
 # 섹터 ETF 매핑 (섹터명 → ETF 티커)
 SECTOR_ETFS: Dict[str, str] = {
@@ -138,6 +143,15 @@ BOTTOM_POS_THRESHOLD = 0.35
 BOTTOM_TREND_SCORE = -0.02
 BOTTOM_VOLUME_Z = -0.3
 MACD_BOTTOM_THRESHOLD = -0.3
+
+# 저점 반등 스코어 설정
+BOTTOM_RSI_OVERSOLD = 30              # RSI 과매도 기준
+BOTTOM_RSI_RECOVERY = 35              # RSI 반등 확인 기준
+BOTTOM_RSI_LOOKBACK = 5               # RSI 반등 확인 기간 (일)
+BOTTOM_VOLUME_SURGE_MULT = 1.5        # 거래량 급증 배수
+BOTTOM_SUPPORT_TOLERANCE = 0.03       # 지지선 허용 오차 (3%)
+BOTTOM_MACD_DIV_LOOKBACK = 10         # MACD 다이버전스 확인 기간
+BOTTOM_REVERSAL_THRESHOLD = 5.0       # 반등 점수 기준점
 
 # 저점 탐색 보조 지표 임계치
 FUND_HEALTH_ROE_MIN = 0.08
@@ -232,14 +246,16 @@ VOLATILITY_PENALTY_END = 0.08
 # 시그널 우선순위 매핑(테이블 정렬 순서를 통제).
 SIGNAL_PRIORITY = {
     "매수 후보": 0,
-    "저점 관찰": 1,
-    "관심 관찰": 2,
-    "관망 과열": 3,
-    "관망 약세": 4,
+    "저점 반등": 1,
+    "저점 관찰": 2,
+    "관심 관찰": 3,
+    "관망 과열": 4,
+    "관망 약세": 5,
 }
 
 JUDGEMENT_DISPLAY = {
     "매수 후보": "1. 매수 후보",
+    "저점 반등": "1. 저점 반등",
     "저점 관찰": "2. 저점 관찰",
     "관심 관찰": "3. 관심 관찰",
     "관망 과열": "4. 관망 과열",
@@ -248,6 +264,7 @@ JUDGEMENT_DISPLAY = {
 
 RECOMMENDATION_DISPLAY = {
     "적극 매수": "1. 즉시 진입",
+    "반등 매수 고려": "1. 반등 매수",
     "분할 매수": "2. 분할 매수",
     "저점 분할 매수": "2. 분할 매수",
     "조건 확인 후 매수": "3. 조건 확인",
@@ -431,4 +448,11 @@ EXPORT_COLUMNS = [
     # "obv_mom_5",
     # "obv_mom_ratio",
     "dividend_yield",
+    # 저점 반등 지표
+    "반등스코어",
+    "RSI반등",
+    "볼린저바운스",
+    "저점거래량급증",
+    "지지선테스트",
+    "MACD다이버전스",
 ]
