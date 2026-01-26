@@ -222,47 +222,36 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
     # --- 매수적합도 (Entry Score) 계산 ---
     # 백테스트에서 사용한 Entry Score를 Signals 시트에서 바로 확인할 수 있도록 추가
     def _calc_entry_score(row):
+        """
+        진입 스코어를 계산한다. (백테스트 로직과 동일)
+        
+        구성 요소:
+        - buy_signal: 기본 매수 신호 (가중치 2.0)
+        - 저점확률: ML 모델 기반 저점 예측 (가중치 1.5)
+        - 반등스코어: 기술적 반등 지표 (가중치 1.5)
+        - 상승 패턴: 차트 패턴 (가중치 1.0)
+        - 강한 섹터: 섹터 로테이션 (가중치 0.5)
+        - 트렌드점수: 높은 모멘텀 (가중치 1.0) - 대체 조건
+        - RSI 기반 가점/감점
+        - 급등/급락 감점/가점
+        """
         score = 0.0
         
-        # 1. buy_signal (판단 = 매수 후보 또는 저점 반등)
+        # buy_signal (시장 필터에 의해 False일 수 있음)
         if row.get("buy_signal", False):
             score += 2.0
         
-        # 2. 강한 섹터
-        if row.get("in_strong_sector", True):
-            score += 0.5
+        # 저점확률 (백테스트와 동기화)
+        low_prob = row.get("저점확률", 0)
+        if pd.notna(low_prob) and low_prob >= 0.4:  # BACKTEST_LOW_PROB_THRESHOLD
+            score += 1.5  # BACKTEST_LOW_PROB_WEIGHT
         
-        # 3. 트렌드점수 > 10%
-        trend = row.get("트렌드점수_최종", row.get("트렌드점수", 0))
-        if pd.notna(trend) and trend > 0.1:
-            score += 1.0
-        
-        # 4. 반등스코어 >= 3
+        # 반등스코어 (백테스트와 동기화: 3.0 → 2.0)
         reversal = row.get("반등스코어", 0)
-        if pd.notna(reversal) and reversal >= 3.0:
-            score += 1.5
+        if pd.notna(reversal) and reversal >= 2.0:  # BACKTEST_REVERSAL_SCORE_MIN
+            score += 1.5  # BACKTEST_REVERSAL_WEIGHT
         
-        # 5. RSI 기반 점수 (과매도 가점 / 과매수 감점)
-        rsi = row.get("RSI", 50)
-        if pd.notna(rsi):
-            if rsi < 25:
-                score += 2.5    # 극심한 과매도 - 반등 기회 (강화)
-            elif rsi < 35:
-                score += 1.0    # 과매도
-            elif rsi <= 45:
-                score += 0.5    # 과매도 탈출 구간
-            elif rsi > 80:
-                score -= 2.5    # 극심한 과매수 - 위험
-            elif rsi > 70:
-                score -= 1.5    # 과매수 - 주의
-        
-        # 6. EMA 정배열
-        ema20 = row.get("ema20", 0)
-        ema50 = row.get("ema50", 0)
-        if pd.notna(ema20) and pd.notna(ema50) and ema20 > ema50:
-            score += 0.5
-        
-        # 7. 상승 패턴
+        # 상승 패턴 (더블바텀, 역헤드숄더, 컵핸들, 상승삼각형, 하락쐐기)
         bullish_patterns = [
             row.get("패턴_더블", "") == "더블바텀",
             row.get("패턴_헤드숄더", "") == "역헤드앤숄더",
@@ -272,20 +261,49 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
             str(row.get("패턴_캔들", "")) in ["강세잉걸핑", "모닝스타"],
         ]
         if any(bullish_patterns):
-            score += 1.0
+            score += 1.0  # BACKTEST_PATTERN_WEIGHT
         
-        # 8. 급등 감점 (5일 수익률 > 15%)
+        # 강한 섹터
+        if row.get("in_strong_sector", True):
+            score += 0.5  # BACKTEST_SECTOR_WEIGHT
+        
+        # 트렌드점수 (buy_signal이 비활성화된 경우 대체 조건)
+        trend = row.get("트렌드점수_최종", row.get("트렌드점수", 0))
+        if pd.notna(trend) and trend > 0.1:  # 상위 모멘텀
+            score += 1.0  # BACKTEST_TREND_SCORE_WEIGHT
+        
+        # RSI 기반 점수 (최적화된 버전)
+        rsi = row.get("RSI", 50)
+        if pd.notna(rsi):
+            if rsi < 30:
+                score += 1.5    # 과매도 - 반등 기회
+            elif rsi < 40:
+                score += 1.0    # 과매도 탈출 구간
+            elif rsi <= 45:
+                score += 0.5    # 중립 하단
+            elif rsi > 80:
+                score -= 2.0    # 극심한 과매수 - 위험
+            elif rsi > 70:
+                score -= 1.0    # 과매수 - 주의 (완화)
+        
+        # EMA 정배열 확인 (추가 가점)
+        ema20 = row.get("ema20", 0)
+        ema50 = row.get("ema50", 0)
+        if pd.notna(ema20) and pd.notna(ema50) and ema20 > ema50:
+            score += 0.5
+        
+        # 급등 감점 (5일 수익률 > 20%) - 기준 완화
         ret_5d = row.get("5일수익률", 0)
-        if pd.notna(ret_5d) and ret_5d > 0.15:
+        if pd.notna(ret_5d) and ret_5d > 0.20:
             score -= 1.0    # 급등 후 조정 위험
         
-        # 9. 볼린저밴드 상단 돌파 감점
+        # 볼린저밴드 상단 돌파 감점
         bollinger_pband = row.get("bollinger_pband", 0.5)
         if pd.notna(bollinger_pband) and bollinger_pband > 0.95:
             score -= 1.0    # 상단 밴드 돌파 - 과열
         
-        # 10. 급락 가점 (5일 수익률 < -10%)
-        if pd.notna(ret_5d) and ret_5d < -0.10:
+        # 급락 가점 (5일 수익률 < -8%) - 기준 완화
+        if pd.notna(ret_5d) and ret_5d < -0.08:
             score += 0.5    # 급락 후 반등 기회
         
         return score

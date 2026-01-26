@@ -196,16 +196,16 @@ def _compute_entry_score(row: dict[str, Any]) -> float:
     # RSI 기반 점수 (과매도 가점 / 과매수 감점)
     rsi = row.get("RSI", 50)
     if pd.notna(rsi):
-        if rsi < 25:
-            score += 2.5    # 극심한 과매도 - 반등 기회 (강화)
-        elif rsi < 35:
-            score += 1.0    # 과매도
+        if rsi < 30:
+            score += 1.5    # 과매도 - 반등 기회
+        elif rsi < 40:
+            score += 1.0    # 과매도 탈출 구간
         elif rsi <= 45:
-            score += 0.5    # 과매도 탈출 구간
+            score += 0.5    # 중립 하단
         elif rsi > 80:
-            score -= 2.5    # 극심한 과매수 - 위험
+            score -= 2.0    # 극심한 과매수 - 위험
         elif rsi > 70:
-            score -= 1.5    # 과매수 - 주의
+            score -= 1.0    # 과매수 - 주의 (완화)
     
     # EMA 정배열 확인 (추가 가점)
     ema20 = row.get("ema20", 0)
@@ -213,9 +213,9 @@ def _compute_entry_score(row: dict[str, Any]) -> float:
     if pd.notna(ema20) and pd.notna(ema50) and ema20 > ema50:
         score += 0.5
     
-    # 급등 감점 (5일 수익률 > 15%)
+    # 급등 감점 (5일 수익률 > 20%) - 기준 완화
     ret_5d = row.get("5일수익률", 0)
-    if pd.notna(ret_5d) and ret_5d > 0.15:
+    if pd.notna(ret_5d) and ret_5d > 0.20:
         score -= 1.0    # 급등 후 조정 위험
     
     # 볼린저밴드 상단 돌파 감점
@@ -223,8 +223,8 @@ def _compute_entry_score(row: dict[str, Any]) -> float:
     if pd.notna(bollinger_pband) and bollinger_pband > 0.95:
         score -= 1.0    # 상단 밴드 돌파 - 과열
     
-    # 급락 가점 (5일 수익률 < -10%)
-    if pd.notna(ret_5d) and ret_5d < -0.10:
+    # 급락 가점 (5일 수익률 < -8%) - 기준 완화
+    if pd.notna(ret_5d) and ret_5d < -0.08:
         score += 0.5    # 급락 후 반등 기회
     
     return score
