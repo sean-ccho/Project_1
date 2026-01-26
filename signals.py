@@ -18,7 +18,14 @@ from config import (
     MARKET_FILTER_ENABLED,
     STRATEGY_MODE,
     SECTOR_ROTATION_ENABLED,
+    GEMINI_API_KEY,
+    AI_ANALYSIS_ENABLED,
+    AI_ANALYSIS_MODEL,
 )
+
+import google.generativeai as genai
+from concurrent.futures import ThreadPoolExecutor
+import os
 
 
 def _safe_bool(series: pd.Series) -> pd.Series:
@@ -328,7 +335,86 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
     out["매수적합도_표시"] = out["매수적합도"].apply(_score_to_stars)
     # -----------------------------------
 
+    # --- Gemini AI 분석 추가 ---
+    if AI_ANALYSIS_ENABLED:
+        out = _attach_ai_analysis(out)
+    # -------------------------
+
     sorted_out = out.sort_values(
         ["우선순위", "트렌드점수_최종"], ascending=[True, False]
     )
-    return sorted_out.drop(columns=[judgement.name, recommendation.name])
+    # Drop internal working columns
+    cols_to_drop = [judgement.name, recommendation.name]
+    if "in_strong_sector" in sorted_out.columns:
+        cols_to_drop.append("in_strong_sector")
+    
+    return sorted_out.drop(columns=cols_to_drop)
+
+
+def _generate_single_ai_analysis(row: pd.Series) -> str:
+    """Gemini를 사용하여 단일 종목에 대한 분석 요약을 생성한다."""
+    api_key = GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return "API 키 미설정"
+
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(AI_ANALYSIS_MODEL)
+        
+        ticker = row["티커"]
+        company = row.get("회사", "Unknown")
+        judgement = row["판단"]
+        stars = row["매수적합도_표시"]
+        rsi = row.get("RSI", 0)
+        trend = row.get("트렌드점수_최종", 0)
+        patterns = [
+            row.get("패턴_삼각형", ""),
+            row.get("패턴_쐐기", ""),
+            row.get("패턴_더블", ""),
+            row.get("패턴_헤드숄더", ""),
+            "컵위드핸들" if row.get("패턴_컵핸들") else "",
+        ]
+        active_patterns = [p for p in patterns if p and str(p) != "nan" and str(p) != ""]
+        pattern_text = ", ".join(active_patterns) if active_patterns else "없음"
+        
+        prompt = f"""
+        주식 종목 {company}({ticker})에 대한 기술적 분석 요약을 2문장 내외로 작성해주세요.
+        
+        현재 상태:
+        - 시스템 판단: {judgement}
+        - 매수적합도: {stars}
+        - RSI: {rsi:.1f}
+        - 트렌드 점수: {trend:.2f}
+        - 감지된 패턴: {pattern_text}
+        
+        참고: 매수적합도는 별점(5개 만점)으로 표시되며 점수가 높을수록 긍정적입니다.
+        전문적이고 객관적인 어조로 핵심만 요약해주세요. (마크다운 사용 금지, 줄바꿈 금지, 존댓말로 작성)
+        """
+        
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        return f"분석 실패: {str(e)}"
+
+
+def _attach_ai_analysis(df: pd.DataFrame, limit: int = 15) -> pd.DataFrame:
+    """우선순위 상위 종목들에 대해 AI 분석을 실행하고 컬럼을 추가한다."""
+    df = df.copy()
+    df["AI분석"] = ""
+    
+    # 분석 대상 선정: 우선순위가 높은 상위 N개 종목
+    targets = df.nsmallest(limit, "우선순위")
+    indices = targets.index.tolist()
+    
+    if not indices:
+        return df
+
+    print(f"Gemini API 분석 시작 (상위 {len(indices)}개 종목)...")
+    
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        results = list(executor.map(lambda i: _generate_single_ai_analysis(df.loc[i]), indices))
+    
+    for idx, result in zip(indices, results):
+        df.at[idx, "AI분석"] = result
+        
+    return df

@@ -64,6 +64,12 @@ GOOGLE_SHEETS_PORTFOLIO_WORKSHEET: str | None = "보유주식"
 GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
 
 
+# Gemini API 설정
+GEMINI_API_KEY: str | None = None  # 여기에 API 키를 입력하거나 환경 변수 'GEMINI_API_KEY'를 설정하세요.
+AI_ANALYSIS_ENABLED = True
+AI_ANALYSIS_MODEL = "gemini-1.5-flash"
+
+
 # 백테스트 자동 실행 설정
 BACKTEST_ENABLED = True
 BACKTEST_WORKSHEET_NAME = "백테스트"
@@ -442,6 +448,7 @@ EXPORT_COLUMNS = [
     "섹터강도",
     "판단",
     "추천",
+    "AI분석",  # Gemini AI 기반 요약 분석
     "트렌드점수_최종",
     "buy_signal_text",
     "sell_signal_text",
