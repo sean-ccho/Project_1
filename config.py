@@ -65,7 +65,7 @@ GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
 
 
 # 백테스트 자동 실행 설정
-BACKTEST_ENABLED = False
+BACKTEST_ENABLED = True
 BACKTEST_WORKSHEET_NAME = "백테스트"
 BACKTEST_RUNS = [
     {
@@ -78,6 +78,30 @@ BACKTEST_RUNS = [
         "include_fundamentals": True,
     }
 ]
+
+# 백테스트 진입 조건 (Entry Score 계산)
+BACKTEST_ENTRY_SCORE_MIN = 3.5          # 최소 진입 스코어 (안정적)
+BACKTEST_LOW_PROB_THRESHOLD = 0.5       # 저점확률 임계치
+BACKTEST_REVERSAL_SCORE_MIN = 3.0       # 반등스코어 최소값
+BACKTEST_BUY_SIGNAL_WEIGHT = 2.0        # buy_signal 가중치
+BACKTEST_LOW_PROB_WEIGHT = 1.5          # 저점확률 가중치
+BACKTEST_REVERSAL_WEIGHT = 1.5          # 반등스코어 가중치
+BACKTEST_PATTERN_WEIGHT = 1.0           # 상승 패턴 가중치
+BACKTEST_SECTOR_WEIGHT = 0.5            # 강한 섹터 가중치
+BACKTEST_TREND_SCORE_WEIGHT = 1.0       # 트렌드점수 가중치 (대체 조건)
+
+# 백테스트 청산 조건
+BACKTEST_PROFIT_TARGET = 0.30           # 30% 수익 목표
+BACKTEST_TRAILING_STOP = 0.18           # 고점 대비 18% 하락 시 청산
+BACKTEST_STOP_LOSS = 0.15               # 15% 손절
+BACKTEST_HIGH_PROB_THRESHOLD = 0.80     # 고점확률 청산 임계치 (더 엄격)
+BACKTEST_MIN_HOLDING_DAYS = 7           # 최소 보유일 (7일)
+BACKTEST_SELL_SIGNAL_ENABLED = False    # 매도신호 청산 비활성화
+
+# 백테스트 리스크 관리
+BACKTEST_MAX_DAILY_LOSS = 0.03          # 일일 포트폴리오 최대 손실 3%
+BACKTEST_MAX_POSITION_LOSS = 0.10       # 개별 종목 최대 손실 10%
+BACKTEST_USE_ATR_SIZING = True          # ATR 기반 포지션 사이징 사용
 
 # 시그널 판정 임계치.
 BUY_SCORE_THRESHOLD = 0.20
@@ -414,6 +438,7 @@ EXPORT_COLUMNS = [
     "최근뉴스",
     "우선순위",
     "섹터",
+    "매수적합도_표시",  # Entry Score - 매수 적합도 (★ 표시)
     "섹터강도",
     "판단",
     "추천",

@@ -219,6 +219,97 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
         judgement.map(SIGNAL_PRIORITY).fillna(99).astype(int)
     )
 
+    # --- 매수적합도 (Entry Score) 계산 ---
+    # 백테스트에서 사용한 Entry Score를 Signals 시트에서 바로 확인할 수 있도록 추가
+    def _calc_entry_score(row):
+        score = 0.0
+        
+        # 1. buy_signal (판단 = 매수 후보 또는 저점 반등)
+        if row.get("buy_signal", False):
+            score += 2.0
+        
+        # 2. 강한 섹터
+        if row.get("in_strong_sector", True):
+            score += 0.5
+        
+        # 3. 트렌드점수 > 10%
+        trend = row.get("트렌드점수_최종", row.get("트렌드점수", 0))
+        if pd.notna(trend) and trend > 0.1:
+            score += 1.0
+        
+        # 4. 반등스코어 >= 3
+        reversal = row.get("반등스코어", 0)
+        if pd.notna(reversal) and reversal >= 3.0:
+            score += 1.5
+        
+        # 5. RSI 기반 점수 (과매도 가점 / 과매수 감점)
+        rsi = row.get("RSI", 50)
+        if pd.notna(rsi):
+            if rsi < 25:
+                score += 2.5    # 극심한 과매도 - 반등 기회 (강화)
+            elif rsi < 35:
+                score += 1.0    # 과매도
+            elif rsi <= 45:
+                score += 0.5    # 과매도 탈출 구간
+            elif rsi > 80:
+                score -= 2.5    # 극심한 과매수 - 위험
+            elif rsi > 70:
+                score -= 1.5    # 과매수 - 주의
+        
+        # 6. EMA 정배열
+        ema20 = row.get("ema20", 0)
+        ema50 = row.get("ema50", 0)
+        if pd.notna(ema20) and pd.notna(ema50) and ema20 > ema50:
+            score += 0.5
+        
+        # 7. 상승 패턴
+        bullish_patterns = [
+            row.get("패턴_더블", "") == "더블바텀",
+            row.get("패턴_헤드숄더", "") == "역헤드앤숄더",
+            row.get("패턴_컵핸들", False),
+            row.get("패턴_삼각형", "") == "상승삼각형",
+            row.get("패턴_쐐기", "") == "하락쐐기",
+            str(row.get("패턴_캔들", "")) in ["강세잉걸핑", "모닝스타"],
+        ]
+        if any(bullish_patterns):
+            score += 1.0
+        
+        # 8. 급등 감점 (5일 수익률 > 15%)
+        ret_5d = row.get("5일수익률", 0)
+        if pd.notna(ret_5d) and ret_5d > 0.15:
+            score -= 1.0    # 급등 후 조정 위험
+        
+        # 9. 볼린저밴드 상단 돌파 감점
+        bollinger_pband = row.get("bollinger_pband", 0.5)
+        if pd.notna(bollinger_pband) and bollinger_pband > 0.95:
+            score -= 1.0    # 상단 밴드 돌파 - 과열
+        
+        # 10. 급락 가점 (5일 수익률 < -10%)
+        if pd.notna(ret_5d) and ret_5d < -0.10:
+            score += 0.5    # 급락 후 반등 기회
+        
+        return score
+    
+    out["매수적합도"] = out.apply(_calc_entry_score, axis=1)
+    
+    # 매수적합도 텍스트 (★ 표시로 직관적으로)
+    def _score_to_stars(score):
+        if score >= 5.0:
+            return f"★★★★★ ({score:.1f})"
+        elif score >= 4.0:
+            return f"★★★★☆ ({score:.1f})"
+        elif score >= 3.5:
+            return f"★★★☆☆ ({score:.1f})"
+        elif score >= 3.0:
+            return f"★★☆☆☆ ({score:.1f})"
+        elif score >= 2.0:
+            return f"★☆☆☆☆ ({score:.1f})"
+        else:
+            return f"☆☆☆☆☆ ({score:.1f})"
+    
+    out["매수적합도_표시"] = out["매수적합도"].apply(_score_to_stars)
+    # -----------------------------------
+
     sorted_out = out.sort_values(
         ["우선순위", "트렌드점수_최종"], ascending=[True, False]
     )
