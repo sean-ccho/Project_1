@@ -154,8 +154,8 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     else:
         p["Dividends"] = 0.0
 
-    p["ret_5d"] = p["Close"].pct_change(5)
-    p["ret_20d"] = p["Close"].pct_change(REL_STRENGTH_LOOKBACK)
+    p["ret_5d"] = p["Close"].pct_change(5, fill_method=None)
+    p["ret_20d"] = p["Close"].pct_change(REL_STRENGTH_LOOKBACK, fill_method=None)
 
     # 거래량 기반 Z-score: 최근 거래량이 얼마나 평소와 다른지 확인한다.
     p["vol_ma20"] = p["Volume"].rolling(VOLUME_ROLLING_WINDOW).mean()

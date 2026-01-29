@@ -25,6 +25,29 @@ except ImportError:  # pragma: no cover - optional path
     Credentials = None
     WorksheetNotFound = None
 
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+from config import (
+    EXPORT_COLUMNS,
+    GOOGLE_SHEETS_CREDENTIALS_PATH,
+    GOOGLE_SHEETS_ENABLED,
+    GOOGLE_SHEETS_SPREADSHEET_ID,
+    GOOGLE_SHEETS_SIGNALS_WORKSHEET,
+    GOOGLE_SHEETS_PORTFOLIO_WORKSHEET,
+    GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN,
+    PERCENT_COLUMNS,
+    TECH_COLUMN_LABELS,
+    EMAIL_ENABLED,
+    EMAIL_SENDER,
+    EMAIL_PASSWORD,
+    EMAIL_RECIPIENT,
+    SMTP_SERVER,
+    SMTP_PORT,
+    EMAIL_SCORE_THRESHOLD,
+)
+
 GOOGLE_SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
@@ -240,3 +263,78 @@ def fetch_tickers_from_sheet(
         tickers.append(symbol.upper())
 
     return tickers
+
+
+def send_email_notification(df: pd.DataFrame) -> bool:
+    """매수적합도가 임계치 이상인 종목 리스트를 이메일로 발송한다."""
+
+    if not EMAIL_ENABLED:
+        return False
+
+    # 필터링: 매수적합도(Entry Score)가 임계치 이상인 종목만 추출
+    # prepare_export_dataframe에서 컬럼명이 '매수적합도_표시'로 변경되었을 수 있으므로 처리
+    score_col = TECH_COLUMN_LABELS.get("매수적합도_표시", "매수적합도_표시")
+    ticker_col = TECH_COLUMN_LABELS.get("티커", "티커")
+    name_col = TECH_COLUMN_LABELS.get("회사", "회사")
+    price_col = TECH_COLUMN_LABELS.get("현재가격", "현재가격")
+    rec_col = TECH_COLUMN_LABELS.get("추천", "추천")
+
+    # '매수적합도_표시' 컬럼에서 숫자 점수 추출 (예: "★★★★☆ (4.2)" -> 4.2)
+    def extract_score(text):
+        try:
+            if "(" in text and ")" in text:
+                return float(text.split("(")[1].split(")")[0])
+            return 0.0
+        except Exception:
+            return 0.0
+
+    target_stocks = df.copy()
+    if score_col in target_stocks.columns:
+        target_stocks["temp_score"] = target_stocks[score_col].apply(extract_score)
+        high_score_df = target_stocks[target_stocks["temp_score"] >= EMAIL_SCORE_THRESHOLD]
+    else:
+        print(f"[Email] '{score_col}' 컬럼을 찾을 수 없어 이메일을 보낼 수 없습니다.")
+        return False
+
+    if high_score_df.empty:
+        print(f"[Email] 매수적합도 {EMAIL_SCORE_THRESHOLD}점 이상인 종목이 없어 이메일을 보내지 않습니다.")
+        return False
+
+    # 이메일 내용 구성
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    subject = f"[Stock Signals] {date_str} 매수적합도 {EMAIL_SCORE_THRESHOLD}점 이상 종목 리스트"
+    
+    body = f"<h2>{date_str} 분석 결과 매수적합도 {EMAIL_SCORE_THRESHOLD}점 이상 종목입니다.</h2>"
+    body += "<table border='1' style='border-collapse: collapse;'>"
+    body += "<tr style='background-color: #f2f2f2;'><th>티커</th><th>회사명</th><th>현재가</th><th>매수적합도</th><th>추천</th></tr>"
+    
+    for _, row in high_score_df.iterrows():
+        ticker = row.get(ticker_col, "Unknown")
+        name = row.get(name_col, "Unknown")
+        price = row.get(price_col, "Unknown")
+        score = row.get(score_col, "Unknown")
+        rec = row.get(rec_col, "Unknown")
+        
+        body += f"<tr><td>{ticker}</td><td>{name}</td><td>{price}</td><td>{score}</td><td>{rec}</td></tr>"
+    
+    body += "</table>"
+    body += "<br><p>본 메일은 시스템에 의해 자동으로 발송되었습니다.</p>"
+
+    # 이메일 발송
+    try:
+        msg = MIMEMultipart()
+        msg["From"] = EMAIL_SENDER
+        msg["To"] = EMAIL_RECIPIENT
+        msg["Subject"] = subject
+        msg.attach(MIMEText(body, "html"))
+
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+            server.send_message(msg)
+        
+        print(f"[Email] {len(high_score_df)}개의 고점수 종목 리스트를 {EMAIL_RECIPIENT}로 발송 완료")
+        return True
+    except Exception as exc:
+        print(f"[Email] 이메일 발송 실패: {exc}")
+        return False
