@@ -265,6 +265,27 @@ def fetch_tickers_from_sheet(
     return tickers
 
 
+def _formula_to_html(formula: str) -> str:
+    """Convert Excel HYPERLINK formulas to HTML <a> tags."""
+    if not formula or not isinstance(formula, str):
+        return ""
+    if not formula.startswith("="):
+        return formula.replace("\n", "<br>")
+
+    import re
+
+    # Extract all HYPERLINK("url", "text") parts
+    # Example: =HYPERLINK("u1", "t1") & CHAR(10) & HYPERLINK("u2", "t2")
+    pattern = r'HYPERLINK\("([^"]+)",\s*"([^"]+)"\)'
+    matches = re.findall(pattern, formula)
+
+    if not matches:
+        return formula.replace("\n", "<br>")
+
+    html_links = [f'<a href="{url}">{text}</a>' for url, text in matches]
+    return "<br>".join(html_links)
+
+
 def send_email_notification(df: pd.DataFrame) -> bool:
     """매수적합도가 임계치 이상인 종목 리스트를 이메일로 발송한다."""
 
@@ -278,6 +299,7 @@ def send_email_notification(df: pd.DataFrame) -> bool:
     name_col = TECH_COLUMN_LABELS.get("회사", "회사")
     price_col = TECH_COLUMN_LABELS.get("현재가격", "현재가격")
     rec_col = TECH_COLUMN_LABELS.get("추천", "추천")
+    news_col = TECH_COLUMN_LABELS.get("최근뉴스", "최근뉴스")
 
     # '매수적합도_표시' 컬럼에서 숫자 점수 추출 (예: "★★★★☆ (4.2)" -> 4.2)
     def extract_score(text):
@@ -306,7 +328,7 @@ def send_email_notification(df: pd.DataFrame) -> bool:
     
     body = f"<h2>{date_str} 분석 결과 매수적합도 {EMAIL_SCORE_THRESHOLD}점 이상 종목입니다.</h2>"
     body += "<table border='1' style='border-collapse: collapse;'>"
-    body += "<tr style='background-color: #f2f2f2;'><th>티커</th><th>회사명</th><th>현재가</th><th>매수적합도</th><th>추천</th></tr>"
+    body += "<tr style='background-color: #f2f2f2;'><th>티커</th><th>회사명</th><th>현재가</th><th>매수적합도</th><th>추천</th><th>최근뉴스</th></tr>"
     
     for _, row in high_score_df.iterrows():
         ticker = row.get(ticker_col, "Unknown")
@@ -314,8 +336,10 @@ def send_email_notification(df: pd.DataFrame) -> bool:
         price = row.get(price_col, "Unknown")
         score = row.get(score_col, "Unknown")
         rec = row.get(rec_col, "Unknown")
+        news_formula = row.get(news_col, "")
+        news_html = _formula_to_html(str(news_formula))
         
-        body += f"<tr><td>{ticker}</td><td>{name}</td><td>{price}</td><td>{score}</td><td>{rec}</td></tr>"
+        body += f"<tr><td>{ticker}</td><td>{name}</td><td>{price}</td><td>{score}</td><td>{rec}</td><td>{news_html}</td></tr>"
     
     body += "</table>"
     body += "<br><p>본 메일은 시스템에 의해 자동으로 발송되었습니다.</p>"
