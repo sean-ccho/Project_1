@@ -76,7 +76,7 @@ EMAIL_SCORE_THRESHOLD = 4.0  # 알림을 보낼 매수적합도 최소 점수
 
 
 # 백테스트 자동 실행 설정
-BACKTEST_ENABLED = True
+BACKTEST_ENABLED = False
 BACKTEST_WORKSHEET_NAME = "백테스트"
 BACKTEST_RUNS = [
     {

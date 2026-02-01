@@ -272,12 +272,17 @@ def _formula_to_html(formula: str) -> str:
     if not formula.startswith("="):
         return formula.replace("\n", "<br>")
 
-    import re
-
     # Extract all HYPERLINK("url", "text") parts
     # Example: =HYPERLINK("u1", "t1") & CHAR(10) & HYPERLINK("u2", "t2")
-    pattern = r'HYPERLINK\("([^"]+)",\s*"([^"]+)"\)'
-    matches = re.findall(pattern, formula)
+    # Using (?:[^"]|"")* to allow escaped double quotes within the text
+    import re
+    matches = []
+    # Match HYPERLINK, then url, then text until the closing quote
+    # Text can contain "" for a single " in Excel
+    for match in re.finditer(r'HYPERLINK\("(?P<url>[^"]+)",\s*"(?P<text>(?:[^"]|"")*)"\)', formula):
+        url = match.group("url")
+        text = match.group("text").replace('""', '"') # Convert Excel escape back to normal quote
+        matches.append((url, text))
 
     if not matches:
         return formula.replace("\n", "<br>")
