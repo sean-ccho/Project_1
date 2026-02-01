@@ -3,7 +3,7 @@ name: Run Screener
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '0 1 * * *'  # 01:00 UTC = 8:00 PM EST
 
 permissions:
   contents: read

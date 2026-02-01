@@ -64,6 +64,16 @@ GOOGLE_SHEETS_PORTFOLIO_WORKSHEET: str | None = "보유주식"
 GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
 
 
+# 이메일 알림 설정
+EMAIL_ENABLED = True  # 알림 사용 여부
+EMAIL_SENDER = "chunghwan14@gmail.com"
+EMAIL_PASSWORD = "urjc efoc xcoy flzy"  # Gmail의 경우 '앱 비밀번호' 사용 권장
+EMAIL_RECIPIENT = "chunghwan14@gmail.com"
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+EMAIL_SCORE_THRESHOLD = 4.0  # 알림을 보낼 매수적합도 최소 점수
+
+
 
 # 백테스트 자동 실행 설정
 BACKTEST_ENABLED = True

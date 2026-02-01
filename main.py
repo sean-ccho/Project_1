@@ -32,6 +32,7 @@ from exporter import (
     export_to_google_sheet,
     fetch_tickers_from_sheet,
     prepare_export_dataframe,
+    send_email_notification,
 )
 from backtest import run_backtest
 from features import compute_all_features
@@ -178,6 +179,8 @@ def main() -> None:
                 signals_export, GOOGLE_SHEETS_SIGNALS_WORKSHEET
             ):
                 print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Google Sheets 업데이트 완료")
+                # 이메일 알림 발송 (매수적합도 기준)
+                send_email_notification(signals_export)
             else:
                 print(
                     f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Google Sheets 업데이트를 건너뛰었습니다."
