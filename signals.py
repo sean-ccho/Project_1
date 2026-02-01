@@ -18,6 +18,15 @@ from config import (
     MARKET_FILTER_ENABLED,
     STRATEGY_MODE,
     SECTOR_ROTATION_ENABLED,
+    BACKTEST_ENTRY_SCORE_MIN,
+    BACKTEST_LOW_PROB_THRESHOLD,
+    BACKTEST_REVERSAL_SCORE_MIN,
+    BACKTEST_BUY_SIGNAL_WEIGHT,
+    BACKTEST_LOW_PROB_WEIGHT,
+    BACKTEST_REVERSAL_WEIGHT,
+    BACKTEST_PATTERN_WEIGHT,
+    BACKTEST_SECTOR_WEIGHT,
+    BACKTEST_TREND_SCORE_WEIGHT,
 )
 
 
@@ -240,17 +249,17 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
         
         # buy_signal (시장 필터에 의해 False일 수 있음)
         if row.get("buy_signal", False):
-            score += 2.0
+            score += BACKTEST_BUY_SIGNAL_WEIGHT
         
         # 저점확률 (백테스트와 동기화)
         low_prob = row.get("저점확률", 0)
-        if pd.notna(low_prob) and low_prob >= 0.4:  # BACKTEST_LOW_PROB_THRESHOLD
-            score += 1.5  # BACKTEST_LOW_PROB_WEIGHT
+        if pd.notna(low_prob) and low_prob >= BACKTEST_LOW_PROB_THRESHOLD:
+            score += BACKTEST_LOW_PROB_WEIGHT
         
-        # 반등스코어 (백테스트와 동기화: 3.0 → 2.0)
+        # 반등스코어 (백테스트와 동기화)
         reversal = row.get("반등스코어", 0)
-        if pd.notna(reversal) and reversal >= 2.0:  # BACKTEST_REVERSAL_SCORE_MIN
-            score += 1.5  # BACKTEST_REVERSAL_WEIGHT
+        if pd.notna(reversal) and reversal >= BACKTEST_REVERSAL_SCORE_MIN:
+            score += BACKTEST_REVERSAL_WEIGHT
         
         # 상승 패턴 (더블바텀, 역헤드숄더, 컵핸들, 상승삼각형, 하락쐐기)
         bullish_patterns = [
@@ -262,16 +271,16 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
             str(row.get("패턴_캔들", "")) in ["강세잉걸핑", "모닝스타"],
         ]
         if any(bullish_patterns):
-            score += 1.0  # BACKTEST_PATTERN_WEIGHT
+            score += BACKTEST_PATTERN_WEIGHT
         
         # 강한 섹터
         if row.get("in_strong_sector", True):
-            score += 0.5  # BACKTEST_SECTOR_WEIGHT
+            score += BACKTEST_SECTOR_WEIGHT
         
         # 트렌드점수 (buy_signal이 비활성화된 경우 대체 조건)
         trend = row.get("트렌드점수_최종", row.get("트렌드점수", 0))
         if pd.notna(trend) and trend > 0.1:  # 상위 모멘텀
-            score += 1.0  # BACKTEST_TREND_SCORE_WEIGHT
+            score += BACKTEST_TREND_SCORE_WEIGHT
         
         # RSI 기반 점수 (최적화된 버전)
         rsi = row.get("RSI", 50)

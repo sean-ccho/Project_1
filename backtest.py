@@ -28,6 +28,8 @@ from config import (
     BACKTEST_PATTERN_WEIGHT,
     BACKTEST_SECTOR_WEIGHT,
     BACKTEST_TREND_SCORE_WEIGHT,
+    SECTOR_ETFS,
+    SECTOR_ROTATION_ENABLED,
     BACKTEST_PROFIT_TARGET,
     BACKTEST_TRAILING_STOP,
     BACKTEST_STOP_LOSS,
@@ -43,6 +45,8 @@ from data.fetch import fetch_ohlcv
 from features import compute_features_snapshot
 from processing import apply_neutralization, liquidity_filter
 from signals import attach_signals_and_sort
+from sector_rotation import get_strong_sectors
+from config import SECTOR_ROTATION_ENABLED
 
 
 class ExitReason(Enum):
@@ -129,6 +133,21 @@ def _compute_ranked_snapshot(
         return cache[cutoff]
 
     neutral = apply_neutralization(liquid)
+
+    # 섹터 로테이션 필터링 (메인 워크플로우와 동일하게)
+    if SECTOR_ROTATION_ENABLED and "섹터" in neutral.columns:
+        sector_etf_tickers = list(SECTOR_ETFS.values())
+        etf_data = {t: price_map[t].loc[:cutoff] for t in sector_etf_tickers if t in price_map}
+        spy_data = price_map.get("SPY", pd.DataFrame()).loc[:cutoff]
+        
+        if not spy_data.empty:
+            strong_sectors = get_strong_sectors(etf_data, spy_data)
+            neutral["in_strong_sector"] = neutral["섹터"].isin(strong_sectors)
+        else:
+            neutral["in_strong_sector"] = True
+    else:
+        neutral["in_strong_sector"] = True
+
     ranked = attach_signals_and_sort(neutral)
     cache[cutoff] = ranked
     return ranked
@@ -411,16 +430,23 @@ def run_backtest(
     청산: 다중 조건 (수익목표, 트레일링스탑, 손절, 고점확률, 패턴, 매도신호)
     """
     if tickers is None:
-        tickers = TICKERS
-    tickers = list(dict.fromkeys(tickers))
-    if max_tickers is not None:
-        tickers = tickers[:max_tickers]
-    if not tickers:
-        raise ValueError("백테스트에 사용할 티커가 필요합니다.")
+        tickers = TICKERS.copy()
+    else:
+        tickers = list(dict.fromkeys(tickers))
 
-    # SPY 추가 (벤치마크)
-    if "SPY" not in tickers:
-        tickers = ["SPY"] + tickers
+    # 섹터 ETF 및 SPY 추가
+    needed = ["SPY"]
+    if SECTOR_ROTATION_ENABLED:
+        needed.extend(list(SECTOR_ETFS.values()))
+    
+    for t in needed:
+        if t not in tickers:
+            tickers.append(t)
+
+    if max_tickers is not None:
+        # 주요 지수/ETF는 제외하고 개수 제한
+        base_tickers = [t for t in tickers if t not in needed]
+        tickers = needed + base_tickers[:max_tickers]
 
     raw = fetch_ohlcv(tickers, period=period)
     if raw.empty:
