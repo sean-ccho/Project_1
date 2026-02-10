@@ -5,7 +5,7 @@ on:
     branches: [ main ]
   workflow_dispatch:
   schedule:
-    - cron: '0 1 * * *'  # 01:00 UTC = 8:00 PM EST
+    - cron: '0 22 * * *'  # 22:00 UTC = 5:00 PM EST
 
 permissions:
   contents: read
@@ -37,7 +37,7 @@ jobs:
             echo "GOOGLE_SERVICE_ACCOUNT_JSON secret is not set" >&2
             exit 1
           fi
-          echo "$GOOGLE_SERVICE_ACCOUNT_JSON" | base64 --decode > gspread-service-account.json
+          echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > gspread-service-account.json
 
       - name: Run screener pipeline
         env:
