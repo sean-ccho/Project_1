@@ -3,6 +3,7 @@
 프로젝트 전반에서 공유하는 티커 목록, 섹터 매핑, 가중치, 임계치 등을 한 곳에서 관리하여
 파일이 나뉘어 있어도 수정 포인트를 명확히 하기 위한 모듈이다."""
 
+import os
 from typing import Dict
 
 from data.sp500_tickers import SP500_TICKERS
@@ -67,7 +68,7 @@ GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
 # 이메일 알림 설정
 EMAIL_ENABLED = True  # 알림 사용 여부
 EMAIL_SENDER = "chunghwan14@gmail.com"
-EMAIL_PASSWORD = "urjc efoc xcoy flzy"  # Gmail의 경우 '앱 비밀번호' 사용 권장
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")  # Gmail의 경우 '앱 비밀번호' 사용 권장
 EMAIL_RECIPIENT = "chunghwan14@gmail.com"
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
