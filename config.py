@@ -69,7 +69,7 @@ GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
 # TradingView 차트 캡처 설정
 CHARTS_ENABLED = True  # 차트 캡처 기능 on/off
 CHARTS_TIMEFRAMES = ["1H", "4H", "Daily", "Weekly", "Monthly"]  # 캡처할 타임프레임
-CHARTS_MIN_SCORE = 4.0  # 차트 캡처 최소 매수적합도 (성능 최적화)
+CHARTS_MIN_SCORE = 0.0  # 차트 캡처 최소 매수적합도 (0.0 = 모든 종목)
 CHARTS_OUTPUT_DIR = "charts/screenshots"  # 차트 저장 디렉토리
 
 
