@@ -61,8 +61,16 @@ GOOGLE_SHEETS_ENABLED = True
 GOOGLE_SHEETS_CREDENTIALS_PATH: str | None = "gspread-service-account.json"
 GOOGLE_SHEETS_SPREADSHEET_ID: str | None = "1VxzTPfDvRX0UGJZcNnRsqTRex4gqmjv4P-1I_VcuXaw"
 GOOGLE_SHEETS_SIGNALS_WORKSHEET = "Signals"
+GOOGLE_SHEETS_SIGNALS_ENABLED = False  # Signals 워크시트 업데이트 on/off
 GOOGLE_SHEETS_PORTFOLIO_WORKSHEET: str | None = "보유주식"
+GOOGLE_SHEETS_PORTFOLIO_ENABLED = True  # 보유주식 워크시트 업데이트 on/off
 GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
+
+# TradingView 차트 캡처 설정
+CHARTS_ENABLED = True  # 차트 캡처 기능 on/off
+CHARTS_TIMEFRAMES = ["1H", "4H", "Daily", "Weekly", "Monthly"]  # 캡처할 타임프레임
+CHARTS_MIN_SCORE = 4.0  # 차트 캡처 최소 매수적합도 (성능 최적화)
+CHARTS_OUTPUT_DIR = "charts/screenshots"  # 차트 저장 디렉토리
 
 
 # 이메일 알림 설정
@@ -453,6 +461,13 @@ EXPORT_COLUMNS = [
     "우선순위",
     "섹터",
     "매수적합도_표시",  # Entry Score - 매수 적합도 (★ 표시)
+    # TradingView 차트 컬럼들
+    "차트_1H",
+    "차트_4H",
+    "차트_Daily",
+    "차트_Weekly",
+    "차트_Monthly",
+    # 기존 컬럼들
     "섹터강도",
     "판단",
     "추천",

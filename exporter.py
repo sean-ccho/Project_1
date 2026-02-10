@@ -90,6 +90,31 @@ def _open_sheet():
         return None
 
 
+def generate_chart_paths(ticker: str) -> dict[str, str]:
+    """
+    티커에 대한 차트 이미지 로컬 경로를 생성합니다.
+    
+    Args:
+        ticker: 종목 심볼
+        
+    Returns:
+        {차트_타임프레임: 로컬경로} 딕셔너리
+    """
+    from pathlib import Path
+    from config import CHARTS_OUTPUT_DIR, CHARTS_TIMEFRAMES
+    
+    paths = {}
+    for tf in CHARTS_TIMEFRAMES:
+        file_path = Path(CHARTS_OUTPUT_DIR) / f"{ticker}_{tf}.png"
+        # 파일이 존재하면 경로 반환, 없으면 빈 문자열
+        if file_path.exists():
+            paths[f"차트_{tf}"] = str(file_path)
+        else:
+            paths[f"차트_{tf}"] = ""
+    
+    return paths
+
+
 def prepare_export_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     cols = [col for col in EXPORT_COLUMNS if col in df.columns]
     export_df = df[cols].copy()

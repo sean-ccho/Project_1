@@ -8,3 +8,5 @@ scipy>=1.10
 gspread>=6.0
 google-auth>=2.0
 google-auth-oauthlib>=1.0
+# Optional for TradingView chart screenshots
+playwright>=1.40

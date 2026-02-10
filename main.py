@@ -160,6 +160,52 @@ def build_export_dataframe(
             lambda t: fetched_news.get(str(t).upper(), "")
         ),
     )
+    
+    # --- TradingView 차트 캡처 (CHARTS_ENABLED일 때만) ---
+    from config import CHARTS_ENABLED, CHARTS_MIN_SCORE, CHARTS_TIMEFRAMES
+    
+    if CHARTS_ENABLED:
+        from charts.tradingview_capture import capture_multiple_timeframes
+        
+        print(f"[{context_label}] TradingView 차트 캡처 시작...")
+        
+        # 차트 컬럼 초기화
+        for tf in CHARTS_TIMEFRAMES:
+            col_name = f"차트_{tf}"
+            if col_name not in ranked.columns:
+                ranked[col_name] = ""
+        
+        # 매수적합도 기준 이상 종목만 캡처 (성능 최적화)
+        if "매수적합도_표시" in ranked.columns:
+            # ★ 개수로 필터링 (★★★★ = 4.0 이상)
+            star_threshold = "★" * int(CHARTS_MIN_SCORE)
+            high_score_mask = ranked["매수적합도_표시"].astype(str).str.contains(star_threshold, na=False)
+            high_score_tickers = ranked.loc[high_score_mask, "티커"].unique().tolist()
+            
+            print(f"[{context_label}] {len(high_score_tickers)}개 고점수 종목 차트 캡처 중...")
+            
+            for ticker in high_score_tickers:
+                try:
+                    # 차트 캡처
+                    chart_paths = capture_multiple_timeframes(ticker, headless=True)
+                    
+                    if chart_paths:
+                        # 차트 경로를 DataFrame에 추가
+                        for tf, path in chart_paths.items():
+                            col_name = f"차트_{tf}"
+                            if col_name in ranked.columns:
+                                # 해당 티커 행에 경로 삽입
+                                ranked.loc[ranked["티커"] == ticker, col_name] = path
+                        
+                        print(f"[{context_label}] {ticker} 차트 {len(chart_paths)}개 캡처 완료")
+                except Exception as e:
+                    print(f"[{context_label}] {ticker} 차트 캡처 실패: {e}")
+                    continue
+            
+            print(f"[{context_label}] 차트 캡처 완료")
+        else:
+            print(f"[{context_label}] '매수적합도_표시' 컬럼이 없어 차트 캡처를 건너뜁니다.")
+    # ----------------------------------------------
 
     return prepare_export_dataframe(ranked)
 
@@ -167,45 +213,56 @@ def build_export_dataframe(
 def main() -> None:
     """데이터 수집부터 결과 출력, 백테스트까지 전체 파이프라인을 실행한다."""
 
+
     start_time = time.perf_counter()
     success = False
 
     try:
         portfolio_tickers = fetch_tickers_from_sheet()
 
-        signals_export = build_export_dataframe(TICKERS, GOOGLE_SHEETS_SIGNALS_WORKSHEET)
-        if signals_export is not None:
-            if export_to_google_sheet(
-                signals_export, GOOGLE_SHEETS_SIGNALS_WORKSHEET
-            ):
-                print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Google Sheets 업데이트 완료")
-                # 이메일 알림 발송 (매수적합도 기준)
-                send_email_notification(signals_export)
-            else:
-                print(
-                    f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Google Sheets 업데이트를 건너뛰었습니다."
-                )
-
-        portfolio_label = GOOGLE_SHEETS_PORTFOLIO_WORKSHEET or "보유주식"
-        if portfolio_tickers:
-            portfolio_export = build_export_dataframe(
-                portfolio_tickers,
-                portfolio_label,
-                apply_liquidity_filter=False,
-            )
-            if portfolio_export is not None:
+        # Signals 워크시트 업데이트 (GOOGLE_SHEETS_SIGNALS_ENABLED로 제어)
+        from config import GOOGLE_SHEETS_SIGNALS_ENABLED, GOOGLE_SHEETS_PORTFOLIO_ENABLED
+        
+        if GOOGLE_SHEETS_SIGNALS_ENABLED:
+            signals_export = build_export_dataframe(TICKERS, GOOGLE_SHEETS_SIGNALS_WORKSHEET)
+            if signals_export is not None:
                 if export_to_google_sheet(
-                    portfolio_export, GOOGLE_SHEETS_PORTFOLIO_WORKSHEET
+                    signals_export, GOOGLE_SHEETS_SIGNALS_WORKSHEET
                 ):
-                    print(f"[{portfolio_label}] Google Sheets 업데이트 완료")
+                    print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Google Sheets 업데이트 완료")
+                    # 이메일 알림 발송 (매수적합도 기준)
+                    send_email_notification(signals_export)
                 else:
                     print(
-                        f"[{portfolio_label}] Google Sheets 업데이트를 건너뛰었습니다."
+                        f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Google Sheets 업데이트를 건너뛰었습니다."
                     )
-        elif GOOGLE_SHEETS_PORTFOLIO_WORKSHEET:
-            print(
-                f"[{portfolio_label}] 워크시트에 티커가 없어 업데이트를 건너뜁니다."
-            )
+        else:
+            print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] 워크시트 업데이트가 비활성화되어 있습니다.")
+
+        # 보유주식 워크시트 업데이트 (GOOGLE_SHEETS_PORTFOLIO_ENABLED로 제어)
+        portfolio_label = GOOGLE_SHEETS_PORTFOLIO_WORKSHEET or "보유주식"
+        if GOOGLE_SHEETS_PORTFOLIO_ENABLED:
+            if portfolio_tickers:
+                portfolio_export = build_export_dataframe(
+                    portfolio_tickers,
+                    portfolio_label,
+                    apply_liquidity_filter=False,
+                )
+                if portfolio_export is not None:
+                    if export_to_google_sheet(
+                        portfolio_export, GOOGLE_SHEETS_PORTFOLIO_WORKSHEET
+                    ):
+                        print(f"[{portfolio_label}] Google Sheets 업데이트 완료")
+                    else:
+                        print(
+                            f"[{portfolio_label}] Google Sheets 업데이트를 건너뛰었습니다."
+                        )
+            elif GOOGLE_SHEETS_PORTFOLIO_WORKSHEET:
+                print(
+                    f"[{portfolio_label}] 워크시트에 티커가 없어 업데이트를 건너뜁니다."
+                )
+        else:
+            print(f"[{portfolio_label}] 워크시트 업데이트가 비활성화되어 있습니다.")
 
         backtest_results: dict[str, dict] = {}
         if BACKTEST_ENABLED:
