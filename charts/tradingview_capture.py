@@ -56,29 +56,46 @@ def capture_tradingview_chart(
     
     # 티커 매핑 적용 (예: NBM.V -> NBM)
     try:
-        from config import TRADINGVIEW_TICKER_MAP
+        from config import TRADINGVIEW_TICKER_MAP, TRADINGVIEW_CHART_ID
     except ImportError:
         TRADINGVIEW_TICKER_MAP = {}
+        TRADINGVIEW_CHART_ID = None
 
     tv_ticker = TRADINGVIEW_TICKER_MAP.get(ticker, ticker)
     if tv_ticker != ticker:
         print(f"[TradingView] 티커 매핑 적용: {ticker} -> {tv_ticker}")
     
-    # TradingView Widget Embed URL with TEMA indicator
-    # 올바른 study ID: STD;TEMA (브라우저 리서치를 통해 확인)
-    # Widget embed URL이 더 안정적으로 작동함
-    url = (
-        f"https://s.tradingview.com/widgetembed/"
-        f"?symbol={tv_ticker}"
-        f"&interval={interval}"
-        f"&hidesidetoolbar=1"
-        f"&symboledit=1"
-        f"&saveimage=1"
-        f"&studies=STD%3BTEMA"  # %3B는 ; (세미콜론)의 URL 인코딩
-        f"&theme=light"
-        f"&style=1"
-        f"&timezone=Etc%2FUTC"
-    )
+    # TradingView Widget Embed URL 생성
+    if TRADINGVIEW_CHART_ID:
+        # 저장된 차트(커스텀 지표) 사용
+        url = (
+            f"https://s.tradingview.com/widgetembed/"
+            f"?symbol={tv_ticker}"
+            f"&interval={interval}"
+            f"&hidesidetoolbar=1"
+            f"&symboledit=1"
+            f"&saveimage=1"
+            f"&theme=light"
+            f"&style=1"
+            f"&timezone=Etc%2FUTC"
+            f"&saved_chart={TRADINGVIEW_CHART_ID}"
+        )
+        # print(f"[TradingView] 저장된 차트 레이아웃({TRADINGVIEW_CHART_ID}) 적용")
+    else:
+        # 기본 TEMA(9) 적용
+        # 올바른 study ID: STD;TEMA
+        url = (
+            f"https://s.tradingview.com/widgetembed/"
+            f"?symbol={tv_ticker}"
+            f"&interval={interval}"
+            f"&hidesidetoolbar=1"
+            f"&symboledit=1"
+            f"&saveimage=1"
+            f"&studies=STD%3BTEMA"  # %3B는 ; (세미콜론)의 URL 인코딩
+            f"&theme=light"
+            f"&style=1"
+            f"&timezone=Etc%2FUTC"
+        )
     
     try:
         with sync_playwright() as p:

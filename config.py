@@ -77,6 +77,10 @@ TRADINGVIEW_TICKER_MAP = {
     "NBM.V": "NBM",
 }
 
+# 커스텀 지표(TEMA 등)를 쓰고 싶다면, TradingView에서 차트를 저장하고 그 ID를 입력하세요.
+# https://www.tradingview.com/chart/FeHr4sS7/ -> "FeHr4sS7"
+TRADINGVIEW_CHART_ID = "Ct9Py1WO"  # None이면 기본값(TEMA 9) 사용
+
 # Google Drive 이미지 호스팅 설정
 DRIVE_UPLOAD_ENABLED = False  # Drive 업로드 on/off
 DRIVE_FOLDER_NAME = "Stock_Chart_Screenshots"
