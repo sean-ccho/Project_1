@@ -10,3 +10,5 @@ google-auth>=2.0
 google-auth-oauthlib>=1.0
 # Optional for TradingView chart screenshots
 playwright>=1.40
+google-api-python-client>=2.0
+google-auth-httplib2>=0.1.0

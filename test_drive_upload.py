@@ -20,7 +20,7 @@ except ImportError:
     print("pip install google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2")
     sys.exit(1)
 
-from config import DRIVE_FOLDER_NAME, DRIVE_SHARE_EMAIL
+from config import DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, DRIVE_SHARE_EMAIL
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 CREDENTIALS_PATH = "gspread-service-account.json"
@@ -58,48 +58,52 @@ def test_upload():
         return
 
     # 3. 폴더 검색 또는 생성
-    folder_id = None
-    query = (
-        f"mimeType='application/vnd.google-apps.folder' and "
-        f"name='{DRIVE_FOLDER_NAME}' and trashed=false"
-    )
+    folder_id = DRIVE_FOLDER_ID
     
-    try:
-        results = service.files().list(q=query, spaces="drive", fields="files(id, name)").execute()
-        files = results.get("files", [])
-        
-        if files:
-            folder_id = files[0]["id"]
-            print(f"✅ 폴더 찾음: {files[0]['name']} (ID: {folder_id})")
-        else:
-            print(f"ℹ️ 폴더 '{DRIVE_FOLDER_NAME}'가 없어 새로 생성합니다.")
-            folder_metadata = {
-                "name": DRIVE_FOLDER_NAME,
-                "mimeType": "application/vnd.google-apps.folder",
-            }
-            folder = service.files().create(body=folder_metadata, fields="id").execute()
-            folder_id = folder.get("id")
-            print(f"✅ 폴더 생성 완료 (ID: {folder_id})")
+    if folder_id:
+        print(f"✅ config.py의 폴더 ID 사용: {folder_id}")
+    else:
+        # ID가 없으면 검색 및 생성
+        try:
+            query = (
+                f"mimeType='application/vnd.google-apps.folder' and "
+                f"name='{DRIVE_FOLDER_NAME}' and trashed=false"
+            )
+            results = service.files().list(q=query, spaces="drive", fields="files(id, name)").execute()
+            files = results.get("files", [])
             
-            # 공유 설정
-            if DRIVE_SHARE_EMAIL:
-                print(f"ℹ️ {DRIVE_SHARE_EMAIL} 계정으로 공유 시도...")
-                try:
-                    user_permission = {
-                        "type": "user",
-                        "role": "writer",
-                        "emailAddress": DRIVE_SHARE_EMAIL,
-                    }
-                    service.permissions().create(
-                        fileId=folder_id, body=user_permission, fields="id"
-                    ).execute()
-                    print(f"✅ 공유 성공")
-                except Exception as e:
-                    print(f"⚠️ 공유 실패: {e}")
+            if files:
+                folder_id = files[0]["id"]
+                print(f"✅ 폴더 찾음: {files[0]['name']} (ID: {folder_id})")
+            else:
+                print(f"ℹ️ 폴더 '{DRIVE_FOLDER_NAME}'가 없어 새로 생성합니다.")
+                folder_metadata = {
+                    "name": DRIVE_FOLDER_NAME,
+                    "mimeType": "application/vnd.google-apps.folder",
+                }
+                folder = service.files().create(body=folder_metadata, fields="id").execute()
+                folder_id = folder.get("id")
+                print(f"✅ 폴더 생성 완료 (ID: {folder_id})")
+                
+                # 공유 설정
+                if DRIVE_SHARE_EMAIL:
+                    print(f"ℹ️ {DRIVE_SHARE_EMAIL} 계정으로 공유 시도...")
+                    try:
+                        user_permission = {
+                            "type": "user",
+                            "role": "writer",
+                            "emailAddress": DRIVE_SHARE_EMAIL,
+                        }
+                        service.permissions().create(
+                            fileId=folder_id, body=user_permission, fields="id"
+                        ).execute()
+                        print(f"✅ 공유 성공")
+                    except Exception as e:
+                        print(f"⚠️ 공유 실패: {e}")
 
-    except Exception as e:
-        print(f"❌ 폴더 검색/생성 실패 (권한 문제일 수 있음): {e}")
-        return
+        except Exception as e:
+            print(f"❌ 폴더 검색/생성 실패 (권한 문제일 수 있음): {e}")
+            return
 
     # 4. 파일 업로드 테스트
     test_file_name = "test_upload.txt"
