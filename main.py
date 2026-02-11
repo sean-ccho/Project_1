@@ -205,10 +205,12 @@ def build_export_dataframe(
                             
                             if DRIVE_UPLOAD_ENABLED:
                                 # Google Drive에 업로드
+                                from config import DRIVE_SHARE_EMAIL
                                 drive_url = upload_to_drive(
                                     local_path,
                                     GOOGLE_SHEETS_CREDENTIALS_PATH,
-                                    DRIVE_FOLDER_NAME
+                                    DRIVE_FOLDER_NAME,
+                                    DRIVE_SHARE_EMAIL
                                 )
                                 
                                 if drive_url:

@@ -51,7 +51,8 @@ def get_or_create_folder(service, folder_name: str) -> str:
 def upload_to_drive(
     image_path: str,
     credentials_path: str,
-    folder_name: str = "Stock_Chart_Screenshots"
+    folder_name: str = "Stock_Chart_Screenshots",
+    share_email: str | None = None,
 ) -> str | None:
     """
     이미지를 Google Drive에 업로드하고 공유 가능한 URL 반환
@@ -60,6 +61,7 @@ def upload_to_drive(
         image_path: 로컬 이미지 파일 경로
         credentials_path: Google 서비스 계정 JSON 경로
         folder_name: Drive 폴더명
+        share_email: 파일을 공유할 사용자 이메일 (선택)
         
     Returns:
         Google Drive 이미지 URL 또는 None
@@ -82,6 +84,18 @@ def upload_to_drive(
         
         # 폴더 가져오기/생성
         folder_id = get_or_create_folder(service, folder_name)
+        
+        # 폴더를 사용자와 공유 (첫 실행 시)
+        if share_email:
+            try:
+                service.permissions().create(
+                    fileId=folder_id,
+                    body={'type': 'user', 'role': 'writer', 'emailAddress': share_email},
+                    sendNotificationEmail=False
+                ).execute()
+            except Exception as e:
+                # 이미 공유되어 있으면 무시
+                pass
         
         # 기존 파일 삭제 (중복 방지)
         file_name = path.name
@@ -107,11 +121,22 @@ def upload_to_drive(
         
         file_id = file['id']
         
-        # 공개 공유 설정
+        # 공개 공유 설정 (누구나 볼 수 있게)
         service.permissions().create(
             fileId=file_id,
             body={'type': 'anyone', 'role': 'reader'}
         ).execute()
+        
+        # 사용자와 파일 공유 (선택)
+        if share_email:
+            try:
+                service.permissions().create(
+                    fileId=file_id,
+                    body={'type': 'user', 'role': 'writer', 'emailAddress': share_email},
+                    sendNotificationEmail=False
+                ).execute()
+            except Exception:
+                pass
         
         # 직접 링크 생성 (=IMAGE()에서 사용 가능)
         image_url = f"https://drive.google.com/uc?export=view&id={file_id}"

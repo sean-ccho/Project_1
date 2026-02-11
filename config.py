@@ -75,6 +75,7 @@ CHARTS_OUTPUT_DIR = "charts/screenshots"  # 차트 저장 디렉토리
 # Google Drive 이미지 호스팅 설정
 DRIVE_UPLOAD_ENABLED = True  # Drive 업로드 on/off
 DRIVE_FOLDER_NAME = "Stock_Chart_Screenshots"  # Drive 폴더명
+DRIVE_SHARE_EMAIL = "chunghwan14@gmail.com"  # 파일 공유할 이메일 (내 이메일)
 
 
 # 이메일 알림 설정
