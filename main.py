@@ -239,7 +239,9 @@ def build_export_dataframe(
                             elif GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
                                 # GitHub Raw URL 생성: https://raw.githubusercontent.com/{USER}/{REPO}/{BRANCH}/{PATH}
                                 # local_path는 상대 경로여야 함 (예: charts/screenshots/...)
-                                github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/{GITHUB_BRANCH_NAME}/{local_path}"
+                                # 구글 시트 캐싱 방지를 위해 쿼리 파라미터 추가 (?v=timestamp)
+                                cache_buster = int(time.time())
+                                github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/{GITHUB_BRANCH_NAME}/{local_path}?v={cache_buster}"
                                 image_formula = f'=IMAGE("{github_url}")'
                                 ranked.loc[ranked["티커"] == ticker, col_name] = image_formula
                         
