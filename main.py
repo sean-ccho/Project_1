@@ -163,9 +163,14 @@ def build_export_dataframe(
     
     # --- TradingView 차트 캡처 (CHARTS_ENABLED일 때만) ---
     from config import CHARTS_ENABLED, CHARTS_MIN_SCORE, CHARTS_TIMEFRAMES
+    from config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, GOOGLE_SHEETS_CREDENTIALS_PATH
     
     if CHARTS_ENABLED:
         from charts.tradingview_capture import capture_multiple_timeframes
+        
+        # Drive 업로드 사용 시 모듈 import
+        if DRIVE_UPLOAD_ENABLED:
+            from charts.gdrive_uploader import upload_to_drive
         
         print(f"[{context_label}] TradingView 차트 캡처 시작...")
         
@@ -177,12 +182,16 @@ def build_export_dataframe(
         
         # 매수적합도 기준 이상 종목만 캡처 (성능 최적화)
         if "매수적합도_표시" in ranked.columns:
-            # ★ 개수로 필터링 (★★★★ = 4.0 이상)
-            star_threshold = "★" * int(CHARTS_MIN_SCORE)
-            high_score_mask = ranked["매수적합도_표시"].astype(str).str.contains(star_threshold, na=False)
-            high_score_tickers = ranked.loc[high_score_mask, "티커"].unique().tolist()
+            # ★ 개수로 필터링 (CHARTS_MIN_SCORE = 0.0이면 모든 종목)
+            if CHARTS_MIN_SCORE > 0:
+                star_threshold = "★" * int(CHARTS_MIN_SCORE)
+                high_score_mask = ranked["매수적합도_표시"].astype(str).str.contains(star_threshold, na=False)
+                high_score_tickers = ranked.loc[high_score_mask, "티커"].unique().tolist()
+            else:
+                # 0.0이면 모든 종목
+                high_score_tickers = ranked["티커"].unique().tolist()
             
-            print(f"[{context_label}] {len(high_score_tickers)}개 고점수 종목 차트 캡처 중...")
+            print(f"[{context_label}] {len(high_score_tickers)}개 종목 차트 캡처 중...")
             
             for ticker in high_score_tickers:
                 try:
@@ -190,19 +199,35 @@ def build_export_dataframe(
                     chart_paths = capture_multiple_timeframes(ticker, headless=True)
                     
                     if chart_paths:
-                        # 차트 경로를 DataFrame에 추가
-                        for tf, path in chart_paths.items():
+                        # Drive 업로드 또는 로컬 경로 저장
+                        for tf, local_path in chart_paths.items():
                             col_name = f"차트_{tf}"
-                            if col_name in ranked.columns:
-                                # 해당 티커 행에 경로 삽입
-                                ranked.loc[ranked["티커"] == ticker, col_name] = path
+                            
+                            if DRIVE_UPLOAD_ENABLED:
+                                # Google Drive에 업로드
+                                drive_url = upload_to_drive(
+                                    local_path,
+                                    GOOGLE_SHEETS_CREDENTIALS_PATH,
+                                    DRIVE_FOLDER_NAME
+                                )
+                                
+                                if drive_url:
+                                    # =IMAGE() 함수로 삽입
+                                    image_formula = f'=IMAGE("{drive_url}")'
+                                    ranked.loc[ranked["티커"] == ticker, col_name] = image_formula
+                                else:
+                                    # 업로드 실패 시 로컬 경로
+                                    ranked.loc[ranked["티커"] == ticker, col_name] = local_path
+                            else:
+                                # Drive 비활성화 시 로컬 경로
+                                ranked.loc[ranked["티커"] == ticker, col_name] = local_path
                         
-                        print(f"[{context_label}] {ticker} 차트 {len(chart_paths)}개 캡처 완료")
+                        print(f"[{context_label}] {ticker} 차트 {len(chart_paths)}개 처리 완료")
                 except Exception as e:
-                    print(f"[{context_label}] {ticker} 차트 캡처 실패: {e}")
+                    print(f"[{context_label}] {ticker} 차트 처리 실패: {e}")
                     continue
             
-            print(f"[{context_label}] 차트 캡처 완료")
+            print(f"[{context_label}] 차트 캡처/업로드 완료")
         else:
             print(f"[{context_label}] '매수적합도_표시' 컬럼이 없어 차트 캡처를 건너뜁니다.")
     # ----------------------------------------------

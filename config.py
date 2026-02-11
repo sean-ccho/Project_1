@@ -72,6 +72,10 @@ CHARTS_TIMEFRAMES = ["1H", "4H", "Daily", "Weekly", "Monthly"]  # 캡처할 타�
 CHARTS_MIN_SCORE = 0.0  # 차트 캡처 최소 매수적합도 (0.0 = 모든 종목)
 CHARTS_OUTPUT_DIR = "charts/screenshots"  # 차트 저장 디렉토리
 
+# Google Drive 이미지 호스팅 설정
+DRIVE_UPLOAD_ENABLED = True  # Drive 업로드 on/off
+DRIVE_FOLDER_NAME = "Stock_Chart_Screenshots"  # Drive 폴더명
+
 
 # 이메일 알림 설정
 EMAIL_ENABLED = True  # 알림 사용 여부
