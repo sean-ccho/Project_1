@@ -19,7 +19,7 @@ SCOPES = [
 ]
 
 
-def get_or_create_folder(service, folder_name: str) -> str:
+def get_or_create_folder(service, folder_name: str, folder_id: str | None = None) -> str:
     """
     Google Drive에서 폴더 찾기 또는 생성
     
@@ -30,6 +30,11 @@ def get_or_create_folder(service, folder_name: str) -> str:
     Returns:
         폴더 ID
     """
+    # 1. 명시적 ID가 있으면 바로 사용 (유효성 검사는 생략하거나 간단히 수행)
+    if folder_id:
+        print(f"[Drive] 폴더 ID 사용: {folder_id}")
+        return folder_id
+
     query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
     results = service.files().list(q=query, fields="files(id, name)").execute()
     
@@ -52,6 +57,7 @@ def upload_to_drive(
     image_path: str,
     credentials_path: str,
     folder_name: str = "Stock_Chart_Screenshots",
+    folder_id: str | None = None,
     share_email: str | None = None,
 ) -> str | None:
     """
@@ -100,13 +106,13 @@ def upload_to_drive(
         service = build('drive', 'v3', credentials=credentials)
         
         # 폴더 가져오기/생성
-        folder_id = get_or_create_folder(service, folder_name)
+        target_folder_id = get_or_create_folder(service, folder_name, folder_id)
         
         # 폴더를 사용자와 공유 (첫 실행 시)
         if share_email:
             try:
                 service.permissions().create(
-                    fileId=folder_id,
+                    fileId=target_folder_id,
                     body={'type': 'user', 'role': 'writer', 'emailAddress': share_email},
                     sendNotificationEmail=False
                 ).execute()
@@ -116,7 +122,7 @@ def upload_to_drive(
         
         # 기존 파일 삭제 (중복 방지)
         file_name = path.name
-        query = f"name='{file_name}' and '{folder_id}' in parents and trashed=false"
+        query = f"name='{file_name}' and '{target_folder_id}' in parents and trashed=false"
         existing = service.files().list(q=query, fields="files(id)").execute()
         
         for file in existing.get('files', []):
@@ -126,7 +132,7 @@ def upload_to_drive(
         # 파일 업로드
         file_metadata = {
             'name': file_name,
-            'parents': [folder_id]
+            'parents': [target_folder_id]
         }
         media = MediaFileUpload(str(path), mimetype='image/png')
         

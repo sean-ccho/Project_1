@@ -55,7 +55,6 @@ LIQUIDITY_TURNOVER_MIN = 0.0  # 거래대금/시가총액(또는 유통시가) �
 for ticker in LIQUIDITY_WHITELIST:
     if ticker not in TICKERS:
         TICKERS.append(ticker)
-
 # Google Sheets 연결 설정(기본 비활성화)
 GOOGLE_SHEETS_ENABLED = True
 GOOGLE_SHEETS_CREDENTIALS_PATH: str | None = "gspread-service-account.json"
@@ -75,6 +74,7 @@ CHARTS_OUTPUT_DIR = "charts/screenshots"  # 차트 저장 디렉토리
 # Google Drive 이미지 호스팅 설정
 DRIVE_UPLOAD_ENABLED = True  # Drive 업로드 on/off (로컬 저장은 항상 수행)
 DRIVE_FOLDER_NAME = "Stock_Chart_Screenshots"  # Drive 폴더명
+DRIVE_FOLDER_ID = "1KbDahjFYZF0bPDwIAJ5soBmbOhxFznrU"  # (선택) 폴더 ID를 직접 지정하면 검색보다 정확함
 DRIVE_SHARE_EMAIL = "chunghwan14@gmail.com"  # 파일 공유할 이메일 (내 이메일)
 
 

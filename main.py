@@ -163,7 +163,7 @@ def build_export_dataframe(
     
     # --- TradingView 차트 캡처 (CHARTS_ENABLED일 때만) ---
     from config import CHARTS_ENABLED, CHARTS_MIN_SCORE, CHARTS_TIMEFRAMES
-    from config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, GOOGLE_SHEETS_CREDENTIALS_PATH
+    from config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, GOOGLE_SHEETS_CREDENTIALS_PATH
     from config import CHARTS_OUTPUT_DIR
     
     if CHARTS_ENABLED:
@@ -224,7 +224,8 @@ def build_export_dataframe(
                                     local_path,
                                     GOOGLE_SHEETS_CREDENTIALS_PATH,
                                     DRIVE_FOLDER_NAME,
-                                    DRIVE_SHARE_EMAIL
+                                    folder_id=DRIVE_FOLDER_ID,
+                                    share_email=DRIVE_SHARE_EMAIL
                                 )
                                 
                                 if drive_url:
@@ -255,6 +256,8 @@ def main() -> None:
 
     try:
         portfolio_tickers = fetch_tickers_from_sheet()
+
+
 
         # Signals 워크시트 업데이트 (GOOGLE_SHEETS_SIGNALS_ENABLED로 제어)
         from config import GOOGLE_SHEETS_SIGNALS_ENABLED, GOOGLE_SHEETS_PORTFOLIO_ENABLED
