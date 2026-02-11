@@ -65,10 +65,10 @@ GOOGLE_SHEETS_PORTFOLIO_WORKSHEET: str | None = "보유주식"
 GOOGLE_SHEETS_PORTFOLIO_ENABLED = True  # 보유주식 워크시트 업데이트 on/off
 GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
 
-# TradingView# 차트 캡처 설정
+# TradingView 차트 캡처 설정
 CHARTS_ENABLED = True  # 차트 캡처 기능 on/off
 CHARTS_TIMEFRAMES = ["1H", "4H", "Daily", "Weekly", "Monthly"]  # 캡처할 타임프레임 목록
-CHARTS_MIN_SCORE = 3.0  # ★ 3개 이상인 종목만 캡처 (0.0이면 모든 종목)
+CHARTS_MIN_SCORE = 0.0  # 차트 캡처 최소 매수적합도 (0.0 = 모든 종목)
 CHARTS_OUTPUT_DIR = "charts/screenshots"  # 차트 저장 디렉토리
 
 # TradingView 티커 매핑 (시스템 티커 -> TradingView 티커)
