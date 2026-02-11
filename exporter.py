@@ -121,10 +121,14 @@ def generate_chart_paths(ticker: str) -> dict[str, str]:
     
     paths = {}
     for tf in CHARTS_TIMEFRAMES:
-        file_path = Path(CHARTS_OUTPUT_DIR) / f"{ticker}_{tf}.png"
-        # 파일이 존재하면 경로 반환, 없으면 빈 문자열
-        if file_path.exists():
-            paths[f"차트_{tf}"] = str(file_path)
+        # 타임스탬프가 포함된 파일 패턴 검색 (예: AAPL_Daily_20240521_123456.png)
+        pattern = f"{ticker}_{tf}_*.png"
+        matches = list(Path(CHARTS_OUTPUT_DIR).glob(pattern))
+        
+        if matches:
+            # 가장 최근 파일 선택 (파일명 정렬로 충분, 타임스탬프 순)
+            latest_file = sorted(matches)[-1]
+            paths[f"차트_{tf}"] = str(latest_file)
         else:
             paths[f"차트_{tf}"] = ""
     

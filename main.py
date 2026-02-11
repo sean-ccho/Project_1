@@ -250,7 +250,29 @@ def build_export_dataframe(
                     print(f"[{context_label}] {ticker} 차트 처리 실패: {e}")
                     continue
             
-            print(f"[{context_label}] 차트 캡처/업로드 완료")
+            print(f"[{context_label}] 차트 캡처 완료")
+            
+            # --- GitHub 자동 푸시 (이미지 업데이트 반영) ---
+            if GITHUB_UPLOAD_ENABLED:
+                try:
+                    import subprocess
+                    print(f"[{context_label}] GitHub에 차트 이미지 푸시 중...")
+                    
+                    # 1. 변경사항 스테이징 (삭제된 파일 포함)
+                    subprocess.run(["git", "add", "charts/screenshots"], check=True)
+                    
+                    # 2. 커밋 (메시지에 타임스탬프)
+                    commit_msg = f"Update chart screenshots {int(time.time())}"
+                    subprocess.run(["git", "commit", "-m", commit_msg], check=False) # 변경사항 없으면 실패할 수 있으므로 check=False
+                    
+                    # 3. 푸시
+                    subprocess.run(["git", "push"], check=True)
+                    print(f"[{context_label}] GitHub 푸시 완료")
+                    
+                except Exception as e:
+                    print(f"[{context_label}] GitHub 푸시 실패: {e}")
+            # ---------------------------------------------
+            
         else:
             print(f"[{context_label}] '매수적합도_표시' 컬럼이 없어 차트 캡처를 건너뜁니다.")
     # ----------------------------------------------

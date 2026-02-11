@@ -241,10 +241,23 @@ def capture_multiple_timeframes(
             
             print(f"[TradingView] {ticker} 브라우저 세션 시작...")
             
+            # 타임스탬프 생성 (구글 시트 캐싱 방지)
+            import datetime
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            
             for tf in timeframes:
                 try:
                     interval = TIMEFRAME_MAP.get(tf, "D")
-                    output_path = ticker_dir / f"{ticker}_{tf}.png"
+                    # 기존 파일 삭제 (공간 절약 및 최신 파일만 유지)
+                    for old_file in ticker_dir.glob(f"{ticker}_{tf}_*.png"):
+                        # 혹시 모를 에러 방지
+                        try:
+                            old_file.unlink()
+                        except Exception as e:
+                            print(f"[TradingView] 기존 파일 삭제 실패 ({old_file}): {e}")
+
+                    # 새 파일명 (타임스탬프 포함)
+                    output_path = ticker_dir / f"{ticker}_{tf}_{timestamp}.png"
                     
                     # URL 생성
                     if TRADINGVIEW_CHART_ID:
