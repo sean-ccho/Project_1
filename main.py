@@ -311,8 +311,8 @@ def main() -> None:
         else:
             print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] 워크시트 업데이트가 비활성화되어 있습니다.")
 
-        # 보유주식 워크시트 업데이트 (GOOGLE_SHEETS_PORTFOLIO_ENABLED로 제어)
-        portfolio_label = GOOGLE_SHEETS_PORTFOLIO_WORKSHEET or "보유주식"
+        # 수동차트 워크시트 업데이트 (GOOGLE_SHEETS_PORTFOLIO_ENABLED로 제어)
+        portfolio_label = GOOGLE_SHEETS_PORTFOLIO_WORKSHEET or "수동차트"
         if GOOGLE_SHEETS_PORTFOLIO_ENABLED:
             if portfolio_tickers:
                 portfolio_export = build_export_dataframe(
