@@ -145,5 +145,7 @@ def upload_to_drive(
         return image_url
         
     except Exception as e:
+        import traceback
         print(f"[Drive] 업로드 에러 ({image_path}): {e}")
+        print(f"[Drive] 상세 에러:\n{traceback.format_exc()}")
         return None
