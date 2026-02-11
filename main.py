@@ -164,6 +164,7 @@ def build_export_dataframe(
     # --- TradingView 차트 캡처 (CHARTS_ENABLED일 때만) ---
     from config import CHARTS_ENABLED, CHARTS_MIN_SCORE, CHARTS_TIMEFRAMES
     from config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, GOOGLE_SHEETS_CREDENTIALS_PATH
+    from config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME, GITHUB_BRANCH_NAME
     from config import CHARTS_OUTPUT_DIR
     
     if CHARTS_ENABLED:
@@ -233,6 +234,14 @@ def build_export_dataframe(
                                     image_formula = f'=IMAGE("{drive_url}")'
                                     ranked.loc[ranked["티커"] == ticker, col_name] = image_formula
                                 # 업로드 실패 시 로컬 경로 그대로 유지
+                            
+                            # GitHub 호스팅 사용 (Raw URL 생성)
+                            elif GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
+                                # GitHub Raw URL 생성: https://raw.githubusercontent.com/{USER}/{REPO}/{BRANCH}/{PATH}
+                                # local_path는 상대 경로여야 함 (예: charts/screenshots/...)
+                                github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/{GITHUB_BRANCH_NAME}/{local_path}"
+                                image_formula = f'=IMAGE("{github_url}")'
+                                ranked.loc[ranked["티커"] == ticker, col_name] = image_formula
                         
                         print(f"[{context_label}] {ticker} 차트 {len(chart_paths)}개 처리 완료")
                 except Exception as e:

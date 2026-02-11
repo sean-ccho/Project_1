@@ -72,10 +72,15 @@ CHARTS_MIN_SCORE = 0.0  # 차트 캡처 최소 매수적합도 (0.0 = 모든 종
 CHARTS_OUTPUT_DIR = "charts/screenshots"  # 차트 저장 디렉토리
 
 # Google Drive 이미지 호스팅 설정
-DRIVE_UPLOAD_ENABLED = True  # Drive 업로드 on/off (로컬 저장은 항상 수행)
-DRIVE_FOLDER_NAME = "Stock_Chart_Screenshots"  # Drive 폴더명
-DRIVE_FOLDER_ID = "1KbDahjFYZF0bPDwIAJ5soBmbOhxFznrU"  # (선택) 폴더 ID를 직접 지정하면 검색보다 정확함
-DRIVE_SHARE_EMAIL = "chunghwan14@gmail.com"  # 파일 공유할 이메일 (내 이메일)
+DRIVE_UPLOAD_ENABLED = False  # Drive 업로드 on/off
+DRIVE_FOLDER_NAME = "Stock_Chart_Screenshots"
+DRIVE_FOLDER_ID = "1KbDahjFYZF0bPDwIAJ5soBmbOhxFznrU"
+DRIVE_SHARE_EMAIL = "chunghwan14@gmail.com"
+
+# GitHub 이미지 호스팅 설정 (Public Repo인 경우 사용)
+GITHUB_UPLOAD_ENABLED = True
+GITHUB_REPO_NAME = "sean-ccho/Project_1"  # "username/repo_name" 형식
+GITHUB_BRANCH_NAME = "main"
 
 
 # 이메일 알림 설정
