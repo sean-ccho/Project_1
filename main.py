@@ -164,13 +164,25 @@ def build_export_dataframe(
     # --- TradingView 차트 캡처 (CHARTS_ENABLED일 때만) ---
     from config import CHARTS_ENABLED, CHARTS_MIN_SCORE, CHARTS_TIMEFRAMES
     from config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, GOOGLE_SHEETS_CREDENTIALS_PATH
+    from config import CHARTS_OUTPUT_DIR
     
     if CHARTS_ENABLED:
         from charts.tradingview_capture import capture_multiple_timeframes
+        import os
+        import shutil
+        from pathlib import Path
         
         # Drive 업로드 사용 시 모듈 import
         if DRIVE_UPLOAD_ENABLED:
             from charts.gdrive_uploader import upload_to_drive
+        
+        # 기존 차트 파일들 자동 삭제
+        charts_dir = Path(CHARTS_OUTPUT_DIR)
+        if charts_dir.exists():
+            print(f"[{context_label}] 기존 차트 파일 삭제 중...")
+            shutil.rmtree(charts_dir)
+        charts_dir.mkdir(parents=True, exist_ok=True)
+        print(f"[{context_label}] 차트 저장 디렉토리 준비 완료: {charts_dir}")
         
         print(f"[{context_label}] TradingView 차트 캡처 시작...")
         
@@ -195,16 +207,18 @@ def build_export_dataframe(
             
             for ticker in high_score_tickers:
                 try:
-                    # 차트 캡처
+                    # 차트 캡처 (항상 로컬에 저장됨)
                     chart_paths = capture_multiple_timeframes(ticker, headless=True)
                     
                     if chart_paths:
-                        # Drive 업로드 또는 로컬 경로 저장
                         for tf, local_path in chart_paths.items():
                             col_name = f"차트_{tf}"
                             
+                            # Google Sheets에는 항상 로컬 경로 저장
+                            ranked.loc[ranked["티커"] == ticker, col_name] = local_path
+                            
+                            # Drive 업로드가 활성화되어 있으면 추가로 업로드
                             if DRIVE_UPLOAD_ENABLED:
-                                # Google Drive에 업로드
                                 from config import DRIVE_SHARE_EMAIL
                                 drive_url = upload_to_drive(
                                     local_path,
@@ -214,15 +228,10 @@ def build_export_dataframe(
                                 )
                                 
                                 if drive_url:
-                                    # =IMAGE() 함수로 삽입
+                                    # 업로드 성공 시 IMAGE() 함수로 교체
                                     image_formula = f'=IMAGE("{drive_url}")'
                                     ranked.loc[ranked["티커"] == ticker, col_name] = image_formula
-                                else:
-                                    # 업로드 실패 시 로컬 경로
-                                    ranked.loc[ranked["티커"] == ticker, col_name] = local_path
-                            else:
-                                # Drive 비활성화 시 로컬 경로
-                                ranked.loc[ranked["티커"] == ticker, col_name] = local_path
+                                # 업로드 실패 시 로컬 경로 그대로 유지
                         
                         print(f"[{context_label}] {ticker} 차트 {len(chart_paths)}개 처리 완료")
                 except Exception as e:
