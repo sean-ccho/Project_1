@@ -60,9 +60,9 @@ GOOGLE_SHEETS_ENABLED = True
 GOOGLE_SHEETS_CREDENTIALS_PATH: str | None = "gspread-service-account.json"
 GOOGLE_SHEETS_SPREADSHEET_ID: str | None = "1VxzTPfDvRX0UGJZcNnRsqTRex4gqmjv4P-1I_VcuXaw"
 GOOGLE_SHEETS_SIGNALS_WORKSHEET = "Signals"
-GOOGLE_SHEETS_SIGNALS_ENABLED = False  # Signals 워크시트 업데이트 on/off
+GOOGLE_SHEETS_SIGNALS_ENABLED = True  # Signals 워크시트 업데이트 on/off
 GOOGLE_SHEETS_PORTFOLIO_WORKSHEET: str | None = "보유주식"
-GOOGLE_SHEETS_PORTFOLIO_ENABLED = True  # 보유주식 워크시트 업데이트 on/off
+GOOGLE_SHEETS_PORTFOLIO_ENABLED = False  # 보유주식 워크시트 업데이트 on/off
 GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
 
 # TradingView 차트 캡처 설정
