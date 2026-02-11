@@ -66,21 +66,58 @@ def capture_tradingview_chart(
         print(f"[TradingView] 티커 매핑 적용: {ticker} -> {tv_ticker}")
     
     # TradingView Widget Embed URL 생성
+    # TradingView Widget Embed URL 생성
     if TRADINGVIEW_CHART_ID:
-        # 저장된 차트(커스텀 지표) 사용
-        url = (
-            f"https://s.tradingview.com/widgetembed/"
-            f"?symbol={tv_ticker}"
-            f"&interval={interval}"
-            f"&hidesidetoolbar=1"
-            f"&symboledit=1"
-            f"&saveimage=1"
-            f"&theme=light"
-            f"&style=1"
-            f"&timezone=Etc%2FUTC"
-            f"&saved_chart={TRADINGVIEW_CHART_ID}"
-        )
-        # print(f"[TradingView] 저장된 차트 레이아웃({TRADINGVIEW_CHART_ID}) 적용")
+        # 저장된 차트(커스텀 지표) 사용 - 위젯이 아닌 실제 차트 페이지로 직접 이동
+        url = f"https://www.tradingview.com/chart/{TRADINGVIEW_CHART_ID}/?symbol={tv_ticker}&theme=light"
+        print(f"[TradingView] 저장된 차트 레이아웃({TRADINGVIEW_CHART_ID}) 로딩 중...")
+        
+        try:
+            with sync_playwright() as p:
+                # 브라우저 실행
+                browser = p.chromium.launch(headless=headless)
+                context = browser.new_context(
+                    viewport={"width": 1920, "height": 1080},
+                    device_scale_factor=2,  # Retina 디스플레이 품질
+                )
+                page = context.new_page()
+                
+                # 페이지 열기
+                page.goto(url, wait_until="domcontentloaded", timeout=40000)
+                
+                # 차트 로딩 대기 (Full Page)
+                try:
+                    # 차트 캔버스 또는 메인 영역이 뜰 때까지 대기
+                    page.wait_for_selector('div[class*="chart-container"]', timeout=30000)
+                    time.sleep(5)  # 인디케이터 렌더링 대기
+                except:
+                    print(f"[TradingView] 차트 로딩 시간이 길어짐")
+                
+                # 팝업/광고 닫기 시도
+                try:
+                    page.click('button[class*="close"]', timeout=2000)
+                except:
+                    pass
+
+                # 스크린샷 영역 지정 (레이아웃 중심부)
+                # .layout__area--center 또는 canvas 컨테이너
+                chart_element = page.query_selector('.layout__area--center')
+                if not chart_element:
+                    chart_element = page.query_selector('div[class*="chart-container"]')
+
+                if chart_element:
+                    chart_element.screenshot(path=str(output_path))
+                else:
+                    page.screenshot(path=str(output_path), full_page=False)
+                
+                print(f"[TradingView] 스크린샷 저장: {output_path}")
+                browser.close()
+                return str(output_path)
+
+        except Exception as e:
+            print(f"[TradingView] {ticker} 커스텀 차트 캡처 실패: {e}")
+            return None
+
     else:
         # 기본 TEMA(9) 적용
         # 올바른 study ID: STD;TEMA
