@@ -54,12 +54,22 @@ def capture_tradingview_chart(
     # 타임프레임 코드 변환
     interval = TIMEFRAME_MAP.get(timeframe, "D")
     
+    # 티커 매핑 적용 (예: NBM.V -> NBM)
+    try:
+        from config import TRADINGVIEW_TICKER_MAP
+    except ImportError:
+        TRADINGVIEW_TICKER_MAP = {}
+
+    tv_ticker = TRADINGVIEW_TICKER_MAP.get(ticker, ticker)
+    if tv_ticker != ticker:
+        print(f"[TradingView] 티커 매핑 적용: {ticker} -> {tv_ticker}")
+    
     # TradingView Widget Embed URL with TEMA indicator
     # 올바른 study ID: STD;TEMA (브라우저 리서치를 통해 확인)
     # Widget embed URL이 더 안정적으로 작동함
     url = (
         f"https://s.tradingview.com/widgetembed/"
-        f"?symbol={ticker}"
+        f"?symbol={tv_ticker}"
         f"&interval={interval}"
         f"&hidesidetoolbar=1"
         f"&symboledit=1"
