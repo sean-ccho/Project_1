@@ -146,8 +146,13 @@ def capture_multiple_timeframes(
     
     results = {}
     
+    # 티커별 하위 디렉토리 사용
+    # 예: charts/screenshots/AAPL/
+    ticker_dir = Path(output_dir) / ticker
+    
     for tf in timeframes:
-        path = capture_tradingview_chart(ticker, tf, output_dir, headless=headless)
+        # 하위 디렉토리를 output_dir로 전달
+        path = capture_tradingview_chart(ticker, tf, str(ticker_dir), headless=headless)
         if path:
             results[tf] = path
     

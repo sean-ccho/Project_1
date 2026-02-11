@@ -71,15 +71,32 @@ def upload_to_drive(
         return None
     
     try:
+        import os
+        import json
+        
         path = Path(image_path)
         if not path.exists():
             print(f"[Drive] 파일을 찾을 수 없음: {image_path}")
             return None
         
-        # 서비스 계정 인증
-        credentials = Credentials.from_service_account_file(
-            credentials_path, scopes=SCOPES
-        )
+        # 서비스 계정 인증 (환경 변수 우선, 파일 fallback)
+        service_account_json_str = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+        
+        if service_account_json_str:
+            # 환경 변수에서 로드 (GitHub Actions)
+            service_account_info = json.loads(service_account_json_str)
+            credentials = Credentials.from_service_account_info(
+                service_account_info, scopes=SCOPES
+            )
+        elif credentials_path:
+            # 파일에서 로드 (로컬)
+            credentials = Credentials.from_service_account_file(
+                credentials_path, scopes=SCOPES
+            )
+        else:
+            print("[Drive] 서비스 계정 인증 정보가 없습니다")
+            return None
+        
         service = build('drive', 'v3', credentials=credentials)
         
         # 폴더 가져오기/생성

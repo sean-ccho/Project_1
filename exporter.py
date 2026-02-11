@@ -64,14 +64,14 @@ def _resize_worksheet_to_data(worksheet, rows: list[list[object]]) -> None:
 
 def _open_sheet():
     """Authorize gspread client and return spreadsheet handle."""
+    import os
+    import json
 
     if not GOOGLE_SHEETS_ENABLED:
         return None
 
-    if not GOOGLE_SHEETS_SPREADSHEET_ID or not GOOGLE_SHEETS_CREDENTIALS_PATH:
-        print(
-            "[Google Sheets] spreadsheet ID 또는 credentials path가 설정되지 않았습니다."
-        )
+    if not GOOGLE_SHEETS_SPREADSHEET_ID:
+        print("[Google Sheets] spreadsheet ID가 설정되지 않았습니다.")
         return None
 
     if gspread is None or Credentials is None:
@@ -79,10 +79,26 @@ def _open_sheet():
         return None
 
     try:
-        credentials = Credentials.from_service_account_file(
-            GOOGLE_SHEETS_CREDENTIALS_PATH,
-            scopes=GOOGLE_SCOPES,
-        )
+        # 1. 환경 변수에서 서비스 계정 정보 확인 (GitHub Actions용)
+        service_account_json_str = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+        
+        if service_account_json_str:
+            # 환경 변수가 있으면 JSON 파싱해서 사용
+            service_account_info = json.loads(service_account_json_str)
+            credentials = Credentials.from_service_account_info(
+                service_account_info,
+                scopes=GOOGLE_SCOPES,
+            )
+        elif GOOGLE_SHEETS_CREDENTIALS_PATH:
+            # 환경 변수가 없으면 파일에서 로드 (로컬 개발용)
+            credentials = Credentials.from_service_account_file(
+                GOOGLE_SHEETS_CREDENTIALS_PATH,
+                scopes=GOOGLE_SCOPES,
+            )
+        else:
+            print("[Google Sheets] 서비스 계정 인증 정보가 없습니다 (환경 변수 또는 파일 필요)")
+            return None
+        
         client = gspread.authorize(credentials)
         return client.open_by_key(GOOGLE_SHEETS_SPREADSHEET_ID)
     except Exception as exc:

@@ -254,7 +254,7 @@ def score_extremes_for_snapshot(
 
     unique_tickers = sorted(set(ticker for ticker in tickers if ticker))
     if len(unique_tickers) < 5:
-        return snapshot, {"status": "insufficient_tickers"}
+        return snapshot, {"global": {"status": "insufficient_tickers"}}
 
     price_df = fetch_ohlcv(unique_tickers, period=period)
     if isinstance(price_df.columns, pd.MultiIndex):
@@ -267,7 +267,7 @@ def score_extremes_for_snapshot(
 
     dataset = build_labeled_dataset(price_map)
     if dataset.empty:
-        return snapshot, {"status": "empty_dataset"}
+        return snapshot, {"global": {"status": "empty_dataset"}}
 
     metrics_info: dict[str, dict] = {}
     models: dict[str, ModelResult] = {}
