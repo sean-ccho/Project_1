@@ -321,7 +321,7 @@ def main() -> None:
         if GOOGLE_SHEETS_SIGNALS_ENABLED and signals_export is not None:
              from config import EMAIL_SCORE_THRESHOLD
              
-             print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Signals 결과 기반 보유주식 리스트 생성 중 (기준점수: {EMAIL_SCORE_THRESHOLD})...")
+             print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Signals 결과 기반 차트분석 종목 리스트 생성 중 (기준점수: {EMAIL_SCORE_THRESHOLD})...")
              
              # 고정 종목
              fixed_tickers = ["NBM.V"]
@@ -337,12 +337,12 @@ def main() -> None:
              # 리스트 합치기 (중복 제거하면서 순서 유지)
              new_portfolio_tickers = list(dict.fromkeys(fixed_tickers + high_score_tickers))
              
-             print(f"[Dynamic Portfolio] 생성된 보유주식 리스트({len(new_portfolio_tickers)}개): {new_portfolio_tickers}")
+             print(f"[Dynamic Portfolio] 생성된 차트분석 종목 리스트({len(new_portfolio_tickers)}개): {new_portfolio_tickers}")
              portfolio_tickers = new_portfolio_tickers
         # -------------------------------------------
 
-        # 보유주식 워크시트 업데이트 (GOOGLE_SHEETS_PORTFOLIO_ENABLED로 제어)
-        portfolio_label = GOOGLE_SHEETS_PORTFOLIO_WORKSHEET or "보유주식"
+        # 차트분석 워크시트 업데이트 (GOOGLE_SHEETS_PORTFOLIO_ENABLED로 제어)
+        portfolio_label = GOOGLE_SHEETS_PORTFOLIO_WORKSHEET or "차트분석"
         if GOOGLE_SHEETS_PORTFOLIO_ENABLED:
             if portfolio_tickers:
                 portfolio_export = build_export_dataframe(

@@ -48,8 +48,8 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
    - `evaluate_bottom_context`가 과매도·거래량·상대강도·재무 신호를 종합해 저점 스코어/등급을 계산하고, `classify_signal`과 `recommendation_from_signal`이 최종 `판단`과 `추천`을 결정합니다.
 6. **출력(`main.py`)**
    - `exporter.prepare_export_dataframe`가 최종 테이블을 정돈
-   - 기본 `Signals` 워크시트는 `config.TICKERS` 풀을 기반으로 업데이트하며, `GOOGLE_SHEETS_PORTFOLIO_WORKSHEET`가 설정되어 있으면 해당 워크시트의 `GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN`에 적힌 티커 목록을 읽어 별도의 파이프라인을 실행해 결과를 업데이트합니다.
-   - 보유주식 워크시트는 유동성 필터를 생략해 워크시트에 적힌 모든 티커를 그대로 유지합니다.
+   - `GOOGLE_SHEETS_PORTFOLIO_WORKSHEET`("차트분석")가 설정되어 있으면, **Signals 분석 결과 중 매수적합도 4.0 이상인 종목**과 **NBM.V**를 자동으로 추출하여 차트 캡처 및 정밀 분석을 수행하고 해당 시트에 업데이트합니다.
+   - 이 과정에서 "차트분석" 시트는 동적으로 생성된 종목 리스트로 덮어씌워지며, 기존 유동성 필터 등은 적용되지 않고 추출된 종목을 그대로 분석합니다.
    - Google Sheets 업로드 성공 여부 출력
    - 파이프라인 총 소요 시간을 초/분 단위로 요약
 
@@ -114,8 +114,8 @@ Python 기반 트렌드/저점 탐지 스크립트입니다. yfinance 일봉 데
 - **저점 탐지 임계치**
   - `FUND_HEALTH_*`, `REL_STRENGTH_*`, `VOLUME_STABILITY_RATIO_MIN`, `EMA200_DISTANCE_MIN`, `GAP_DOWN_EXTREME`, `INTRADAY_RECOVERY_MIN` 등
 - **Google Sheets 설정**
-  - `GOOGLE_SHEETS_ENABLED`, `GOOGLE_SHEETS_CREDENTIALS_PATH`, `GOOGLE_SHEETS_SPREADSHEET_ID`, `GOOGLE_SHEETS_SIGNALS_WORKSHEET`, `GOOGLE_SHEETS_PORTFOLIO_WORKSHEET`
-  - `GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN`: 보유주식 워크시트에서 티커가 적힌 컬럼 이름(기본 `"티커"`)
+  - `GOOGLE_SHEETS_SIGNALS_WORKSHEET`, `GOOGLE_SHEETS_PORTFOLIO_WORKSHEET`: 각각 전체 시그널과 차트분석(고득점+NBM) 결과를 저장할 시트명
+  - `GOOGLE_SHEETS_PORTFOLIO_ENABLED`: 차트분석 시트 업데이트 여부
 - **출력 형식**
   - `EXPORT_COLUMNS`: 시트에 보낼 컬럼 순서
   - `PERCENT_COLUMNS`, `TECH_COLUMN_LABELS`: 값 포맷팅과 헤더 이름 매핑

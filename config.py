@@ -62,7 +62,7 @@ GOOGLE_SHEETS_SPREADSHEET_ID: str | None = "1VxzTPfDvRX0UGJZcNnRsqTRex4gqmjv4P-1
 GOOGLE_SHEETS_SIGNALS_WORKSHEET = "Signals"
 GOOGLE_SHEETS_SIGNALS_ENABLED = True  # Signals 워크시트 업데이트 on/off
 GOOGLE_SHEETS_PORTFOLIO_WORKSHEET: str | None = "차트분석"
-GOOGLE_SHEETS_PORTFOLIO_ENABLED = True  # 보유주식 워크시트 업데이트 on/off
+GOOGLE_SHEETS_PORTFOLIO_ENABLED = True  # 차트분석(포트폴리오) 워크시트 업데이트 on/off
 GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
 
 # TradingView 차트 캡처 설정
