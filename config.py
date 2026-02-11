@@ -90,7 +90,7 @@ DRIVE_SHARE_EMAIL = "chunghwan14@gmail.com"
 # GitHub 이미지 호스팅 설정 (Public Repo인 경우 사용)
 GITHUB_UPLOAD_ENABLED = True
 GITHUB_REPO_NAME = "sean-ccho/Project_1"  # "username/repo_name" 형식
-GITHUB_BRANCH_NAME = "main"
+GITHUB_BRANCH_NAME = "Chart"
 
 
 # 이메일 알림 설정
