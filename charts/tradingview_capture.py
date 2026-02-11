@@ -69,8 +69,8 @@ def capture_tradingview_chart(
     # TradingView Widget Embed URL 생성
     if TRADINGVIEW_CHART_ID:
         # 저장된 차트(커스텀 지표) 사용 - 위젯이 아닌 실제 차트 페이지로 직접 이동
-        url = f"https://www.tradingview.com/chart/{TRADINGVIEW_CHART_ID}/?symbol={tv_ticker}&theme=light"
-        print(f"[TradingView] 저장된 차트 레이아웃({TRADINGVIEW_CHART_ID}) 로딩 중...")
+        url = f"https://www.tradingview.com/chart/{TRADINGVIEW_CHART_ID}/?symbol={tv_ticker}&interval={interval}&theme=light"
+        print(f"[TradingView] 저장된 차트 레이아웃({TRADINGVIEW_CHART_ID}) 로딩 중... (Timeframe: {interval})")
         
         try:
             with sync_playwright() as p:
