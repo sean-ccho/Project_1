@@ -74,12 +74,12 @@ CHARTS_OUTPUT_DIR = "charts/screenshots"  # 차트 저장 디렉토리
 # TradingView 티커 매핑 (시스템 티커 -> TradingView 티커)
 # 예: {"NBM.V": "NBM", "TICKER.TO": "TICKER"}
 TRADINGVIEW_TICKER_MAP = {
-    "NBM.V": "NBM",
+    "NBM.V": "TSXV:NBM",
 }
 
 # 커스텀 지표(TEMA 등)를 쓰고 싶다면, TradingView에서 차트를 저장하고 그 ID를 입력하세요.
 # https://www.tradingview.com/chart/FeHr4sS7/ -> "FeHr4sS7"
-TRADINGVIEW_CHART_ID = "Ct9Py1WO"  # None이면 기본값(TEMA 9) 사용
+TRADINGVIEW_CHART_ID = "gr1tsHcA"  # None이면 기본값(TEMA 9) 사용
 
 # Google Drive 이미지 호스팅 설정
 DRIVE_UPLOAD_ENABLED = False  # Drive 업로드 on/off
