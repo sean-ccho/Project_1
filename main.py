@@ -47,6 +47,7 @@ def build_export_dataframe(
     context_label: str,
     *,
     apply_liquidity_filter: bool = True,
+    capture_charts: bool = False,
 ) -> pd.DataFrame | None:
     """지정한 티커 집합에 대해 파이프라인을 실행하고 내보낼 DF를 만든다."""
 
@@ -161,13 +162,13 @@ def build_export_dataframe(
         ),
     )
     
-    # --- TradingView 차트 캡처 (CHARTS_ENABLED일 때만) ---
+    # --- TradingView 차트 캡처 (CHARTS_ENABLED이고 capture_charts가 True일 때만) ---
     from config import CHARTS_ENABLED, CHARTS_MIN_SCORE, CHARTS_TIMEFRAMES
     from config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, GOOGLE_SHEETS_CREDENTIALS_PATH
     from config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME, GITHUB_BRANCH_NAME
     from config import CHARTS_OUTPUT_DIR
     
-    if CHARTS_ENABLED:
+    if CHARTS_ENABLED and capture_charts:
         from charts.tradingview_capture import capture_multiple_timeframes
         import os
         import shutil
@@ -296,7 +297,11 @@ def main() -> None:
         from config import GOOGLE_SHEETS_SIGNALS_ENABLED, GOOGLE_SHEETS_PORTFOLIO_ENABLED
         
         if GOOGLE_SHEETS_SIGNALS_ENABLED:
-            signals_export = build_export_dataframe(TICKERS, GOOGLE_SHEETS_SIGNALS_WORKSHEET)
+            signals_export = build_export_dataframe(
+                TICKERS, 
+                GOOGLE_SHEETS_SIGNALS_WORKSHEET,
+                capture_charts=False
+            )
             if signals_export is not None:
                 if export_to_google_sheet(
                     signals_export, GOOGLE_SHEETS_SIGNALS_WORKSHEET
@@ -311,6 +316,31 @@ def main() -> None:
         else:
             print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] 워크시트 업데이트가 비활성화되어 있습니다.")
 
+        # --- Dynamic Portfolio Ticker Generation ---
+        # Signals 결과에서 매수적합도 상위 종목 추출 + 고정 종목(NBM.V) 추가
+        if GOOGLE_SHEETS_SIGNALS_ENABLED and signals_export is not None:
+             from config import EMAIL_SCORE_THRESHOLD
+             
+             print(f"[{context_label}] Signals 결과 기반 보유주식 리스트 생성 중 (기준점수: {EMAIL_SCORE_THRESHOLD})...")
+             
+             # 고정 종목
+             fixed_tickers = ["NBM.V"]
+             
+             # 고득점 종목 필터링
+             if "매수적합도_표시" in signals_export.columns and EMAIL_SCORE_THRESHOLD > 0:
+                 star_threshold = "★" * int(EMAIL_SCORE_THRESHOLD)
+                 high_score_mask = signals_export["매수적합도_표시"].astype(str).str.contains(star_threshold, na=False)
+                 high_score_tickers = signals_export.loc[high_score_mask, "티커"].unique().tolist()
+             else:
+                 high_score_tickers = []
+             
+             # 리스트 합치기 (중복 제거하면서 순서 유지)
+             new_portfolio_tickers = list(dict.fromkeys(fixed_tickers + high_score_tickers))
+             
+             print(f"[{context_label}] 생성된 보유주식 리스트({len(new_portfolio_tickers)}개): {new_portfolio_tickers}")
+             portfolio_tickers = new_portfolio_tickers
+        # -------------------------------------------
+
         # 보유주식 워크시트 업데이트 (GOOGLE_SHEETS_PORTFOLIO_ENABLED로 제어)
         portfolio_label = GOOGLE_SHEETS_PORTFOLIO_WORKSHEET or "보유주식"
         if GOOGLE_SHEETS_PORTFOLIO_ENABLED:
@@ -319,6 +349,7 @@ def main() -> None:
                     portfolio_tickers,
                     portfolio_label,
                     apply_liquidity_filter=False,
+                    capture_charts=True
                 )
                 if portfolio_export is not None:
                     if export_to_google_sheet(
