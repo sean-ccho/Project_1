@@ -194,7 +194,7 @@ def capture_multiple_timeframes(
     headless: bool = True,
 ) -> Dict[str, str]:
     """
-    여러 타임프레임의 차트를 한 번에 캡처합니다.
+    여러 타임프레임의 차트를 한 번에 캡처합니다 (브라우저 세션 재사용).
     
     Args:
         ticker: 종목 심볼
@@ -208,29 +208,138 @@ def capture_multiple_timeframes(
     if timeframes is None:
         timeframes = ["1H", "4H", "Daily", "Weekly", "Monthly"]
     
+    if sync_playwright is None:
+        print("[TradingView] Playwright가 설치되지 않았습니다.")
+        return {}
+
+    # 출력 디렉토리 준비
+    ticker_dir = Path(output_dir) / ticker
+    ticker_dir.mkdir(parents=True, exist_ok=True)
+
     results = {}
     
-    # 티커별 하위 디렉토리 사용
-    # 예: charts/screenshots/AAPL/
-    ticker_dir = Path(output_dir) / ticker
-    
-    for tf in timeframes:
-        # 하위 디렉토리를 output_dir로 전달
-        path = capture_tradingview_chart(ticker, tf, str(ticker_dir), headless=headless)
-        if path:
-            results[tf] = path
-    
+    # 설정 로드
+    try:
+        from config import TRADINGVIEW_TICKER_MAP, TRADINGVIEW_CHART_ID
+    except ImportError:
+        TRADINGVIEW_TICKER_MAP = {}
+        TRADINGVIEW_CHART_ID = None
+
+    tv_ticker = TRADINGVIEW_TICKER_MAP.get(ticker, ticker)
+    if tv_ticker != ticker:
+        print(f"[TradingView] 티커 매핑 적용: {ticker} -> {tv_ticker}")
+
+    try:
+        with sync_playwright() as p:
+            # 브라우저 실행 (한 번만)
+            browser = p.chromium.launch(headless=headless)
+            context = browser.new_context(
+                viewport={"width": 1920, "height": 1080},
+                device_scale_factor=2,
+            )
+            page = context.new_page()
+            
+            print(f"[TradingView] {ticker} 브라우저 세션 시작...")
+            
+            for tf in timeframes:
+                try:
+                    interval = TIMEFRAME_MAP.get(tf, "D")
+                    output_path = ticker_dir / f"{ticker}_{tf}.png"
+                    
+                    # URL 생성
+                    if TRADINGVIEW_CHART_ID:
+                        url = f"https://www.tradingview.com/chart/{TRADINGVIEW_CHART_ID}/?symbol={tv_ticker}&interval={interval}&theme=light"
+                    else:
+                        url = (
+                            f"https://s.tradingview.com/widgetembed/"
+                            f"?symbol={tv_ticker}"
+                            f"&interval={interval}"
+                            f"&hidesidetoolbar=1"
+                            f"&symboledit=1"
+                            f"&saveimage=1"
+                            f"&studies=STD%3BTEMA"
+                            f"&theme=light"
+                            f"&style=1"
+                            f"&timezone=Etc%2FUTC"
+                        )
+                    
+                    # 페이지 이동 (같은 탭에서 URL만 변경 -> 리로딩)
+                    # 주의: 위젯 임베드는 URL 파라미터 변경 시 새로고침이 필요함
+                    # 하지만 브라우저 인스턴스는 유지되므로 속도 향상됨
+                    page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                    
+                    # 로딩 대기
+                    try:
+                        if TRADINGVIEW_CHART_ID:
+                            page.wait_for_selector('div[class*="chart-container"]', timeout=30000)
+                            # 인디케이터 로딩 등 추가 대기 (첫 로딩때만 길게, 이후엔 캐시 효과 기대)
+                            time.sleep(3 if len(results) > 0 else 5)
+                            
+                            # 팝업 닫기 시도
+                            try:
+                                page.click('button[class*="close"]', timeout=1000)
+                            except:
+                                pass
+                                
+                            # 캡처
+                            chart_element = page.query_selector('.layout__area--center')
+                            if not chart_element:
+                                chart_element = page.query_selector('div[class*="chart-container"]')
+                                
+                            if chart_element:
+                                chart_element.screenshot(path=str(output_path))
+                            else:
+                                page.screenshot(path=str(output_path), full_page=False)
+                                
+                        else:
+                            # 위젯 모드
+                            time.sleep(2 if len(results) > 0 else 5) # 첫 로딩 이후엔 조금 더 짧게
+                            
+                            # 광고 닫기
+                            try:
+                                page.click('button[aria-label="Close"]', timeout=1000)
+                            except:
+                                pass
+                                
+                            chart_selector = 'div[data-role="chart"]'
+                            chart_element = page.query_selector(chart_selector)
+                            if chart_element:
+                                chart_element.screenshot(path=str(output_path))
+                            else:
+                                page.screenshot(path=str(output_path), full_page=False)
+                                
+                        print(f"[TradingView] {tf} 캡처 완료 ({interval})")
+                        results[tf] = str(output_path)
+                        
+                    except PlaywrightTimeout:
+                        print(f"[TradingView] {ticker} {tf} 로딩 타임아웃")
+                        continue
+                        
+                except Exception as e:
+                    print(f"[TradingView] {ticker} {tf} 처리 중 에러: {e}")
+                    continue
+            
+            browser.close()
+            
+    except Exception as e:
+        print(f"[TradingView] 브라우저 실행 실패: {e}")
+        
     return results
 
 
 if __name__ == "__main__":
     # 테스트
-    print("TradingView 차트 캡처 테스트...")
+    print("TradingView 차트 캡처 테스트 (세션 재사용)...")
     
     test_ticker = "AAPL"
-    result = capture_tradingview_chart(test_ticker, "Daily", headless=False)
+    # test_timeframes = ["1H", "Daily"]
+    test_timeframes = ["Daily"]
     
-    if result:
-        print(f"✅ 성공! 저장 위치: {result}")
+    results = capture_multiple_timeframes(test_ticker, test_timeframes, headless=False)
+    
+    if results:
+        print(f"✅ 성공! {len(results)}개 파일 저장됨")
+        for k, v in results.items():
+            print(f"  - {k}: {v}")
     else:
         print("❌ 실패")
