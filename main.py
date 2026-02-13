@@ -365,28 +365,119 @@ def main() -> None:
         # -------------------------------------------
 
         # 차트분석 워크시트 업데이트 (GOOGLE_SHEETS_PORTFOLIO_ENABLED로 제어)
+        # Signals 결과를 재활용하여 점수 일관성 유지 + 속도 최적화
         portfolio_label = GOOGLE_SHEETS_PORTFOLIO_WORKSHEET or "차트분석"
         if GOOGLE_SHEETS_PORTFOLIO_ENABLED:
-            if portfolio_tickers:
-                portfolio_export = build_export_dataframe(
-                    portfolio_tickers,
-                    portfolio_label,
-                    apply_liquidity_filter=False,
-                    capture_charts=True
-                )
-                if portfolio_export is not None:
-                    if export_to_google_sheet(
-                        portfolio_export, GOOGLE_SHEETS_PORTFOLIO_WORKSHEET
-                    ):
-                        print(f"[{portfolio_label}] Google Sheets 업데이트 완료")
-                    else:
-                        print(
-                            f"[{portfolio_label}] Google Sheets 업데이트를 건너뛰었습니다."
-                        )
+            if portfolio_tickers and signals_export is not None:
+                print(f"[{portfolio_label}] Signals 결과 기반 차트분석 시트 생성 중 ({len(portfolio_tickers)}개 종목)...")
+                
+                # Signals 결과에서 해당 종목만 필터링 (점수 재계산 없이 재활용)
+                portfolio_export = signals_export[
+                    signals_export["티커"].isin(portfolio_tickers)
+                ].copy()
+                
+                # 고정 종목(NBM.V 등)이 Signals에 없을 수 있으므로 누락 확인
+                found_tickers = set(portfolio_export["티커"].unique())
+                missing_tickers = [t for t in portfolio_tickers if t not in found_tickers]
+                if missing_tickers:
+                    print(f"[{portfolio_label}] Signals에 없는 종목은 별도 분석: {missing_tickers}")
+                    # 누락 종목만 별도 분석 (NBM.V 등 고정 종목)
+                    missing_export = build_export_dataframe(
+                        missing_tickers,
+                        portfolio_label,
+                        apply_liquidity_filter=False,
+                        capture_charts=False
+                    )
+                    if missing_export is not None:
+                        portfolio_export = pd.concat([portfolio_export, missing_export], ignore_index=True)
+                
+                # --- TradingView 차트 캡처 ---
+                from config import CHARTS_ENABLED, CHARTS_TIMEFRAMES, CHARTS_OUTPUT_DIR
+                from config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, GOOGLE_SHEETS_CREDENTIALS_PATH
+                from config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME, GITHUB_BRANCH_NAME
+                
+                if CHARTS_ENABLED:
+                    from charts.tradingview_capture import capture_multiple_timeframes
+                    import shutil
+                    from pathlib import Path
+                    
+                    if DRIVE_UPLOAD_ENABLED:
+                        from charts.gdrive_uploader import upload_to_drive
+                    
+                    # 기존 차트 삭제
+                    charts_dir = Path(CHARTS_OUTPUT_DIR)
+                    if charts_dir.exists():
+                        print(f"[{portfolio_label}] 기존 차트 파일 삭제 중...")
+                        shutil.rmtree(charts_dir)
+                    charts_dir.mkdir(parents=True, exist_ok=True)
+                    print(f"[{portfolio_label}] 차트 저장 디렉토리 준비 완료: {charts_dir}")
+                    
+                    # 차트 컬럼 초기화
+                    for tf in CHARTS_TIMEFRAMES:
+                        col_name = f"차트_{tf}"
+                        if col_name not in portfolio_export.columns:
+                            portfolio_export[col_name] = ""
+                    
+                    print(f"[{portfolio_label}] TradingView 차트 캡처 시작...")
+                    print(f"[{portfolio_label}] {len(portfolio_export)}개 종목 차트 캡처 중...")
+                    
+                    for _, row in portfolio_export.iterrows():
+                        ticker = row["티커"]
+                        try:
+                            chart_paths = capture_multiple_timeframes(ticker, headless=True)
+                            if chart_paths:
+                                for tf, local_path in chart_paths.items():
+                                    col_name = f"차트_{tf}"
+                                    portfolio_export.loc[portfolio_export["티커"] == ticker, col_name] = local_path
+                                    
+                                    if DRIVE_UPLOAD_ENABLED:
+                                        from config import DRIVE_SHARE_EMAIL
+                                        drive_url = upload_to_drive(
+                                            local_path,
+                                            GOOGLE_SHEETS_CREDENTIALS_PATH,
+                                            DRIVE_FOLDER_NAME,
+                                            folder_id=DRIVE_FOLDER_ID,
+                                            share_email=DRIVE_SHARE_EMAIL
+                                        )
+                                        if drive_url:
+                                            image_formula = f'=IMAGE("{drive_url}")'
+                                            portfolio_export.loc[portfolio_export["티커"] == ticker, col_name] = image_formula
+                                    elif GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
+                                        cache_buster = int(time.time())
+                                        github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/{GITHUB_BRANCH_NAME}/{local_path}?v={cache_buster}"
+                                        image_formula = f'=IMAGE("{github_url}")'
+                                        portfolio_export.loc[portfolio_export["티커"] == ticker, col_name] = image_formula
+                                
+                                print(f"[{portfolio_label}] {ticker} 차트 {len(chart_paths)}개 처리 완료")
+                        except Exception as e:
+                            print(f"[{portfolio_label}] {ticker} 차트 처리 실패: {e}")
+                            continue
+                    
+                    print(f"[{portfolio_label}] 차트 캡처 완료")
+                    
+                    # GitHub 자동 푸시
+                    if GITHUB_UPLOAD_ENABLED:
+                        try:
+                            import subprocess
+                            print(f"[{portfolio_label}] GitHub에 차트 이미지 푸시 중...")
+                            subprocess.run(["git", "add", "charts/screenshots"], check=True)
+                            commit_msg = f"Update chart screenshots {int(time.time())}"
+                            subprocess.run(["git", "commit", "-m", commit_msg], check=False)
+                            subprocess.run(["git", "push"], check=True)
+                            print(f"[{portfolio_label}] GitHub 푸시 완료")
+                        except Exception as e:
+                            print(f"[{portfolio_label}] GitHub 푸시 실패: {e}")
+                
+                # Google Sheets 업로드
+                if export_to_google_sheet(
+                    portfolio_export, GOOGLE_SHEETS_PORTFOLIO_WORKSHEET
+                ):
+                    print(f"[{portfolio_label}] Google Sheets 업데이트 완료")
+                else:
+                    print(f"[{portfolio_label}] Google Sheets 업데이트를 건너뛰었습니다.")
+                    
             elif GOOGLE_SHEETS_PORTFOLIO_WORKSHEET:
-                print(
-                    f"[{portfolio_label}] 워크시트에 티커가 없어 업데이트를 건너뜁니다."
-                )
+                print(f"[{portfolio_label}] 워크시트에 티커가 없어 업데이트를 건너뜁니다.")
         else:
             print(f"[{portfolio_label}] 워크시트 업데이트가 비활성화되어 있습니다.")
 
