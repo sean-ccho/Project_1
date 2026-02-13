@@ -197,16 +197,29 @@ def build_export_dataframe(
                 ranked[col_name] = ""
         
         # 매수적합도 기준 이상 종목만 캡처 (성능 최적화)
-        if "매수적합도_표시" in ranked.columns:
-            # ★ 개수로 필터링 (CHARTS_MIN_SCORE = 0.0이면 모든 종목)
-            if CHARTS_MIN_SCORE > 0:
-                star_threshold = "★" * int(CHARTS_MIN_SCORE)
-                high_score_mask = ranked["매수적합도_표시"].astype(str).str.contains(star_threshold, na=False)
-                high_score_tickers = ranked.loc[high_score_mask, "티커"].unique().tolist()
-            else:
-                # 0.0이면 모든 종목
-                high_score_tickers = ranked["티커"].unique().tolist()
+        # 바닥반등 또는 모멘텀 점수 중 하나라도 기준 이상이면 캡처
+        high_score_tickers = []
+        
+        # 1. 바닥반등 확인
+        if "바닥반등_적합도_표시" in ranked.columns and CHARTS_MIN_SCORE > 0:
+            star_threshold = "★" * int(CHARTS_MIN_SCORE)
+            mask = ranked["바닥반등_적합도_표시"].astype(str).str.contains(star_threshold, na=False)
+            high_score_tickers.extend(ranked.loc[mask, "티커"].unique().tolist())
             
+        # 2. 모멘텀 확인
+        if "모멘텀_적합도_표시" in ranked.columns and CHARTS_MIN_SCORE > 0:
+            star_threshold = "★" * int(CHARTS_MIN_SCORE)
+            mask = ranked["모멘텀_적합도_표시"].astype(str).str.contains(star_threshold, na=False)
+            high_score_tickers.extend(ranked.loc[mask, "티커"].unique().tolist())
+            
+        # 3. 중복 제거
+        high_score_tickers = list(set(high_score_tickers))
+        
+        if CHARTS_MIN_SCORE <= 0:
+            # 0.0이면 모든 종목
+            high_score_tickers = ranked["티커"].unique().tolist()
+        
+        if high_score_tickers:
             print(f"[{context_label}] {len(high_score_tickers)}개 종목 차트 캡처 중...")
             
             for ticker in high_score_tickers:
@@ -277,7 +290,7 @@ def build_export_dataframe(
             # ---------------------------------------------
             
         else:
-            print(f"[{context_label}] '매수적합도_표시' 컬럼이 없어 차트 캡처를 건너뜁니다. (두 전략 점수 확인 필요)")
+            print(f"[{context_label}] 차트 캡처 대상 종목이 없어 건너뜁니다.")
     # ----------------------------------------------
 
     return prepare_export_dataframe(ranked)
@@ -321,20 +334,28 @@ def main() -> None:
         # --- Dynamic Portfolio Ticker Generation ---
         # Signals 결과에서 매수적합도 상위 종목 추출 + 고정 종목(NBM.V) 추가
         if GOOGLE_SHEETS_SIGNALS_ENABLED and signals_export is not None:
-             from config import EMAIL_SCORE_THRESHOLD
+             from config import EMAIL_BOTTOM_SCORE_THRESHOLD, EMAIL_MOMENTUM_SCORE_THRESHOLD
              
-             print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Signals 결과 기반 차트분석 종목 리스트 생성 중 (기준점수: {EMAIL_SCORE_THRESHOLD})...")
+             print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Signals 결과 기반 차트분석 종목 리스트 생성 중...")
              
              # 고정 종목
              fixed_tickers = ["NBM.V"]
              
-             # 고득점 종목 필터링
-             if "매수적합도_표시" in signals_export.columns and EMAIL_SCORE_THRESHOLD > 0:
-                 star_threshold = "★" * int(EMAIL_SCORE_THRESHOLD)
-                 high_score_mask = signals_export["매수적합도_표시"].astype(str).str.contains(star_threshold, na=False)
-                 high_score_tickers = signals_export.loc[high_score_mask, "티커"].unique().tolist()
-             else:
-                 high_score_tickers = []
+             high_score_tickers = []
+             
+             # 1. 바닥반등 확인
+             if "바닥반등_적합도_표시" in signals_export.columns and EMAIL_BOTTOM_SCORE_THRESHOLD > 0:
+                 star_threshold = "★" * int(EMAIL_BOTTOM_SCORE_THRESHOLD)
+                 mask = signals_export["바닥반등_적합도_표시"].astype(str).str.contains(star_threshold, na=False)
+                 high_score_tickers.extend(signals_export.loc[mask, "티커"].unique().tolist())
+             
+             # 2. 모멘텀 확인
+             if "모멘텀_적합도_표시" in signals_export.columns and EMAIL_MOMENTUM_SCORE_THRESHOLD > 0:
+                 star_threshold = "★" * int(EMAIL_MOMENTUM_SCORE_THRESHOLD)
+                 mask = signals_export["모멘텀_적합도_표시"].astype(str).str.contains(star_threshold, na=False)
+                 high_score_tickers.extend(signals_export.loc[mask, "티커"].unique().tolist())
+             
+             high_score_tickers = list(set(high_score_tickers))
              
              # 리스트 합치기 (중복 제거하면서 순서 유지)
              new_portfolio_tickers = list(dict.fromkeys(fixed_tickers + high_score_tickers))
