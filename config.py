@@ -100,7 +100,9 @@ EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")  # Gmail의 경우 '앱 비밀�
 EMAIL_RECIPIENT = "chunghwan14@gmail.com"
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-EMAIL_SCORE_THRESHOLD = 4.0  # 알림을 보낼 매수적합도 최소 점수
+EMAIL_SCORE_THRESHOLD = 4.0  # (레거시) 기본 임계치
+EMAIL_BOTTOM_SCORE_THRESHOLD = 4.0  # 바닥 반등 전략 이메일 알림 최소 점수
+EMAIL_MOMENTUM_SCORE_THRESHOLD = 4.0  # 모멘텀 추격 전략 이메일 알림 최소 점수
 
 
 
@@ -309,6 +311,36 @@ SECTOR_REL_STRENGTH_MIN = -0.01
 VOLATILITY_PENALTY_START = 0.025
 VOLATILITY_PENALTY_END = 0.08
 
+# 바닥 반등 전략 가중치
+BOTTOM_STRATEGY_WEIGHTS = {
+    "저점확률": 2.5,       # AI 저점 예측 (핵심)
+    "반등스코어": 2.5,     # 기술적 반등 지표 (핵심)
+    "RSI_과매도": 1.5,     # RSI < 30
+    "RSI_탈출": 1.0,       # RSI 30~40
+    "RSI_중립하단": 0.5,   # RSI 40~45
+    "상승패턴": 1.0,       # 이중바닥, 역헤드숄더 등
+    "급락반등": 0.5,       # 5일 수익률 < -8%
+    "강한섹터": 0.5,       # 강세 섹터 소속
+    "RSI_과매수감점": -1.5, # RSI > 75
+    "RSI_극과매수감점": -2.0, # RSI > 80
+    "급등감점": -1.0,      # 5일 수익률 > 20%
+    "볼린저과열감점": -1.0, # 볼린저 상단 돌파
+}
+
+# 모멘텀 추격 전략 가중치
+MOMENTUM_STRATEGY_WEIGHTS = {
+    "매수신호": 2.5,       # EMA/MACD 정배열 + 보조지표 (핵심)
+    "트렌드점수": 2.0,     # 모멘텀 강도 (핵심)
+    "EMA정배열": 1.5,      # EMA20 > EMA50
+    "거래량돌파": 1.0,     # 거래량 급증
+    "ADX강세": 1.0,        # 추세 강도 (ADX > 25)
+    "강한섹터": 0.5,       # 강세 섹터 소속
+    "상승패턴": 0.5,       # 상승 차트 패턴
+    "RSI_과매수감점": -1.5, # RSI > 75
+    "급등감점": -1.0,      # 5일 수익률 > 20%
+    "볼린저과열감점": -1.0, # 볼린저 상단 돌파
+}
+
 # 시그널 우선순위 매핑(테이블 정렬 순서를 통제).
 SIGNAL_PRIORITY = {
     "매수 후보": 0,
@@ -478,9 +510,9 @@ EXPORT_COLUMNS = [
     "회사",
     "현재가격",
     "최근뉴스",
-    "우선순위",
     "섹터",
-    "매수적합도_표시",  # Entry Score - 매수 적합도 (★ 표시)
+    "바닥반등_적합도_표시",  # 바닥 반등 전략 적합도 (★ 표시)
+    "모멘텀_적합도_표시",    # 모멘텀 추격 전략 적합도 (★ 표시)
     # TradingView 차트 컬럼들
     "차트_1H",
     "차트_4H",
@@ -489,11 +521,11 @@ EXPORT_COLUMNS = [
     "차트_Monthly",
     # 기존 컬럼들
     "섹터강도",
-    "판단",
-    "추천",
-    "트렌드점수_최종",
-    "buy_signal_text",
-    "sell_signal_text",
+    # "판단",
+    # "추천",
+    # "트렌드점수_최종",
+    # "buy_signal_text",
+    # "sell_signal_text",
     # "buy_support_count",  # 매수 보조
     # "sell_support_count",  # 매도 보조
     # "position_size",  # 권장 수량

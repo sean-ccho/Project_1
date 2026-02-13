@@ -126,10 +126,12 @@ def build_export_dataframe(
                     f"[{context_label}] Extreme model '{label}' walk-forward ROC {mean_roc:.2f}, AP {mean_ap:.2f}"
                 )
 
-    if {"우선순위", "극점편차", "트렌드점수_최종"}.issubset(ranked.columns):
+    # signals.py에서 최고_적합도 기준 정렬이 이미 수행됨
+    # 극점편차가 있으면 2차 정렬로 활용
+    if {"매수적합도", "극점편차"}.issubset(ranked.columns):
         ranked = ranked.sort_values(
-            ["우선순위", "극점편차", "트렌드점수_최종"],
-            ascending=[True, False, False],
+            ["매수적합도", "극점편차"],
+            ascending=[False, False],
         )
 
     if "티커" not in ranked.columns:
@@ -275,7 +277,7 @@ def build_export_dataframe(
             # ---------------------------------------------
             
         else:
-            print(f"[{context_label}] '매수적합도_표시' 컬럼이 없어 차트 캡처를 건너뜁니다.")
+            print(f"[{context_label}] '매수적합도_표시' 컬럼이 없어 차트 캡처를 건너뜁니다. (두 전략 점수 확인 필요)")
     # ----------------------------------------------
 
     return prepare_export_dataframe(ranked)
@@ -307,7 +309,7 @@ def main() -> None:
                     signals_export, GOOGLE_SHEETS_SIGNALS_WORKSHEET
                 ):
                     print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Google Sheets 업데이트 완료")
-                    # 이메일 알림 발송 (매수적합도 기준)
+                    # 이메일 알림 발송 (전략별 적합도 기준)
                     send_email_notification(signals_export)
                 else:
                     print(

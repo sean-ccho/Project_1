@@ -46,6 +46,8 @@ from config import (
     SMTP_SERVER,
     SMTP_PORT,
     EMAIL_SCORE_THRESHOLD,
+    EMAIL_BOTTOM_SCORE_THRESHOLD,
+    EMAIL_MOMENTUM_SCORE_THRESHOLD,
 )
 
 GOOGLE_SCOPES = [
@@ -337,64 +339,72 @@ def _formula_to_html(formula: str) -> str:
 
 
 def send_email_notification(df: pd.DataFrame) -> bool:
-    """매수적합도가 임계치 이상인 종목 리스트를 이메일로 발송한다."""
+    """바닥 반등/모멘텀 적합도가 임계치 이상인 종목 리스트를 이메일로 발송한다."""
 
     if not EMAIL_ENABLED:
         return False
 
-    # 필터링: 매수적합도(Entry Score)가 임계치 이상인 종목만 추출
-    # prepare_export_dataframe에서 컬럼명이 '매수적합도_표시'로 변경되었을 수 있으므로 처리
-    score_col = TECH_COLUMN_LABELS.get("매수적합도_표시", "매수적합도_표시")
     ticker_col = TECH_COLUMN_LABELS.get("티커", "티커")
     name_col = TECH_COLUMN_LABELS.get("회사", "회사")
     price_col = TECH_COLUMN_LABELS.get("현재가격", "현재가격")
     rec_col = TECH_COLUMN_LABELS.get("추천", "추천")
     news_col = TECH_COLUMN_LABELS.get("최근뉴스", "최근뉴스")
+    bottom_col = TECH_COLUMN_LABELS.get("바닥반등_적합도_표시", "바닥반등_적합도_표시")
+    momentum_col = TECH_COLUMN_LABELS.get("모멘텀_적합도_표시", "모멘텀_적합도_표시")
 
-    # '매수적합도_표시' 컬럼에서 숫자 점수 추출 (예: "★★★★☆ (4.2)" -> 4.2)
     def extract_score(text):
         try:
-            if "(" in text and ")" in text:
-                return float(text.split("(")[1].split(")")[0])
+            if "(" in str(text) and ")" in str(text):
+                return float(str(text).split("(")[1].split(")")[0])
             return 0.0
         except Exception:
             return 0.0
 
-    target_stocks = df.copy()
-    if score_col in target_stocks.columns:
-        target_stocks["temp_score"] = target_stocks[score_col].apply(extract_score)
-        high_score_df = target_stocks[target_stocks["temp_score"] >= EMAIL_SCORE_THRESHOLD]
-    else:
-        print(f"[Email] '{score_col}' 컬럼을 찾을 수 없어 이메일을 보낼 수 없습니다.")
+    target = df.copy()
+
+    # 바닥 반등 필터링
+    bottom_df = pd.DataFrame()
+    if bottom_col in target.columns:
+        target["_bottom_score"] = target[bottom_col].apply(extract_score)
+        bottom_df = target[target["_bottom_score"] >= EMAIL_BOTTOM_SCORE_THRESHOLD]
+
+    # 모멘텀 필터링
+    momentum_df = pd.DataFrame()
+    if momentum_col in target.columns:
+        target["_momentum_score"] = target[momentum_col].apply(extract_score)
+        momentum_df = target[target["_momentum_score"] >= EMAIL_MOMENTUM_SCORE_THRESHOLD]
+
+    if bottom_df.empty and momentum_df.empty:
+        print("[Email] 두 전략 모두 임계치 이상인 종목이 없어 이메일을 보내지 않습니다.")
         return False
 
-    if high_score_df.empty:
-        print(f"[Email] 매수적합도 {EMAIL_SCORE_THRESHOLD}점 이상인 종목이 없어 이메일을 보내지 않습니다.")
-        return False
+    def _build_table(section_df, score_col_name, score_label):
+        if section_df.empty:
+            return f"<p>해당 종목 없음</p>"
+        html = "<table border='1' style='border-collapse: collapse; width: 100%;'>"
+        html += f"<tr style='background-color: #f2f2f2;'><th>티커</th><th>회사명</th><th>현재가</th><th>{score_label}</th><th>추천</th><th>최근뉴스</th></tr>"
+        for _, row in section_df.iterrows():
+            ticker = row.get(ticker_col, "")
+            name = row.get(name_col, "")
+            price = row.get(price_col, "")
+            score_val = row.get(score_col_name, "")
+            rec = row.get(rec_col, "")
+            news_html = _formula_to_html(str(row.get(news_col, "")))
+            html += f"<tr><td>{ticker}</td><td>{name}</td><td>{price}</td><td>{score_val}</td><td>{rec}</td><td>{news_html}</td></tr>"
+        html += "</table>"
+        return html
 
-    # 이메일 내용 구성
     date_str = datetime.now().strftime("%Y-%m-%d")
-    subject = f"[Stock Signals] {date_str} 매수적합도 {EMAIL_SCORE_THRESHOLD}점 이상 종목 리스트"
-    
-    body = f"<h2>{date_str} 분석 결과 매수적합도 {EMAIL_SCORE_THRESHOLD}점 이상 종목입니다.</h2>"
-    body += "<table border='1' style='border-collapse: collapse;'>"
-    body += "<tr style='background-color: #f2f2f2;'><th>티커</th><th>회사명</th><th>현재가</th><th>매수적합도</th><th>추천</th><th>최근뉴스</th></tr>"
-    
-    for _, row in high_score_df.iterrows():
-        ticker = row.get(ticker_col, "Unknown")
-        name = row.get(name_col, "Unknown")
-        price = row.get(price_col, "Unknown")
-        score = row.get(score_col, "Unknown")
-        rec = row.get(rec_col, "Unknown")
-        news_formula = row.get(news_col, "")
-        news_html = _formula_to_html(str(news_formula))
-        
-        body += f"<tr><td>{ticker}</td><td>{name}</td><td>{price}</td><td>{score}</td><td>{rec}</td><td>{news_html}</td></tr>"
-    
-    body += "</table>"
+    subject = f"[Stock Signals] {date_str} 전략별 매수 적합 종목 리스트"
+
+    body = f"<h2>{date_str} 분석 결과</h2>"
+    body += f"<h3>📉 바닥 반등 전략 ({EMAIL_BOTTOM_SCORE_THRESHOLD}점 이상, {len(bottom_df)}개)</h3>"
+    body += _build_table(bottom_df, bottom_col, "바닥반등 적합도")
+    body += "<br>"
+    body += f"<h3>🚀 모멘텀 추격 전략 ({EMAIL_MOMENTUM_SCORE_THRESHOLD}점 이상, {len(momentum_df)}개)</h3>"
+    body += _build_table(momentum_df, momentum_col, "모멘텀 적합도")
     body += "<br><p>본 메일은 시스템에 의해 자동으로 발송되었습니다.</p>"
 
-    # 이메일 발송
     try:
         msg = MIMEMultipart()
         msg["From"] = EMAIL_SENDER
@@ -406,8 +416,9 @@ def send_email_notification(df: pd.DataFrame) -> bool:
             server.starttls()
             server.login(EMAIL_SENDER, EMAIL_PASSWORD)
             server.send_message(msg)
-        
-        print(f"[Email] {len(high_score_df)}개의 고점수 종목 리스트를 {EMAIL_RECIPIENT}로 발송 완료")
+
+        total = len(bottom_df) + len(momentum_df)
+        print(f"[Email] 바닥반등 {len(bottom_df)}개 + 모멘텀 {len(momentum_df)}개 = 총 {total}개 종목 리스트를 {EMAIL_RECIPIENT}로 발송 완료")
         return True
     except Exception as exc:
         print(f"[Email] 이메일 발송 실패: {exc}")

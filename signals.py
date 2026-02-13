@@ -9,7 +9,9 @@ from config import (
     ADX_BUY_MIN,
     ADX_SELL_MAX,
     BOTTOM_REVERSAL_THRESHOLD,
+    BOTTOM_STRATEGY_WEIGHTS,
     JUDGEMENT_DISPLAY,
+    MOMENTUM_STRATEGY_WEIGHTS,
     RECOMMENDATION_DISPLAY,
     RSI_BUY_MAX,
     RSI_SELL_MIN,
@@ -225,43 +227,38 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
         lambda value: RECOMMENDATION_DISPLAY.get(value, value)
     )
 
-    out["우선순위"] = (
-        judgement.map(SIGNAL_PRIORITY).fillna(99).astype(int)
-    )
+    # --- 바닥 반등 적합도 계산 ---
+    W_B = BOTTOM_STRATEGY_WEIGHTS
 
-    # --- 매수적합도 (Entry Score) 계산 ---
-    # 백테스트에서 사용한 Entry Score를 Signals 시트에서 바로 확인할 수 있도록 추가
-    def _calc_entry_score(row):
-        """
-        진입 스코어를 계산한다. (백테스트 로직과 동일)
-        
-        구성 요소:
-        - buy_signal: 기본 매수 신호 (가중치 2.0)
-        - 저점확률: ML 모델 기반 저점 예측 (가중치 1.5)
-        - 반등스코어: 기술적 반등 지표 (가중치 1.5)
-        - 상승 패턴: 차트 패턴 (가중치 1.0)
-        - 강한 섹터: 섹터 로테이션 (가중치 0.5)
-        - 트렌드점수: 높은 모멘텀 (가중치 1.0) - 대체 조건
-        - RSI 기반 가점/감점
-        - 급등/급락 감점/가점
-        """
+    def _calc_bottom_reversal_score(row):
+        """바닥 반등 전략 점수: 과매도·반등 신호에 집중한다."""
         score = 0.0
-        
-        # buy_signal (시장 필터에 의해 False일 수 있음)
-        if row.get("buy_signal", False):
-            score += BACKTEST_BUY_SIGNAL_WEIGHT
-        
-        # 저점확률 (백테스트와 동기화)
+
+        # 저점확률 (AI 모델)
         low_prob = row.get("저점확률", 0)
         if pd.notna(low_prob) and low_prob >= BACKTEST_LOW_PROB_THRESHOLD:
-            score += BACKTEST_LOW_PROB_WEIGHT
-        
-        # 반등스코어 (백테스트와 동기화)
+            score += W_B["저점확률"]
+
+        # 반등스코어 (기술적 반등 지표)
         reversal = row.get("반등스코어", 0)
         if pd.notna(reversal) and reversal >= BACKTEST_REVERSAL_SCORE_MIN:
-            score += BACKTEST_REVERSAL_WEIGHT
-        
-        # 상승 패턴 (더블바텀, 역헤드숄더, 컵핸들, 상승삼각형, 하락쐐기)
+            score += W_B["반등스코어"]
+
+        # RSI 구간별 가점/감점
+        rsi = row.get("RSI", 50)
+        if pd.notna(rsi):
+            if rsi < 30:
+                score += W_B["RSI_과매도"]
+            elif rsi < 40:
+                score += W_B["RSI_탈출"]
+            elif rsi <= 45:
+                score += W_B["RSI_중립하단"]
+            elif rsi > 80:
+                score += W_B["RSI_극과매수감점"]
+            elif rsi > 75:
+                score += W_B["RSI_과매수감점"]
+
+        # 상승형 차트 패턴
         bullish_patterns = [
             row.get("패턴_더블", "") == "더블바텀",
             row.get("패턴_헤드숄더", "") == "역헤드앤숄더",
@@ -271,56 +268,99 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
             str(row.get("패턴_캔들", "")) in ["강세잉걸핑", "모닝스타"],
         ]
         if any(bullish_patterns):
-            score += BACKTEST_PATTERN_WEIGHT
-        
+            score += W_B["상승패턴"]
+
+        # 급락 후 반등 기회 (5일 수익률 < -8%)
+        ret_5d = row.get("5일수익률", 0)
+        if pd.notna(ret_5d) and ret_5d < -0.08:
+            score += W_B["급락반등"]
+
         # 강한 섹터
         if row.get("in_strong_sector", True):
-            score += BACKTEST_SECTOR_WEIGHT
-        
-        # 트렌드점수 (buy_signal이 비활성화된 경우 대체 조건)
+            score += W_B["강한섹터"]
+
+        # 감점: 급등 (5일 수익률 > 20%)
+        if pd.notna(ret_5d) and ret_5d > 0.20:
+            score += W_B["급등감점"]
+
+        # 감점: 볼린저 상단 돌파
+        bollinger_pband = row.get("bollinger_pband", 0.5)
+        if pd.notna(bollinger_pband) and bollinger_pband > 0.95:
+            score += W_B["볼린저과열감점"]
+
+        return score
+
+    # --- 모멘텀 추격 적합도 계산 ---
+    W_M = MOMENTUM_STRATEGY_WEIGHTS
+
+    def _calc_momentum_score(row):
+        """모멘텀 추격 전략 점수: 추세·돌파 강도에 집중한다."""
+        score = 0.0
+
+        # 매수 신호 (EMA/MACD 정배열 + 보조지표)
+        if row.get("buy_signal", False):
+            score += W_M["매수신호"]
+
+        # 트렌드 점수 (모멘텀 강도)
         trend = row.get("트렌드점수_최종", row.get("트렌드점수", 0))
-        if pd.notna(trend) and trend > 0.1:  # 상위 모멘텀
-            score += BACKTEST_TREND_SCORE_WEIGHT
-        
-        # RSI 기반 점수 (최적화된 버전)
-        rsi = row.get("RSI", 50)
-        if pd.notna(rsi):
-            if rsi < 30:
-                score += 1.5    # 과매도 - 반등 기회
-            elif rsi < 40:
-                score += 1.0    # 과매도 탈출 구간
-            elif rsi <= 45:
-                score += 0.5    # 중립 하단
-            elif rsi > 80:
-                score -= 2.0    # 극심한 과매수 - 위험
-            elif rsi > 70:
-                score -= 1.0    # 과매수 - 주의 (완화)
-        
-        # EMA 정배열 확인 (추가 가점)
+        if pd.notna(trend) and trend > 0.1:
+            score += W_M["트렌드점수"]
+
+        # EMA 정배열 (EMA20 > EMA50)
         ema20 = row.get("ema20", 0)
         ema50 = row.get("ema50", 0)
         if pd.notna(ema20) and pd.notna(ema50) and ema20 > ema50:
-            score += 0.5
-        
-        # 급등 감점 (5일 수익률 > 20%) - 기준 완화
+            score += W_M["EMA정배열"]
+
+        # 거래량 돌파
+        volume = row.get("volume", 0)
+        volume_ma = row.get("volume_ma20", 0)
+        if pd.notna(volume) and pd.notna(volume_ma) and volume_ma > 0:
+            if volume > volume_ma * 1.2:
+                score += W_M["거래량돌파"]
+
+        # ADX 강세 (추세 강도 > 25)
+        adx = row.get("adx", 0)
+        if pd.notna(adx) and adx > 25:
+            score += W_M["ADX강세"]
+
+        # 강한 섹터
+        if row.get("in_strong_sector", True):
+            score += W_M["강한섹터"]
+
+        # 상승 패턴 (모멘텀에는 낮은 가중치)
+        bullish_patterns = [
+            row.get("패턴_더블", "") == "더블바텀",
+            row.get("패턴_헤드숄더", "") == "역헤드앤숄더",
+            row.get("패턴_컵핸들", False),
+            row.get("패턴_삼각형", "") == "상승삼각형",
+            row.get("패턴_쐐기", "") == "하락쐐기",
+            str(row.get("패턴_캔들", "")) in ["강세잉걸핑", "모닝스타"],
+        ]
+        if any(bullish_patterns):
+            score += W_M["상승패턴"]
+
+        # 감점: RSI 과매수 (> 75)
+        rsi = row.get("RSI", 50)
+        if pd.notna(rsi) and rsi > 75:
+            score += W_M["RSI_과매수감점"]
+
+        # 감점: 급등 (5일 수익률 > 20%)
         ret_5d = row.get("5일수익률", 0)
         if pd.notna(ret_5d) and ret_5d > 0.20:
-            score -= 1.0    # 급등 후 조정 위험
-        
-        # 볼린저밴드 상단 돌파 감점
+            score += W_M["급등감점"]
+
+        # 감점: 볼린저 상단 돌파
         bollinger_pband = row.get("bollinger_pband", 0.5)
         if pd.notna(bollinger_pband) and bollinger_pband > 0.95:
-            score -= 1.0    # 상단 밴드 돌파 - 과열
-        
-        # 급락 가점 (5일 수익률 < -8%) - 기준 완화
-        if pd.notna(ret_5d) and ret_5d < -0.08:
-            score += 0.5    # 급락 후 반등 기회
-        
+            score += W_M["볼린저과열감점"]
+
         return score
-    
-    out["매수적합도"] = out.apply(_calc_entry_score, axis=1)
-    
-    # 매수적합도 텍스트 (★ 표시로 직관적으로)
+
+    out["바닥반등_적합도"] = out.apply(_calc_bottom_reversal_score, axis=1)
+    out["모멘텀_적합도"] = out.apply(_calc_momentum_score, axis=1)
+
+    # ★ 별점 변환 (두 전략 공용)
     def _score_to_stars(score):
         if score >= 5.0:
             return f"★★★★★ ({score:.1f})"
@@ -334,17 +374,22 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
             return f"★☆☆☆☆ ({score:.1f})"
         else:
             return f"☆☆☆☆☆ ({score:.1f})"
-    
+
+    out["바닥반등_적합도_표시"] = out["바닥반등_적합도"].apply(_score_to_stars)
+    out["모멘텀_적합도_표시"] = out["모멘텀_적합도"].apply(_score_to_stars)
+
+    # 레거시 호환: 매수적합도 = 두 전략 중 높은 값
+    out["매수적합도"] = out[["바닥반등_적합도", "모멘텀_적합도"]].max(axis=1)
     out["매수적합도_표시"] = out["매수적합도"].apply(_score_to_stars)
     # -----------------------------------
 
+    # 정렬: 두 전략 점수 중 높은 값 기준 내림차순
+    out["최고_적합도"] = out[["바닥반등_적합도", "모멘텀_적합도"]].max(axis=1)
+    sorted_out = out.sort_values(["최고_적합도"], ascending=[False])
 
-    sorted_out = out.sort_values(
-        ["우선순위", "트렌드점수_최종"], ascending=[True, False]
-    )
     # Drop internal working columns
-    cols_to_drop = [judgement.name, recommendation.name]
+    cols_to_drop = [judgement.name, recommendation.name, "최고_적합도"]
     if "in_strong_sector" in sorted_out.columns:
         cols_to_drop.append("in_strong_sector")
-    
+
     return sorted_out.drop(columns=cols_to_drop)
