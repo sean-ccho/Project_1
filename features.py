@@ -148,7 +148,6 @@ class FeatureSet:
     pattern_candlestick: str
     pattern_golden_cross: str
     weekly_patterns: str  # 주봉 패턴 (콤마로 구분된 문자열)
-    weekly_patterns_list: List = field(default_factory=list)
     # 저점 반등 지표
     rsi_reversal: bool           # RSI 과매도 후 반등
     bollinger_bounce: bool       # 볼린저 하단 터치 후 복귀
@@ -156,6 +155,7 @@ class FeatureSet:
     support_test: bool           # 지지선 2회 테스트
     macd_divergence: bool        # MACD 다이버전스
     bottom_reversal_score: float # 반등 점수 (최대 10점)
+    weekly_patterns_list: List = field(default_factory=list)
 
 
 def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
