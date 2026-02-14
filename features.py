@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Dict, Mapping, Optional
+from dataclasses import dataclass, field
+from typing import Dict, List, Mapping, Optional
 
 import numpy as np
 import pandas as pd
@@ -148,6 +148,7 @@ class FeatureSet:
     pattern_candlestick: str
     pattern_golden_cross: str
     weekly_patterns: str  # 주봉 패턴 (콤마로 구분된 문자열)
+    weekly_patterns_list: List = field(default_factory=list)
     # 저점 반등 지표
     rsi_reversal: bool           # RSI 과매도 후 반등
     bollinger_bounce: bool       # 볼린저 하단 터치 후 복귀
@@ -533,7 +534,21 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     # 신뢰도가 높은 순으로 정렬 또는 중요도 순으로 정렬 가능하나, 여기선 감지된 순서대로 나열
     # 엑셀 출력을 위해 문자열로 변환 (예: "Golden Cross, Double Bottom")
     # 이름 매핑을 좀 더 예쁘게 할 수도 있음 (영어 그대로 사용)
-    weekly_patterns_str = ", ".join([name for name, conf in w_patterns_list]) if w_patterns_list else ""
+    weekly_patterns_str = ""
+    if w_patterns_list:
+        # 영어 -> 한글 매핑
+        pattern_map = {
+            "golden_cross": "골든크로스",
+            "double_bottom": "이중바닥",
+            "inverse_head_and_shoulders": "역헤드앤숄더",
+            "cup_with_handle": "컵앤핸들",
+            "ascending_triangle": "상승삼각형",
+            "falling_wedge": "하락쐐기",
+            "bullish_engulfing": "강세잉걸핑",
+            "morning_star": "모닝스타",
+            "weekly_uptrend": "상승추세(정배열)",
+        }
+        weekly_patterns_str = ", ".join([pattern_map.get(name, name) for name, conf in w_patterns_list])
 
     return FeatureSet(
         trend_score=trend_score,
@@ -597,6 +612,7 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         pattern_candlestick=patterns.candlestick,
         pattern_golden_cross=patterns.golden_cross,
         weekly_patterns=weekly_patterns_str,
+        weekly_patterns_list=w_patterns_list,
         # 저점 반등 지표
         rsi_reversal=rsi_reversal,
         bollinger_bounce=bollinger_bounce,
@@ -608,7 +624,7 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
 
 
 def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
-    return {
+    row = {
         "티커": ticker,
         "트렌드점수": feature_set.trend_score,
         "알파점수": feature_set.alpha_score,
@@ -672,7 +688,7 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "패턴_컵핸들": feature_set.pattern_cup_handle,
         "패턴_캔들": feature_set.pattern_candlestick,
         "패턴_골든크로스": feature_set.pattern_golden_cross,
-        "주봉패턴": feature_set.weekly_patterns,  # 신규 컬럼
+        "주봉패턴": feature_set.weekly_patterns,
         # 저점 반등 지표
         "RSI반등": int(feature_set.rsi_reversal),
         "볼린저바운스": int(feature_set.bollinger_bounce),
@@ -681,6 +697,44 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "MACD다이버전스": int(feature_set.macd_divergence),
         "반등스코어": feature_set.bottom_reversal_score,
     }
+
+    # 주봉 패턴 개별 컬럼 추가
+    weekly_cols = {
+        "주봉_삼각형": "",
+        "주봉_쐐기": "",
+        "주봉_더블": "",
+        "주봉_헤드숄더": "",
+        "주봉_컵핸들": "",
+        "주봉_골든크로스": "",
+        "주봉_상승추세": "",
+    }
+    
+    # 매핑 (영어 key -> (컬럼명, 표시값))
+    w_map = {
+        "ascending_triangle": ("주봉_삼각형", "상승삼각형"),
+        "falling_wedge": ("주봉_쐐기", "하락쐐기"),
+        "double_bottom": ("주봉_더블", "이중바닥"),
+        "inverse_head_and_shoulders": ("주봉_헤드숄더", "역헤드앤숄더"),
+        "cup_with_handle": ("주봉_컵핸들", "컵앤핸들"),
+        "golden_cross": ("주봉_골든크로스", "골든크로스"),
+        "weekly_uptrend": ("주봉_상승추세", "상승추세"),
+        "bullish_engulfing": ("주봉_캔들", "강세잉걸핑"), 
+        "morning_star": ("주봉_캔들", "모닝스타"),
+    }
+    
+    # w_patterns_list는 [(name, conf), ...] 형태
+    for name, conf in feature_set.weekly_patterns_list:
+        if name in w_map:
+            col, val = w_map[name]
+            if col in weekly_cols:
+                # 이미 값이 있으면 콤마로 연결
+                if weekly_cols[col]:
+                    weekly_cols[col] += f", {val}"
+                else:
+                    weekly_cols[col] = val
+    
+    row.update(weekly_cols)
+    return row
 
 
 def compute_features_snapshot(

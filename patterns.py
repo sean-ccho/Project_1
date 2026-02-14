@@ -1116,4 +1116,12 @@ def detect_weekly_patterns(df: pd.DataFrame) -> List[Tuple[str, float]]:
             if p in ("bullish_engulfing", "morning_star"):
                 patterns_found.append((p, candle.confidence))
 
+    # 8. 주봉 정배열 (장기 상승 추세) - MA50 > MA200
+    # 패턴(이벤트)은 아니지만, 상태(State)를 알려주기 위함
+    if len(weekly) >= 200:
+        ma50 = weekly["Close"].rolling(50).mean().iloc[-1]
+        ma200 = weekly["Close"].rolling(200).mean().iloc[-1]
+        if ma50 > ma200:
+            patterns_found.append(("weekly_uptrend", 1.0))
+
     return patterns_found
