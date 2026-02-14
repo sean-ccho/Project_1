@@ -115,9 +115,9 @@ EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")  # Gmail의 경우 '앱 비밀�
 EMAIL_RECIPIENT = "chunghwan14@gmail.com"
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-EMAIL_SCORE_THRESHOLD = 6.0  # (레거시) 기본 임계치
-EMAIL_BOTTOM_SCORE_THRESHOLD = 6.0  # 바닥 반등 전략 이메일 알림 최소 점수
-EMAIL_MOMENTUM_SCORE_THRESHOLD = 6.0  # 모멘텀 추격 전략 이메일 알림 최소 점수
+EMAIL_SCORE_THRESHOLD = 4.0          # 통합 점수 (이메일 발송 기준)
+EMAIL_BOTTOM_SCORE_THRESHOLD = 4.0   # 바닥반등 점수 (이메일 발송 기준)
+EMAIL_MOMENTUM_SCORE_THRESHOLD = 4.0 # 모멘텀 점수 (이메일 발송 기준)
 
 
 
