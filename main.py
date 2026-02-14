@@ -202,14 +202,24 @@ def build_export_dataframe(
         
         # 1. 바닥반등 확인
         if "바닥반등_적합도_표시" in ranked.columns and CHARTS_MIN_SCORE > 0:
-            star_threshold = "★" * int(CHARTS_MIN_SCORE)
-            mask = ranked["바닥반등_적합도_표시"].astype(str).str.contains(star_threshold, na=False)
+            def _extract_score(val):
+                try:
+                    return float(str(val).split("(")[1].split(")")[0])
+                except:
+                    return 0.0
+            scores = ranked["바닥반등_적합도_표시"].apply(_extract_score)
+            mask = scores >= CHARTS_MIN_SCORE
             high_score_tickers.extend(ranked.loc[mask, "티커"].unique().tolist())
             
         # 2. 모멘텀 확인
         if "모멘텀_적합도_표시" in ranked.columns and CHARTS_MIN_SCORE > 0:
-            star_threshold = "★" * int(CHARTS_MIN_SCORE)
-            mask = ranked["모멘텀_적합도_표시"].astype(str).str.contains(star_threshold, na=False)
+            def _extract_score(val):
+                try:
+                    return float(str(val).split("(")[1].split(")")[0])
+                except:
+                    return 0.0
+            scores = ranked["모멘텀_적합도_표시"].apply(_extract_score)
+            mask = scores >= CHARTS_MIN_SCORE
             high_score_tickers.extend(ranked.loc[mask, "티커"].unique().tolist())
             
         # 3. 중복 제거
@@ -345,14 +355,27 @@ def main() -> None:
              
              # 1. 바닥반등 확인
              if "바닥반등_적합도_표시" in signals_export.columns and EMAIL_BOTTOM_SCORE_THRESHOLD > 0:
-                 star_threshold = "★" * int(EMAIL_BOTTOM_SCORE_THRESHOLD)
-                 mask = signals_export["바닥반등_적합도_표시"].astype(str).str.contains(star_threshold, na=False)
+                 # "★★★★★ (6.0)" 형식에서 점수 추출
+                 def _extract_score(val):
+                     try:
+                         return float(str(val).split("(")[1].split(")")[0])
+                     except:
+                         return 0.0
+                 
+                 scores = signals_export["바닥반등_적합도_표시"].apply(_extract_score)
+                 mask = scores >= EMAIL_BOTTOM_SCORE_THRESHOLD
                  high_score_tickers.extend(signals_export.loc[mask, "티커"].unique().tolist())
              
              # 2. 모멘텀 확인
              if "모멘텀_적합도_표시" in signals_export.columns and EMAIL_MOMENTUM_SCORE_THRESHOLD > 0:
-                 star_threshold = "★" * int(EMAIL_MOMENTUM_SCORE_THRESHOLD)
-                 mask = signals_export["모멘텀_적합도_표시"].astype(str).str.contains(star_threshold, na=False)
+                 def _extract_score(val):
+                     try:
+                         return float(str(val).split("(")[1].split(")")[0])
+                     except:
+                         return 0.0
+
+                 scores = signals_export["모멘텀_적합도_표시"].apply(_extract_score)
+                 mask = scores >= EMAIL_MOMENTUM_SCORE_THRESHOLD
                  high_score_tickers.extend(signals_export.loc[mask, "티커"].unique().tolist())
              
              high_score_tickers = list(set(high_score_tickers))
