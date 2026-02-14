@@ -8,6 +8,8 @@ import pandas as pd
 from config import (
     ADX_BUY_MIN,
     ADX_SELL_MAX,
+    ALPHA_FACTOR_STRONG_THRESHOLD,
+    ALPHA_FACTOR_WEAK_THRESHOLD,
     BOTTOM_REVERSAL_THRESHOLD,
     BOTTOM_STRATEGY_WEIGHTS,
     JUDGEMENT_DISPLAY,
@@ -288,6 +290,18 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
         if pd.notna(bollinger_pband) and bollinger_pband > 0.95:
             score += W_B["볼린저과열감점"]
 
+        # 알파 모델 팩터: Mean-Reversion (과매도 반등 신호)
+        mean_rev = row.get("팩터_평균회귀", 0)
+        if pd.notna(mean_rev) and mean_rev > ALPHA_FACTOR_STRONG_THRESHOLD:
+            score += W_B["팩터_평균회귀_강"]
+        elif pd.notna(mean_rev) and mean_rev > ALPHA_FACTOR_WEAK_THRESHOLD:
+            score += W_B["팩터_평균회귀_약"]
+
+        # 알파 모델 팩터: Volatility (변동성 압축 → 반등 에너지 축적)
+        vol_factor = row.get("팩터_변동성", 0)
+        if pd.notna(vol_factor) and vol_factor > ALPHA_FACTOR_STRONG_THRESHOLD:
+            score += W_B["팩터_변동성"]
+
         return score
 
     # --- 모멘텀 추격 적합도 계산 ---
@@ -354,6 +368,18 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
         bollinger_pband = row.get("bollinger_pband", 0.5)
         if pd.notna(bollinger_pband) and bollinger_pband > 0.95:
             score += W_M["볼린저과열감점"]
+
+        # 알파 모델 팩터: Momentum (다중 기간 모멘텀)
+        mom_factor = row.get("팩터_모멘텀", 0)
+        if pd.notna(mom_factor) and mom_factor > ALPHA_FACTOR_STRONG_THRESHOLD:
+            score += W_M["팩터_모멘텀_강"]
+        elif pd.notna(mom_factor) and mom_factor > ALPHA_FACTOR_WEAK_THRESHOLD:
+            score += W_M["팩터_모멘텀_약"]
+
+        # 알파 모델 팩터: Trend (추세 강도)
+        trend_factor = row.get("팩터_추세", 0)
+        if pd.notna(trend_factor) and trend_factor > ALPHA_FACTOR_STRONG_THRESHOLD:
+            score += W_M["팩터_추세"]
 
         return score
 

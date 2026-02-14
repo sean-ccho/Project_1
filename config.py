@@ -46,6 +46,21 @@ WEIGHTS = {
     "vola_penalty": -0.18,  # ATR% 비선형 패널티
 }
 
+# 다중 팩터 알파 모델 설정
+ALPHA_MODEL_ENABLED = True           # False이면 기존 WEIGHTS 방식으로 폴백
+ALPHA_IC_LOOKBACK = 60               # IC 계산 기간 (거래일)
+ALPHA_IC_MIN_SAMPLES = 30            # IC 계산 최소 종목 수
+ALPHA_FORWARD_RETURN_DAYS = 5        # IC 계산용 미래 수익률 기간
+
+# 다중 팩터 기본 가중치 (IC 계산 불가 시 폴백)
+ALPHA_DEFAULT_WEIGHTS = {
+    "momentum": 0.30,
+    "trend": 0.25,
+    "volume": 0.15,
+    "volatility": 0.15,
+    "mean_reversion": 0.15,
+}
+
 # 시장별(US/CA) 거래대금 분위수를 이용한 유동성 컷 비율.
 LIQUIDITY_QUANTILE = 0.25  # 하위 25% 제거 = 상위 75% 유지
 LIQUIDITY_WHITELIST = []  # 필수 포함 종목(저유동성이라도 유지)
@@ -329,6 +344,10 @@ BOTTOM_STRATEGY_WEIGHTS = {
     "RSI_극과매수감점": -2.0, # RSI > 80
     "급등감점": -1.0,      # 5일 수익률 > 20%
     "볼린저과열감점": -1.0, # 볼린저 상단 돌파
+    # 알파 모델 팩터
+    "팩터_평균회귀_강": 1.5,   # 강한 과매도 반등 신호
+    "팩터_평균회귀_약": 0.5,   # 약한 반등 신호
+    "팩터_변동성": 0.5,       # 변동성 압축 (반등 에너지 축적)
 }
 
 # 모멘텀 추격 전략 가중치
@@ -343,7 +362,15 @@ MOMENTUM_STRATEGY_WEIGHTS = {
     "RSI_과매수감점": -1.5, # RSI > 75
     "급등감점": -1.0,      # 5일 수익률 > 20%
     "볼린저과열감점": -1.0, # 볼린저 상단 돌파
+    # 알파 모델 팩터
+    "팩터_모멘텀_강": 1.5,   # 강한 다중기간 모멘텀
+    "팩터_모멘텀_약": 0.5,   # 약한 모멘텀
+    "팩터_추세": 1.0,         # 강한 추세 확인
 }
+
+# 알파 팩터 점수 임계치 (두 전략 공통)
+ALPHA_FACTOR_STRONG_THRESHOLD = 0.3   # 강한 신호 임계치
+ALPHA_FACTOR_WEAK_THRESHOLD = 0.1     # 약한 신호 임계치
 
 # 시그널 우선순위 매핑(테이블 정렬 순서를 통제).
 SIGNAL_PRIORITY = {

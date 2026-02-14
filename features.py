@@ -24,6 +24,11 @@ from ta.volume import (
 )
 
 from config import (
+    ALPHA_DEFAULT_WEIGHTS,
+    ALPHA_FORWARD_RETURN_DAYS,
+    ALPHA_IC_LOOKBACK,
+    ALPHA_IC_MIN_SAMPLES,
+    ALPHA_MODEL_ENABLED,
     ATR_BUY_THRESHOLD_MULTIPLIER,
     ATR_MEDIAN_LOOKBACK,
     ATR_POSITION_MULTIPLE,
@@ -51,6 +56,7 @@ from config import (
     VOLUME_ROLLING_WINDOW,
     WEIGHTS,
 )
+from alpha_model import compute_factor_scores, compute_factor_scores_from_indicators, compute_alpha_score, compute_ic_weights
 from fundamentals import fetch_fundamental_snapshots
 from patterns import detect_all_patterns, AllPatterns
 
@@ -80,6 +86,12 @@ class FeatureSet:
     """단일 종목의 핵심 지표를 담는 컨테이너."""
 
     trend_score: float
+    alpha_score: float
+    factor_momentum: float
+    factor_trend: float
+    factor_volume: float
+    factor_volatility: float
+    factor_mean_reversion: float
     ret_5d: float
     ret_20d: float
     vol_z20: float
@@ -157,6 +169,8 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
 
     p["ret_5d"] = p["Close"].pct_change(5, fill_method=None)
     p["ret_20d"] = p["Close"].pct_change(REL_STRENGTH_LOOKBACK, fill_method=None)
+    p["ret_63d"] = p["Close"].pct_change(63, fill_method=None)
+    p["ret_126d"] = p["Close"].pct_change(126, fill_method=None)
 
     # 거래량 기반 Z-score: 최근 거래량이 얼마나 평소와 다른지 확인한다.
     p["vol_ma20"] = p["Volume"].rolling(VOLUME_ROLLING_WINDOW).mean()
@@ -246,7 +260,7 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         1.0,
     )
 
-    trend_score = (
+    legacy_trend_score = (
         WEIGHTS.get("ret5", 0.0) * s_ret5
         + WEIGHTS.get("vol", 0.0) * s_vol
         + WEIGHTS.get("break", 0.0) * s_break
@@ -255,6 +269,44 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         + WEIGHTS.get("accel", 0.0) * s_accel
         + WEIGHTS.get("vola_penalty", 0.0) * vola_penalty
     )
+
+    # 알파 모델: 다중 팩터 점수 계산 (이미 계산된 지표 재활용)
+    _factor_scores = None
+    if ALPHA_MODEL_ENABLED and len(p) >= 130:
+        _atr_med = p["atr_pct"].rolling(ATR_MEDIAN_LOOKBACK, min_periods=60).median().iloc[-1]
+        _factor_scores = compute_factor_scores_from_indicators(
+            ret_20d=float(latest["ret_20d"]) if not np.isnan(latest["ret_20d"]) else 0.0,
+            ret_63d=float(latest["ret_63d"]) if not np.isnan(latest.get("ret_63d", np.nan)) else 0.0,
+            ret_126d=float(latest["ret_126d"]) if not np.isnan(latest.get("ret_126d", np.nan)) else 0.0,
+            ema_gap_20_50=float(latest["ema_gap_20_50"]) if not np.isnan(latest["ema_gap_20_50"]) else 0.0,
+            ema_gap_50_200=float(latest["ema_gap_50_200"]) if not np.isnan(latest["ema_gap_50_200"]) else 0.0,
+            adx=float(latest["adx"]) if not np.isnan(latest["adx"]) else np.nan,
+            macd_hist=float(latest["macd_hist"]) if not np.isnan(latest["macd_hist"]) else 0.0,
+            obv_z20=float(latest["obv_z20"]) if not np.isnan(latest["obv_z20"]) else 0.0,
+            cmf_20=float(latest["cmf_20"]) if not np.isnan(latest["cmf_20"]) else 0.0,
+            vol_z20=float(latest["vol_z20"]) if not np.isnan(latest["vol_z20"]) else 0.0,
+            atr_pct=float(latest["atr_pct"]) if not np.isnan(latest["atr_pct"]) else np.nan,
+            atr_med_252=float(_atr_med) if not np.isnan(_atr_med) else np.nan,
+            rsi=float(latest["rsi"]) if not np.isnan(latest["rsi"]) else np.nan,
+            bollinger_pband=float(latest["bollinger_pband"]) if not np.isnan(latest["bollinger_pband"]) else np.nan,
+        )
+    if _factor_scores is not None:
+        _alpha = compute_alpha_score(_factor_scores, ALPHA_DEFAULT_WEIGHTS)
+        trend_score = _alpha
+        factor_momentum = _factor_scores.momentum
+        factor_trend = _factor_scores.trend
+        factor_volume = _factor_scores.volume
+        factor_volatility = _factor_scores.volatility
+        factor_mean_reversion = _factor_scores.mean_reversion
+        alpha_score = _alpha
+    else:
+        trend_score = legacy_trend_score
+        factor_momentum = 0.0
+        factor_trend = 0.0
+        factor_volume = 0.0
+        factor_volatility = 0.0
+        factor_mean_reversion = 0.0
+        alpha_score = float(legacy_trend_score)
 
     avg_dollar_vol = (p["Close"].iloc[-20:] * p["Volume"].iloc[-20:]).mean()
     avg_dollar_vol_60d = np.nan
@@ -473,6 +525,12 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
 
     return FeatureSet(
         trend_score=float(trend_score),
+        alpha_score=float(alpha_score),
+        factor_momentum=float(factor_momentum),
+        factor_trend=float(factor_trend),
+        factor_volume=float(factor_volume),
+        factor_volatility=float(factor_volatility),
+        factor_mean_reversion=float(factor_mean_reversion),
         ret_5d=float(latest["ret_5d"]),
         ret_20d=float(latest["ret_20d"]),
         vol_z20=float(latest["vol_z20"]),
@@ -554,6 +612,12 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
     return {
         "티커": ticker,
         "트렌드점수": feature_set.trend_score,
+        "알파점수": feature_set.alpha_score,
+        "팩터_모멘텀": feature_set.factor_momentum,
+        "팩터_추세": feature_set.factor_trend,
+        "팩터_거래량": feature_set.factor_volume,
+        "팩터_변동성": feature_set.factor_volatility,
+        "팩터_평균회귀": feature_set.factor_mean_reversion,
         "5일수익률": feature_set.ret_5d,
         "20일수익률": feature_set.ret_20d,
         "거래량Z(20)": feature_set.vol_z20,
@@ -626,11 +690,41 @@ def compute_features_snapshot(
 ) -> pd.DataFrame:
     """주어진 종목별 시계열 스냅샷에서 특징 테이블을 생성한다."""
 
+    # 알파 모델: IC 기반 동적 가중치 계산 (전 종목 공통)
+    alpha_weights = ALPHA_DEFAULT_WEIGHTS.copy()
+    if ALPHA_MODEL_ENABLED:
+        try:
+            alpha_weights = compute_ic_weights(
+                price_map,
+                lookback=ALPHA_IC_LOOKBACK,
+                forward_days=ALPHA_FORWARD_RETURN_DAYS,
+                min_samples=ALPHA_IC_MIN_SAMPLES,
+                default_weights=ALPHA_DEFAULT_WEIGHTS,
+            )
+        except Exception:
+            alpha_weights = ALPHA_DEFAULT_WEIGHTS.copy()
+
     rows = []
     for ticker, frame in price_map.items():
         features = compute_features_for_ticker(frame.dropna(how="all"))
         if features is None:
             continue
+
+        # IC 가중치로 alpha_score 재계산 (기본 가중치 대신 동적 가중치 적용)
+        if ALPHA_MODEL_ENABLED and features.factor_momentum != 0.0:
+            from alpha_model import FactorScores
+            factor_scores = FactorScores(
+                momentum=features.factor_momentum,
+                trend=features.factor_trend,
+                volume=features.factor_volume,
+                volatility=features.factor_volatility,
+                mean_reversion=features.factor_mean_reversion,
+            )
+            recalc_alpha = compute_alpha_score(factor_scores, alpha_weights)
+            features = FeatureSet(
+                **{**features.__dict__, "alpha_score": recalc_alpha, "trend_score": recalc_alpha}
+            )
+
         rows.append(feature_row_from_set(ticker, features))
 
     out = pd.DataFrame(rows)
