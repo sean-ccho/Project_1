@@ -167,14 +167,18 @@ SECTOR_STRENGTH_THRESHOLD = 0.0  # SPY 대비 초과 수익률 기준 (0 = SPY�
 
 # 차트 패턴 인식 설정
 PATTERN_LOOKBACK_DAYS = 60          # 패턴 탐색 기간 (거래일)
-PATTERN_MIN_TOUCHES = 2             # 추세선 최소 터치 횟수
-PATTERN_CONVERGENCE_THRESHOLD = 0.02  # 수렴 판정 기준 (가격 대비 %) - 더 엄격하게
-PEAK_PROMINENCE = 0.025             # 고점/저점 탐지 민감도 (가격 대비 %) - 조정됨
+PATTERN_MIN_TOUCHES = 3             # 추세선 최소 터치 횟수 (2→3: 노이즈 감소)
+PATTERN_CONVERGENCE_THRESHOLD = 0.015  # 수렴 판정 기준 (가격 대비 %) - 엄격화
+PEAK_PROMINENCE = 0.03              # 고점/저점 탐지 민감도 (가격 대비 %) - 노이즈 감소
 
 # 패턴 필터링 추가 설정
 PATTERN_TREND_LOOKBACK = 20         # 트렌드 판단 기간
-PATTERN_MIN_R2 = 0.5                # 추세선 최소 R² 값
+PATTERN_MIN_R2 = 0.65               # 추세선 최소 R² 값 (0.5→0.65)
 PATTERN_BREAKOUT_CONFIRM = 0.02     # 돌파 확인 기준 (2%)
+PATTERN_VOLUME_SURGE = 1.5          # 돌파 거래량 기준 (20일 평균의 배수)
+PATTERN_MIN_GAP_DAYS = 10           # 더블 바텀/탑 두 극점 최소 간격 (거래일)
+PATTERN_DOUBLE_TOLERANCE = 0.02     # 더블 바텀/탑 가격 허용치 (3%→2%)
+PATTERN_SHOULDER_TIME_RATIO = (0.5, 2.0)  # H&S 어깨 시간 대칭 허용 범위
 
 # 섹터 ETF 매핑 (섹터명 → ETF 티커)
 SECTOR_ETFS: Dict[str, str] = {
@@ -519,13 +523,20 @@ EXPORT_COLUMNS = [
     "차트_Daily",
     "차트_Weekly",
     "차트_Monthly",
+    "패턴_삼각형",
+    "패턴_쐐기",
+    "패턴_더블",
+    "패턴_헤드숄더",
+    "패턴_컵핸들",
+    "패턴_캔들",
+    "패턴_골든크로스",
     # 기존 컬럼들
     "섹터강도",
-    # "판단",
-    # "추천",
-    # "트렌드점수_최종",
-    # "buy_signal_text",
-    # "sell_signal_text",
+    "판단",
+    "추천",
+    "트렌드점수_최종",
+    "buy_signal_text",
+    "sell_signal_text",
     # "buy_support_count",  # 매수 보조
     # "sell_support_count",  # 매도 보조
     # "position_size",  # 권장 수량
@@ -535,12 +546,7 @@ EXPORT_COLUMNS = [
     # "저점확률",
     # "고점확률",
     # "극점편차",
-    "패턴_삼각형",
-    "패턴_쐐기",
-    "패턴_더블",
-    "패턴_헤드숄더",
-    "패턴_컵핸들",
-    "패턴_캔들",
+
     # "macd_hist",
     # "ema20",
     # "ema50",
@@ -553,12 +559,12 @@ EXPORT_COLUMNS = [
     # "obv_ma20",
     # "obv_mom_5",
     # "obv_mom_ratio",
-    "dividend_yield",
+    # "dividend_yield",
     # 저점 반등 지표
-    "반등스코어",
-    "RSI반등",
-    "볼린저바운스",
-    "저점거래량급증",
-    "지지선테스트",
-    "MACD다이버전스",
+    # "반등스코어",
+    # "RSI반등",
+    # "볼린저바운스",
+    # "저점거래량급증",
+    # "지지선테스트",
+    # "MACD다이버전스",
 ]

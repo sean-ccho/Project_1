@@ -132,6 +132,7 @@ class FeatureSet:
     pattern_head_shoulders: str
     pattern_cup_handle: bool
     pattern_candlestick: str
+    pattern_golden_cross: str
     # 저점 반등 지표
     rsi_reversal: bool           # RSI 과매도 후 반등
     bollinger_bounce: bool       # 볼린저 하단 터치 후 복귀
@@ -538,6 +539,7 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         pattern_head_shoulders=patterns.head_shoulders,
         pattern_cup_handle=patterns.cup_handle,
         pattern_candlestick=patterns.candlestick,
+        pattern_golden_cross=patterns.golden_cross,
         # 저점 반등 지표
         rsi_reversal=rsi_reversal,
         bollinger_bounce=bollinger_bounce,
@@ -606,6 +608,7 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "패턴_헤드숄더": feature_set.pattern_head_shoulders,
         "패턴_컵핸들": feature_set.pattern_cup_handle,
         "패턴_캔들": feature_set.pattern_candlestick,
+        "패턴_골든크로스": feature_set.pattern_golden_cross,
         # 저점 반등 지표
         "RSI반등": int(feature_set.rsi_reversal),
         "볼린저바운스": int(feature_set.bollinger_bounce),
