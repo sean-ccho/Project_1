@@ -47,7 +47,9 @@ from config import (
     EXTREME_LOW_LOOKBACK,
     LONG_TERM_SLOPE_LOOKBACK,
     OBV_MOMENTUM_LOOKBACK,
+    OBV_MOMENTUM_LOOKBACK,
     OBV_ROLLING_WINDOW,
+    PATTERN_LOOKBACK_DAYS,
     REL_STRENGTH_LOOKBACK,
     RISK_PER_TRADE,
     SECTOR_MAP,
@@ -58,7 +60,7 @@ from config import (
 )
 from alpha_model import compute_factor_scores, compute_factor_scores_from_indicators, compute_alpha_score, compute_ic_weights
 from fundamentals import fetch_fundamental_snapshots
-from patterns import detect_all_patterns, AllPatterns
+from patterns import detect_all_patterns, detect_weekly_patterns, AllPatterns
 
 
 def to_market(ticker: str) -> str:
@@ -145,6 +147,7 @@ class FeatureSet:
     pattern_cup_handle: bool
     pattern_candlestick: str
     pattern_golden_cross: str
+    weekly_patterns: str  # 주봉 패턴 (콤마로 구분된 문자열)
     # 저점 반등 지표
     rsi_reversal: bool           # RSI 과매도 후 반등
     bollinger_bounce: bool       # 볼린저 하단 터치 후 복귀
@@ -521,74 +524,69 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     )
 
     # 차트 패턴 감지
-    patterns = detect_all_patterns(p)
+    # 차트 패턴: 일봉
+    patterns = detect_all_patterns(p[-PATTERN_LOOKBACK_DAYS * 2 :])  # 충분한 데이터 전달
+
+    # 차트 패턴: 주봉 (Weekly)
+    # 전체 데이터를 넘기면 내부에서 리샘플링 후 패턴 감지
+    w_patterns_list = detect_weekly_patterns(p)
+    # 신뢰도가 높은 순으로 정렬 또는 중요도 순으로 정렬 가능하나, 여기선 감지된 순서대로 나열
+    # 엑셀 출력을 위해 문자열로 변환 (예: "Golden Cross, Double Bottom")
+    # 이름 매핑을 좀 더 예쁘게 할 수도 있음 (영어 그대로 사용)
+    weekly_patterns_str = ", ".join([name for name, conf in w_patterns_list]) if w_patterns_list else ""
 
     return FeatureSet(
-        trend_score=float(trend_score),
-        alpha_score=float(alpha_score),
-        factor_momentum=float(factor_momentum),
-        factor_trend=float(factor_trend),
-        factor_volume=float(factor_volume),
-        factor_volatility=float(factor_volatility),
-        factor_mean_reversion=float(factor_mean_reversion),
-        ret_5d=float(latest["ret_5d"]),
-        ret_20d=float(latest["ret_20d"]),
-        vol_z20=float(latest["vol_z20"]),
-        pos_52w=float(latest["pos_52w"]),
-        atr_pct=float(latest["atr_pct"]),
-        rsi=float(latest["rsi"]),
-        macd_hist=float(latest["macd_hist"]),
-        stoch_k=float(latest["stoch_k"]),
-        roc_10=float(latest["roc_10"]),
-        adx=float(latest["adx"]),
-        ema_gap_20_50=float(latest["ema_gap_20_50"]),
-        ema_gap_50_200=float(latest["ema_gap_50_200"]),
-        ema200_slope_20=float(ema200_slope) if not np.isnan(ema200_slope) else float("nan"),
-        close_to_ema200_pct=float(close_to_ema200)
-        if not np.isnan(close_to_ema200)
-        else float("nan"),
-        bollinger_pband=float(latest["bollinger_pband"]),
-        obv_z20=float(latest["obv_z20"]),
-        cmf_20=float(latest["cmf_20"]),
-        accdist_slope_5=float(latest["accdist_slope_5"]),
-        gap_down_pct=float(gap_down_pct) if not np.isnan(gap_down_pct) else float("nan"),
+        trend_score=trend_score,
+        alpha_score=alpha_score,
+        factor_momentum=factor_momentum,
+        factor_trend=factor_trend,
+        factor_volume=factor_volume,
+        factor_volatility=factor_volatility,
+        factor_mean_reversion=factor_mean_reversion,
+        ret_5d=float(latest["ret_5d"]) if not np.isnan(latest["ret_5d"]) else 0.0,
+        ret_20d=float(latest["ret_20d"]) if not np.isnan(latest["ret_20d"]) else 0.0,
+        vol_z20=float(latest["vol_z20"]) if not np.isnan(latest["vol_z20"]) else 0.0,
+        pos_52w=float(latest["pos_52w"]) if not np.isnan(latest["pos_52w"]) and not np.isinf(latest["pos_52w"]) else 0.5,
+        atr_pct=float(latest["atr_pct"]) if not np.isnan(latest["atr_pct"]) else 0.0,
+        rsi=float(latest["rsi"]) if not np.isnan(latest["rsi"]) else 50.0,
+        macd_hist=float(latest["macd_hist"]) if not np.isnan(latest["macd_hist"]) else 0.0,
+        stoch_k=float(latest["stoch_k"]) if not np.isnan(latest["stoch_k"]) else 50.0,
+        roc_10=float(latest["roc_10"]) if not np.isnan(latest["roc_10"]) else 0.0,
+        adx=float(latest["adx"]) if not np.isnan(latest["adx"]) else 0.0,
+        ema_gap_20_50=float(latest["ema_gap_20_50"]) if not np.isnan(latest["ema_gap_20_50"]) else 0.0,
+        ema_gap_50_200=float(latest["ema_gap_50_200"]) if not np.isnan(latest["ema_gap_50_200"]) else 0.0,
+        ema200_slope_20=float(ema200_slope) if not np.isnan(ema200_slope) else 0.0,
+        close_to_ema200_pct=float(close_to_ema200) if not np.isnan(close_to_ema200) else 0.0,
+        bollinger_pband=float(latest["bollinger_pband"]) if not np.isnan(latest["bollinger_pband"]) else 0.5,
+        obv_z20=float(latest["obv_z20"]) if not np.isnan(latest["obv_z20"]) else 0.0,
+        cmf_20=float(latest["cmf_20"]) if not np.isnan(latest["cmf_20"]) else 0.0,
+        accdist_slope_5=float(latest["accdist_slope_5"]) if not np.isnan(latest["accdist_slope_5"]) else 0.0,
+        gap_down_pct=float(gap_down_pct),
         avg_dollar_vol_20d=float(avg_dollar_vol),
-        volume_stability_ratio=float(volume_stability_ratio)
-        if not np.isnan(volume_stability_ratio)
-        else float("nan"),
+        volume_stability_ratio=float(volume_stability_ratio),
         hammer_candle=bool(hammer_candle),
-        intraday_recovery=float(intraday_recovery)
-        if not np.isnan(intraday_recovery)
-        else float("nan"),
-        distance_from_10d_low=float(distance_from_10d_low)
-        if not np.isnan(distance_from_10d_low)
-        else float("nan"),
-        distance_from_10d_high=float(distance_from_10d_high)
-        if not np.isnan(distance_from_10d_high)
-        else float("nan"),
-        volume_breakout_ratio=float(volume_breakout_ratio)
-        if not np.isnan(volume_breakout_ratio)
-        else float("nan"),
-        volatility_contraction=float(volatility_contraction)
-        if not np.isnan(volatility_contraction)
-        else float("nan"),
-        dividend_yield=float(dividend_yield) if not np.isnan(dividend_yield) else np.nan,
+        intraday_recovery=float(intraday_recovery),
+        distance_from_10d_low=float(distance_from_10d_low),
+        distance_from_10d_high=float(distance_from_10d_high),
+        volume_breakout_ratio=float(volume_breakout_ratio),
+        volatility_contraction=float(volatility_contraction),
+        dividend_yield=float(dividend_yield),
         annual_dividend=float(total_div_1y),
-        ema20=ema20_latest,
-        ema50=ema50_latest,
-        ema200=float(ema200_latest) if not np.isnan(ema200_latest) else float("nan"),
-        volume=volume_latest,
-        volume_ma20=volume_ma_latest,
-        obv=obv_latest,
-        obv_ma20=obv_ma_latest,
-        obv_mom_5=obv_mom_latest,
-        obv_mom_ratio=float(obv_momentum) if not np.isnan(obv_momentum) else float("nan"),
+        ema20=float(ema20_latest) if not np.isnan(ema20_latest) else 0.0,
+        ema50=float(ema50_latest) if not np.isnan(ema50_latest) else 0.0,
+        ema200=float(ema200_latest) if not np.isnan(ema200_latest) else 0.0,
+        volume=float(volume_latest) if not np.isnan(volume_latest) else 0.0,
+        volume_ma20=float(volume_ma_latest) if not np.isnan(volume_ma_latest) else 0.0,
+        obv=float(obv_latest) if not np.isnan(obv_latest) else 0.0,
+        obv_ma20=float(obv_ma_latest) if not np.isnan(obv_ma_latest) else 0.0,
+        obv_mom_5=float(obv_mom_latest),
+        obv_mom_ratio=float(obv_momentum),
         atr_med_252=atr_median_latest,
         atr_buy_max=atr_buy_max,
         atr_sell_max=atr_sell_max,
-        close=float(latest_close) if not np.isnan(latest_close) else float("nan"),
-        atr_value=float(atr_value) if not np.isnan(atr_value) else float("nan"),
-        stop_dist=float(stop_dist) if not np.isnan(stop_dist) else float("nan"),
+        close=float(latest_close),
+        atr_value=float(atr_value),
+        stop_dist=float(stop_dist),
         position_size=float(position_size),
         # 차트 패턴
         pattern_triangle=patterns.triangle,
@@ -598,6 +596,7 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         pattern_cup_handle=patterns.cup_handle,
         pattern_candlestick=patterns.candlestick,
         pattern_golden_cross=patterns.golden_cross,
+        weekly_patterns=weekly_patterns_str,
         # 저점 반등 지표
         rsi_reversal=rsi_reversal,
         bollinger_bounce=bollinger_bounce,
@@ -673,6 +672,7 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "패턴_컵핸들": feature_set.pattern_cup_handle,
         "패턴_캔들": feature_set.pattern_candlestick,
         "패턴_골든크로스": feature_set.pattern_golden_cross,
+        "주봉패턴": feature_set.weekly_patterns,  # 신규 컬럼
         # 저점 반등 지표
         "RSI반등": int(feature_set.rsi_reversal),
         "볼린저바운스": int(feature_set.bollinger_bounce),

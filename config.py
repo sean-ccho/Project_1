@@ -115,9 +115,9 @@ EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")  # Gmail의 경우 '앱 비밀�
 EMAIL_RECIPIENT = "chunghwan14@gmail.com"
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-EMAIL_SCORE_THRESHOLD = 4.0  # (레거시) 기본 임계치
-EMAIL_BOTTOM_SCORE_THRESHOLD = 4.0  # 바닥 반등 전략 이메일 알림 최소 점수
-EMAIL_MOMENTUM_SCORE_THRESHOLD = 4.0  # 모멘텀 추격 전략 이메일 알림 최소 점수
+EMAIL_SCORE_THRESHOLD = 6.0  # (레거시) 기본 임계치
+EMAIL_BOTTOM_SCORE_THRESHOLD = 6.0  # 바닥 반등 전략 이메일 알림 최소 점수
+EMAIL_MOMENTUM_SCORE_THRESHOLD = 6.0  # 모멘텀 추격 전략 이메일 알림 최소 점수
 
 
 
@@ -368,6 +368,18 @@ MOMENTUM_STRATEGY_WEIGHTS = {
     "팩터_추세": 1.0,         # 강한 추세 확인
 }
 
+# 주봉(Weekly) 패턴 가중치 (전략 공통 가산점)
+WEEKLY_PATTERN_WEIGHTS = {
+    "golden_cross": 2.0,                # 주봉 골든크로스 (대세 상승)
+    "double_bottom": 1.5,               # 주봉 쌍바닥 (강력한 지지)
+    "inverse_head_and_shoulders": 1.5,  # 주봉 역헤드앤숄더 (장기 바닥)
+    "cup_with_handle": 1.5,             # 주봉 컵앤핸들 (지속형 상승)
+    "ascending_triangle": 1.0,          # 주봉 상승삼각형
+    "falling_wedge": 1.0,               # 주봉 하락쐐기 (반전)
+    "bullish_engulfing": 0.5,           # 주봉 강세 잉걸핑
+    "morning_star": 0.5,                # 주봉 모닝스타
+}
+
 # 알파 팩터 점수 임계치 (두 전략 공통)
 ALPHA_FACTOR_STRONG_THRESHOLD = 0.3   # 강한 신호 임계치
 ALPHA_FACTOR_WEAK_THRESHOLD = 0.1     # 약한 신호 임계치
@@ -557,6 +569,7 @@ EXPORT_COLUMNS = [
     "패턴_컵핸들",
     "패턴_캔들",
     "패턴_골든크로스",
+    "주봉패턴",
     # 기존 컬럼들
     "섹터강도",
     "판단",

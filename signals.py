@@ -19,6 +19,7 @@ from config import (
     RSI_SELL_MIN,
     SIGNAL_PRIORITY,
     VOLUME_BREAKOUT_MULTIPLIER,
+    WEEKLY_PATTERN_WEIGHTS,
     MARKET_FILTER_ENABLED,
     STRATEGY_MODE,
     SECTOR_ROTATION_ENABLED,
@@ -298,9 +299,18 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
             score += W_B["팩터_평균회귀_약"]
 
         # 알파 모델 팩터: Volatility (변동성 압축 → 반등 에너지 축적)
-        vol_factor = row.get("팩터_변동성", 0)
-        if pd.notna(vol_factor) and vol_factor > ALPHA_FACTOR_STRONG_THRESHOLD:
+        vol_score = row.get("팩터_변동성", 0)
+        if pd.notna(vol_score) and vol_score > ALPHA_FACTOR_STRONG_THRESHOLD:
             score += W_B["팩터_변동성"]
+
+        # 주봉 패턴 가산점 (Weekly Patterns)
+        weekly_pat_str = str(row.get("주봉패턴", ""))
+        if weekly_pat_str and weekly_pat_str.lower() != "nan":
+            # 쉼표로 분리하여 각 패턴 점수 합산
+            for pat in weekly_pat_str.split(", "):
+                # config.WEEKLY_PATTERN_WEIGHTS 딕셔너리 키와 매칭
+                if pat in WEEKLY_PATTERN_WEIGHTS:
+                    score += WEEKLY_PATTERN_WEIGHTS[pat]
 
         return score
 
@@ -376,10 +386,17 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
         elif pd.notna(mom_factor) and mom_factor > ALPHA_FACTOR_WEAK_THRESHOLD:
             score += W_M["팩터_모멘텀_약"]
 
-        # 알파 모델 팩터: Trend (추세 강도)
+        # 알파 모델 팩터: Trend (강한 추세 지속)
         trend_factor = row.get("팩터_추세", 0)
         if pd.notna(trend_factor) and trend_factor > ALPHA_FACTOR_STRONG_THRESHOLD:
             score += W_M["팩터_추세"]
+
+        # 주봉 패턴 가산점 (Weekly Patterns)
+        weekly_pat_str = str(row.get("주봉패턴", ""))
+        if weekly_pat_str and weekly_pat_str.lower() != "nan":
+            for pat in weekly_pat_str.split(", "):
+                if pat in WEEKLY_PATTERN_WEIGHTS:
+                    score += WEEKLY_PATTERN_WEIGHTS[pat]
 
         return score
 

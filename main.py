@@ -55,7 +55,7 @@ def build_export_dataframe(
         print(f"[{context_label}] 사용할 티커가 없어 건너뜁니다.")
         return None
 
-    df = fetch_ohlcv(tickers, period="1y")
+    df = fetch_ohlcv(tickers, period="5y")
 
     features = compute_all_features(df)
     if features.empty:

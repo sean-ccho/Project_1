@@ -462,9 +462,12 @@ def detect_double_bottom_top(df: pd.DataFrame, lookback: int = 60) -> PatternRes
             neckline = float(closes.iloc[between_peaks].max())
 
             # 돌파 확인: 현재 가격이 네크라인 근처 또는 위
+            # v2: 최소 패턴 높이 확인 (3.5% 이상이어야 유효, 너무 작은 패턴 무시)
+            pattern_height = (neckline - max(trough_prices)) / max(trough_prices)
+            
             breakout_confirmed = current_price > max(trough_prices) * (1 + PATTERN_BREAKOUT_CONFIRM)
 
-            if breakout_confirmed:
+            if breakout_confirmed and pattern_height >= 0.035:
                 pattern_type = "double_bottom"
                 confidence = 1.0 - price_diff_pct * 10
                 breakout_level = neckline
@@ -505,9 +508,14 @@ def detect_double_bottom_top(df: pd.DataFrame, lookback: int = 60) -> PatternRes
             neckline = float(closes.iloc[between_troughs].min())
 
             # 돌파 확인: 현재 가격이 두 고점보다 낮아야 함
+            # v2: 최소 패턴 높이 확인 (3.5% 이상)
+            pattern_height = (min(peak_prices) - neckline) / neckline  # neckline이 더 낮음 (Peak > Neckline)
+            # 위 식은 음수가 나옴. Peak - Neckline으로 계산해야 함.
+            pattern_height = (min(peak_prices) - neckline) / neckline
+            
             breakdown_confirmed = current_price < min(peak_prices) * (1 - PATTERN_BREAKOUT_CONFIRM)
 
-            if breakdown_confirmed:
+            if breakdown_confirmed and pattern_height >= 0.035:
                 pattern_type = "double_top"
                 confidence = 1.0 - price_diff_pct * 10
                 breakout_level = neckline
@@ -890,8 +898,8 @@ def detect_golden_cross(df: pd.DataFrame) -> PatternResult:
     if sma50.isna().iloc[-1] or sma200.isna().iloc[-1]:
         return PatternResult(False, "none", 0.0)
 
-    # 최근 10거래일에서 교차 발생 여부 확인
-    recent_window = 10
+    # 최근 5거래일(1주) 이내에 교차 발생 여부 확인 (기존 10일에서 축소)
+    recent_window = 5
     cross_type = "none"
     cross_day = -1
 
@@ -1028,3 +1036,84 @@ def detect_all_patterns(df: pd.DataFrame, lookback: int = None) -> AllPatterns:
         cup_handle_breakout=cup_handle.breakout_level,
         golden_cross_breakout=golden_cross.breakout_level,
     )
+
+
+def get_weekly_data(df: pd.DataFrame) -> pd.DataFrame:
+    """일봉 데이터를 주봉 데이터로 변환한다."""
+    if df.empty:
+        return df
+
+    # 일봉 데이터를 주봉으로 리샘플링 (금요일 기준)
+    logic = {
+        "Open": "first",
+        "High": "max",
+        "Low": "min",
+        "Close": "last",
+        "Volume": "sum"
+    }
+    # 컬럼 존재 여부 확인 후 로직 적용
+    agg_logic = {k: v for k, v in logic.items() if k in df.columns}
+    
+    weekly = df.resample("W-FRI").agg(agg_logic)
+    weekly = weekly.dropna()
+    
+    return weekly
+
+
+def detect_weekly_patterns(df: pd.DataFrame) -> List[Tuple[str, float]]:
+    """주봉 데이터를 생성하 주요 패턴을 감지한다.
+    
+    Returns:
+        [(패턴이름, 신뢰도), ...] 리스트
+    """
+    if len(df) < 60:  # 최소 데이터 요구량 (일봉 기준)
+        return []
+
+    weekly = get_weekly_data(df)
+    
+    # 주봉 데이터가 너무 적으면 스킵 (최소 20주 = 약 5개월)
+    if len(weekly) < 20:
+        return []
+
+    patterns_found = []
+
+    # 1. 골든크로스 (주봉) - 대세 상승
+    gc = detect_golden_cross(weekly)
+    if gc.detected and gc.pattern_type == "golden_cross":
+        patterns_found.append(("golden_cross", gc.confidence))
+
+    # 2. 더블 바텀 (주봉) - 장기 바닥
+    double = detect_double_bottom_top(weekly, lookback=52) # 1년치
+    if double.detected and double.pattern_type == "double_bottom":
+        patterns_found.append(("double_bottom", double.confidence))
+
+    # 3. 역헤드앤숄더 (주봉) - 장기 반전
+    hs = detect_head_and_shoulders(weekly, lookback=52)
+    if hs.detected and hs.pattern_type == "inverse_head_and_shoulders":
+        patterns_found.append(("inverse_head_and_shoulders", hs.confidence))
+
+    # 4. 컵앤핸들 (주봉) - 지속형 상승
+    cup = detect_cup_with_handle(weekly, lookback=52)
+    if cup.detected:
+        patterns_found.append(("cup_with_handle", cup.confidence))
+
+    # 5. 상승 삼각형 (주봉)
+    tri = detect_triangle(weekly, lookback=40)
+    if tri.detected and tri.pattern_type == "ascending_triangle":
+        patterns_found.append(("ascending_triangle", tri.confidence))
+    
+    # 6. 하락 쐐기 (주봉) - 반전
+    wdg = detect_wedge(weekly, lookback=40)
+    if wdg.detected and wdg.pattern_type == "falling_wedge":
+        patterns_found.append(("falling_wedge", wdg.confidence))
+        
+    # 7. 캔들스틱 (주봉) - 모닝스타, 강세 잉걸핑
+    # 캔들스틱은 최신 봉 기준이므로 lookback 불필요
+    candle = detect_candlestick_patterns(weekly)
+    if candle.detected:
+        # 쉼표로 구분된 문자열일 수 있음
+        for p in candle.pattern_type.split(","):
+            if p in ("bullish_engulfing", "morning_star"):
+                patterns_found.append((p, candle.confidence))
+
+    return patterns_found
