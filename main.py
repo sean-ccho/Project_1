@@ -469,6 +469,14 @@ def main() -> None:
                             print(f"[{portfolio_label}] GitHub 푸시 실패: {e}")
                 
                 # Google Sheets 업로드
+                # 컬럼 순서 재정렬 (EXPORT_COLUMNS 기준)
+                from config import EXPORT_COLUMNS
+                final_cols = [c for c in EXPORT_COLUMNS if c in portfolio_export.columns]
+                
+                # EXPORT_COLUMNS에 없는 나머지 컬럼(디버깅용 등)도 뒤에 붙여줌 (혹시 몰라서)
+                remaining_cols = [c for c in portfolio_export.columns if c not in final_cols]
+                portfolio_export = portfolio_export[final_cols + remaining_cols]
+
                 if export_to_google_sheet(
                     portfolio_export, GOOGLE_SHEETS_PORTFOLIO_WORKSHEET
                 ):
