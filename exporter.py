@@ -312,6 +312,12 @@ def fetch_tickers_from_sheet(
     return tickers
 
 
+
+def send_email_notification(df: pd.DataFrame) -> bool:
+    """이메일로 매수 적합 종목 리스트를 발송한다."""
+    if not EMAIL_ENABLED:
+        return False
+
     ticker_col = TECH_COLUMN_LABELS.get("티커", "티커")
     name_col = TECH_COLUMN_LABELS.get("회사", "회사")
     price_col = TECH_COLUMN_LABELS.get("현재가격", "현재가격")
