@@ -20,6 +20,7 @@ from config import (
     SIGNAL_PRIORITY,
     VOLUME_BREAKOUT_MULTIPLIER,
     WEEKLY_PATTERN_WEIGHTS,
+    MONTHLY_PATTERN_WEIGHTS,
     MARKET_FILTER_ENABLED,
     STRATEGY_MODE,
     SECTOR_ROTATION_ENABLED,
@@ -312,6 +313,13 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
                 if pat in WEEKLY_PATTERN_WEIGHTS:
                     score += WEEKLY_PATTERN_WEIGHTS[pat]
 
+        # 월봉 패턴 가산점 (Monthly Patterns)
+        monthly_pat_str = str(row.get("월봉패턴", ""))
+        if monthly_pat_str and monthly_pat_str.lower() != "nan":
+            for pat in monthly_pat_str.split(", "):
+                if pat in MONTHLY_PATTERN_WEIGHTS:
+                    score += MONTHLY_PATTERN_WEIGHTS[pat]
+
         return score
 
     # --- 모멘텀 추격 적합도 계산 ---
@@ -397,6 +405,13 @@ def attach_signals_and_sort(df: pd.DataFrame) -> pd.DataFrame:
             for pat in weekly_pat_str.split(", "):
                 if pat in WEEKLY_PATTERN_WEIGHTS:
                     score += WEEKLY_PATTERN_WEIGHTS[pat]
+
+        # 월봉 패턴 가산점 (Monthly Patterns)
+        monthly_pat_str = str(row.get("월봉패턴", ""))
+        if monthly_pat_str and monthly_pat_str.lower() != "nan":
+            for pat in monthly_pat_str.split(", "):
+                if pat in MONTHLY_PATTERN_WEIGHTS:
+                    score += MONTHLY_PATTERN_WEIGHTS[pat]
 
         return score
 

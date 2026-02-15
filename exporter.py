@@ -312,43 +312,10 @@ def fetch_tickers_from_sheet(
     return tickers
 
 
-def _formula_to_html(formula: str) -> str:
-    """Convert Excel HYPERLINK formulas to HTML <a> tags."""
-    if not formula or not isinstance(formula, str):
-        return ""
-    if not formula.startswith("="):
-        return formula.replace("\n", "<br>")
-
-    # Extract all HYPERLINK("url", "text") parts
-    # Example: =HYPERLINK("u1", "t1") & CHAR(10) & HYPERLINK("u2", "t2")
-    # Using (?:[^"]|"")* to allow escaped double quotes within the text
-    import re
-    matches = []
-    # Match HYPERLINK, then url, then text until the closing quote
-    # Text can contain "" for a single " in Excel
-    for match in re.finditer(r'HYPERLINK\("(?P<url>[^"]+)",\s*"(?P<text>(?:[^"]|"")*)"\)', formula):
-        url = match.group("url")
-        text = match.group("text").replace('""', '"') # Convert Excel escape back to normal quote
-        matches.append((url, text))
-
-    if not matches:
-        return formula.replace("\n", "<br>")
-
-    html_links = [f'<a href="{url}">{text}</a>' for url, text in matches]
-    return "<br>".join(html_links)
-
-
-def send_email_notification(df: pd.DataFrame) -> bool:
-    """바닥 반등/모멘텀 적합도가 임계치 이상인 종목 리스트를 이메일로 발송한다."""
-
-    if not EMAIL_ENABLED:
-        return False
-
     ticker_col = TECH_COLUMN_LABELS.get("티커", "티커")
     name_col = TECH_COLUMN_LABELS.get("회사", "회사")
     price_col = TECH_COLUMN_LABELS.get("현재가격", "현재가격")
     rec_col = TECH_COLUMN_LABELS.get("추천", "추천")
-    news_col = TECH_COLUMN_LABELS.get("최근뉴스", "최근뉴스")
     bottom_col = TECH_COLUMN_LABELS.get("바닥반등_적합도_표시", "바닥반등_적합도_표시")
     momentum_col = TECH_COLUMN_LABELS.get("모멘텀_적합도_표시", "모멘텀_적합도_표시")
 
@@ -382,15 +349,13 @@ def send_email_notification(df: pd.DataFrame) -> bool:
         if section_df.empty:
             return f"<p>해당 종목 없음</p>"
         html = "<table border='1' style='border-collapse: collapse; width: 100%;'>"
-        html += f"<tr style='background-color: #f2f2f2;'><th>티커</th><th>회사명</th><th>현재가</th><th>{score_label}</th><th>추천</th><th>최근뉴스</th></tr>"
+        html += f"<tr style='background-color: #f2f2f2;'><th>티커</th><th>회사명</th><th>현재가</th><th>{score_label}</th></tr>"
         for _, row in section_df.iterrows():
             ticker = row.get(ticker_col, "")
             name = row.get(name_col, "")
             price = row.get(price_col, "")
             score_val = row.get(score_col_name, "")
-            rec = row.get(rec_col, "")
-            news_html = _formula_to_html(str(row.get(news_col, "")))
-            html += f"<tr><td>{ticker}</td><td>{name}</td><td>{price}</td><td>{score_val}</td><td>{rec}</td><td>{news_html}</td></tr>"
+            html += f"<tr><td>{ticker}</td><td>{name}</td><td>{price}</td><td>{score_val}</td></tr>"
         html += "</table>"
         return html
 

@@ -1060,6 +1060,92 @@ def get_weekly_data(df: pd.DataFrame) -> pd.DataFrame:
     return weekly
 
 
+def get_monthly_data(df: pd.DataFrame) -> pd.DataFrame:
+    """일봉 데이터를 월봉 데이터로 변환한다."""
+    if df.empty:
+        return df
+
+    # 일봉 데이터를 월봉으로 리샘플링 (월말 기준)
+    logic = {
+        "Open": "first",
+        "High": "max",
+        "Low": "min",
+        "Close": "last",
+        "Volume": "sum"
+    }
+    agg_logic = {k: v for k, v in logic.items() if k in df.columns}
+    
+    monthly = df.resample("ME").agg(agg_logic)
+    monthly = monthly.dropna()
+    
+    return monthly
+
+
+def detect_monthly_patterns(df: pd.DataFrame) -> List[Tuple[str, float]]:
+    """월봉 데이터를 생성하여 주요 패턴을 감지한다."""
+    if len(df) < 120:  # 최소 데이터 요구량 (약 6개월)
+        return []
+
+    monthly = get_monthly_data(df)
+    
+    # 월봉 데이터가 너무 적으면 스킵 (최소 12개월)
+    if len(monthly) < 12:
+        return []
+
+    patterns_found = []
+
+    # 1. 골든크로스 (월봉) - 초장기 대세 상승
+    gc = detect_golden_cross(monthly)
+    if gc.detected and gc.pattern_type == "golden_cross":
+        patterns_found.append(("golden_cross", gc.confidence))
+
+    # 2. 더블 바텀 (월봉) - 역사적 바닥
+    double = detect_double_bottom_top(monthly, lookback=24) # 2년치
+    if double.detected and double.pattern_type == "double_bottom":
+        patterns_found.append(("double_bottom", double.confidence))
+
+    # 3. 역헤드앤숄더 (월봉) - 역사적 반전
+    hs = detect_head_and_shoulders(monthly, lookback=24)
+    if hs.detected and hs.pattern_type == "inverse_head_and_shoulders":
+        patterns_found.append(("inverse_head_and_shoulders", hs.confidence))
+
+    # 4. 컵앤핸들 (월봉) - 수년간의 매집
+    cup = detect_cup_with_handle(monthly, lookback=36) # 3년치
+    if cup.detected:
+        patterns_found.append(("cup_with_handle", cup.confidence))
+
+    # 5. 상승 삼각형 (월봉)
+    tri = detect_triangle(monthly, lookback=24)
+    if tri.detected and tri.pattern_type == "ascending_triangle":
+        patterns_found.append(("ascending_triangle", tri.confidence))
+    
+    # 6. 하락 쐐기 (월봉)
+    wdg = detect_wedge(monthly, lookback=24)
+    if wdg.detected and wdg.pattern_type == "falling_wedge":
+        patterns_found.append(("falling_wedge", wdg.confidence))
+        
+    # 7. 캔들스틱 (월봉) - 모닝스타, 강세 잉걸핑
+    candle = detect_candlestick_patterns(monthly)
+    if candle.detected:
+        for p in candle.pattern_type.split(","):
+            if p in ("bullish_engulfing", "morning_star"):
+                patterns_found.append((p, candle.confidence))
+
+    # 8. 월봉 정배열 (초장기 상승 추세) - MA50 > MA200 (대략 4년 > 16년?? 월봉 50/200은 너무 김. 12/60 정도로 조정)
+    # 월봉에서 50개월(4년), 200개월(16년)은 너무 긺.
+    # 일반적인 월봉 이평선: 6개월, 12개월(1년), 24개월(2년) 등
+    # 여기서는 장기 추세를 위해 10개월(단기) > 20개월(중기) 정배열로 체크하거나, 
+    # 원래 의도대로 50/200을 쓸 수도 있음. (S&P500 같은 지수는 50/200월봉도 씀)
+    # config의 의도는 '초장기 상승 추세' 이므로 12개월(1년) > 60개월(5년) 정도로 타협.
+    if len(monthly) >= 60:
+        ma12 = monthly["Close"].rolling(12).mean().iloc[-1]
+        ma60 = monthly["Close"].rolling(60).mean().iloc[-1]
+        if ma12 > ma60:
+            patterns_found.append(("monthly_uptrend", 1.0))
+
+    return patterns_found
+
+
 def detect_weekly_patterns(df: pd.DataFrame) -> List[Tuple[str, float]]:
     """주봉 데이터를 생성하 주요 패턴을 감지한다.
     

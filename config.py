@@ -381,6 +381,19 @@ WEEKLY_PATTERN_WEIGHTS = {
     "weekly_uptrend": 1.0,              # 주봉 정배열 (장기 상승 추세)
 }
 
+# 월봉(Monthly) 패턴 가중치 (전략 공통 가산점) - 장기 추세 확인용
+MONTHLY_PATTERN_WEIGHTS = {
+    "golden_cross": 3.0,                # 월봉 골든크로스 (초장기 대세 상승)
+    "double_bottom": 2.0,               # 월봉 쌍바닥 (역사적 저점)
+    "inverse_head_and_shoulders": 2.0,  # 월봉 역헤드앤숄더 (역사적 바닥)
+    "cup_with_handle": 2.0,             # 월봉 컵앤핸들 (수년간의 매집 후 상승)
+    "ascending_triangle": 1.5,          # 월봉 상승삼각형
+    "falling_wedge": 1.5,               # 월봉 하락쐐기
+    "bullish_engulfing": 1.0,           # 월봉 강세 잉걸핑
+    "morning_star": 1.0,                # 월봉 모닝스타
+    "monthly_uptrend": 1.5,             # 월봉 정배열 (초장기 상승 추세)
+}
+
 # 알파 팩터 점수 임계치 (두 전략 공통)
 ALPHA_FACTOR_STRONG_THRESHOLD = 0.3   # 강한 신호 임계치
 ALPHA_FACTOR_WEAK_THRESHOLD = 0.1     # 약한 신호 임계치
@@ -553,7 +566,6 @@ EXPORT_COLUMNS = [
     "티커",
     "회사",
     "현재가격",
-    "최근뉴스",
     "섹터",
     "바닥반등_적합도_표시",  # 바닥 반등 전략 적합도 (★ 표시)
     "모멘텀_적합도_표시",    # 모멘텀 추격 전략 적합도 (★ 표시)
@@ -563,28 +575,16 @@ EXPORT_COLUMNS = [
     "차트_Daily",
     "차트_Weekly",
     "차트_Monthly",
-    "패턴_삼각형",
-    "패턴_쐐기",
-    "패턴_더블",
-    "패턴_헤드숄더",
-    "패턴_컵핸들",
-    "패턴_캔들",
-    "패턴_골든크로스",
+    "일봉패턴",   # 요약
     "주봉패턴",  # 요약
-    "주봉_삼각형",
-    "주봉_쐐기",
-    "주봉_더블",
-    "주봉_헤드숄더",
-    "주봉_컵핸들",
-    "주봉_골든크로스",
-    "주봉_상승추세",
+    "월봉패턴",  # 요약
     # 기존 컬럼들
     "섹터강도",
-    "판단",
-    "추천",
-    "트렌드점수_최종",
-    "buy_signal_text",
-    "sell_signal_text",
+    # "판단",
+    # "추천",
+    # "트렌드점수_최종",
+    # "buy_signal_text",
+    # "sell_signal_text",
     # "buy_support_count",  # 매수 보조
     # "sell_support_count",  # 매도 보조
     # "position_size",  # 권장 수량

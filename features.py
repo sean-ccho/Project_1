@@ -60,7 +60,7 @@ from config import (
 )
 from alpha_model import compute_factor_scores, compute_factor_scores_from_indicators, compute_alpha_score, compute_ic_weights
 from fundamentals import fetch_fundamental_snapshots
-from patterns import detect_all_patterns, detect_weekly_patterns, AllPatterns
+from patterns import detect_all_patterns, detect_weekly_patterns, detect_monthly_patterns, AllPatterns
 
 
 def to_market(ticker: str) -> str:
@@ -147,7 +147,9 @@ class FeatureSet:
     pattern_cup_handle: bool
     pattern_candlestick: str
     pattern_golden_cross: str
+    daily_patterns: str   # 일봉 패턴 (콤마로 구분된 문자열)
     weekly_patterns: str  # 주봉 패턴 (콤마로 구분된 문자열)
+    monthly_patterns: str  # 월봉 패턴 (콤마로 구분된 문자열)
     # 저점 반등 지표
     rsi_reversal: bool           # RSI 과매도 후 반등
     bollinger_bounce: bool       # 볼린저 하단 터치 후 복귀
@@ -156,6 +158,7 @@ class FeatureSet:
     macd_divergence: bool        # MACD 다이버전스
     bottom_reversal_score: float # 반등 점수 (최대 10점)
     weekly_patterns_list: List = field(default_factory=list)
+    monthly_patterns_list: List = field(default_factory=list)
 
 
 def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
@@ -527,6 +530,49 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
     # 차트 패턴 감지
     # 차트 패턴: 일봉
     patterns = detect_all_patterns(p[-PATTERN_LOOKBACK_DAYS * 2 :])  # 충분한 데이터 전달
+    
+    # 일봉 패턴 요약 문자열 생성
+    d_patterns_list = []
+    
+    # 영어 -> 한글 매핑 (일봉용)
+    d_pattern_map = {
+        "symmetrical_triangle": "대칭삼각형",
+        "ascending_triangle": "상승삼각형",
+        "descending_triangle": "하락삼각형",
+        "rising_wedge": "상승쐐기",
+        "falling_wedge": "하락쐐기",
+        "double_bottom": "이중바닥",
+        "double_top": "이중천장",
+        "head_and_shoulders": "헤드앤숄더",
+        "inverse_head_and_shoulders": "역헤드앤숄더",
+        "cup_with_handle": "컵앤핸들",
+        "golden_cross": "골든크로스",
+        "bullish_engulfing": "강세잉걸핑",
+        "bearish_engulfing": "약세잉걸핑",
+        "morning_star": "모닝스타",
+        "evening_star": "이브닝스타",
+        "doji": "도지",
+    }
+    
+    if patterns.triangle != "none":
+        d_patterns_list.append(patterns.triangle)
+    if patterns.wedge != "none":
+        d_patterns_list.append(patterns.wedge)
+    if patterns.double != "none":
+        d_patterns_list.append(patterns.double)
+    if patterns.head_shoulders != "none":
+        d_patterns_list.append(patterns.head_shoulders)
+    if patterns.cup_handle:
+        d_patterns_list.append("cup_with_handle")
+    if patterns.golden_cross != "none":
+        d_patterns_list.append("golden_cross")
+    if patterns.candlestick != "none":
+        # 캔들스틱은 콤마로 구분된 문자열일 수 있음
+        for c in patterns.candlestick.split(","):
+            d_patterns_list.append(c.strip())
+            
+    # 한글로 변환하여 콤마로 연결
+    daily_patterns_str = ", ".join([d_pattern_map.get(p, p) for p in d_patterns_list])
 
     # 차트 패턴: 주봉 (Weekly)
     # 전체 데이터를 넘기면 내부에서 리샘플링 후 패턴 감지
@@ -549,6 +595,24 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
             "weekly_uptrend": "상승추세(정배열)",
         }
         weekly_patterns_str = ", ".join([pattern_map.get(name, name) for name, conf in w_patterns_list])
+
+    # 차트 패턴: 월봉 (Monthly)
+    m_patterns_list = detect_monthly_patterns(p)
+    monthly_patterns_str = ""
+    if m_patterns_list:
+        # 영어 -> 한글 매핑 (주봉과 동일한 키 사용)
+        pattern_map = {
+            "golden_cross": "골든크로스",
+            "double_bottom": "이중바닥",
+            "inverse_head_and_shoulders": "역헤드앤숄더",
+            "cup_with_handle": "컵앤핸들",
+            "ascending_triangle": "상승삼각형",
+            "falling_wedge": "하락쐐기",
+            "bullish_engulfing": "강세잉걸핑",
+            "morning_star": "모닝스타",
+            "monthly_uptrend": "상승추세(정배열)",
+        }
+        monthly_patterns_str = ", ".join([pattern_map.get(name, name) for name, conf in m_patterns_list])
 
     return FeatureSet(
         trend_score=trend_score,
@@ -611,8 +675,11 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         pattern_cup_handle=patterns.cup_handle,
         pattern_candlestick=patterns.candlestick,
         pattern_golden_cross=patterns.golden_cross,
+        daily_patterns=daily_patterns_str,
         weekly_patterns=weekly_patterns_str,
+        monthly_patterns=monthly_patterns_str,
         weekly_patterns_list=w_patterns_list,
+        monthly_patterns_list=m_patterns_list,
         # 저점 반등 지표
         rsi_reversal=rsi_reversal,
         bollinger_bounce=bollinger_bounce,
@@ -680,15 +747,17 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "atr_value": feature_set.atr_value,
         "stop_dist": feature_set.stop_dist,
         "position_size": feature_set.position_size,
-        # 차트 패턴
-        "패턴_삼각형": feature_set.pattern_triangle,
-        "패턴_쐐기": feature_set.pattern_wedge,
-        "패턴_더블": feature_set.pattern_double,
-        "패턴_헤드숄더": feature_set.pattern_head_shoulders,
-        "패턴_컵핸들": feature_set.pattern_cup_handle,
-        "패턴_캔들": feature_set.pattern_candlestick,
-        "패턴_골든크로스": feature_set.pattern_golden_cross,
+        # 차트 패턴 (개별 컬럼 제거, 요약만 유지)
+        # "패턴_삼각형": feature_set.pattern_triangle,
+        # "패턴_쐐기": feature_set.pattern_wedge,
+        # "패턴_더블": feature_set.pattern_double,
+        # "패턴_헤드숄더": feature_set.pattern_head_shoulders,
+        # "패턴_컵핸들": feature_set.pattern_cup_handle,
+        # "패턴_캔들": feature_set.pattern_candlestick,
+        # "패턴_골든크로스": feature_set.pattern_golden_cross,
+        "일봉패턴": feature_set.daily_patterns,
         "주봉패턴": feature_set.weekly_patterns,
+        "월봉패턴": feature_set.monthly_patterns,
         # 저점 반등 지표
         "RSI반등": int(feature_set.rsi_reversal),
         "볼린저바운스": int(feature_set.bollinger_bounce),
@@ -698,42 +767,6 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "반등스코어": feature_set.bottom_reversal_score,
     }
 
-    # 주봉 패턴 개별 컬럼 추가
-    weekly_cols = {
-        "주봉_삼각형": "",
-        "주봉_쐐기": "",
-        "주봉_더블": "",
-        "주봉_헤드숄더": "",
-        "주봉_컵핸들": "",
-        "주봉_골든크로스": "",
-        "주봉_상승추세": "",
-    }
-    
-    # 매핑 (영어 key -> (컬럼명, 표시값))
-    w_map = {
-        "ascending_triangle": ("주봉_삼각형", "상승삼각형"),
-        "falling_wedge": ("주봉_쐐기", "하락쐐기"),
-        "double_bottom": ("주봉_더블", "이중바닥"),
-        "inverse_head_and_shoulders": ("주봉_헤드숄더", "역헤드앤숄더"),
-        "cup_with_handle": ("주봉_컵핸들", "컵앤핸들"),
-        "golden_cross": ("주봉_골든크로스", "골든크로스"),
-        "weekly_uptrend": ("주봉_상승추세", "상승추세"),
-        "bullish_engulfing": ("주봉_캔들", "강세잉걸핑"), 
-        "morning_star": ("주봉_캔들", "모닝스타"),
-    }
-    
-    # w_patterns_list는 [(name, conf), ...] 형태
-    for name, conf in feature_set.weekly_patterns_list:
-        if name in w_map:
-            col, val = w_map[name]
-            if col in weekly_cols:
-                # 이미 값이 있으면 콤마로 연결
-                if weekly_cols[col]:
-                    weekly_cols[col] += f", {val}"
-                else:
-                    weekly_cols[col] = val
-    
-    row.update(weekly_cols)
     return row
 
 
