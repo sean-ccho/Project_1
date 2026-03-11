@@ -80,6 +80,20 @@ GOOGLE_SHEETS_PORTFOLIO_WORKSHEET: str | None = "차트분석"
 GOOGLE_SHEETS_PORTFOLIO_ENABLED = True  # 차트분석(포트폴리오) 워크시트 업데이트 on/off
 GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN = "티커"
 
+# Signals2 워크시트 설정 (전 종목 스캔 결과)
+GOOGLE_SHEETS_SIGNALS2_WORKSHEET = "Signals2"
+GOOGLE_SHEETS_SIGNALS2_ENABLED = True  # Signals2 워크시트 업데이트 on/off
+
+# 전 종목 스캔: 바닥 탈출(Turnaround) 전략 임계값
+TURNAROUND_MIN_DROP = -0.50          # 52주 고점 대비 최소 낙폭 (-50%)
+TURNAROUND_MA200_LOOKBACK = 5       # 200일선 돌파 확인 기간 (거래일)
+TURNAROUND_VOLUME_MULT = 2.0        # 돌파 시 최소 거래량 배수 (50일 평균 대비)
+
+# 전 종목 스캔: 강세 돌파(Momentum) 전략 임계값
+MOMENTUM_HIGH_THRESHOLD = 0.95       # 52주 고점 대비 위치 (0.95 = 5% 이내)
+MOMENTUM_MIN_GAIN_20D = 0.15         # 최근 20일 최소 수익률 (15%)
+
+
 # TradingView 차트 캡처 설정
 CHARTS_ENABLED = True  # 차트 캡처 기능 on/off
 CHARTS_TIMEFRAMES = ["1H", "4H", "Daily", "Weekly", "Monthly"]  # 캡처할 타임프레임 목록
