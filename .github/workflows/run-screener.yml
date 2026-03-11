@@ -60,10 +60,26 @@ jobs:
           git commit -m "Update chart screenshots [skip ci]" || echo "No changes to commit"
           git push
 
-      - name: Upload run log
+      - name: Run full market scan
+        if: always()
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        run: |
+          set -o pipefail
+          python run_full_scan.py | tee full_scan.log
+
+      - name: Upload screener log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screener-log
           path: run.log
+          retention-days: 7
+
+      - name: Upload full scan log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-scan-log
+          path: full_scan.log
           retention-days: 7
