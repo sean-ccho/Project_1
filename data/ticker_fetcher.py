@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 import io
+import re
+import time
 from ftplib import FTP
 from typing import List
 
@@ -17,6 +19,37 @@ FTP_HOST = "ftp.nasdaqtrader.com"
 FTP_DIR = "SymbolDirectory"
 NASDAQ_FILE = "nasdaqlisted.txt"
 OTHER_FILE = "otherlisted.txt"
+
+# 1단계 필터 설정
+_BATCH_SIZE = 100          # yfinance 배치 크기 (500 → 100으로 축소)
+_BATCH_DELAY = 2.0         # 배치 간 대기 시간(초)
+_MAX_RETRIES = 3           # rate limit 시 재시도 횟수
+_RETRY_BASE_DELAY = 30     # 재시도 기본 대기 시간(초) — 30/60/120
+
+# 비표준 심볼 패턴 (보통주가 아닌 것들)
+#   $ 포함       → 우선주         (BAC$K, ALL$H)
+#   .W / .U / .R → 워런트/유닛/권리 (ACHR.W, ALUB.U, CELG.R)
+#   .A / .B      → 듀얼 클래스     (BRK.A, BF.B)  ※ 이것은 보통주이므로 유지
+_NON_COMMON_RE = re.compile(
+    r"[$]"            # 우선주
+    r"|\.W$"          # 워런트 (NYSE 형식)
+    r"|\.U$"          # 유닛 (NYSE 형식)
+    r"|\.R$"          # 권리 (NYSE 형식)
+)
+
+# 나스닥 관례: 5글자 이상 + W/U/R로 끝나는 티커 → 워런트/유닛/권리
+# 예: CGCTW(워런트), CCIXU(유닛), AIIAR(권리)
+# 단, 정상 4글자 이하 티커가 W/U/R로 끝나는 건 유지 (예: SNOW, ROKU)
+_NASDAQ_WARRANT_RE = re.compile(r"^[A-Z]{4,}[WUR]$")
+
+
+def _is_common_stock(ticker: str) -> bool:
+    """보통주 여부를 판단한다. 우선주/워런트/유닛/권리를 제거한다."""
+    if _NON_COMMON_RE.search(ticker):
+        return False
+    if _NASDAQ_WARRANT_RE.match(ticker):
+        return False
+    return True
 
 
 def _download_ftp_file(filename: str) -> str:
@@ -63,6 +96,9 @@ def _parse_other_listed(raw: str) -> pd.DataFrame:
 def fetch_all_tickers() -> List[str]:
     """NYSE와 NASDAQ의 전체 보통주 티커 리스트를 반환한다.
 
+    우선주($), 워런트(.W), 유닛(.U), 권리(.R) 등
+    비표준 심볼은 자동으로 제외된다.
+
     Returns:
         중복 제거된 티커 리스트 (정렬됨).
     """
@@ -79,10 +115,64 @@ def fetch_all_tickers() -> List[str]:
     combined["ticker"] = combined["ticker"].str.strip()
     combined = combined[combined["ticker"].str.len() > 0]
     # 중복 제거 및 정렬
-    tickers = sorted(combined["ticker"].unique().tolist())
+    all_tickers = sorted(combined["ticker"].unique().tolist())
+    total_raw = len(all_tickers)
 
-    print(f"[ticker_fetcher] 총 {len(tickers)}개 종목 로드 완료")
+    # 비표준 심볼 필터링 (우선주, 워런트, 유닛, 권리 제거)
+    tickers = [t for t in all_tickers if _is_common_stock(t)]
+    removed = total_raw - len(tickers)
+
+    print(
+        f"[ticker_fetcher] 총 {total_raw}개 종목 로드 → "
+        f"비표준 심볼 {removed}개 제거 → {len(tickers)}개 보통주"
+    )
     return tickers
+
+
+def _download_batch_with_retry(
+    batch: List[str],
+    batch_num: int,
+    total_batches: int,
+    *,
+    period: str = "1mo",
+) -> pd.DataFrame | None:
+    """yfinance 배치 다운로드를 rate limit 재시도와 함께 수행한다."""
+    import yfinance as yf
+
+    batch_str = " ".join(batch)
+
+    for attempt in range(1, _MAX_RETRIES + 1):
+        try:
+            data = yf.download(
+                batch_str,
+                period=period,
+                interval="1d",
+                auto_adjust=True,
+                threads=True,
+                progress=False,
+            )
+            return data if not data.empty else None
+
+        except Exception as e:
+            err_str = str(e)
+            is_rate_limit = "Rate" in err_str or "Too Many" in err_str
+
+            if is_rate_limit and attempt < _MAX_RETRIES:
+                wait = _RETRY_BASE_DELAY * (2 ** (attempt - 1))
+                print(
+                    f"[ticker_fetcher] 배치 {batch_num}/{total_batches} "
+                    f"rate limit → {wait}초 대기 후 재시도 "
+                    f"({attempt}/{_MAX_RETRIES})..."
+                )
+                time.sleep(wait)
+            else:
+                print(
+                    f"[ticker_fetcher] 배치 {batch_num}/{total_batches} "
+                    f"처리 실패: {e}"
+                )
+                return None
+
+    return None
 
 
 def filter_tickers_basic(
@@ -103,68 +193,53 @@ def filter_tickers_basic(
     Returns:
         필터링된 티커 리스트.
     """
-    import yfinance as yf
-    import time
-
-    BATCH_SIZE = 500
     passed: List[str] = []
     total = len(tickers)
 
-    for i in range(0, total, BATCH_SIZE):
-        batch = tickers[i : i + BATCH_SIZE]
-        batch_str = " ".join(batch)
-        batch_num = i // BATCH_SIZE + 1
-        total_batches = (total + BATCH_SIZE - 1) // BATCH_SIZE
+    for i in range(0, total, _BATCH_SIZE):
+        batch = tickers[i : i + _BATCH_SIZE]
+        batch_num = i // _BATCH_SIZE + 1
+        total_batches = (total + _BATCH_SIZE - 1) // _BATCH_SIZE
         print(
             f"[ticker_fetcher] 1단계 필터링 배치 {batch_num}/{total_batches} "
             f"({len(batch)}개 종목)..."
         )
 
-        try:
-            data = yf.download(
-                batch_str,
-                period="1mo",
-                interval="1d",
-                auto_adjust=True,
-                threads=True,
-                progress=False,
-            )
-            if data.empty:
-                continue
-
-            if isinstance(data.columns, pd.MultiIndex):
-                for ticker in batch:
-                    try:
-                        if ticker not in data.columns.get_level_values(1):
-                            continue
-                        close = data["Close"][ticker].dropna()
-                        volume = data["Volume"][ticker].dropna()
-                        if close.empty or volume.empty:
-                            continue
-                        last_price = close.iloc[-1]
-                        avg_vol = volume.mean()
-                        if last_price >= min_price and avg_vol >= min_avg_volume:
-                            passed.append(ticker)
-                    except (KeyError, IndexError):
-                        continue
-            else:
-                # 단일 티커인 경우
-                if len(batch) == 1:
-                    close = data["Close"].dropna()
-                    volume = data["Volume"].dropna()
-                    if not close.empty and not volume.empty:
-                        last_price = close.iloc[-1]
-                        avg_vol = volume.mean()
-                        if last_price >= min_price and avg_vol >= min_avg_volume:
-                            passed.append(batch[0])
-
-        except Exception as e:
-            print(f"[ticker_fetcher] 배치 {batch_num} 처리 실패: {e}")
+        data = _download_batch_with_retry(
+            batch, batch_num, total_batches, period="1mo"
+        )
+        if data is None:
             continue
 
+        if isinstance(data.columns, pd.MultiIndex):
+            for ticker in batch:
+                try:
+                    if ticker not in data.columns.get_level_values(1):
+                        continue
+                    close = data["Close"][ticker].dropna()
+                    volume = data["Volume"][ticker].dropna()
+                    if close.empty or volume.empty:
+                        continue
+                    last_price = close.iloc[-1]
+                    avg_vol = volume.mean()
+                    if last_price >= min_price and avg_vol >= min_avg_volume:
+                        passed.append(ticker)
+                except (KeyError, IndexError):
+                    continue
+        else:
+            # 단일 티커인 경우
+            if len(batch) == 1:
+                close = data["Close"].dropna()
+                volume = data["Volume"].dropna()
+                if not close.empty and not volume.empty:
+                    last_price = close.iloc[-1]
+                    avg_vol = volume.mean()
+                    if last_price >= min_price and avg_vol >= min_avg_volume:
+                        passed.append(batch[0])
+
         # API 부하 방지
-        if i + BATCH_SIZE < total:
-            time.sleep(1)
+        if i + _BATCH_SIZE < total:
+            time.sleep(_BATCH_DELAY)
 
     print(
         f"[ticker_fetcher] 1단계 필터링 완료: {total}개 → {len(passed)}개 "

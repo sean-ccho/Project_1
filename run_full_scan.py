@@ -53,23 +53,19 @@ from sector_rotation import get_strong_sectors
 # 2단계: 전략별 후보 필터링 (yfinance 1년 데이터 기반)
 # ---------------------------------------------------------------------------
 
-def _stage2_filter(tickers: list[str], batch_size: int = 200) -> list[str]:
-    """2단계 필터: 바닥 탈출/강세 돌파 후보만 선별한다.
+_STAGE2_BATCH_SIZE = 100       # 배치 크기 (200 → 100으로 축소)
+_STAGE2_BATCH_DELAY = 2.0      # 배치 간 대기 시간(초)
+_STAGE2_MAX_RETRIES = 3        # rate limit 재시도 횟수
+_STAGE2_RETRY_BASE_DELAY = 30  # 재시도 기본 대기(초) — 30/60/120
 
-    1년치 데이터를 배치로 가져와 빠르게 필터링한다.
-    """
-    candidates: list[str] = []
-    total = len(tickers)
 
-    for i in range(0, total, batch_size):
-        batch = tickers[i : i + batch_size]
-        batch_num = i // batch_size + 1
-        total_batches = (total + batch_size - 1) // batch_size
-        print(
-            f"[2단계] 배치 {batch_num}/{total_batches} "
-            f"({len(batch)}개 종목 분석 중)..."
-        )
-
+def _stage2_download_with_retry(
+    batch: list[str],
+    batch_num: int,
+    total_batches: int,
+) -> pd.DataFrame | None:
+    """2단계용 yfinance 배치 다운로드 (rate limit 재시도 포함)."""
+    for attempt in range(1, _STAGE2_MAX_RETRIES + 1):
         try:
             data = yf.download(
                 " ".join(batch),
@@ -79,63 +75,98 @@ def _stage2_filter(tickers: list[str], batch_size: int = 200) -> list[str]:
                 threads=True,
                 progress=False,
             )
-            if data.empty:
-                continue
-
-            is_multi = isinstance(data.columns, pd.MultiIndex)
-
-            for ticker in batch:
-                try:
-                    if is_multi:
-                        if ticker not in data.columns.get_level_values(1):
-                            continue
-                        close = data["Close"][ticker].dropna()
-                        volume = data["Volume"][ticker].dropna()
-                    else:
-                        if len(batch) > 1:
-                            continue
-                        close = data["Close"].dropna()
-                        volume = data["Volume"].dropna()
-
-                    if len(close) < 120:
-                        continue
-
-                    # 52주 고점/저점
-                    high_52w = close.max()
-                    current = close.iloc[-1]
-                    drop_from_high = (current - high_52w) / high_52w
-
-                    # 52주 포지션
-                    low_52w = close.min()
-                    range_52w = high_52w - low_52w
-                    pos_52w = (current - low_52w) / range_52w if range_52w > 0 else 0
-
-                    # 20일 수익률
-                    ret_20d = 0.0
-                    if len(close) >= 20:
-                        ret_20d = (current / close.iloc[-20]) - 1.0
-
-                    # --- 바닥 탈출 후보 ---
-                    is_turnaround = drop_from_high <= TURNAROUND_MIN_DROP
-
-                    # --- 강세 돌파 후보 ---
-                    is_momentum = (
-                        pos_52w >= MOMENTUM_HIGH_THRESHOLD
-                        and ret_20d >= MOMENTUM_MIN_GAIN_20D
-                    )
-
-                    if is_turnaround or is_momentum:
-                        candidates.append(ticker)
-
-                except (KeyError, IndexError, ZeroDivisionError):
-                    continue
+            return data if not data.empty else None
 
         except Exception as e:
-            print(f"[2단계] 배치 {batch_num} 처리 실패: {e}")
+            err_str = str(e)
+            is_rate_limit = "Rate" in err_str or "Too Many" in err_str
+
+            if is_rate_limit and attempt < _STAGE2_MAX_RETRIES:
+                wait = _STAGE2_RETRY_BASE_DELAY * (2 ** (attempt - 1))
+                print(
+                    f"[2단계] 배치 {batch_num}/{total_batches} "
+                    f"rate limit → {wait}초 대기 후 재시도 "
+                    f"({attempt}/{_STAGE2_MAX_RETRIES})..."
+                )
+                time.sleep(wait)
+            else:
+                print(f"[2단계] 배치 {batch_num}/{total_batches} 처리 실패: {e}")
+                return None
+
+    return None
+
+
+def _stage2_filter(tickers: list[str]) -> list[str]:
+    """2단계 필터: 바닥 탈출/강세 돌파 후보만 선별한다.
+
+    1년치 데이터를 배치로 가져와 빠르게 필터링한다.
+    """
+    candidates: list[str] = []
+    total = len(tickers)
+
+    for i in range(0, total, _STAGE2_BATCH_SIZE):
+        batch = tickers[i : i + _STAGE2_BATCH_SIZE]
+        batch_num = i // _STAGE2_BATCH_SIZE + 1
+        total_batches = (total + _STAGE2_BATCH_SIZE - 1) // _STAGE2_BATCH_SIZE
+        print(
+            f"[2단계] 배치 {batch_num}/{total_batches} "
+            f"({len(batch)}개 종목 분석 중)..."
+        )
+
+        data = _stage2_download_with_retry(batch, batch_num, total_batches)
+        if data is None:
             continue
 
-        if i + batch_size < total:
-            time.sleep(1)
+        is_multi = isinstance(data.columns, pd.MultiIndex)
+
+        for ticker in batch:
+            try:
+                if is_multi:
+                    if ticker not in data.columns.get_level_values(1):
+                        continue
+                    close = data["Close"][ticker].dropna()
+                    volume = data["Volume"][ticker].dropna()
+                else:
+                    if len(batch) > 1:
+                        continue
+                    close = data["Close"].dropna()
+                    volume = data["Volume"].dropna()
+
+                if len(close) < 120:
+                    continue
+
+                # 52주 고점/저점
+                high_52w = close.max()
+                current = close.iloc[-1]
+                drop_from_high = (current - high_52w) / high_52w
+
+                # 52주 포지션
+                low_52w = close.min()
+                range_52w = high_52w - low_52w
+                pos_52w = (current - low_52w) / range_52w if range_52w > 0 else 0
+
+                # 20일 수익률
+                ret_20d = 0.0
+                if len(close) >= 20:
+                    ret_20d = (current / close.iloc[-20]) - 1.0
+
+                # --- 바닥 탈출 후보 ---
+                is_turnaround = drop_from_high <= TURNAROUND_MIN_DROP
+
+                # --- 강세 돌파 후보 ---
+                is_momentum = (
+                    pos_52w >= MOMENTUM_HIGH_THRESHOLD
+                    and ret_20d >= MOMENTUM_MIN_GAIN_20D
+                )
+
+                if is_turnaround or is_momentum:
+                    candidates.append(ticker)
+
+            except (KeyError, IndexError, ZeroDivisionError):
+                continue
+
+        if i + _STAGE2_BATCH_SIZE < total:
+            time.sleep(_STAGE2_BATCH_DELAY)
 
     print(
         f"[2단계] 필터링 완료: {total}개 → {len(candidates)}개 후보 선별"

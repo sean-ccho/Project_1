@@ -1,9 +1,11 @@
 name: Run Full Market Scan
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
   schedule:
-    - cron: '0 4 * * *'  # 04:00 UTC = 11:00 PM EST (기존 스캐너 이후 실행)
+    - cron: '0 22 * * *'  # 22:00 UTC = 5:00 PM EST (메인 스크리너와 동시 실행)
 
 permissions:
   contents: write
