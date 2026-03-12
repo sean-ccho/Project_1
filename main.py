@@ -323,7 +323,7 @@ def main() -> None:
                 ):
                     print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Google Sheets 업데이트 완료")
                     # 이메일 알림 발송 (전략별 적합도 기준)
-                    send_email_notification(signals_export)
+                    send_email_notification(signals_export, subject_prefix="[SP500 분석]")
                 else:
                     print(
                         f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Google Sheets 업데이트를 건너뛰었습니다."

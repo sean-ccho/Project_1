@@ -313,7 +313,7 @@ def fetch_tickers_from_sheet(
 
 
 
-def send_email_notification(df: pd.DataFrame) -> bool:
+def send_email_notification(df: pd.DataFrame, subject_prefix: str = "[Stock Signals]") -> bool:
     """이메일로 매수 적합 종목 리스트를 발송한다."""
     if not EMAIL_ENABLED:
         return False
@@ -366,7 +366,7 @@ def send_email_notification(df: pd.DataFrame) -> bool:
         return html
 
     date_str = datetime.now().strftime("%Y-%m-%d")
-    subject = f"[Stock Signals] {date_str} 전략별 매수 적합 종목 리스트"
+    subject = f"{subject_prefix} {date_str} 전략별 매수 적합 종목 리스트"
 
     body = f"<h2>{date_str} 분석 결과</h2>"
     body += f"<h3>📉 바닥 반등 전략 ({EMAIL_BOTTOM_SCORE_THRESHOLD}점 이상, {len(bottom_df)}개)</h3>"

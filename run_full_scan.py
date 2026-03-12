@@ -344,7 +344,7 @@ def main() -> None:
                     f"[{GOOGLE_SHEETS_SIGNALS2_WORKSHEET}] "
                     f"Google Sheets 업데이트 완료 ({len(export_df)}개 종목)"
                 )
-                send_email_notification(export_df)
+                send_email_notification(export_df, subject_prefix="[NASDAQ/NYSE 분석]")
             else:
                 print(
                     f"[{GOOGLE_SHEETS_SIGNALS2_WORKSHEET}] "
