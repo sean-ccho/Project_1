@@ -377,12 +377,12 @@ def main() -> None:
              portfolio_tickers = new_portfolio_tickers
         # -------------------------------------------
 
-        # 차트분석 워크시트 업데이트 (GOOGLE_SHEETS_PORTFOLIO_ENABLED로 제어)
-        # Signals 결과를 재활용하여 점수 일관성 유지 + 속도 최적화
-        portfolio_label = GOOGLE_SHEETS_PORTFOLIO_WORKSHEET or "차트분석"
+        # [SP500 차트분석] 워크시트 업데이트 (GOOGLE_SHEETS_PORTFOLIO_ENABLED로 제어)
+        # [SP500 분석] 결과를 재활용하여 점수 일관성 유지 + 속도 최적화
+        portfolio_label = GOOGLE_SHEETS_PORTFOLIO_WORKSHEET or "[SP500 차트분석]"
         if GOOGLE_SHEETS_PORTFOLIO_ENABLED:
             if portfolio_tickers and signals_export is not None:
-                print(f"[{portfolio_label}] Signals 결과 기반 차트분석 시트 생성 중 ({len(portfolio_tickers)}개 종목)...")
+                print(f"[{portfolio_label}] [SP500 분석] 결과 기반 [SP500 차트분석] 시트 생성 중 ({len(portfolio_tickers)}개 종목)...")
                 
                 # Signals 결과에서 해당 종목만 필터링 (점수 재계산 없이 재활용)
                 portfolio_export = signals_export[
@@ -393,7 +393,7 @@ def main() -> None:
                 found_tickers = set(portfolio_export["티커"].unique())
                 missing_tickers = [t for t in portfolio_tickers if t not in found_tickers]
                 if missing_tickers:
-                    print(f"[{portfolio_label}] Signals에 없는 종목은 별도 분석: {missing_tickers}")
+                    print(f"[{portfolio_label}] [SP500 분석]에 없는 종목은 별도 분석: {missing_tickers}")
                     # 누락 종목만 별도 분석 (NBM.V 등 고정 종목)
                     missing_export = build_export_dataframe(
                         missing_tickers,

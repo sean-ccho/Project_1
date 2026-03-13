@@ -44,22 +44,17 @@ jobs:
           fi
           echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > gspread-service-account.json
 
+      - name: Configure git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Run screener pipeline
         env:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         run: |
           set -o pipefail
           python main.py | tee run.log
-      
-      - name: Commit and push charts
-        if: success()
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add charts/screenshots
-          git commit -m "Update chart screenshots [skip ci]" || echo "No changes to commit"
-          git pull --rebase --autostash origin main
-          git push
 
       - name: Run full market scan
         if: always()
