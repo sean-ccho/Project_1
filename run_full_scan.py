@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""전 종목 스캔 워크플로우 (Signals2).
+"""전 종목 스캔 워크플로우 ([NASDAQ/NYSE 분석]).
 
 NYSE/NASDAQ 전 종목을 대상으로 '바닥 탈출(Turnaround)'과 '강세 돌파(Momentum)'
-전략 조건에 맞는 종목을 선별하여 Signals2 워크시트에 내보낸다.
+전략 조건에 맞는 종목을 선별하여 [NASDAQ/NYSE 분석] 워크시트에 내보낸다.
 
-기존 main.py/Signals 로직과 완전히 독립적으로 동작한다.
+기존 main.py/[SP500 분석] 로직과 완전히 독립적으로 동작한다.
 """
 
 from __future__ import annotations
@@ -22,6 +22,8 @@ from config import (
     EXTREME_MODEL_TRAIN_PERIOD,
     GOOGLE_SHEETS_SIGNALS2_WORKSHEET,
     GOOGLE_SHEETS_SIGNALS2_ENABLED,
+    GOOGLE_SHEETS_SIGNALS2_CHART_WORKSHEET,
+    GOOGLE_SHEETS_SIGNALS2_CHART_ENABLED,
     SECTOR_ROTATION_ENABLED,
     SECTOR_ETFS,
     TURNAROUND_MIN_DROP,
@@ -29,6 +31,8 @@ from config import (
     TURNAROUND_VOLUME_MULT,
     MOMENTUM_HIGH_THRESHOLD,
     MOMENTUM_MIN_GAIN_20D,
+    EMAIL_BOTTOM_SCORE_THRESHOLD,
+    EMAIL_MOMENTUM_SCORE_THRESHOLD,
 )
 from data.ticker_fetcher import fetch_all_tickers, filter_tickers_basic
 from data.fetch import (
@@ -180,7 +184,7 @@ def _stage2_filter(tickers: list[str]) -> list[str]:
 
 def build_full_scan_dataframe(
     tickers: list[str],
-    context_label: str = "Signals2",
+    context_label: str = "[NASDAQ/NYSE 분석]",
 ) -> pd.DataFrame | None:
     """선별된 종목들에 대해 기존 파이프라인과 동일한 정밀 분석을 수행한다."""
 
@@ -350,6 +354,117 @@ def main() -> None:
                     f"[{GOOGLE_SHEETS_SIGNALS2_WORKSHEET}] "
                     f"Google Sheets 업데이트를 건너뛰었습니다."
                 )
+
+        # ===== [NASDAQ/NYSE 차트분석] 시트 업데이트 =====
+        if export_df is not None and GOOGLE_SHEETS_SIGNALS2_CHART_ENABLED:
+            chart_label = GOOGLE_SHEETS_SIGNALS2_CHART_WORKSHEET
+            print()
+            print("=" * 60)
+            print(f"[{chart_label}] 이메일 대상 종목 차트 분석 시작")
+            print("=" * 60)
+
+            # 이메일 기준과 동일하게 별점 4.0점 이상 종목 추출
+            def _extract_score_fs2(val):
+                try:
+                    return float(str(val).split("(")[1].split(")")[0])
+                except Exception:
+                    return 0.0
+
+            chart_tickers = []
+            if "바닥반등_적합도_표시" in export_df.columns:
+                scores = export_df["바닥반등_적합도_표시"].apply(_extract_score_fs2)
+                chart_tickers.extend(export_df.loc[scores >= EMAIL_BOTTOM_SCORE_THRESHOLD, "티커"].unique().tolist())
+            if "모멘텀_적합도_표시" in export_df.columns:
+                scores = export_df["모멘텀_적합도_표시"].apply(_extract_score_fs2)
+                chart_tickers.extend(export_df.loc[scores >= EMAIL_MOMENTUM_SCORE_THRESHOLD, "티커"].unique().tolist())
+            chart_tickers = list(set(chart_tickers))
+
+            if not chart_tickers:
+                print(f"[{chart_label}] 차트분석 대상 종목이 없어 건너뜁니다.")
+            else:
+                print(f"[{chart_label}] 차트분석 대상 {len(chart_tickers)}개 종목: {chart_tickers}")
+                chart_export = export_df[export_df["티커"].isin(chart_tickers)].copy()
+
+                from config import (
+                    CHARTS_ENABLED, CHARTS_TIMEFRAMES, CHARTS_OUTPUT_DIR,
+                    DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID,
+                    GOOGLE_SHEETS_CREDENTIALS_PATH,
+                    GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME, GITHUB_BRANCH_NAME,
+                )
+
+                if CHARTS_ENABLED:
+                    from charts.tradingview_capture import capture_multiple_timeframes
+                    import shutil
+                    from pathlib import Path
+
+                    if DRIVE_UPLOAD_ENABLED:
+                        from charts.gdrive_uploader import upload_to_drive
+
+                    charts_dir = Path(CHARTS_OUTPUT_DIR)
+                    if charts_dir.exists():
+                        print(f"[{chart_label}] 기존 차트 파일 삭제 중...")
+                        shutil.rmtree(charts_dir)
+                    charts_dir.mkdir(parents=True, exist_ok=True)
+
+                    for tf in CHARTS_TIMEFRAMES:
+                        col_name = f"차트_{tf}"
+                        if col_name not in chart_export.columns:
+                            chart_export[col_name] = ""
+
+                    print(f"[{chart_label}] TradingView 차트 캡처 시작...")
+                    for _, row in chart_export.iterrows():
+                        ticker = row["티커"]
+                        try:
+                            chart_paths = capture_multiple_timeframes(ticker, headless=True)
+                            if chart_paths:
+                                for tf, local_path in chart_paths.items():
+                                    col_name = f"차트_{tf}"
+                                    chart_export.loc[chart_export["티커"] == ticker, col_name] = local_path
+
+                                    if DRIVE_UPLOAD_ENABLED:
+                                        from config import DRIVE_SHARE_EMAIL
+                                        drive_url = upload_to_drive(
+                                            local_path, GOOGLE_SHEETS_CREDENTIALS_PATH,
+                                            DRIVE_FOLDER_NAME, folder_id=DRIVE_FOLDER_ID,
+                                            share_email=DRIVE_SHARE_EMAIL,
+                                        )
+                                        if drive_url:
+                                            chart_export.loc[chart_export["티커"] == ticker, col_name] = f'=IMAGE("{drive_url}")'
+                                    elif GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
+                                        cache_buster = int(time.time())
+                                        github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/{GITHUB_BRANCH_NAME}/{local_path}?v={cache_buster}"
+                                        chart_export.loc[chart_export["티커"] == ticker, col_name] = f'=IMAGE("{github_url}")'
+
+                                print(f"[{chart_label}] {ticker} 차트 {len(chart_paths)}개 처리 완료")
+                        except Exception as e:
+                            print(f"[{chart_label}] {ticker} 차트 처리 실패: {e}")
+                            continue
+
+                    print(f"[{chart_label}] 차트 캡처 완료")
+
+                    if GITHUB_UPLOAD_ENABLED:
+                        try:
+                            import subprocess
+                            print(f"[{chart_label}] GitHub에 차트 이미지 푸시 중...")
+                            subprocess.run(["git", "add", "charts/screenshots"], check=True)
+                            commit_msg = f"Update NASDAQ/NYSE chart screenshots {int(time.time())}"
+                            subprocess.run(["git", "commit", "-m", commit_msg], check=False)
+                            subprocess.run(["git", "push"], check=True)
+                            print(f"[{chart_label}] GitHub 푸시 완료")
+                        except Exception as e:
+                            print(f"[{chart_label}] GitHub 푸시 실패: {e}")
+
+                # Google Sheets 업로드
+                from config import EXPORT_COLUMNS
+                final_cols = [c for c in EXPORT_COLUMNS if c in chart_export.columns]
+                remaining_cols = [c for c in chart_export.columns if c not in final_cols]
+                chart_export = chart_export[final_cols + remaining_cols]
+
+                if export_to_google_sheet(chart_export, GOOGLE_SHEETS_SIGNALS2_CHART_WORKSHEET):
+                    print(f"[{chart_label}] Google Sheets 업데이트 완료 ({len(chart_export)}개 종목)")
+                else:
+                    print(f"[{chart_label}] Google Sheets 업데이트를 건너뛰었습니다.")
+        # ================================================
 
         success = True
 
