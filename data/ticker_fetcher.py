@@ -29,7 +29,7 @@ _RETRY_BASE_DELAY = 30     # 재시도 기본 대기 시간(초) — 30/60/120
 # 비표준 심볼 패턴 (보통주가 아닌 것들)
 #   $ 포함       → 우선주         (BAC$K, ALL$H)
 #   .W / .U / .R → 워런트/유닛/권리 (ACHR.W, ALUB.U, CELG.R)
-#   .A / .B      → 듀얼 클래스     (BRK.A, BF.B)  ※ 이것은 보통주이므로 유지
+#   .A / .B      → 듀얼 클래스     (BRK.A, BF.B)  ※ Yahoo Finance에서 오류 발생 시 제거
 _NON_COMMON_RE = re.compile(
     r"[$]"            # 우선주
     r"|\.W$"          # 워런트 (NYSE 형식)
@@ -48,6 +48,9 @@ def _is_common_stock(ticker: str) -> bool:
     if _NON_COMMON_RE.search(ticker):
         return False
     if _NASDAQ_WARRANT_RE.match(ticker):
+        return False
+    # Yahoo Finance 호환성: 점(.)이 포함된 심볼은 종종 에러가 발생하므로 제거
+    if "." in ticker:
         return False
     return True
 
@@ -115,11 +118,11 @@ def fetch_all_tickers() -> List[str]:
     combined["ticker"] = combined["ticker"].str.strip()
     combined = combined[combined["ticker"].str.len() > 0]
     # 중복 제거 및 정렬
-    all_tickers = sorted(combined["ticker"].unique().tolist())
-    total_raw = len(all_tickers)
+    all_tickers_raw = sorted(combined["ticker"].unique().tolist())
+    total_raw = len(all_tickers_raw)
 
-    # 비표준 심볼 필터링 (우선주, 워런트, 유닛, 권리 제거)
-    tickers = [t for t in all_tickers if _is_common_stock(t)]
+    # 비표준 심볼 필터링 (우선주, 워런트, 유닛, 권리 및 점 포함 심볼 제거)
+    tickers = [t for t in all_tickers_raw if _is_common_stock(t)]
     removed = total_raw - len(tickers)
 
     print(

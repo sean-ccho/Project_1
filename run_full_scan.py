@@ -166,7 +166,7 @@ def _stage2_filter(tickers: list[str]) -> list[str]:
                 if is_turnaround or is_momentum:
                     candidates.append(ticker)
 
-            except (KeyError, IndexError, ZeroDivisionError):
+            except (KeyError, IndexError, ZeroDivisionError, TypeError):
                 continue
 
         if i + _STAGE2_BATCH_SIZE < total:
