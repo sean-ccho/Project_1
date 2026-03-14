@@ -386,7 +386,7 @@ def main() -> None:
                 chart_export = export_df[export_df["티커"].isin(chart_tickers)].copy()
 
                 from config import (
-                    CHARTS_ENABLED, CHARTS_TIMEFRAMES, CHARTS_OUTPUT_DIR,
+                    CHARTS_ENABLED, CHARTS_TIMEFRAMES, CHARTS_SIGNALS2_OUTPUT_DIR,
                     DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID,
                     GOOGLE_SHEETS_CREDENTIALS_PATH,
                     GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME, GITHUB_BRANCH_NAME,
@@ -400,9 +400,9 @@ def main() -> None:
                     if DRIVE_UPLOAD_ENABLED:
                         from charts.gdrive_uploader import upload_to_drive
 
-                    charts_dir = Path(CHARTS_OUTPUT_DIR)
+                    charts_dir = Path(CHARTS_SIGNALS2_OUTPUT_DIR)
                     if charts_dir.exists():
-                        print(f"[{chart_label}] 기존 차트 파일 삭제 중...")
+                        print(f"[{chart_label}] 기존 NASDAQ 차트 파일 삭제 중...")
                         shutil.rmtree(charts_dir)
                     charts_dir.mkdir(parents=True, exist_ok=True)
 
@@ -415,7 +415,11 @@ def main() -> None:
                     for _, row in chart_export.iterrows():
                         ticker = row["티커"]
                         try:
-                            chart_paths = capture_multiple_timeframes(ticker, headless=True)
+                            chart_paths = capture_multiple_timeframes(
+                                ticker,
+                                output_dir=CHARTS_SIGNALS2_OUTPUT_DIR,
+                                headless=True,
+                            )
                             if chart_paths:
                                 for tf, local_path in chart_paths.items():
                                     col_name = f"차트_{tf}"
@@ -446,7 +450,7 @@ def main() -> None:
                         try:
                             import subprocess
                             print(f"[{chart_label}] GitHub에 차트 이미지 푸시 중...")
-                            subprocess.run(["git", "add", "charts/screenshots"], check=True)
+                            subprocess.run(["git", "add", "charts/screenshots_nasdaq"], check=True)
                             commit_msg = f"Update NASDAQ/NYSE chart screenshots {int(time.time())}"
                             subprocess.run(["git", "commit", "-m", commit_msg], check=False)
                             subprocess.run(["git", "push"], check=True)
