@@ -11,7 +11,7 @@ import yfinance as yf
 MAX_DOWNLOAD_RETRIES = 3
 RETRY_DELAY_SECONDS = 3
 COMPANY_NAME_CACHE: Dict[str, str] = {}
-COMPANY_NAME_CACHE_FILE = Path("data/company_names_cache.json")
+COMPANY_NAME_CACHE_FILE = Path("src/data/company_names_cache.json")
 
 if COMPANY_NAME_CACHE_FILE.exists():
     try:
