@@ -194,8 +194,8 @@ STRATEGY_MODE = "AGGRESSIVE"  # "STANDARD", "AGGRESSIVE"
 
 # 섹터 로테이션 설정
 SECTOR_ROTATION_ENABLED = True  # 강한 섹터 종목만 매수
-SECTOR_STRENGTH_LOOKBACK = 20   # 상대 강도 계산 기간 (거래일)
-SECTOR_STRENGTH_THRESHOLD = 0.0  # SPY 대비 초과 수익률 기준 (0 = SPY보다 높으면 강함)
+SECTOR_STRENGTH_LOOKBACK = 60   # 상대 강도 계산 기간 (거래일) — 20→60: 노이즈 감소
+SECTOR_STRENGTH_THRESHOLD = 0.02  # SPY 대비 초과 수익률 기준 (0→2%: 확실한 강세만)
 
 # 차트 패턴 인식 설정
 PATTERN_LOOKBACK_DAYS = 60          # 패턴 탐색 기간 (거래일)
@@ -255,7 +255,7 @@ BOTTOM_RSI_LOOKBACK = 5               # RSI 반등 확인 기간 (일)
 BOTTOM_VOLUME_SURGE_MULT = 1.5        # 거래량 급증 배수
 BOTTOM_SUPPORT_TOLERANCE = 0.03       # 지지선 허용 오차 (3%)
 BOTTOM_MACD_DIV_LOOKBACK = 10         # MACD 다이버전스 확인 기간
-BOTTOM_REVERSAL_THRESHOLD = 5.0       # 반등 점수 기준점
+BOTTOM_REVERSAL_THRESHOLD = 7.0       # 반등 점수 기준점 (5→7: 복합 조건 필요)
 
 # 저점 탐색 보조 지표 임계치
 FUND_HEALTH_ROE_MIN = 0.08
@@ -315,7 +315,7 @@ EXTREME_MODEL_FEATURES = [
 
 # --- Simplified signal configuration (indicator set restricted to EMA/RSI/MACD/Volume/ADX/OBV/ATR) ---
 VOLUME_ROLLING_WINDOW = 20
-VOLUME_BREAKOUT_MULTIPLIER = 1.2
+VOLUME_BREAKOUT_MULTIPLIER = 1.8  # 1.2→1.8: 진짜 기관 수급만 포착
 
 OBV_ROLLING_WINDOW = 20
 OBV_MOMENTUM_LOOKBACK = 5
@@ -347,42 +347,52 @@ SECTOR_REL_STRENGTH_MIN = -0.01
 VOLATILITY_PENALTY_START = 0.025
 VOLATILITY_PENALTY_END = 0.08
 
-# 바닥 반등 전략 가중치
+# 바닥 반등 전략 가중치 (헤지펀드 수준: 복합 조건 + 강한 확신 필요)
 BOTTOM_STRATEGY_WEIGHTS = {
-    "저점확률": 2.5,       # AI 저점 예측 (핵심)
-    "반등스코어": 2.5,     # 기술적 반등 지표 (핵심)
+    "저점확률": 2.0,       # AI 저점 예측 (핵심)
+    "반등스코어": 2.0,     # 기술적 반등 지표 (핵심)
     "RSI_과매도": 1.5,     # RSI < 30
-    "RSI_탈출": 1.0,       # RSI 30~40
-    "RSI_중립하단": 0.5,   # RSI 40~45
+    "RSI_탈출": 0.5,       # RSI 30~40 (1.0→0.5: 탈출만으론 약함)
+    "RSI_중립하단": 0.0,   # RSI 40~45 (제거: 중립은 신호가 아님)
     "상승패턴": 1.0,       # 이중바닥, 역헤드숄더 등
     "급락반등": 0.5,       # 5일 수익률 < -8%
     "강한섹터": 0.5,       # 강세 섹터 소속
-    "RSI_과매수감점": -1.5, # RSI > 75
-    "RSI_극과매수감점": -2.0, # RSI > 80
-    "급등감점": -1.0,      # 5일 수익률 > 20%
-    "볼린저과열감점": -1.0, # 볼린저 상단 돌파
+    "RSI_과매수감점": -2.0, # RSI > 75 (강화)
+    "RSI_극과매수감점": -3.0, # RSI > 80 (강화)
+    "급등감점": -1.5,      # 5일 수익률 > 20% (강화)
+    "볼린저과열감점": -1.5, # 볼린저 상단 돌파 (강화)
     # 알파 모델 팩터
     "팩터_평균회귀_강": 1.5,   # 강한 과매도 반등 신호
-    "팩터_평균회귀_약": 0.5,   # 약한 반등 신호
+    "팩터_평균회귀_약": 0.3,   # 약한 반등 신호 (0.5→0.3)
     "팩터_변동성": 0.5,       # 변동성 압축 (반등 에너지 축적)
+    # Conviction 보너스: 여러 팩터가 동시에 같은 방향일 때
+    "conviction_bonus": 2.0,  # 3개+ 팩터 동시 확인 시
+    # 펀더멘탈 팩터 (Phase 3)
+    "펀더멘탈_건강": 1.0,     # ROE/마진/성장 기준 충족
+    "기관수급": 0.5,          # 기관 보유 비율 높음
 }
 
-# 모멘텀 추격 전략 가중치
+# 모멘텀 추격 전략 가중치 (헤지펀드 수준: 추세+수급+강도 동시 확인)
 MOMENTUM_STRATEGY_WEIGHTS = {
-    "매수신호": 2.5,       # EMA/MACD 정배열 + 보조지표 (핵심)
+    "매수신호": 2.0,       # EMA/MACD 정배열 + 보조지표 (핵심, 2.5→2.0)
     "트렌드점수": 2.0,     # 모멘텀 강도 (핵심)
-    "EMA정배열": 1.5,      # EMA20 > EMA50
-    "거래량돌파": 1.0,     # 거래량 급증
+    "EMA정배열": 1.0,      # EMA20 > EMA50 (1.5→1.0)
+    "거래량돌파": 1.5,     # 거래량 급증 (1.0→1.5: 수급 확인 중요)
     "ADX강세": 1.0,        # 추세 강도 (ADX > 25)
     "강한섹터": 0.5,       # 강세 섹터 소속
     "상승패턴": 0.5,       # 상승 차트 패턴
-    "RSI_과매수감점": -1.5, # RSI > 75
-    "급등감점": -1.0,      # 5일 수익률 > 20%
-    "볼린저과열감점": -1.0, # 볼린저 상단 돌파
+    "RSI_과매수감점": -2.0, # RSI > 75 (강화)
+    "급등감점": -1.5,      # 5일 수익률 > 20% (강화)
+    "볼린저과열감점": -1.5, # 볼린저 상단 돌파 (강화)
     # 알파 모델 팩터
     "팩터_모멘텀_강": 1.5,   # 강한 다중기간 모멘텀
-    "팩터_모멘텀_약": 0.5,   # 약한 모멘텀
+    "팩터_모멘텀_약": 0.3,   # 약한 모멘텀 (0.5→0.3)
     "팩터_추세": 1.0,         # 강한 추세 확인
+    # Conviction 보너스
+    "conviction_bonus": 2.0,  # 3개+ 팩터 동시 확인 시
+    # 펀더멘탈 팩터 (Phase 3)
+    "펀더멘탈_건강": 1.0,     # ROE/마진/성장 기준 충족
+    "기관수급": 0.5,          # 기관 보유 비율 높음
 }
 
 # 주봉(Weekly) 패턴 가중치 (전략 공통 가산점)
@@ -412,8 +422,35 @@ MONTHLY_PATTERN_WEIGHTS = {
 }
 
 # 알파 팩터 점수 임계치 (두 전략 공통)
-ALPHA_FACTOR_STRONG_THRESHOLD = 0.3   # 강한 신호 임계치
-ALPHA_FACTOR_WEAK_THRESHOLD = 0.1     # 약한 신호 임계치
+ALPHA_FACTOR_STRONG_THRESHOLD = 0.5   # 강한 신호 임계치 (0.3→0.5: 상위 퀄리티만)
+ALPHA_FACTOR_WEAK_THRESHOLD = 0.25    # 약한 신호 임계치 (0.1→0.25)
+
+# 최종 출력 제한 설정
+OUTPUT_TOP_N = 10                      # 전략별 최대 출력 종목 수
+OUTPUT_MAX_PER_SECTOR = 3              # 동일 섹터 최대 종목 수 (집중 리스크 방지)
+OUTPUT_MIN_SCORE = 6.0                 # 최소 매수적합도 컷오프 (6.0점 미만 제외)
+
+# --- 헤지펀드 수준 랭킹 설정 ---
+# 크로스섹션 퍼센타일: 절대 점수가 아닌 상대 순위 기반
+CROSS_SECTIONAL_ENABLED = True         # 퍼센타일 랭킹 활성화
+CROSS_SECTIONAL_MIN_PERCENTILE = 90    # 상위 10%만 통과 (0-100)
+
+# Risk-Adjusted Score (Sharpe proxy)
+RISK_ADJUSTED_ENABLED = True           # 수익/변동성 비율 기반 랭킹
+SHARPE_PROXY_WEIGHT = 0.30             # 최종 점수에서 Sharpe proxy 비중
+
+# 팩터 점수 직접 랭킹 비중 (알파 모델이 메인 엔진)
+ALPHA_RANKING_WEIGHT = 0.35            # 5-팩터 알파 모델 비중
+STRATEGY_SCORE_WEIGHT = 0.35           # 기존 전략 점수 비중 (바닥반등/모멘텀)
+
+# 어닝 리스크 조정
+EARNINGS_PENALTY_DAYS = 7              # 실적 발표 N일 전부터 페널티
+EARNINGS_PENALTY_MULTIPLIER = 0.70     # 점수를 30% 할인
+
+# 상관관계 필터
+CORRELATION_FILTER_ENABLED = True      # 상관관계 기반 다변화
+CORRELATION_MAX_THRESHOLD = 0.75       # 이 값 이상이면 중복으로 판단
+CORRELATION_LOOKBACK = 60              # 상관계수 계산 기간 (거래일)
 
 # 시그널 우선순위 매핑(테이블 정렬 순서를 통제).
 SIGNAL_PRIORITY = {
@@ -526,6 +563,10 @@ TECH_COLUMN_LABELS = {
     "패턴_헤드숄더": "헤드앤숄더",
     "패턴_컵핸들": "컵위드핸들",
     "패턴_캔들": "캔들스틱",
+    "fund_short_pct_float": "공매도비율",
+    "fund_institutional_holders_pct": "기관보유비율",
+    "Sharpe_순위": "Sharpe 순위",
+    "Alpha_순위": "Alpha 순위",
 }
 
 # 후처리 및 출력 단계에서 공통으로 사용하는 컬럼 정의.
@@ -608,6 +649,10 @@ EXPORT_COLUMNS = [
     # "stop_dist",  # 스탑 거리
     "RSI",
     "거래량Z(20)",
+    "Sharpe_순위",
+    "Alpha_순위",
+    "fund_short_pct_float",
+    "fund_institutional_holders_pct",
     # "저점확률",
     # "고점확률",
     # "극점편차",

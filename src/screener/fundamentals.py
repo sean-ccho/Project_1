@@ -75,6 +75,17 @@ def fetch_fundamental_snapshots(tickers: List[str]) -> pd.DataFrame:
 
         next_earnings_date, days_to_next_earnings = _extract_earnings_date(info)
 
+        # Short interest 관련 데이터
+        short_interest = _safe_float(info.get("sharesShort"))
+        float_shares = _safe_float(info.get("floatShares"))
+        short_pct_float = _safe_float(info.get("shortPercentOfFloat"))
+        # yfinance가 shortPercentOfFloat를 제공하지 않을 경우 직접 계산
+        if np.isnan(short_pct_float) and not np.isnan(short_interest) and not np.isnan(float_shares) and float_shares > 0:
+            short_pct_float = short_interest / float_shares
+
+        # 기관 보유 비율
+        inst_holders_pct = _safe_float(info.get("heldPercentInstitutions"))
+
         record = {
             "티커": symbol,
             "fund_sector": info.get("sector", "Unknown"),  # 섹터 정보 추가
@@ -89,7 +100,11 @@ def fetch_fundamental_snapshots(tickers: List[str]) -> pd.DataFrame:
             "fund_free_cashflow": _safe_float(info.get("freeCashflow")),
             "fund_operating_cashflow": _safe_float(info.get("operatingCashflow")),
             "fund_market_cap": _safe_float(info.get("marketCap")),
-            "fund_float_shares": _safe_float(info.get("floatShares")),
+            "fund_float_shares": float_shares,
+            # Phase 3: 추가 데이터 소스
+            "fund_short_interest": short_interest,
+            "fund_short_pct_float": short_pct_float,
+            "fund_institutional_holders_pct": inst_holders_pct,
             "next_earnings_date": next_earnings_date,
             "days_to_next_earnings": days_to_next_earnings,
         }
@@ -113,6 +128,9 @@ def fetch_fundamental_snapshots(tickers: List[str]) -> pd.DataFrame:
         "fund_operating_cashflow",
         "fund_market_cap",
         "fund_float_shares",
+        "fund_short_interest",
+        "fund_short_pct_float",
+        "fund_institutional_holders_pct",
         "days_to_next_earnings",
     ]
     for col in numeric_cols:
