@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from config import (
+from screener.config import (
     LIQUIDITY_DOLLAR_MIN,
     LIQUIDITY_QUANTILE,
     LIQUIDITY_TURNOVER_MIN,

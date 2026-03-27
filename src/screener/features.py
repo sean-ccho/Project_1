@@ -23,7 +23,7 @@ from ta.volume import (
     OnBalanceVolumeIndicator,
 )
 
-from config import (
+from screener.config import (
     ALPHA_DEFAULT_WEIGHTS,
     ALPHA_FORWARD_RETURN_DAYS,
     ALPHA_IC_LOOKBACK,
@@ -58,9 +58,9 @@ from config import (
     VOLUME_ROLLING_WINDOW,
     WEIGHTS,
 )
-from alpha_model import compute_factor_scores, compute_factor_scores_from_indicators, compute_alpha_score, compute_ic_weights
-from fundamentals import fetch_fundamental_snapshots
-from patterns import detect_all_patterns, detect_weekly_patterns, detect_monthly_patterns, AllPatterns
+from screener.alpha_model import compute_factor_scores, compute_factor_scores_from_indicators, compute_alpha_score, compute_ic_weights
+from screener.fundamentals import fetch_fundamental_snapshots
+from screener.patterns import detect_all_patterns, detect_weekly_patterns, detect_monthly_patterns, AllPatterns
 
 
 def to_market(ticker: str) -> str:

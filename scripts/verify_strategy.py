@@ -3,8 +3,8 @@ import sys
 import os
 sys.path.append(os.getcwd())
 
-from backtest import run_backtest
-from config import BACKTEST_RUNS
+from screener.backtest import run_backtest
+from screener.config import BACKTEST_RUNS
 
 # Override config for testing
 test_tickers = ["SPY", "AAPL", "NVDA", "TSLA", "MSFT"]

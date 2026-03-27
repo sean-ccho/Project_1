@@ -17,7 +17,7 @@ from typing import Any, Deque, Iterable
 import numpy as np
 import pandas as pd
 
-from config import (
+from screener.config import (
     TICKERS,
     BACKTEST_ENTRY_SCORE_MIN,
     BACKTEST_LOW_PROB_THRESHOLD,
@@ -42,11 +42,11 @@ from config import (
     ATR_POSITION_MULTIPLE,
 )
 from data.fetch import fetch_ohlcv
-from features import compute_features_snapshot
-from processing import apply_neutralization, liquidity_filter
-from signals import attach_signals_and_sort
-from sector_rotation import get_strong_sectors
-from config import SECTOR_ROTATION_ENABLED
+from screener.features import compute_features_snapshot
+from screener.processing import apply_neutralization, liquidity_filter
+from screener.signals import attach_signals_and_sort
+from screener.sector_rotation import get_strong_sectors
+from screener.config import SECTOR_ROTATION_ENABLED
 
 
 class ExitReason(Enum):

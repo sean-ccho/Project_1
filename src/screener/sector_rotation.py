@@ -7,7 +7,7 @@ from typing import Dict, List, Set
 import numpy as np
 import pandas as pd
 
-from config import (
+from screener.config import (
     SECTOR_ETFS,
     SECTOR_STRENGTH_LOOKBACK,
     SECTOR_STRENGTH_THRESHOLD,

@@ -22,7 +22,7 @@ import pandas as pd
 from scipy.signal import argrelextrema
 from scipy.stats import linregress
 
-from config import (
+from screener.config import (
     PATTERN_LOOKBACK_DAYS,
     PATTERN_MIN_TOUCHES,
     PATTERN_CONVERGENCE_THRESHOLD,

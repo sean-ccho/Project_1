@@ -6,8 +6,8 @@ sys.path.append(os.getcwd())
 
 import pandas as pd
 from data.fetch import fetch_ohlcv
-from config import SECTOR_ETFS
-from sector_rotation import compute_sector_strength, get_strong_sectors
+from screener.config import SECTOR_ETFS
+from screener.sector_rotation import compute_sector_strength, get_strong_sectors
 
 print("=" * 50)
 print("섹터 로테이션 전략 검증")

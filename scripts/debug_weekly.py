@@ -1,8 +1,8 @@
 
 import pandas as pd
 import yfinance as yf
-from patterns import get_weekly_data, detect_weekly_patterns
-from config import PATTERN_LOOKBACK_DAYS
+from screener.patterns import get_weekly_data, detect_weekly_patterns
+from screener.config import PATTERN_LOOKBACK_DAYS
 
 
 def test_weekly_patterns():

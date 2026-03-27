@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from config import (
+from screener.config import (
     ADX_BUY_MIN,
     ADX_SELL_MAX,
     ALPHA_FACTOR_STRONG_THRESHOLD,

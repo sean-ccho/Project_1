@@ -20,7 +20,7 @@ except ImportError:
     print("pip install google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2")
     sys.exit(1)
 
-from config import DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, DRIVE_SHARE_EMAIL
+from screener.config import DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, DRIVE_SHARE_EMAIL
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 CREDENTIALS_PATH = "gspread-service-account.json"

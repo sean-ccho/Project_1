@@ -14,9 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from backtest import run_backtest
-from config import BACKTEST_RUNS, BACKTEST_WORKSHEET_NAME
-from exporter import export_backtest_results
+from screener.backtest import run_backtest
+from screener.config import BACKTEST_RUNS, BACKTEST_WORKSHEET_NAME
+from screener.exporter import export_backtest_results
 
 
 def main() -> None:

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-from config import (
+from screener.config import (
     EXPORT_COLUMNS,
     GOOGLE_SHEETS_CREDENTIALS_PATH,
     GOOGLE_SHEETS_ENABLED,
@@ -29,7 +29,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-from config import (
+from screener.config import (
     EXPORT_COLUMNS,
     GOOGLE_SHEETS_CREDENTIALS_PATH,
     GOOGLE_SHEETS_ENABLED,

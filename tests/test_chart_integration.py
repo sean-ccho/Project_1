@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from charts.tradingview_capture import capture_multiple_timeframes
-from exporter import generate_chart_paths
+from screener.exporter import generate_chart_paths
 
 def test_chart_integration():
     """차트 캡처 및 경로 생성 테스트"""

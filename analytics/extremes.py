@@ -13,7 +13,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from config import (
+from screener.config import (
     EXTREME_HIGH_MAX_DRAWDOWN,
     EXTREME_HISTORY_STEP,
     EXTREME_LABEL_LOOKAHEAD,
@@ -23,7 +23,7 @@ from config import (
     EXTREME_MODEL_REG_C,
 )
 from data.fetch import fetch_ohlcv
-from features import compute_features_for_ticker, feature_row_from_set
+from screener.features import compute_features_for_ticker, feature_row_from_set
 
 MIN_HISTORY_BARS = 120
 

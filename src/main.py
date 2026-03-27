@@ -8,7 +8,7 @@ import time
 
 import pandas as pd
 
-from config import (
+from screener.config import (
     BACKTEST_ENABLED,
     BACKTEST_RUNS,
     BACKTEST_WORKSHEET_NAME,
@@ -26,19 +26,19 @@ from data.fetch import (
     fetch_latest_prices,
     fetch_ohlcv,
 )
-from exporter import (
+from screener.exporter import (
     export_backtest_results,
     export_to_google_sheet,
     fetch_tickers_from_sheet,
     prepare_export_dataframe,
     send_email_notification,
 )
-from backtest import run_backtest
-from features import compute_all_features
-from processing import apply_neutralization, liquidity_filter
-from signals import attach_signals_and_sort
+from screener.backtest import run_backtest
+from screener.features import compute_all_features
+from screener.processing import apply_neutralization, liquidity_filter
+from screener.signals import attach_signals_and_sort
 from analytics.extremes import score_extremes_for_snapshot
-from sector_rotation import get_strong_sectors
+from screener.sector_rotation import get_strong_sectors
 
 
 def build_export_dataframe(

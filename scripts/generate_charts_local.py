@@ -14,7 +14,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from charts.tradingview_capture import capture_multiple_timeframes
-from config import CHARTS_OUTPUT_DIR
+from screener.config import CHARTS_OUTPUT_DIR
 
 def main():
     parser = argparse.ArgumentParser(description="로컬 차트 생성 도구")

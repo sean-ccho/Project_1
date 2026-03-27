@@ -42,10 +42,10 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # SP500 + Nasdaq 100 분석
-python main.py
+PYTHONPATH=src python src/main.py
 
 # 전 종목 스캔
-python run_full_scan.py
+PYTHONPATH=src python src/run_full_scan.py
 ```
 
 `config.py`에서 Google Sheets 연동 정보(`GOOGLE_SHEETS_SPREADSHEET_ID`, `GOOGLE_SHEETS_CREDENTIALS_PATH`)와 이메일 설정(`EMAIL_*`)을 지정해야 합니다.
