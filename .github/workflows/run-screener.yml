@@ -54,7 +54,7 @@ jobs:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         run: |
           set -o pipefail
-          PYTHONPATH=src python src/main.py | tee run.log
+          PYTHONPATH=.:src python src/main.py | tee run.log
 
       - name: Run full market scan
         if: always()
@@ -62,7 +62,7 @@ jobs:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         run: |
           set -o pipefail
-          PYTHONPATH=src python src/run_full_scan.py | tee full_scan.log
+          PYTHONPATH=.:src python src/run_full_scan.py | tee full_scan.log
 
       - name: Upload screener log
         if: always()
