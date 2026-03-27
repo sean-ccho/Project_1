@@ -385,7 +385,7 @@ def main() -> None:
                 print(f"[{chart_label}] 차트분석 대상 {len(chart_tickers)}개 종목: {chart_tickers}")
                 chart_export = export_df[export_df["티커"].isin(chart_tickers)].copy()
 
-                from config import (
+                from screener.config import (
                     CHARTS_ENABLED, CHARTS_TIMEFRAMES, CHARTS_SIGNALS2_OUTPUT_DIR,
                     DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID,
                     GOOGLE_SHEETS_CREDENTIALS_PATH,
@@ -426,7 +426,7 @@ def main() -> None:
                                     chart_export.loc[chart_export["티커"] == ticker, col_name] = local_path
 
                                     if DRIVE_UPLOAD_ENABLED:
-                                        from config import DRIVE_SHARE_EMAIL
+                                        from screener.config import DRIVE_SHARE_EMAIL
                                         drive_url = upload_to_drive(
                                             local_path, GOOGLE_SHEETS_CREDENTIALS_PATH,
                                             DRIVE_FOLDER_NAME, folder_id=DRIVE_FOLDER_ID,
@@ -459,7 +459,7 @@ def main() -> None:
                             print(f"[{chart_label}] GitHub 푸시 실패: {e}")
 
                 # Google Sheets 업로드
-                from config import EXPORT_COLUMNS
+                from screener.config import EXPORT_COLUMNS
                 final_cols = [c for c in EXPORT_COLUMNS if c in chart_export.columns]
                 remaining_cols = [c for c in chart_export.columns if c not in final_cols]
                 chart_export = chart_export[final_cols + remaining_cols]

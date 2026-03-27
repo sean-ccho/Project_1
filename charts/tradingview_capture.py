@@ -56,7 +56,7 @@ def capture_tradingview_chart(
     
     # 티커 매핑 적용 (예: NBM.V -> NBM)
     try:
-        from config import TRADINGVIEW_TICKER_MAP, TRADINGVIEW_CHART_ID
+        from screener.config import TRADINGVIEW_TICKER_MAP, TRADINGVIEW_CHART_ID
     except ImportError:
         TRADINGVIEW_TICKER_MAP = {}
         TRADINGVIEW_CHART_ID = None
@@ -220,7 +220,7 @@ def capture_multiple_timeframes(
     
     # 설정 로드
     try:
-        from config import TRADINGVIEW_TICKER_MAP, TRADINGVIEW_CHART_ID
+        from screener.config import TRADINGVIEW_TICKER_MAP, TRADINGVIEW_CHART_ID
     except ImportError:
         TRADINGVIEW_TICKER_MAP = {}
         TRADINGVIEW_CHART_ID = None

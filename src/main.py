@@ -155,10 +155,10 @@ def build_export_dataframe(
     )
     
     # --- TradingView 차트 캡처 (CHARTS_ENABLED이고 capture_charts가 True일 때만) ---
-    from config import CHARTS_ENABLED, CHARTS_MIN_SCORE, CHARTS_TIMEFRAMES
-    from config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, GOOGLE_SHEETS_CREDENTIALS_PATH
-    from config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME, GITHUB_BRANCH_NAME
-    from config import CHARTS_OUTPUT_DIR
+    from screener.config import CHARTS_ENABLED, CHARTS_MIN_SCORE, CHARTS_TIMEFRAMES
+    from screener.config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, GOOGLE_SHEETS_CREDENTIALS_PATH
+    from screener.config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME, GITHUB_BRANCH_NAME
+    from screener.config import CHARTS_OUTPUT_DIR
     
     if CHARTS_ENABLED and capture_charts:
         from charts.tradingview_capture import capture_multiple_timeframes
@@ -236,7 +236,7 @@ def build_export_dataframe(
                             
                             # Drive 업로드가 활성화되어 있으면 추가로 업로드
                             if DRIVE_UPLOAD_ENABLED:
-                                from config import DRIVE_SHARE_EMAIL
+                                from screener.config import DRIVE_SHARE_EMAIL
                                 drive_url = upload_to_drive(
                                     local_path,
                                     GOOGLE_SHEETS_CREDENTIALS_PATH,
@@ -309,7 +309,7 @@ def main() -> None:
 
 
         # Signals 워크시트 업데이트 (GOOGLE_SHEETS_SIGNALS_ENABLED로 제어)
-        from config import GOOGLE_SHEETS_SIGNALS_ENABLED, GOOGLE_SHEETS_PORTFOLIO_ENABLED
+        from screener.config import GOOGLE_SHEETS_SIGNALS_ENABLED, GOOGLE_SHEETS_PORTFOLIO_ENABLED
         
         if GOOGLE_SHEETS_SIGNALS_ENABLED:
             signals_export = build_export_dataframe(
@@ -334,7 +334,7 @@ def main() -> None:
         # --- Dynamic Portfolio Ticker Generation ---
         # Signals 결과에서 매수적합도 상위 종목 추출 + 고정 종목(NBM.V) 추가
         if GOOGLE_SHEETS_SIGNALS_ENABLED and signals_export is not None:
-             from config import EMAIL_BOTTOM_SCORE_THRESHOLD, EMAIL_MOMENTUM_SCORE_THRESHOLD
+             from screener.config import EMAIL_BOTTOM_SCORE_THRESHOLD, EMAIL_MOMENTUM_SCORE_THRESHOLD
              
              print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Signals 결과 기반 차트분석 종목 리스트 생성 중...")
              
@@ -405,9 +405,9 @@ def main() -> None:
                         portfolio_export = pd.concat([portfolio_export, missing_export], ignore_index=True)
                 
                 # --- TradingView 차트 캡처 ---
-                from config import CHARTS_ENABLED, CHARTS_TIMEFRAMES, CHARTS_OUTPUT_DIR
-                from config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, GOOGLE_SHEETS_CREDENTIALS_PATH
-                from config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME, GITHUB_BRANCH_NAME
+                from screener.config import CHARTS_ENABLED, CHARTS_TIMEFRAMES, CHARTS_OUTPUT_DIR
+                from screener.config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, GOOGLE_SHEETS_CREDENTIALS_PATH
+                from screener.config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME, GITHUB_BRANCH_NAME
                 
                 if CHARTS_ENABLED:
                     from charts.tradingview_capture import capture_multiple_timeframes
@@ -444,7 +444,7 @@ def main() -> None:
                                     portfolio_export.loc[portfolio_export["티커"] == ticker, col_name] = local_path
                                     
                                     if DRIVE_UPLOAD_ENABLED:
-                                        from config import DRIVE_SHARE_EMAIL
+                                        from screener.config import DRIVE_SHARE_EMAIL
                                         drive_url = upload_to_drive(
                                             local_path,
                                             GOOGLE_SHEETS_CREDENTIALS_PATH,
@@ -483,7 +483,7 @@ def main() -> None:
                 
                 # Google Sheets 업로드
                 # 컬럼 순서 재정렬 (EXPORT_COLUMNS 기준)
-                from config import EXPORT_COLUMNS
+                from screener.config import EXPORT_COLUMNS
                 final_cols = [c for c in EXPORT_COLUMNS if c in portfolio_export.columns]
                 
                 # EXPORT_COLUMNS에 없는 나머지 컬럼(디버깅용 등)도 뒤에 붙여줌 (혹시 몰라서)

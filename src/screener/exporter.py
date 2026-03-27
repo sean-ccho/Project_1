@@ -119,7 +119,7 @@ def generate_chart_paths(ticker: str) -> dict[str, str]:
         {차트_타임프레임: 로컬경로} 딕셔너리
     """
     from pathlib import Path
-    from config import CHARTS_OUTPUT_DIR, CHARTS_TIMEFRAMES
+    from screener.config import CHARTS_OUTPUT_DIR, CHARTS_TIMEFRAMES
     
     paths = {}
     for tf in CHARTS_TIMEFRAMES:
