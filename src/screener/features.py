@@ -799,7 +799,7 @@ def compute_features_snapshot(
 
         # IC 가중치로 alpha_score 재계산 (기본 가중치 대신 동적 가중치 적용)
         if ALPHA_MODEL_ENABLED and features.factor_momentum != 0.0:
-            from alpha_model import FactorScores
+            from screener.alpha_model import FactorScores
             factor_scores = FactorScores(
                 momentum=features.factor_momentum,
                 trend=features.factor_trend,
