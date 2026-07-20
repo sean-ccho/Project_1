@@ -1,0 +1,171 @@
+{
+  "target": "y_drawdown",
+  "train_samples": 561,
+  "cv_folds": [
+    {
+      "fold": 1,
+      "train_size": 96,
+      "test_size": 93,
+      "auc": 0.5343580470162749,
+      "accuracy": 0.8709677419354839,
+      "precision_top20": 0.2777777777777778,
+      "baseline_win_rate": 0.15053763440860216
+    },
+    {
+      "fold": 2,
+      "train_size": 189,
+      "test_size": 93,
+      "auc": 0.5046296296296295,
+      "accuracy": 0.7634408602150538,
+      "precision_top20": 0.2777777777777778,
+      "baseline_win_rate": 0.22580645161290322
+    },
+    {
+      "fold": 3,
+      "train_size": 282,
+      "test_size": 93,
+      "auc": 0.6390410958904109,
+      "accuracy": 0.7526881720430108,
+      "precision_top20": 0.2222222222222222,
+      "baseline_win_rate": 0.21505376344086022
+    },
+    {
+      "fold": 4,
+      "train_size": 375,
+      "test_size": 93,
+      "auc": 0.4990958408679927,
+      "accuracy": 0.7849462365591398,
+      "precision_top20": 0.1111111111111111,
+      "baseline_win_rate": 0.15053763440860216
+    },
+    {
+      "fold": 5,
+      "train_size": 468,
+      "test_size": 93,
+      "auc": 0.5374396135265701,
+      "accuracy": 0.6989247311827957,
+      "precision_top20": 0.2777777777777778,
+      "baseline_win_rate": 0.25806451612903225
+    }
+  ],
+  "mean_auc": 0.5429128453861756,
+  "feature_cols": [
+    "RSI",
+    "adx",
+    "macd_hist",
+    "bollinger_pband",
+    "atr_pct",
+    "vol_z20",
+    "obv_z20",
+    "cmf_20",
+    "pos_52w",
+    "ret_5d",
+    "ret_20d",
+    "ema_gap_20_50",
+    "ema_gap_50_200",
+    "volatility_contraction",
+    "buy_support_count",
+    "alpha_score",
+    "factor_momentum",
+    "factor_trend",
+    "factor_volume",
+    "factor_volatility",
+    "factor_mean_reversion",
+    "bottom_reversal_fit",
+    "momentum_fit",
+    "reversal_score",
+    "low_prob",
+    "in_strong_sector",
+    "sector_relative_strength",
+    "spy_close_to_ema200",
+    "ccs_strategy_fit",
+    "ccs_timing",
+    "ccs_alpha",
+    "ccs_risk",
+    "ccs_confluence",
+    "ccs_penalty",
+    "sector_Basic Materials",
+    "sector_Communication Services",
+    "sector_Consumer Cyclical",
+    "sector_Consumer Defensive",
+    "sector_Consumer Discretionary",
+    "sector_Consumer Staples",
+    "sector_Energy",
+    "sector_Financial Services",
+    "sector_Financials",
+    "sector_Health Care",
+    "sector_Healthcare",
+    "sector_Industrials",
+    "sector_Information Technology",
+    "sector_Materials",
+    "sector_Technology",
+    "sector_Unknown",
+    "sector_Utilities",
+    "regime_bear",
+    "regime_bull",
+    "regime_neutral"
+  ],
+  "top_features": [
+    [
+      "RSI",
+      0.0
+    ],
+    [
+      "adx",
+      0.0
+    ],
+    [
+      "macd_hist",
+      0.0
+    ],
+    [
+      "bollinger_pband",
+      0.0
+    ],
+    [
+      "atr_pct",
+      0.0
+    ],
+    [
+      "vol_z20",
+      0.0
+    ],
+    [
+      "obv_z20",
+      0.0
+    ],
+    [
+      "cmf_20",
+      0.0
+    ],
+    [
+      "pos_52w",
+      0.0
+    ],
+    [
+      "ret_5d",
+      0.0
+    ],
+    [
+      "ret_20d",
+      0.0
+    ],
+    [
+      "ema_gap_20_50",
+      0.0
+    ],
+    [
+      "ema_gap_50_200",
+      0.0
+    ],
+    [
+      "volatility_contraction",
+      0.0
+    ],
+    [
+      "buy_support_count",
+      0.0
+    ]
+  ],
+  "trained_at": "2026-04-17T15:04:02.781676"
+}

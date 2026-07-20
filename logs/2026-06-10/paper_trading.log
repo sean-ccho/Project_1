@@ -1,0 +1,48 @@
+============================================================
+[Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작
+============================================================
+2026-06-10 07:20:16,037 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 129개 종목
+[Unified PT] SP500 snapshot 로드: 129개 종목
+2026-06-10 07:20:16,045 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 202개 종목
+[Unified PT] NASDAQ snapshot 로드: 202개 종목
+[Unified PT] 합산 완료: 326개 종목 (SP500 129 + NASDAQ 202개, 중복 제거 후)
+[Unified PT] 골든크로스임박 종목: 22개
+2026-06-10 07:20:17,375 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 194 | 4.0~5.0: 24 | 5.0~5.5: 5 | 5.5~6.0: 11 | 6.0+: 92
+2026-06-10 07:20:17,385 [INFO] paper_trading.engine — [PaperTrading] 오늘 매수 후보 없음
+[Unified PT] 매도=0 매수=0 보유=3종목
+[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 234, '바닥반등_52주과열': 0, '판단등급_미달': 91, '과열_차단': 0, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 0, '모멘텀_ADX부족': 1, '바닥_RSI데드존': 0, '섹터_집중': 0, '_통과': 0, '_전체': 326}
+[Unified PT] 스킵 사유: 후보_없음
+2026-06-10 07:20:18,761 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-06-10 07:20:20,592 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 19건 거래
+[Unified PT] 구글 시트 동기화 완료
+[시장분석] 25개 종목 데이터 수집 중...
+2026-06-10 07:20:27,654 [WARNING] data.fetch — [fetch_analyst_data] V: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:27,778 [WARNING] data.fetch — [fetch_analyst_data] NTLA: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:27,823 [WARNING] data.fetch — [fetch_analyst_data] RCL: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:27,830 [WARNING] data.fetch — [fetch_analyst_data] GRPN: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:27,958 [WARNING] data.fetch — [fetch_analyst_data] CBRL: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:34,431 [WARNING] data.fetch — [fetch_analyst_data] UPST: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:34,473 [WARNING] data.fetch — [fetch_analyst_data] IT: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:34,577 [WARNING] data.fetch — [fetch_analyst_data] JPM: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:34,592 [WARNING] data.fetch — [fetch_analyst_data] TJX: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:34,878 [WARNING] data.fetch — [fetch_analyst_data] CRCL: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:41,242 [WARNING] data.fetch — [fetch_analyst_data] SLNH: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:41,312 [WARNING] data.fetch — [fetch_analyst_data] SMMT: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:41,371 [WARNING] data.fetch — [fetch_analyst_data] MNTS: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:41,393 [WARNING] data.fetch — [fetch_analyst_data] BRK-B: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:41,832 [WARNING] data.fetch — [fetch_analyst_data] BA: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:47,946 [WARNING] data.fetch — [fetch_analyst_data] SMCI: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:48,144 [WARNING] data.fetch — [fetch_analyst_data] LAC: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:48,169 [WARNING] data.fetch — [fetch_analyst_data] DIS: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:48,180 [WARNING] data.fetch — [fetch_analyst_data] ENVX: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:48,614 [WARNING] data.fetch — [fetch_analyst_data] META: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:54,652 [WARNING] data.fetch — [fetch_analyst_data] CRML: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:54,935 [WARNING] data.fetch — [fetch_analyst_data] GOOG: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:55,004 [WARNING] data.fetch — [fetch_analyst_data] AXP: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:55,079 [WARNING] data.fetch — [fetch_analyst_data] GOOGL: 'dict' object has no attribute 'empty'
+2026-06-10 07:20:55,364 [WARNING] data.fetch — [fetch_analyst_data] AVGO: 'dict' object has no attribute 'empty'
+[시장분석] enrichment 완료
+[Email] 페이퍼 트레이딩 알림 발송 완료 (매도 0건, 매수 0건, 재평가 0건, 재평가실패 0건, 후보 0건) → chunghwan14@gmail.com, roykim0311@gmail.com, ssamjungtan@naver.com
+============================================================
+[Unified Paper Trading] 완료
+============================================================

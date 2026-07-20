@@ -1,0 +1,16 @@
+[Google Sheets] '[SP500 차트분석]' 워크시트에서 값 읽기 실패: APIError: [503]: The service is currently unavailable.
+[[SP500 분석]] 강한 섹터: {'Materials', 'Financials', 'Utilities', 'Energy', 'Information Technology', 'Real Estate'}
+[[SP500 분석]] Extreme model 'label_low' walk-forward ROC 0.63, AP 0.34
+[[SP500 분석]] Extreme model 'label_high' walk-forward ROC 0.61, AP 0.22
+[[SP500 분석]] Google Sheets 업데이트 완료
+[Email] 바닥반등 30개 + 모멘텀 43개 = 총 73개 종목 리스트를 chunghwan14@gmail.com로 발송 완료
+[[SP500 분석]] Signals 결과 기반 차트분석 종목 리스트 생성 중...
+[Dynamic Portfolio] 생성된 차트분석 종목 리스트(74개): ['NBM.V', 'CAT', 'AMAT', 'CF', 'LIN', 'DELL', 'KLAC', 'GOOG', 'FANG', 'XOM', 'PFE', 'ETN', 'T', 'MRVL', 'TER', 'MU', 'INTU', 'ADI', 'PH', 'ABT', 'VLO', 'AMD', 'GE', 'JNJ', 'NOW', 'GEV', 'DAL', 'CVX', 'NEE', 'C', 'STX', 'WBD', 'SLB', 'WDC', 'LMT', 'PM', 'FDX', 'LRCX', 'LYB', 'INTC', 'DE', 'APP', 'OXY', 'ACN', 'TMUS', 'AMGN', 'DVN', 'ASML', 'MSFT', 'SBUX', 'MRK', 'ADBE', 'COP', 'GLW', 'IWM', 'CRM', 'VZ', 'TXN', 'GOOGL', 'FCX', 'BMY', 'COST', 'PEP', 'ABBV', 'NEM', 'WMT', 'KO', 'EOG', 'RTX', 'DIS', 'CSCO', 'UAL', 'GILD', 'HON']
+[[SP500 차트분석]] [SP500 분석] 결과 기반 [SP500 차트분석] 시트 생성 중 (74개 종목)...
+[[SP500 차트분석]] [SP500 분석]에 없는 종목은 별도 분석: ['NBM.V']
+[[SP500 차트분석]] 강한 섹터: {'Materials', 'Financials', 'Utilities', 'Energy', 'Information Technology', 'Real Estate'}
+[[SP500 차트분석]] Extreme model 'global' skipped: insufficient_tickers
+[[SP500 차트분석]] Google Sheets 업데이트 완료
+[Paper Trading] SP500 ranked_df 스냅샷 저장 완료 (130개 종목)
+
+[요약] 파이프라인 완료 – 총 927.5초 (15.46분) 소요

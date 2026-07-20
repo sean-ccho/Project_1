@@ -1,0 +1,25 @@
+============================================================
+[Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작
+============================================================
+2026-04-11 23:04:50,906 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+2026-04-11 23:04:50,912 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 230개 종목
+[Unified PT] NASDAQ snapshot 로드: 230개 종목
+[Unified PT] 합산 완료: 342개 종목 (SP500 130 + NASDAQ 230개, 중복 제거 후)
+2026-04-11 23:04:52,418 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 114 | 4.0~5.0: 27 | 5.0~5.5: 19 | 5.5~6.0: 17 | 6.0+: 165
+2026-04-11 23:04:52,432 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=4/342 | Selected: AXON (CCS=0.4615)
+2026-04-11 23:04:52,437 [INFO] paper_trading.engine — [PaperTrading] 교체 기준 미달 — 매수 안 함
+[Unified PT] 매도=0 매수=0 보유=3종목
+[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 177, '바닥반등_52주과열': 2, '판단등급_미달': 153, '과열_차단': 3, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 0, '모멘텀_ADX부족': 3, '바닥_RSI데드존': 0, '섹터_집중': 0, '_통과': 4, '_전체': 342}
+[Unified PT] 스킵 사유: 교체_미달
+[Unified PT] Top5 후보:
+  AXON   CCS=0.4615 전략=📉 바닥반등 섹터=Industrials
+  VRDN   CCS=0.4227 전략=📉 바닥반등 섹터=Healthcare
+  GE     CCS=0.4013 전략=📈 모멘텀 섹터=Industrials
+2026-04-11 23:04:53,714 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-04-11 23:04:54,702 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 0건 거래
+[Unified PT] 구글 시트 동기화 완료
+[Email] 페이퍼 트레이딩 알림 발송 완료 (매도 0건, 매수 0건, 후보 3건) → chunghwan14@gmail.com
+============================================================
+[Unified Paper Trading] 완료
+============================================================

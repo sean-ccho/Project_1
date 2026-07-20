@@ -1,0 +1,23 @@
+pandas>=2.0
+numpy>=1.24
+pyarrow>=14.0
+yfinance>=0.2
+beautifulsoup4>=4.12
+ta>=0.10
+scikit-learn>=1.3
+scipy>=1.10
+# Optional for Google Sheets export
+gspread>=6.0
+google-auth>=2.0
+google-auth-oauthlib>=1.0
+# PDF report generation
+fpdf2>=2.7
+matplotlib>=3.7
+# Optional for TradingView chart screenshots
+playwright>=1.40
+google-api-python-client>=2.0
+google-auth-httplib2>=0.1.0
+# Machine Learning
+xgboost>=2.0
+lightgbm>=4.0
+joblib>=1.3

@@ -1,0 +1,39 @@
+[OHLCV] 배치 다운로드 1/4 (150개 종목, period=5y)...
+[OHLCV] 배치 다운로드 2/4 (150개 종목, period=5y)...
+[OHLCV] 배치 다운로드 3/4 (150개 종목, period=5y)...
+[OHLCV] 배치 다운로드 4/4 (68개 종목, period=5y)...
+[DataValidator] 11건의 데이터 품질 경고 발생
+Warning:  ADP: Close NaN 비율 100.0% (기준: 30%)
+Warning:  GL: 비정상 가격 변동 53.1% (2024-04-11) — 스플릿/데이터 오류 가능
+Warning:  HOOD: 비정상 가격 변동 50.4% (2021-08-04) — 스플릿/데이터 오류 가능
+Warning:  SW: 거래량 0 연속 9일 (기준: 5일) — 상장폐지/거래정지 가능
+Warning:  VLTO: Close NaN 비율 49.4% (기준: 30%)
+Warning:  DAY: Close NaN 비율 100.0% (기준: 30%)
+Warning:  GEHC: Close NaN 비율 33.4% (기준: 30%)
+Warning:  GEV: Close NaN 비율 58.9% (기준: 30%)
+Warning:  KVUE: Close NaN 비율 41.0% (기준: 30%)
+Warning:  PDD: 비정상 가격 변동 56.1% (2022-03-16) — 스플릿/데이터 오류 가능
+Warning:  SOLV: Close NaN 비율 58.8% (기준: 30%)
+[백테스트] OHLCV 캐시 저장: ohlcv_e7842ef0a144.parquet
+[백테스트] OHLCV 캐시 저장: ohlcv_f3db89dba84f.parquet
+[[SP500 분석]] 강한 섹터: {'Consumer Discretionary', 'Information Technology', 'Materials'}
+[백테스트] OHLCV 캐시 저장: ohlcv_e39f31ae497f.parquet
+[[SP500 분석]] Extreme model 'label_low' walk-forward ROC 0.63, AP 0.31
+[[SP500 분석]] Extreme model 'label_high' walk-forward ROC 0.64, AP 0.26
+[[SP500 분석]] Google Sheets 업데이트 완료
+[Email] 바닥반등 14개 + 모멘텀 59개 = 총 73개 종목 리스트를 chunghwan14@gmail.com, ssamjungtan@naver.com로 발송 완료
+[[SP500 분석]] Signals 결과 기반 차트분석 종목 리스트 생성 중...
+[Dynamic Portfolio] 생성된 차트분석 종목 리스트(74개): ['NBM.V', 'DAL', 'TJX', 'QQQ', 'INTU', 'TXN', 'ANET', 'DELL', 'NFLX', 'GE', 'WDC', 'PFE', 'LRCX', 'AMD', 'FCX', 'UNP', 'GS', 'BSX', 'VLO', 'GEV', 'LMT', 'AMGN', 'BAC', 'DE', 'SBUX', 'FANG', 'EOG', 'IWM', 'CSCO', 'OXY', 'STX', 'MRVL', 'NKE', 'FDX', 'GILD', 'MU', 'BMY', 'COST', 'BA', 'HON', 'ADI', 'JPM', 'ETN', 'CVX', 'ASML', 'T', 'AAPL', 'GOOG', 'SLB', 'CAT', 'AMZN', 'APH', 'NVDA', 'SPY', 'PEP', 'DVN', 'GOOGL', 'MRK', 'TER', 'CME', 'C', 'AMAT', 'WMT', 'GLW', 'INTC', 'VZ', 'ABT', 'MS', 'AVGO', 'NEM', 'UNH', 'NEE', 'LIN', 'KLAC']
+[[SP500 차트분석]] [SP500 분석] 결과 기반 [SP500 차트분석] 시트 생성 중 (74개 종목)...
+[[SP500 차트분석]] [SP500 분석]에 없는 종목은 별도 분석: ['NBM.V']
+[DataValidator] 2건의 데이터 품질 경고 발생
+Warning:  NBM.V: 비정상 가격 변동 56.3% (2024-09-25) — 스플릿/데이터 오류 가능
+Warning:  NBM.V: 거래량 0 연속 72일 (기준: 5일) — 상장폐지/거래정지 가능
+[백테스트] OHLCV 캐시 저장: ohlcv_ee618f550e32.parquet
+[백테스트] OHLCV 캐시 로드: ohlcv_f3db89dba84f.parquet
+[[SP500 차트분석]] 강한 섹터: {'Consumer Discretionary', 'Information Technology', 'Materials'}
+[[SP500 차트분석]] Extreme model 'global' skipped: insufficient_tickers
+[[SP500 차트분석]] Google Sheets 업데이트 완료
+[Paper Trading] SP500 ranked_df 스냅샷 저장 완료 (129개 종목)
+
+[요약] 파이프라인 완료 – 총 981.7초 (16.36분) 소요

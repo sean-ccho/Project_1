@@ -1,0 +1,27 @@
+============================================================
+[Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작
+============================================================
+2026-04-06 00:54:16,265 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+2026-04-06 00:54:16,271 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 203개 종목
+[Unified PT] NASDAQ snapshot 로드: 203개 종목
+[Unified PT] 합산 완료: 325개 종목 (SP500 130 + NASDAQ 203개, 중복 제거 후)
+2026-04-06 00:54:17,486 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 97 | 4.0~5.0: 41 | 5.0~5.5: 33 | 5.5~6.0: 21 | 6.0+: 133
+2026-04-06 00:54:17,500 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=neutral | Filtered=19/325 | Selected: NEE (CCS=0.5887)
+2026-04-06 00:54:17,505 [INFO] paper_trading.engine — [PaperTrading] 교체 기준 미달 — 매수 안 함
+[Unified PT] 매도=0 매수=0 보유=3종목
+[Unified PT] 레짐=neutral | 필터={'전략점수<6.0': 192, '바닥반등_52주과열': 2, '판단등급_미달': 107, '과열_차단': 3, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 2, '섹터_집중': 0, '_통과': 19, '_전체': 325}
+[Unified PT] 스킵 사유: 교체_미달
+[Unified PT] Top5 후보:
+  NEE    CCS=0.5887 전략=📈 모멘텀 섹터=Utilities
+  WMT    CCS=0.5245 전략=📈 모멘텀 섹터=Consumer Defensive
+  NEM    CCS=0.5239 전략=📈 모멘텀 섹터=Basic Materials
+  BP     CCS=0.4947 전략=📈 모멘텀 섹터=Energy
+  CAT    CCS=0.4932 전략=📈 모멘텀 섹터=Industrials
+2026-04-06 00:54:19,234 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-04-06 00:54:20,596 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 0건 거래
+[Unified PT] 구글 시트 동기화 완료
+[Email] 페이퍼 트레이딩 변동 없음 — 이메일 발송 생략
+============================================================
+[Unified Paper Trading] 완료
+============================================================

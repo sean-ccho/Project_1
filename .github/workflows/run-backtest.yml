@@ -1,0 +1,81 @@
+name: Run Backtest
+
+on:
+  workflow_dispatch:
+    inputs:
+      period:
+        description: '데이터 기간 (예: 1y, 2y)'
+        required: false
+        default: '1y'
+      rebalance:
+        description: '리밸런스 주기 (거래일)'
+        required: false
+        default: '1'
+      capital:
+        description: '초기 자본금 (USD, 0이면 수익률 모드)'
+        required: false
+        default: '5000'
+      max_tickers:
+        description: '분석 종목 수 제한'
+        required: false
+        default: '100'
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Restore Google service account credentials
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then
+            echo "GOOGLE_SERVICE_ACCOUNT_JSON secret is not set" >&2
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > gspread-service-account.json
+
+      - name: Run backtest
+        run: |
+          set -o pipefail
+          mkdir -p logs
+          PYTHONPATH=.:src python scripts/paper_trading.py backtest \
+            --period "${{ github.event.inputs.period }}" \
+            --rebalance "${{ github.event.inputs.rebalance }}" \
+            --capital "${{ github.event.inputs.capital }}" \
+            --max-tickers "${{ github.event.inputs.max_tickers }}" \
+            | tee logs/backtest.log
+
+      - name: Post results to Job Summary
+        if: always()
+        run: |
+          echo '## Backtest Results' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "기간: ${{ github.event.inputs.period }} | 리밸런스: ${{ github.event.inputs.rebalance }}일 | 자본금: \$${{ github.event.inputs.capital }} | 종목수: ${{ github.event.inputs.max_tickers }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo '' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat logs/backtest.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload backtest log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-log
+          path: logs/backtest.log
+          retention-days: 7

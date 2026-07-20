@@ -1,0 +1,32 @@
+# 프로덕션 의존성 — 정확한 버전 고정 (2026-04-18 기준)
+# 개발 시에는 requirements.txt (범위 지정), CI/배포 시에는 이 파일 사용
+
+# Core
+pandas==2.3.2
+numpy==2.3.3
+pyarrow==23.0.1
+yfinance==0.2.66
+beautifulsoup4==4.14.0
+ta==0.11.0
+scikit-learn==1.7.2
+scipy==1.16.2
+
+# Google Sheets export
+gspread==6.2.1
+google-auth==2.40.3
+google-auth-oauthlib==1.2.2
+google-api-python-client==2.189.0
+google-auth-httplib2==0.3.0
+
+# PDF report generation
+fpdf2==2.8.7
+matplotlib==3.10.8
+
+# TradingView chart screenshots
+playwright==1.58.0
+
+# Machine Learning
+joblib==1.5.2
+
+# Retry / Resilience
+tenacity>=8.0

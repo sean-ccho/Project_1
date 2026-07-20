@@ -1,0 +1,108 @@
+============================================================
+[Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작
+============================================================
+2026-05-12 07:30:55,285 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+2026-05-12 07:30:55,293 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 231개 종목
+[Unified PT] NASDAQ snapshot 로드: 231개 종목
+[Unified PT] 합산 완료: 338개 종목 (SP500 130 + NASDAQ 231개, 중복 제거 후)
+2026-05-12 07:30:56,679 [INFO] paper_trading.engine — [PaperTrading] SELL NTLA @ 14.42 (시간익절(12일,+15.9%))
+2026-05-12 07:30:56,683 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 94 | 4.0~5.0: 20 | 5.0~5.5: 24 | 5.5~6.0: 18 | 6.0+: 182
+2026-05-12 07:30:56,692 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=1/338 | Selected: VXX (CCS=0.4297)
+2026-05-12 07:30:56,699 [INFO] paper_trading.engine — [PaperTrading] BUY VXX @ 28.47 (CCS=0.4297, RSI=42, upside P50=+5% P75=+8%)
+[Unified PT] 매도=1 매수=1 보유=3종목
+[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 156, '바닥반등_52주과열': 0, '판단등급_미달': 180, '과열_차단': 0, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 0, '모멘텀_ADX부족': 1, '바닥_RSI데드존': 0, '섹터_집중': 0, '_통과': 1, '_전체': 338}
+[Unified PT] Top5 후보:
+  VXX    CCS=0.4297 전략=📉 바닥반등 섹터=Unknown
+2026-05-12 07:30:58,071 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 append: SELL NTLA
+2026-05-12 07:30:59,316 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 append: BUY VXX
+2026-05-12 07:31:00,635 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-05-12 07:31:01,775 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 11건 거래
+[Unified PT] 구글 시트 동기화 완료
+2026-05-12 07:31:02,219 [INFO] matplotlib.font_manager — Failed to extract font properties from /usr/share/fonts/truetype/noto/NotoColorEmoji.ttf: Can not load face (unknown file format; error code 0x2)
+2026-05-12 07:31:02,225 [INFO] matplotlib.font_manager — generated new fontManager
+2026-05-12 07:31:02,995 [WARNING] fpdf.output — Font MPDFAA+NanumGothic is missing the following glyphs: '📉' (\U0001f4c9), '📈' (\U0001f4c8)
+2026-05-12 07:31:02,996 [INFO] fontTools.subset — maxp pruned
+2026-05-12 07:31:02,997 [INFO] fontTools.subset — cmap pruned
+2026-05-12 07:31:02,997 [INFO] fontTools.subset — post pruned
+2026-05-12 07:31:02,997 [INFO] fontTools.subset — DSIG dropped
+2026-05-12 07:31:02,998 [INFO] fontTools.subset — GPOS dropped
+2026-05-12 07:31:02,998 [INFO] fontTools.subset — GSUB dropped
+2026-05-12 07:31:02,998 [INFO] fontTools.subset — glyf pruned
+2026-05-12 07:31:02,999 [INFO] fontTools.subset — Added gid0 to subset
+2026-05-12 07:31:02,999 [INFO] fontTools.subset — Added first four glyphs to subset
+2026-05-12 07:31:02,999 [INFO] fontTools.subset — Closing glyph list over 'glyf': 104 glyphs before
+2026-05-12 07:31:03,000 [INFO] fontTools.subset — Glyph names: ['.notdef', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'a', 'ampersand', 'arrowright', 'b', 'bar', 'c', 'colon', 'comma', 'copyright', 'd', 'dollar', 'e', 'eight', 'emdash', 'exclam', 'f', 'five', 'four', 'g', 'h', 'hyphen', 'i', 'k', 'l', 'm', 'n', 'nine', 'numbersign', 'o', 'one', 'p', 'parenleft', 'parenright', 'percent', 'period', 'periodcentered', 'plus', 'q', 'quotedbl', 'r', 's', 'seven', 'six', 'slash', 'space', 't', 'three', 'triagup', 'two', 'u', 'uniAC00', 'uniAC04', 'uniAD50', 'uniADDC', 'uniB2E5', 'uniB4F1', 'uniB808', 'uniB9C1', 'uniB9E4', 'uniBA58', 'uniBAA8', 'uniBAA9', 'uniBC14', 'uniBC18', 'uniC190', 'uniC218', 'uniC2DC', 'uniC2E0', 'uniC775', 'uniC77C', 'uniC808', 'uniCCB4', 'uniD140', 'uniD2B8', 'uniD45C', 'v', 'w', 'x', 'y', 'zero']
+2026-05-12 07:31:03,000 [INFO] fontTools.subset — Glyph IDs:   [0, 1, 2, 3, 4, 5, 6, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 33, 34, 35, 36, 37, 38, 39, 40, 41, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 64, 65, 66, 67, 68, 69, 70, 71, 72, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 91, 96, 99, 104, 159, 162, 495, 497, 607, 640, 928, 1042, 1177, 1267, 1283, 1310, 1326, 1327, 1397, 1401, 1675, 1708, 1751, 1753, 2043, 2045, 2091, 2308, 2518, 2576, 2661, 13296]
+2026-05-12 07:31:03,000 [INFO] fontTools.subset — Closed glyph list over 'glyf': 104 glyphs after
+2026-05-12 07:31:03,000 [INFO] fontTools.subset — Glyph names: ['.notdef', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'a', 'ampersand', 'arrowright', 'b', 'bar', 'c', 'colon', 'comma', 'copyright', 'd', 'dollar', 'e', 'eight', 'emdash', 'exclam', 'f', 'five', 'four', 'g', 'h', 'hyphen', 'i', 'k', 'l', 'm', 'n', 'nine', 'numbersign', 'o', 'one', 'p', 'parenleft', 'parenright', 'percent', 'period', 'periodcentered', 'plus', 'q', 'quotedbl', 'r', 's', 'seven', 'six', 'slash', 'space', 't', 'three', 'triagup', 'two', 'u', 'uniAC00', 'uniAC04', 'uniAD50', 'uniADDC', 'uniB2E5', 'uniB4F1', 'uniB808', 'uniB9C1', 'uniB9E4', 'uniBA58', 'uniBAA8', 'uniBAA9', 'uniBC14', 'uniBC18', 'uniC190', 'uniC218', 'uniC2DC', 'uniC2E0', 'uniC775', 'uniC77C', 'uniC808', 'uniCCB4', 'uniD140', 'uniD2B8', 'uniD45C', 'v', 'w', 'x', 'y', 'zero']
+2026-05-12 07:31:03,000 [INFO] fontTools.subset — Glyph IDs:   [0, 1, 2, 3, 4, 5, 6, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 33, 34, 35, 36, 37, 38, 39, 40, 41, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 64, 65, 66, 67, 68, 69, 70, 71, 72, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 91, 96, 99, 104, 159, 162, 495, 497, 607, 640, 928, 1042, 1177, 1267, 1283, 1310, 1326, 1327, 1397, 1401, 1675, 1708, 1751, 1753, 2043, 2045, 2091, 2308, 2518, 2576, 2661, 13296]
+2026-05-12 07:31:03,001 [INFO] fontTools.subset — Retaining 104 glyphs
+2026-05-12 07:31:03,002 [INFO] fontTools.subset — head subsetting not needed
+2026-05-12 07:31:03,002 [INFO] fontTools.subset — hhea subsetting not needed
+2026-05-12 07:31:03,002 [INFO] fontTools.subset — maxp subsetting not needed
+2026-05-12 07:31:03,002 [INFO] fontTools.subset — OS/2 subsetting not needed
+2026-05-12 07:31:03,002 [INFO] fontTools.subset — hmtx subsetted
+2026-05-12 07:31:03,004 [INFO] fontTools.subset — cmap subsetted
+2026-05-12 07:31:03,004 [INFO] fontTools.subset — fpgm subsetting not needed
+2026-05-12 07:31:03,004 [INFO] fontTools.subset — prep subsetting not needed
+2026-05-12 07:31:03,004 [INFO] fontTools.subset — cvt  subsetting not needed
+2026-05-12 07:31:03,004 [INFO] fontTools.subset — loca subsetting not needed
+2026-05-12 07:31:03,004 [INFO] fontTools.subset — post subsetted
+2026-05-12 07:31:03,004 [INFO] fontTools.subset — gasp subsetting not needed
+2026-05-12 07:31:03,005 [INFO] fontTools.subset — name subsetting not needed
+2026-05-12 07:31:03,007 [INFO] fontTools.subset — glyf subsetted
+2026-05-12 07:31:03,008 [INFO] fontTools.subset — head pruned
+2026-05-12 07:31:03,008 [INFO] fontTools.subset — OS/2 Unicode ranges pruned: [0, 1, 31, 37, 45, 56]
+2026-05-12 07:31:03,008 [INFO] fontTools.subset — OS/2 CodePage ranges pruned: [0]
+2026-05-12 07:31:03,009 [INFO] fontTools.subset — glyf pruned
+2026-05-12 07:31:03,010 [INFO] fontTools.subset — name pruned
+2026-05-12 07:31:03,028 [WARNING] fpdf.output — Font MPDFAA+NanumGothicBold is missing the following glyphs: '📈' (\U0001f4c8), '📉' (\U0001f4c9)
+2026-05-12 07:31:03,029 [INFO] fontTools.subset — maxp pruned
+2026-05-12 07:31:03,029 [INFO] fontTools.subset — cmap pruned
+2026-05-12 07:31:03,029 [INFO] fontTools.subset — post pruned
+2026-05-12 07:31:03,029 [INFO] fontTools.subset — DSIG dropped
+2026-05-12 07:31:03,029 [INFO] fontTools.subset — GPOS dropped
+2026-05-12 07:31:03,029 [INFO] fontTools.subset — GSUB dropped
+2026-05-12 07:31:03,029 [INFO] fontTools.subset — glyf pruned
+2026-05-12 07:31:03,031 [INFO] fontTools.subset — Added gid0 to subset
+2026-05-12 07:31:03,031 [INFO] fontTools.subset — Added first four glyphs to subset
+2026-05-12 07:31:03,031 [INFO] fontTools.subset — Closing glyph list over 'glyf': 95 glyphs before
+2026-05-12 07:31:03,031 [INFO] fontTools.subset — Glyph names: ['.notdef', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'ampersand', 'b', 'c', 'colon', 'd', 'dollar', 'e', 'eight', 'emdash', 'equal', 'exclam', 'f', 'five', 'four', 'g', 'h', 'hyphen', 'i', 'j', 'k', 'l', 'm', 'n', 'nine', 'numbersign', 'o', 'one', 'p', 'parenleft', 'parenright', 'percent', 'period', 'periodcentered', 'plus', 'q', 'quotedbl', 'quotesingle', 'r', 's', 'seven', 'six', 'slash', 'space', 't', 'three', 'two', 'u', 'uni2605', 'uniACE8', 'uniB2E5', 'uniB4E0', 'uniB4F1', 'uniB85C', 'uniBA58', 'uniBAA8', 'uniBC14', 'uniBC15', 'uniBC18', 'uniC2A4', 'uniC784', 'uniD06C', 'uniD140', 'v', 'w', 'x', 'y', 'zero']
+2026-05-12 07:31:03,031 [INFO] fontTools.subset — Glyph IDs:   [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 29, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 99, 104, 150, 573, 926, 1033, 1040, 1196, 1308, 1324, 1395, 1396, 1399, 1740, 2047, 2475, 2516, 13533]
+2026-05-12 07:31:03,031 [INFO] fontTools.subset — Closed glyph list over 'glyf': 95 glyphs after
+2026-05-12 07:31:03,031 [INFO] fontTools.subset — Glyph names: ['.notdef', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'ampersand', 'b', 'c', 'colon', 'd', 'dollar', 'e', 'eight', 'emdash', 'equal', 'exclam', 'f', 'five', 'four', 'g', 'h', 'hyphen', 'i', 'j', 'k', 'l', 'm', 'n', 'nine', 'numbersign', 'o', 'one', 'p', 'parenleft', 'parenright', 'percent', 'period', 'periodcentered', 'plus', 'q', 'quotedbl', 'quotesingle', 'r', 's', 'seven', 'six', 'slash', 'space', 't', 'three', 'two', 'u', 'uni2605', 'uniACE8', 'uniB2E5', 'uniB4E0', 'uniB4F1', 'uniB85C', 'uniBA58', 'uniBAA8', 'uniBC14', 'uniBC15', 'uniBC18', 'uniC2A4', 'uniC784', 'uniD06C', 'uniD140', 'v', 'w', 'x', 'y', 'zero']
+2026-05-12 07:31:03,031 [INFO] fontTools.subset — Glyph IDs:   [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 29, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 99, 104, 150, 573, 926, 1033, 1040, 1196, 1308, 1324, 1395, 1396, 1399, 1740, 2047, 2475, 2516, 13533]
+2026-05-12 07:31:03,032 [INFO] fontTools.subset — Retaining 95 glyphs
+2026-05-12 07:31:03,032 [INFO] fontTools.subset — head subsetting not needed
+2026-05-12 07:31:03,032 [INFO] fontTools.subset — hhea subsetting not needed
+2026-05-12 07:31:03,032 [INFO] fontTools.subset — maxp subsetting not needed
+2026-05-12 07:31:03,032 [INFO] fontTools.subset — OS/2 subsetting not needed
+2026-05-12 07:31:03,033 [INFO] fontTools.subset — hmtx subsetted
+2026-05-12 07:31:03,034 [INFO] fontTools.subset — cmap subsetted
+2026-05-12 07:31:03,034 [INFO] fontTools.subset — fpgm subsetting not needed
+2026-05-12 07:31:03,034 [INFO] fontTools.subset — prep subsetting not needed
+2026-05-12 07:31:03,034 [INFO] fontTools.subset — cvt  subsetting not needed
+2026-05-12 07:31:03,034 [INFO] fontTools.subset — loca subsetting not needed
+2026-05-12 07:31:03,034 [INFO] fontTools.subset — post subsetted
+2026-05-12 07:31:03,034 [INFO] fontTools.subset — gasp subsetting not needed
+2026-05-12 07:31:03,034 [INFO] fontTools.subset — name subsetting not needed
+2026-05-12 07:31:03,037 [INFO] fontTools.subset — glyf subsetted
+2026-05-12 07:31:03,037 [INFO] fontTools.subset — head pruned
+2026-05-12 07:31:03,037 [INFO] fontTools.subset — OS/2 Unicode ranges pruned: [0, 1, 31, 46, 56]
+2026-05-12 07:31:03,037 [INFO] fontTools.subset — OS/2 CodePage ranges pruned: [0]
+2026-05-12 07:31:03,038 [INFO] fontTools.subset — glyf pruned
+2026-05-12 07:31:03,039 [INFO] fontTools.subset — name pruned
+[Unified PT] PDF 리포트 생성 완료 (114,861 bytes)
+[시장분석] 3개 종목 데이터 수집 중...
+2026-05-12 07:31:03,659 [ERROR] yfinance — HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"No fundamentals data found for symbol: VXX"}}}
+2026-05-12 07:31:07,079 [ERROR] yfinance — HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"No fundamentals data found for symbol: VXX"}}}
+2026-05-12 07:31:09,979 [WARNING] data.fetch — [fetch_analyst_data] ARWR: 'dict' object has no attribute 'empty'
+2026-05-12 07:31:09,999 [WARNING] data.fetch — [fetch_analyst_data] ANET: 'dict' object has no attribute 'empty'
+2026-05-12 07:31:10,487 [ERROR] yfinance — HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"No fundamentals data found for symbol: VXX"}}}
+2026-05-12 07:31:10,487 [WARNING] data.fetch — [fetch_analyst_data] VXX: 'dict' object has no attribute 'empty'
+[시장분석] enrichment 완료
+[Email] 페이퍼 트레이딩 알림 발송 완료 (PDF 첨부) (매도 1건, 매수 1건, 재평가 0건, 재평가실패 1건, 후보 1건) → chunghwan14@gmail.com, roykim0311@gmail.com, ssamjungtan@naver.com
+============================================================
+[Unified Paper Trading] 완료
+============================================================

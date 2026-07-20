@@ -1,0 +1,1284 @@
+[OHLCV] 배치 다운로드 1/4 (150개 종목, period=5y)...
+[OHLCV] 배치 다운로드 2/4 (150개 종목, period=5y)...
+[OHLCV] 배치 다운로드 3/4 (150개 종목, period=5y)...
+[OHLCV] 배치 다운로드 4/4 (68개 종목, period=5y)...
+[DataValidator] 9건의 데이터 품질 경고 발생
+Warning:  KVUE: Close NaN 비율 39.8% (기준: 30%)
+Warning:  PDD: 비정상 가격 변동 56.1% (2022-03-16) — 스플릿/데이터 오류 가능
+Warning:  GEV: Close NaN 비율 57.7% (기준: 30%)
+Warning:  HOOD: 비정상 가격 변동 50.4% (2021-08-04) — 스플릿/데이터 오류 가능
+Warning:  VLTO: Close NaN 비율 48.2% (기준: 30%)
+Warning:  DAY: Close NaN 비율 100.0% (기준: 30%)
+Warning:  GEHC: Close NaN 비율 32.2% (기준: 30%)
+Warning:  SOLV: Close NaN 비율 57.6% (기준: 30%)
+Warning:  GL: 비정상 가격 변동 53.1% (2024-04-11) — 스플릿/데이터 오류 가능
+[[SP500 분석]] 강한 섹터: {'Information Technology'}
+[[SP500 분석]] Extreme model 'label_low' walk-forward ROC 0.62, AP 0.33
+[[SP500 분석]] Extreme model 'label_high' walk-forward ROC 0.63, AP 0.28
+[[SP500 분석]] Google Sheets 업데이트 완료
+[Email] 바닥반등 19개 + 모멘텀 54개 = 총 73개 종목 리스트를 chunghwan14@gmail.com, roykim0311@gmail.com, ssamjungtan@naver.com로 발송 완료
+[[SP500 분석]] Signals 결과 기반 차트분석 종목 리스트 생성 중...
+[Dynamic Portfolio] 생성된 차트분석 종목 리스트(74개): ['NBM.V', 'PANW', 'C', 'WMT', 'CDNS', 'SNPS', 'QQQ', 'MELI', 'NXPI', 'APH', 'T', 'MPWR', 'VLO', 'LRCX', 'TER', 'NVDA', 'KLAC', 'ANET', 'ON', 'AVGO', 'AMZN', 'DDOG', 'GS', 'JNJ', 'MS', 'BA', 'CAT', 'ETN', 'RTX', 'UNP', 'QCOM', 'GLW', 'ABT', 'AZO', 'CRWD', 'MU', 'XOM', 'MCD', 'UNH', 'GOOGL', 'DELL', 'SBUX', 'VZ', 'INTC', 'NEM', 'HD', 'NEE', 'TXN', 'ASML', 'NKE', 'SLB', 'KO', 'WDC', 'GEV', 'IWM', 'EBAY', 'DHR', 'AAPL', 'AMD', 'PM', 'SPY', 'AMAT', 'FCX', 'LIN', 'COST', 'CVX', 'MRVL', 'STX', 'CSCO', 'PWR', 'GOOG', 'ADI', 'MRK', 'MCHP']
+[[SP500 차트분석]] [SP500 분석] 결과 기반 [SP500 차트분석] 시트 생성 중 (74개 종목)...
+[[SP500 차트분석]] [SP500 분석]에 없는 종목은 별도 분석: ['NBM.V']
+[DataValidator] 1건의 데이터 품질 경고 발생
+Warning:  NBM.V: 비정상 가격 변동 56.3% (2024-09-25) — 스플릿/데이터 오류 가능
+[[SP500 차트분석]] 강한 섹터: {'Information Technology'}
+[[SP500 차트분석]] Extreme model 'global' skipped: insufficient_tickers
+[[SP500 차트분석]] 기존 차트 파일 삭제 중...
+[[SP500 차트분석]] 차트 저장 디렉토리 준비 완료: charts/screenshots
+[[SP500 차트분석]] TradingView 차트 캡처 시작...
+[[SP500 차트분석]] 74개 종목 차트 캡처 중...
+[TradingView] NXPI 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] NXPI 차트 5개 처리 완료
+[TradingView] MCHP 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] MCHP 차트 5개 처리 완료
+[TradingView] MS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] MS 차트 5개 처리 완료
+[TradingView] CAT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] CAT 차트 5개 처리 완료
+[TradingView] PWR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] PWR 차트 5개 처리 완료
+[TradingView] SLB 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] SLB 차트 5개 처리 완료
+[TradingView] ADI 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] ADI 차트 5개 처리 완료
+[TradingView] ON 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] ON 차트 5개 처리 완료
+[TradingView] MRVL 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] MRVL 차트 5개 처리 완료
+[TradingView] MPWR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] MPWR 차트 5개 처리 완료
+[TradingView] UNP 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] UNP 차트 5개 처리 완료
+[TradingView] SNPS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] SNPS 차트 5개 처리 완료
+[TradingView] CSCO 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] CSCO 차트 5개 처리 완료
+[TradingView] AVGO 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] AVGO 차트 5개 처리 완료
+[TradingView] IWM 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] IWM 차트 5개 처리 완료
+[TradingView] GLW 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] GLW 차트 5개 처리 완료
+[TradingView] SBUX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] SBUX 차트 5개 처리 완료
+[TradingView] AMAT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] AMAT 차트 5개 처리 완료
+[TradingView] NVDA 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] NVDA 차트 5개 처리 완료
+[TradingView] CDNS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] CDNS 차트 5개 처리 완료
+[TradingView] ASML 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] ASML 차트 5개 처리 완료
+[TradingView] EBAY 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] EBAY 차트 5개 처리 완료
+[TradingView] CRWD 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] CRWD 차트 5개 처리 완료
+[TradingView] GOOGL 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] GOOGL 차트 5개 처리 완료
+[TradingView] GOOG 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] GOOG 차트 5개 처리 완료
+[TradingView] WDC 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] WDC 차트 5개 처리 완료
+[TradingView] STX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] STX 차트 5개 처리 완료
+[TradingView] AMZN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] AMZN 차트 5개 처리 완료
+[TradingView] TXN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] TXN 차트 5개 처리 완료
+[TradingView] UNH 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] UNH 차트 5개 처리 완료
+[TradingView] LRCX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] LRCX 차트 5개 처리 완료
+[TradingView] AAPL 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] AAPL 차트 5개 처리 완료
+[TradingView] C 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] C 차트 5개 처리 완료
+[TradingView] SPY 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] SPY 차트 5개 처리 완료
+[TradingView] QQQ 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] QQQ 차트 5개 처리 완료
+[TradingView] VLO 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] VLO 차트 5개 처리 완료
+[TradingView] QCOM 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] QCOM 차트 5개 처리 완료
+[TradingView] DDOG 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] DDOG 차트 5개 처리 완료
+[TradingView] MU 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] MU 차트 5개 처리 완료
+[TradingView] AMD 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] AMD 차트 5개 처리 완료
+[TradingView] ANET 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] ANET 차트 5개 처리 완료
+[TradingView] INTC 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] INTC 차트 5개 처리 완료
+[TradingView] DELL 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] DELL 차트 5개 처리 완료
+[TradingView] VZ 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] VZ 차트 5개 처리 완료
+[TradingView] KO 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] KO 차트 5개 처리 완료
+[TradingView] ETN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] ETN 차트 5개 처리 완료
+[TradingView] NEE 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] NEE 차트 5개 처리 완료
+[TradingView] WMT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] WMT 차트 5개 처리 완료
+[TradingView] BA 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] BA 차트 5개 처리 완료
+[TradingView] GS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] GS 차트 5개 처리 완료
+[TradingView] KLAC 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] KLAC 차트 5개 처리 완료
+[TradingView] FCX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] FCX 차트 5개 처리 완료
+[TradingView] NEM 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] NEM 차트 5개 처리 완료
+[TradingView] PM 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] PM 차트 5개 처리 완료
+[TradingView] T 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] T 차트 5개 처리 완료
+[TradingView] PANW 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] PANW 차트 5개 처리 완료
+[TradingView] TER 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] TER 차트 5개 처리 완료
+[TradingView] GEV 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] GEV 차트 5개 처리 완료
+[TradingView] MELI 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] MELI 차트 5개 처리 완료
+[TradingView] APH 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] APH 차트 5개 처리 완료
+[TradingView] ABT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] ABT 차트 5개 처리 완료
+[TradingView] MCD 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] MCD 차트 5개 처리 완료
+[TradingView] DHR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] DHR 차트 5개 처리 완료
+[TradingView] AZO 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] AZO 차트 5개 처리 완료
+[TradingView] CVX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] CVX 차트 5개 처리 완료
+[TradingView] MRK 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] MRK 차트 5개 처리 완료
+[TradingView] HD 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] HD 차트 5개 처리 완료
+[TradingView] NKE 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] NKE 차트 5개 처리 완료
+[TradingView] RTX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] RTX 차트 5개 처리 완료
+[TradingView] JNJ 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] JNJ 차트 5개 처리 완료
+[TradingView] LIN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] LIN 차트 5개 처리 완료
+[TradingView] COST 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] COST 차트 5개 처리 완료
+[TradingView] XOM 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] XOM 차트 5개 처리 완료
+[TradingView] 티커 매핑 적용: NBM.V -> NBM
+[TradingView] NBM.V 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] NBM.V 차트 5개 처리 완료
+[[SP500 차트분석]] 차트 캡처 완료
+[[SP500 차트분석]] GitHub에 차트 이미지 푸시 중...
+[main 59f2d8c] Update chart screenshots 1778391051
+ 725 files changed, 0 insertions(+), 0 deletions(-)
+ delete mode 100644 charts/screenshots/AAPL/AAPL_1H_20260509_044833.png
+ create mode 100644 charts/screenshots/AAPL/AAPL_1H_20260510_050930.png
+ delete mode 100644 charts/screenshots/AAPL/AAPL_4H_20260509_044833.png
+ create mode 100644 charts/screenshots/AAPL/AAPL_4H_20260510_050930.png
+ delete mode 100644 charts/screenshots/AAPL/AAPL_Daily_20260509_044833.png
+ create mode 100644 charts/screenshots/AAPL/AAPL_Daily_20260510_050930.png
+ delete mode 100644 charts/screenshots/AAPL/AAPL_Monthly_20260509_044833.png
+ create mode 100644 charts/screenshots/AAPL/AAPL_Monthly_20260510_050930.png
+ delete mode 100644 charts/screenshots/AAPL/AAPL_Weekly_20260509_044833.png
+ create mode 100644 charts/screenshots/AAPL/AAPL_Weekly_20260510_050930.png
+ delete mode 100644 charts/screenshots/ABT/ABT_1H_20260509_050246.png
+ create mode 100644 charts/screenshots/ABT/ABT_1H_20260510_052336.png
+ delete mode 100644 charts/screenshots/ABT/ABT_4H_20260509_050246.png
+ create mode 100644 charts/screenshots/ABT/ABT_4H_20260510_052336.png
+ delete mode 100644 charts/screenshots/ABT/ABT_Daily_20260509_050246.png
+ create mode 100644 charts/screenshots/ABT/ABT_Daily_20260510_052336.png
+ delete mode 100644 charts/screenshots/ABT/ABT_Monthly_20260509_050246.png
+ create mode 100644 charts/screenshots/ABT/ABT_Monthly_20260510_052336.png
+ delete mode 100644 charts/screenshots/ABT/ABT_Weekly_20260509_050246.png
+ create mode 100644 charts/screenshots/ABT/ABT_Weekly_20260510_052336.png
+ delete mode 100644 charts/screenshots/ADI/ADI_1H_20260509_043616.png
+ create mode 100644 charts/screenshots/ADI/ADI_1H_20260510_045650.png
+ delete mode 100644 charts/screenshots/ADI/ADI_4H_20260509_043616.png
+ create mode 100644 charts/screenshots/ADI/ADI_4H_20260510_045650.png
+ delete mode 100644 charts/screenshots/ADI/ADI_Daily_20260509_043616.png
+ create mode 100644 charts/screenshots/ADI/ADI_Daily_20260510_045650.png
+ delete mode 100644 charts/screenshots/ADI/ADI_Monthly_20260509_043616.png
+ create mode 100644 charts/screenshots/ADI/ADI_Monthly_20260510_045650.png
+ delete mode 100644 charts/screenshots/ADI/ADI_Weekly_20260509_043616.png
+ create mode 100644 charts/screenshots/ADI/ADI_Weekly_20260510_045650.png
+ delete mode 100644 charts/screenshots/AMAT/AMAT_1H_20260509_044140.png
+ create mode 100644 charts/screenshots/AMAT/AMAT_1H_20260510_050230.png
+ rename charts/screenshots/AMAT/{AMAT_4H_20260509_044140.png => AMAT_4H_20260510_050230.png} (80%)
+ delete mode 100644 charts/screenshots/AMAT/AMAT_Daily_20260509_044140.png
+ create mode 100644 charts/screenshots/AMAT/AMAT_Daily_20260510_050230.png
+ delete mode 100644 charts/screenshots/AMAT/AMAT_Monthly_20260509_044140.png
+ create mode 100644 charts/screenshots/AMAT/AMAT_Monthly_20260510_050230.png
+ delete mode 100644 charts/screenshots/AMAT/AMAT_Weekly_20260509_044140.png
+ create mode 100644 charts/screenshots/AMAT/AMAT_Weekly_20260510_050230.png
+ delete mode 100644 charts/screenshots/AMD/AMD_1H_20260509_045231.png
+ create mode 100644 charts/screenshots/AMD/AMD_1H_20260510_051329.png
+ delete mode 100644 charts/screenshots/AMD/AMD_4H_20260509_045231.png
+ create mode 100644 charts/screenshots/AMD/AMD_4H_20260510_051329.png
+ delete mode 100644 charts/screenshots/AMD/AMD_Daily_20260509_045231.png
+ create mode 100644 charts/screenshots/AMD/AMD_Daily_20260510_051329.png
+ delete mode 100644 charts/screenshots/AMD/AMD_Monthly_20260509_045231.png
+ create mode 100644 charts/screenshots/AMD/AMD_Monthly_20260510_051329.png
+ delete mode 100644 charts/screenshots/AMD/AMD_Weekly_20260509_045231.png
+ create mode 100644 charts/screenshots/AMD/AMD_Weekly_20260510_051329.png
+ delete mode 100644 charts/screenshots/AMZN/AMZN_1H_20260509_044638.png
+ create mode 100644 charts/screenshots/AMZN/AMZN_1H_20260510_050728.png
+ delete mode 100644 charts/screenshots/AMZN/AMZN_4H_20260509_044638.png
+ create mode 100644 charts/screenshots/AMZN/AMZN_4H_20260510_050728.png
+ delete mode 100644 charts/screenshots/AMZN/AMZN_Daily_20260509_044638.png
+ create mode 100644 charts/screenshots/AMZN/AMZN_Daily_20260510_050728.png
+ delete mode 100644 charts/screenshots/AMZN/AMZN_Monthly_20260509_044638.png
+ create mode 100644 charts/screenshots/AMZN/AMZN_Monthly_20260510_050728.png
+ delete mode 100644 charts/screenshots/AMZN/AMZN_Weekly_20260509_044638.png
+ create mode 100644 charts/screenshots/AMZN/AMZN_Weekly_20260510_050728.png
+ delete mode 100644 charts/screenshots/ANET/ANET_1H_20260509_045259.png
+ create mode 100644 charts/screenshots/ANET/ANET_1H_20260510_051357.png
+ rename charts/screenshots/ANET/{ANET_4H_20260509_045259.png => ANET_4H_20260510_051357.png} (100%)
+ delete mode 100644 charts/screenshots/ANET/ANET_Daily_20260509_045259.png
+ create mode 100644 charts/screenshots/ANET/ANET_Daily_20260510_051357.png
+ delete mode 100644 charts/screenshots/ANET/ANET_Monthly_20260509_045259.png
+ create mode 100644 charts/screenshots/ANET/ANET_Monthly_20260510_051357.png
+ delete mode 100644 charts/screenshots/ANET/ANET_Weekly_20260509_045259.png
+ create mode 100644 charts/screenshots/ANET/ANET_Weekly_20260510_051357.png
+ delete mode 100644 charts/screenshots/APH/APH_1H_20260509_050218.png
+ create mode 100644 charts/screenshots/APH/APH_1H_20260510_052306.png
+ delete mode 100644 charts/screenshots/APH/APH_4H_20260509_050218.png
+ create mode 100644 charts/screenshots/APH/APH_4H_20260510_052306.png
+ delete mode 100644 charts/screenshots/APH/APH_Daily_20260509_050218.png
+ create mode 100644 charts/screenshots/APH/APH_Daily_20260510_052306.png
+ delete mode 100644 charts/screenshots/APH/APH_Monthly_20260509_050218.png
+ create mode 100644 charts/screenshots/APH/APH_Monthly_20260510_052306.png
+ delete mode 100644 charts/screenshots/APH/APH_Weekly_20260509_050218.png
+ create mode 100644 charts/screenshots/APH/APH_Weekly_20260510_052306.png
+ delete mode 100644 charts/screenshots/ASML/ASML_1H_20260509_044312.png
+ create mode 100644 charts/screenshots/ASML/ASML_1H_20260510_050359.png
+ rename charts/screenshots/ASML/{ASML_4H_20260509_044312.png => ASML_4H_20260510_050359.png} (100%)
+ delete mode 100644 charts/screenshots/ASML/ASML_Daily_20260509_044312.png
+ create mode 100644 charts/screenshots/ASML/ASML_Daily_20260510_050359.png
+ delete mode 100644 charts/screenshots/ASML/ASML_Monthly_20260509_044312.png
+ create mode 100644 charts/screenshots/ASML/ASML_Monthly_20260510_050359.png
+ delete mode 100644 charts/screenshots/ASML/ASML_Weekly_20260509_044312.png
+ create mode 100644 charts/screenshots/ASML/ASML_Weekly_20260510_050359.png
+ delete mode 100644 charts/screenshots/AVGO/AVGO_1H_20260509_043941.png
+ create mode 100644 charts/screenshots/AVGO/AVGO_1H_20260510_050023.png
+ delete mode 100644 charts/screenshots/AVGO/AVGO_4H_20260509_043941.png
+ create mode 100644 charts/screenshots/AVGO/AVGO_4H_20260510_050023.png
+ delete mode 100644 charts/screenshots/AVGO/AVGO_Daily_20260509_043941.png
+ create mode 100644 charts/screenshots/AVGO/AVGO_Daily_20260510_050023.png
+ delete mode 100644 charts/screenshots/AVGO/AVGO_Monthly_20260509_043941.png
+ create mode 100644 charts/screenshots/AVGO/AVGO_Monthly_20260510_050023.png
+ delete mode 100644 charts/screenshots/AVGO/AVGO_Weekly_20260509_043941.png
+ create mode 100644 charts/screenshots/AVGO/AVGO_Weekly_20260510_050023.png
+ delete mode 100644 charts/screenshots/AZO/AZO_1H_20260509_050413.png
+ create mode 100644 charts/screenshots/AZO/AZO_1H_20260510_052504.png
+ delete mode 100644 charts/screenshots/AZO/AZO_4H_20260509_050413.png
+ create mode 100644 charts/screenshots/AZO/AZO_4H_20260510_052504.png
+ delete mode 100644 charts/screenshots/AZO/AZO_Daily_20260509_050413.png
+ create mode 100644 charts/screenshots/AZO/AZO_Daily_20260510_052504.png
+ delete mode 100644 charts/screenshots/AZO/AZO_Monthly_20260509_050413.png
+ create mode 100644 charts/screenshots/AZO/AZO_Monthly_20260510_052504.png
+ delete mode 100644 charts/screenshots/AZO/AZO_Weekly_20260509_050413.png
+ create mode 100644 charts/screenshots/AZO/AZO_Weekly_20260510_052504.png
+ delete mode 100644 charts/screenshots/BA/BA_1H_20260509_045650.png
+ create mode 100644 charts/screenshots/BA/BA_1H_20260510_051748.png
+ delete mode 100644 charts/screenshots/BA/BA_4H_20260509_045650.png
+ create mode 100644 charts/screenshots/BA/BA_4H_20260510_051748.png
+ delete mode 100644 charts/screenshots/BA/BA_Daily_20260509_045650.png
+ create mode 100644 charts/screenshots/BA/BA_Daily_20260510_051748.png
+ delete mode 100644 charts/screenshots/BA/BA_Monthly_20260509_045650.png
+ create mode 100644 charts/screenshots/BA/BA_Monthly_20260510_051748.png
+ delete mode 100644 charts/screenshots/BA/BA_Weekly_20260509_045650.png
+ create mode 100644 charts/screenshots/BA/BA_Weekly_20260510_051748.png
+ delete mode 100644 charts/screenshots/C/C_1H_20260509_044903.png
+ create mode 100644 charts/screenshots/C/C_1H_20260510_051000.png
+ delete mode 100644 charts/screenshots/C/C_4H_20260509_044903.png
+ create mode 100644 charts/screenshots/C/C_4H_20260510_051000.png
+ rename charts/screenshots/C/{C_Daily_20260509_044903.png => C_Daily_20260510_051000.png} (81%)
+ delete mode 100644 charts/screenshots/C/C_Monthly_20260509_044903.png
+ create mode 100644 charts/screenshots/C/C_Monthly_20260510_051000.png
+ delete mode 100644 charts/screenshots/C/C_Weekly_20260509_044903.png
+ create mode 100644 charts/screenshots/C/C_Weekly_20260510_051000.png
+ delete mode 100644 charts/screenshots/CAT/CAT_1H_20260509_043446.png
+ create mode 100644 charts/screenshots/CAT/CAT_1H_20260510_045509.png
+ delete mode 100644 charts/screenshots/CAT/CAT_4H_20260509_043446.png
+ create mode 100644 charts/screenshots/CAT/CAT_4H_20260510_045509.png
+ rename charts/screenshots/CAT/{CAT_Daily_20260509_043446.png => CAT_Daily_20260510_045509.png} (100%)
+ delete mode 100644 charts/screenshots/CAT/CAT_Monthly_20260509_043446.png
+ create mode 100644 charts/screenshots/CAT/CAT_Monthly_20260510_045509.png
+ delete mode 100644 charts/screenshots/CAT/CAT_Weekly_20260509_043446.png
+ create mode 100644 charts/screenshots/CAT/CAT_Weekly_20260510_045509.png
+ delete mode 100644 charts/screenshots/CDNS/CDNS_1H_20260509_044241.png
+ create mode 100644 charts/screenshots/CDNS/CDNS_1H_20260510_050329.png
+ delete mode 100644 charts/screenshots/CDNS/CDNS_4H_20260509_044241.png
+ create mode 100644 charts/screenshots/CDNS/CDNS_4H_20260510_050329.png
+ delete mode 100644 charts/screenshots/CDNS/CDNS_Daily_20260509_044241.png
+ create mode 100644 charts/screenshots/CDNS/CDNS_Daily_20260510_050329.png
+ delete mode 100644 charts/screenshots/CDNS/CDNS_Monthly_20260509_044241.png
+ create mode 100644 charts/screenshots/CDNS/CDNS_Monthly_20260510_050329.png
+ delete mode 100644 charts/screenshots/CDNS/CDNS_Weekly_20260509_044241.png
+ create mode 100644 charts/screenshots/CDNS/CDNS_Weekly_20260510_050329.png
+ delete mode 100644 charts/screenshots/COST/COST_1H_20260509_050809.png
+ create mode 100644 charts/screenshots/COST/COST_1H_20260510_052920.png
+ delete mode 100644 charts/screenshots/COST/COST_4H_20260509_050809.png
+ create mode 100644 charts/screenshots/COST/COST_4H_20260510_052920.png
+ delete mode 100644 charts/screenshots/COST/COST_Daily_20260509_050809.png
+ create mode 100644 charts/screenshots/COST/COST_Daily_20260510_052920.png
+ delete mode 100644 charts/screenshots/COST/COST_Monthly_20260509_050809.png
+ create mode 100644 charts/screenshots/COST/COST_Monthly_20260510_052920.png
+ delete mode 100644 charts/screenshots/COST/COST_Weekly_20260509_050809.png
+ create mode 100644 charts/screenshots/COST/COST_Weekly_20260510_052920.png
+ delete mode 100644 charts/screenshots/CRWD/CRWD_1H_20260509_044413.png
+ create mode 100644 charts/screenshots/CRWD/CRWD_1H_20260510_050501.png
+ delete mode 100644 charts/screenshots/CRWD/CRWD_4H_20260509_044413.png
+ create mode 100644 charts/screenshots/CRWD/CRWD_4H_20260510_050501.png
+ delete mode 100644 charts/screenshots/CRWD/CRWD_Daily_20260509_044413.png
+ create mode 100644 charts/screenshots/CRWD/CRWD_Daily_20260510_050501.png
+ delete mode 100644 charts/screenshots/CRWD/CRWD_Monthly_20260509_044413.png
+ create mode 100644 charts/screenshots/CRWD/CRWD_Monthly_20260510_050501.png
+ delete mode 100644 charts/screenshots/CRWD/CRWD_Weekly_20260509_044413.png
+ create mode 100644 charts/screenshots/CRWD/CRWD_Weekly_20260510_050501.png
+ delete mode 100644 charts/screenshots/CSCO/CSCO_1H_20260509_043910.png
+ create mode 100644 charts/screenshots/CSCO/CSCO_1H_20260510_045954.png
+ delete mode 100644 charts/screenshots/CSCO/CSCO_4H_20260509_043910.png
+ create mode 100644 charts/screenshots/CSCO/CSCO_4H_20260510_045954.png
+ delete mode 100644 charts/screenshots/CSCO/CSCO_Daily_20260509_043910.png
+ create mode 100644 charts/screenshots/CSCO/CSCO_Daily_20260510_045954.png
+ delete mode 100644 charts/screenshots/CSCO/CSCO_Monthly_20260509_043910.png
+ create mode 100644 charts/screenshots/CSCO/CSCO_Monthly_20260510_045954.png
+ delete mode 100644 charts/screenshots/CSCO/CSCO_Weekly_20260509_043910.png
+ create mode 100644 charts/screenshots/CSCO/CSCO_Weekly_20260510_045954.png
+ delete mode 100644 charts/screenshots/CVX/CVX_1H_20260509_050443.png
+ create mode 100644 charts/screenshots/CVX/CVX_1H_20260510_052535.png
+ delete mode 100644 charts/screenshots/CVX/CVX_4H_20260509_050443.png
+ create mode 100644 charts/screenshots/CVX/CVX_4H_20260510_052535.png
+ delete mode 100644 charts/screenshots/CVX/CVX_Daily_20260509_050443.png
+ create mode 100644 charts/screenshots/CVX/CVX_Daily_20260510_052535.png
+ delete mode 100644 charts/screenshots/CVX/CVX_Monthly_20260509_050443.png
+ create mode 100644 charts/screenshots/CVX/CVX_Monthly_20260510_052535.png
+ delete mode 100644 charts/screenshots/CVX/CVX_Weekly_20260509_050443.png
+ create mode 100644 charts/screenshots/CVX/CVX_Weekly_20260510_052535.png
+ delete mode 100644 charts/screenshots/DDOG/DDOG_1H_20260509_045134.png
+ create mode 100644 charts/screenshots/DDOG/DDOG_1H_20260510_051229.png
+ delete mode 100644 charts/screenshots/DDOG/DDOG_4H_20260509_045134.png
+ create mode 100644 charts/screenshots/DDOG/DDOG_4H_20260510_051229.png
+ delete mode 100644 charts/screenshots/DDOG/DDOG_Daily_20260509_045134.png
+ create mode 100644 charts/screenshots/DDOG/DDOG_Daily_20260510_051229.png
+ delete mode 100644 charts/screenshots/DDOG/DDOG_Monthly_20260509_045134.png
+ create mode 100644 charts/screenshots/DDOG/DDOG_Monthly_20260510_051229.png
+ delete mode 100644 charts/screenshots/DDOG/DDOG_Weekly_20260509_045134.png
+ create mode 100644 charts/screenshots/DDOG/DDOG_Weekly_20260510_051229.png
+ delete mode 100644 charts/screenshots/DELL/DELL_1H_20260509_045358.png
+ create mode 100644 charts/screenshots/DELL/DELL_1H_20260510_051453.png
+ delete mode 100644 charts/screenshots/DELL/DELL_4H_20260509_045358.png
+ create mode 100644 charts/screenshots/DELL/DELL_4H_20260510_051453.png
+ delete mode 100644 charts/screenshots/DELL/DELL_Daily_20260509_045358.png
+ create mode 100644 charts/screenshots/DELL/DELL_Daily_20260510_051453.png
+ delete mode 100644 charts/screenshots/DELL/DELL_Monthly_20260509_045358.png
+ create mode 100644 charts/screenshots/DELL/DELL_Monthly_20260510_051453.png
+ rename charts/screenshots/DELL/{DELL_Weekly_20260509_045358.png => DELL_Weekly_20260510_051453.png} (82%)
+ delete mode 100644 charts/screenshots/DHR/DHR_1H_20260509_050344.png
+ create mode 100644 charts/screenshots/DHR/DHR_1H_20260510_052433.png
+ delete mode 100644 charts/screenshots/DHR/DHR_4H_20260509_050344.png
+ create mode 100644 charts/screenshots/DHR/DHR_4H_20260510_052433.png
+ delete mode 100644 charts/screenshots/DHR/DHR_Daily_20260509_050344.png
+ create mode 100644 charts/screenshots/DHR/DHR_Daily_20260510_052433.png
+ delete mode 100644 charts/screenshots/DHR/DHR_Monthly_20260509_050344.png
+ create mode 100644 charts/screenshots/DHR/DHR_Monthly_20260510_052433.png
+ delete mode 100644 charts/screenshots/DHR/DHR_Weekly_20260509_050344.png
+ create mode 100644 charts/screenshots/DHR/DHR_Weekly_20260510_052433.png
+ delete mode 100644 charts/screenshots/EBAY/EBAY_1H_20260509_044342.png
+ create mode 100644 charts/screenshots/EBAY/EBAY_1H_20260510_050430.png
+ delete mode 100644 charts/screenshots/EBAY/EBAY_4H_20260509_044342.png
+ create mode 100644 charts/screenshots/EBAY/EBAY_4H_20260510_050430.png
+ delete mode 100644 charts/screenshots/EBAY/EBAY_Daily_20260509_044342.png
+ create mode 100644 charts/screenshots/EBAY/EBAY_Daily_20260510_050430.png
+ delete mode 100644 charts/screenshots/EBAY/EBAY_Monthly_20260509_044342.png
+ create mode 100644 charts/screenshots/EBAY/EBAY_Monthly_20260510_050430.png
+ delete mode 100644 charts/screenshots/EBAY/EBAY_Weekly_20260509_044342.png
+ create mode 100644 charts/screenshots/EBAY/EBAY_Weekly_20260510_050430.png
+ delete mode 100644 charts/screenshots/ETN/ETN_1H_20260509_045526.png
+ create mode 100644 charts/screenshots/ETN/ETN_1H_20260510_051619.png
+ delete mode 100644 charts/screenshots/ETN/ETN_4H_20260509_045526.png
+ create mode 100644 charts/screenshots/ETN/ETN_4H_20260510_051619.png
+ delete mode 100644 charts/screenshots/ETN/ETN_Daily_20260509_045526.png
+ create mode 100644 charts/screenshots/ETN/ETN_Daily_20260510_051619.png
+ delete mode 100644 charts/screenshots/ETN/ETN_Monthly_20260509_045526.png
+ create mode 100644 charts/screenshots/ETN/ETN_Monthly_20260510_051619.png
+ delete mode 100644 charts/screenshots/ETN/ETN_Weekly_20260509_045526.png
+ create mode 100644 charts/screenshots/ETN/ETN_Weekly_20260510_051619.png
+ delete mode 100644 charts/screenshots/FCX/FCX_1H_20260509_045820.png
+ create mode 100644 charts/screenshots/FCX/FCX_1H_20260510_051915.png
+ delete mode 100644 charts/screenshots/FCX/FCX_4H_20260509_045820.png
+ create mode 100644 charts/screenshots/FCX/FCX_4H_20260510_051915.png
+ delete mode 100644 charts/screenshots/FCX/FCX_Daily_20260509_045820.png
+ create mode 100644 charts/screenshots/FCX/FCX_Daily_20260510_051915.png
+ delete mode 100644 charts/screenshots/FCX/FCX_Monthly_20260509_045820.png
+ create mode 100644 charts/screenshots/FCX/FCX_Monthly_20260510_051915.png
+ delete mode 100644 charts/screenshots/FCX/FCX_Weekly_20260509_045820.png
+ create mode 100644 charts/screenshots/FCX/FCX_Weekly_20260510_051915.png
+ rename charts/screenshots/GEV/{GEV_1H_20260509_050119.png => GEV_1H_20260510_052209.png} (100%)
+ delete mode 100644 charts/screenshots/GEV/GEV_4H_20260509_050119.png
+ create mode 100644 charts/screenshots/GEV/GEV_4H_20260510_052209.png
+ delete mode 100644 charts/screenshots/GEV/GEV_Daily_20260509_050119.png
+ create mode 100644 charts/screenshots/GEV/GEV_Daily_20260510_052209.png
+ delete mode 100644 charts/screenshots/GEV/GEV_Monthly_20260509_050119.png
+ create mode 100644 charts/screenshots/GEV/GEV_Monthly_20260510_052209.png
+ delete mode 100644 charts/screenshots/GEV/GEV_Weekly_20260509_050119.png
+ create mode 100644 charts/screenshots/GEV/GEV_Weekly_20260510_052209.png
+ delete mode 100644 charts/screenshots/GLW/GLW_1H_20260509_044040.png
+ create mode 100644 charts/screenshots/GLW/GLW_1H_20260510_050132.png
+ delete mode 100644 charts/screenshots/GLW/GLW_4H_20260509_044040.png
+ create mode 100644 charts/screenshots/GLW/GLW_4H_20260510_050132.png
+ delete mode 100644 charts/screenshots/GLW/GLW_Daily_20260509_044040.png
+ create mode 100644 charts/screenshots/GLW/GLW_Daily_20260510_050132.png
+ delete mode 100644 charts/screenshots/GLW/GLW_Monthly_20260509_044040.png
+ create mode 100644 charts/screenshots/GLW/GLW_Monthly_20260510_050132.png
+ delete mode 100644 charts/screenshots/GLW/GLW_Weekly_20260509_044040.png
+ create mode 100644 charts/screenshots/GLW/GLW_Weekly_20260510_050132.png
+ rename charts/screenshots/GOOG/{GOOG_1H_20260509_044511.png => GOOG_1H_20260510_050558.png} (82%)
+ delete mode 100644 charts/screenshots/GOOG/GOOG_4H_20260509_044511.png
+ create mode 100644 charts/screenshots/GOOG/GOOG_4H_20260510_050558.png
+ delete mode 100644 charts/screenshots/GOOG/GOOG_Daily_20260509_044511.png
+ create mode 100644 charts/screenshots/GOOG/GOOG_Daily_20260510_050558.png
+ delete mode 100644 charts/screenshots/GOOG/GOOG_Monthly_20260509_044511.png
+ create mode 100644 charts/screenshots/GOOG/GOOG_Monthly_20260510_050558.png
+ delete mode 100644 charts/screenshots/GOOG/GOOG_Weekly_20260509_044511.png
+ create mode 100644 charts/screenshots/GOOG/GOOG_Weekly_20260510_050558.png
+ delete mode 100644 charts/screenshots/GOOGL/GOOGL_1H_20260509_044442.png
+ create mode 100644 charts/screenshots/GOOGL/GOOGL_1H_20260510_050529.png
+ delete mode 100644 charts/screenshots/GOOGL/GOOGL_4H_20260509_044442.png
+ create mode 100644 charts/screenshots/GOOGL/GOOGL_4H_20260510_050529.png
+ delete mode 100644 charts/screenshots/GOOGL/GOOGL_Daily_20260509_044442.png
+ create mode 100644 charts/screenshots/GOOGL/GOOGL_Daily_20260510_050529.png
+ delete mode 100644 charts/screenshots/GOOGL/GOOGL_Monthly_20260509_044442.png
+ create mode 100644 charts/screenshots/GOOGL/GOOGL_Monthly_20260510_050529.png
+ delete mode 100644 charts/screenshots/GOOGL/GOOGL_Weekly_20260509_044442.png
+ create mode 100644 charts/screenshots/GOOGL/GOOGL_Weekly_20260510_050529.png
+ delete mode 100644 charts/screenshots/GS/GS_1H_20260509_045719.png
+ create mode 100644 charts/screenshots/GS/GS_1H_20260510_051817.png
+ delete mode 100644 charts/screenshots/GS/GS_4H_20260509_045719.png
+ create mode 100644 charts/screenshots/GS/GS_4H_20260510_051817.png
+ delete mode 100644 charts/screenshots/GS/GS_Daily_20260509_045719.png
+ create mode 100644 charts/screenshots/GS/GS_Daily_20260510_051817.png
+ delete mode 100644 charts/screenshots/GS/GS_Monthly_20260509_045719.png
+ create mode 100644 charts/screenshots/GS/GS_Monthly_20260510_051817.png
+ delete mode 100644 charts/screenshots/GS/GS_Weekly_20260509_045719.png
+ create mode 100644 charts/screenshots/GS/GS_Weekly_20260510_051817.png
+ delete mode 100644 charts/screenshots/HD/HD_1H_20260509_050541.png
+ create mode 100644 charts/screenshots/HD/HD_1H_20260510_052632.png
+ delete mode 100644 charts/screenshots/HD/HD_4H_20260509_050541.png
+ create mode 100644 charts/screenshots/HD/HD_4H_20260510_052632.png
+ delete mode 100644 charts/screenshots/HD/HD_Daily_20260509_050541.png
+ create mode 100644 charts/screenshots/HD/HD_Daily_20260510_052632.png
+ delete mode 100644 charts/screenshots/HD/HD_Monthly_20260509_050541.png
+ create mode 100644 charts/screenshots/HD/HD_Monthly_20260510_052632.png
+ delete mode 100644 charts/screenshots/HD/HD_Weekly_20260509_050541.png
+ create mode 100644 charts/screenshots/HD/HD_Weekly_20260510_052632.png
+ delete mode 100644 charts/screenshots/INTC/INTC_1H_20260509_045328.png
+ create mode 100644 charts/screenshots/INTC/INTC_1H_20260510_051425.png
+ delete mode 100644 charts/screenshots/INTC/INTC_4H_20260509_045328.png
+ create mode 100644 charts/screenshots/INTC/INTC_4H_20260510_051425.png
+ delete mode 100644 charts/screenshots/INTC/INTC_Daily_20260509_045328.png
+ create mode 100644 charts/screenshots/INTC/INTC_Daily_20260510_051425.png
+ delete mode 100644 charts/screenshots/INTC/INTC_Monthly_20260509_045328.png
+ create mode 100644 charts/screenshots/INTC/INTC_Monthly_20260510_051425.png
+ delete mode 100644 charts/screenshots/INTC/INTC_Weekly_20260509_045328.png
+ create mode 100644 charts/screenshots/INTC/INTC_Weekly_20260510_051425.png
+ delete mode 100644 charts/screenshots/IWM/IWM_1H_20260509_044010.png
+ create mode 100644 charts/screenshots/IWM/IWM_1H_20260510_050054.png
+ delete mode 100644 charts/screenshots/IWM/IWM_4H_20260509_044010.png
+ create mode 100644 charts/screenshots/IWM/IWM_4H_20260510_050054.png
+ delete mode 100644 charts/screenshots/IWM/IWM_Daily_20260509_044010.png
+ create mode 100644 charts/screenshots/IWM/IWM_Daily_20260510_050054.png
+ delete mode 100644 charts/screenshots/IWM/IWM_Monthly_20260509_044010.png
+ create mode 100644 charts/screenshots/IWM/IWM_Monthly_20260510_050054.png
+ delete mode 100644 charts/screenshots/IWM/IWM_Weekly_20260509_044010.png
+ create mode 100644 charts/screenshots/IWM/IWM_Weekly_20260510_050054.png
+ delete mode 100644 charts/screenshots/JNJ/JNJ_1H_20260509_050711.png
+ create mode 100644 charts/screenshots/JNJ/JNJ_1H_20260510_052803.png
+ delete mode 100644 charts/screenshots/JNJ/JNJ_4H_20260509_050711.png
+ create mode 100644 charts/screenshots/JNJ/JNJ_4H_20260510_052803.png
+ delete mode 100644 charts/screenshots/JNJ/JNJ_Daily_20260509_050711.png
+ create mode 100644 charts/screenshots/JNJ/JNJ_Daily_20260510_052803.png
+ delete mode 100644 charts/screenshots/JNJ/JNJ_Monthly_20260509_050711.png
+ create mode 100644 charts/screenshots/JNJ/JNJ_Monthly_20260510_052803.png
+ delete mode 100644 charts/screenshots/JNJ/JNJ_Weekly_20260509_050711.png
+ create mode 100644 charts/screenshots/JNJ/JNJ_Weekly_20260510_052803.png
+ delete mode 100644 charts/screenshots/KLAC/KLAC_1H_20260509_045749.png
+ create mode 100644 charts/screenshots/KLAC/KLAC_1H_20260510_051845.png
+ delete mode 100644 charts/screenshots/KLAC/KLAC_4H_20260509_045749.png
+ create mode 100644 charts/screenshots/KLAC/KLAC_4H_20260510_051845.png
+ delete mode 100644 charts/screenshots/KLAC/KLAC_Daily_20260509_045749.png
+ create mode 100644 charts/screenshots/KLAC/KLAC_Daily_20260510_051845.png
+ delete mode 100644 charts/screenshots/KLAC/KLAC_Monthly_20260509_045749.png
+ create mode 100644 charts/screenshots/KLAC/KLAC_Monthly_20260510_051845.png
+ delete mode 100644 charts/screenshots/KLAC/KLAC_Weekly_20260509_045749.png
+ create mode 100644 charts/screenshots/KLAC/KLAC_Weekly_20260510_051845.png
+ delete mode 100644 charts/screenshots/KO/KO_1H_20260509_045457.png
+ create mode 100644 charts/screenshots/KO/KO_1H_20260510_051551.png
+ delete mode 100644 charts/screenshots/KO/KO_4H_20260509_045457.png
+ create mode 100644 charts/screenshots/KO/KO_4H_20260510_051551.png
+ delete mode 100644 charts/screenshots/KO/KO_Daily_20260509_045457.png
+ create mode 100644 charts/screenshots/KO/KO_Daily_20260510_051551.png
+ delete mode 100644 charts/screenshots/KO/KO_Monthly_20260509_045457.png
+ create mode 100644 charts/screenshots/KO/KO_Monthly_20260510_051551.png
+ delete mode 100644 charts/screenshots/KO/KO_Weekly_20260509_045457.png
+ create mode 100644 charts/screenshots/KO/KO_Weekly_20260510_051551.png
+ delete mode 100644 charts/screenshots/LIN/LIN_1H_20260509_050740.png
+ create mode 100644 charts/screenshots/LIN/LIN_1H_20260510_052851.png
+ delete mode 100644 charts/screenshots/LIN/LIN_4H_20260509_050740.png
+ create mode 100644 charts/screenshots/LIN/LIN_4H_20260510_052851.png
+ delete mode 100644 charts/screenshots/LIN/LIN_Daily_20260509_050740.png
+ create mode 100644 charts/screenshots/LIN/LIN_Daily_20260510_052851.png
+ delete mode 100644 charts/screenshots/LIN/LIN_Monthly_20260509_050740.png
+ create mode 100644 charts/screenshots/LIN/LIN_Monthly_20260510_052851.png
+ delete mode 100644 charts/screenshots/LIN/LIN_Weekly_20260509_050740.png
+ create mode 100644 charts/screenshots/LIN/LIN_Weekly_20260510_052851.png
+ delete mode 100644 charts/screenshots/LRCX/LRCX_1H_20260509_044804.png
+ create mode 100644 charts/screenshots/LRCX/LRCX_1H_20260510_050900.png
+ delete mode 100644 charts/screenshots/LRCX/LRCX_4H_20260509_044804.png
+ create mode 100644 charts/screenshots/LRCX/LRCX_4H_20260510_050900.png
+ delete mode 100644 charts/screenshots/LRCX/LRCX_Daily_20260509_044804.png
+ create mode 100644 charts/screenshots/LRCX/LRCX_Daily_20260510_050900.png
+ delete mode 100644 charts/screenshots/LRCX/LRCX_Monthly_20260509_044804.png
+ create mode 100644 charts/screenshots/LRCX/LRCX_Monthly_20260510_050900.png
+ delete mode 100644 charts/screenshots/LRCX/LRCX_Weekly_20260509_044804.png
+ create mode 100644 charts/screenshots/LRCX/LRCX_Weekly_20260510_050900.png
+ delete mode 100644 charts/screenshots/MCD/MCD_1H_20260509_050315.png
+ create mode 100644 charts/screenshots/MCD/MCD_1H_20260510_052404.png
+ delete mode 100644 charts/screenshots/MCD/MCD_4H_20260509_050315.png
+ create mode 100644 charts/screenshots/MCD/MCD_4H_20260510_052404.png
+ delete mode 100644 charts/screenshots/MCD/MCD_Daily_20260509_050315.png
+ create mode 100644 charts/screenshots/MCD/MCD_Daily_20260510_052404.png
+ delete mode 100644 charts/screenshots/MCD/MCD_Monthly_20260509_050315.png
+ create mode 100644 charts/screenshots/MCD/MCD_Monthly_20260510_052404.png
+ delete mode 100644 charts/screenshots/MCD/MCD_Weekly_20260509_050315.png
+ create mode 100644 charts/screenshots/MCD/MCD_Weekly_20260510_052404.png
+ delete mode 100644 charts/screenshots/MCHP/MCHP_1H_20260509_043350.png
+ create mode 100644 charts/screenshots/MCHP/MCHP_1H_20260510_045407.png
+ delete mode 100644 charts/screenshots/MCHP/MCHP_4H_20260509_043350.png
+ create mode 100644 charts/screenshots/MCHP/MCHP_4H_20260510_045407.png
+ delete mode 100644 charts/screenshots/MCHP/MCHP_Daily_20260509_043350.png
+ create mode 100644 charts/screenshots/MCHP/MCHP_Daily_20260510_045407.png
+ delete mode 100644 charts/screenshots/MCHP/MCHP_Monthly_20260509_043350.png
+ create mode 100644 charts/screenshots/MCHP/MCHP_Monthly_20260510_045407.png
+ delete mode 100644 charts/screenshots/MCHP/MCHP_Weekly_20260509_043350.png
+ create mode 100644 charts/screenshots/MCHP/MCHP_Weekly_20260510_045407.png
+ delete mode 100644 charts/screenshots/MELI/MELI_1H_20260509_050149.png
+ create mode 100644 charts/screenshots/MELI/MELI_1H_20260510_052238.png
+ delete mode 100644 charts/screenshots/MELI/MELI_4H_20260509_050149.png
+ create mode 100644 charts/screenshots/MELI/MELI_4H_20260510_052238.png
+ delete mode 100644 charts/screenshots/MELI/MELI_Daily_20260509_050149.png
+ create mode 100644 charts/screenshots/MELI/MELI_Daily_20260510_052238.png
+ delete mode 100644 charts/screenshots/MELI/MELI_Monthly_20260509_050149.png
+ create mode 100644 charts/screenshots/MELI/MELI_Monthly_20260510_052238.png
+ delete mode 100644 charts/screenshots/MELI/MELI_Weekly_20260509_050149.png
+ create mode 100644 charts/screenshots/MELI/MELI_Weekly_20260510_052238.png
+ delete mode 100644 charts/screenshots/MPWR/MPWR_1H_20260509_043742.png
+ create mode 100644 charts/screenshots/MPWR/MPWR_1H_20260510_045823.png
+ delete mode 100644 charts/screenshots/MPWR/MPWR_4H_20260509_043742.png
+ create mode 100644 charts/screenshots/MPWR/MPWR_4H_20260510_045823.png
+ delete mode 100644 charts/screenshots/MPWR/MPWR_Daily_20260509_043742.png
+ create mode 100644 charts/screenshots/MPWR/MPWR_Daily_20260510_045823.png
+ delete mode 100644 charts/screenshots/MPWR/MPWR_Monthly_20260509_043742.png
+ create mode 100644 charts/screenshots/MPWR/MPWR_Monthly_20260510_045823.png
+ delete mode 100644 charts/screenshots/MPWR/MPWR_Weekly_20260509_043742.png
+ create mode 100644 charts/screenshots/MPWR/MPWR_Weekly_20260510_045823.png
+ delete mode 100644 charts/screenshots/MRK/MRK_1H_20260509_050512.png
+ create mode 100644 charts/screenshots/MRK/MRK_1H_20260510_052604.png
+ delete mode 100644 charts/screenshots/MRK/MRK_4H_20260509_050512.png
+ create mode 100644 charts/screenshots/MRK/MRK_4H_20260510_052604.png
+ delete mode 100644 charts/screenshots/MRK/MRK_Daily_20260509_050512.png
+ create mode 100644 charts/screenshots/MRK/MRK_Daily_20260510_052604.png
+ delete mode 100644 charts/screenshots/MRK/MRK_Monthly_20260509_050512.png
+ create mode 100644 charts/screenshots/MRK/MRK_Monthly_20260510_052604.png
+ delete mode 100644 charts/screenshots/MRK/MRK_Weekly_20260509_050512.png
+ create mode 100644 charts/screenshots/MRK/MRK_Weekly_20260510_052604.png
+ rename charts/screenshots/MRVL/{MRVL_1H_20260509_043714.png => MRVL_1H_20260510_045752.png} (80%)
+ delete mode 100644 charts/screenshots/MRVL/MRVL_4H_20260509_043714.png
+ create mode 100644 charts/screenshots/MRVL/MRVL_4H_20260510_045752.png
+ delete mode 100644 charts/screenshots/MRVL/MRVL_Daily_20260509_043714.png
+ create mode 100644 charts/screenshots/MRVL/MRVL_Daily_20260510_045752.png
+ delete mode 100644 charts/screenshots/MRVL/MRVL_Monthly_20260509_043714.png
+ create mode 100644 charts/screenshots/MRVL/MRVL_Monthly_20260510_045752.png
+ delete mode 100644 charts/screenshots/MRVL/MRVL_Weekly_20260509_043714.png
+ create mode 100644 charts/screenshots/MRVL/MRVL_Weekly_20260510_045752.png
+ delete mode 100644 charts/screenshots/MS/MS_1H_20260509_043418.png
+ create mode 100644 charts/screenshots/MS/MS_1H_20260510_045438.png
+ delete mode 100644 charts/screenshots/MS/MS_4H_20260509_043418.png
+ create mode 100644 charts/screenshots/MS/MS_4H_20260510_045438.png
+ delete mode 100644 charts/screenshots/MS/MS_Daily_20260509_043418.png
+ create mode 100644 charts/screenshots/MS/MS_Daily_20260510_045438.png
+ delete mode 100644 charts/screenshots/MS/MS_Monthly_20260509_043418.png
+ create mode 100644 charts/screenshots/MS/MS_Monthly_20260510_045438.png
+ delete mode 100644 charts/screenshots/MS/MS_Weekly_20260509_043418.png
+ create mode 100644 charts/screenshots/MS/MS_Weekly_20260510_045438.png
+ rename charts/screenshots/MU/{MU_1H_20260509_045203.png => MU_1H_20260510_051259.png} (79%)
+ rename charts/screenshots/MU/{MU_4H_20260509_045203.png => MU_4H_20260510_051259.png} (78%)
+ delete mode 100644 charts/screenshots/MU/MU_Daily_20260509_045203.png
+ create mode 100644 charts/screenshots/MU/MU_Daily_20260510_051259.png
+ delete mode 100644 charts/screenshots/MU/MU_Monthly_20260509_045203.png
+ create mode 100644 charts/screenshots/MU/MU_Monthly_20260510_051259.png
+ delete mode 100644 charts/screenshots/MU/MU_Weekly_20260509_045203.png
+ create mode 100644 charts/screenshots/MU/MU_Weekly_20260510_051259.png
+ delete mode 100644 charts/screenshots/NBM.V/NBM.V_1H_20260509_050905.png
+ create mode 100644 charts/screenshots/NBM.V/NBM.V_1H_20260510_053019.png
+ delete mode 100644 charts/screenshots/NBM.V/NBM.V_4H_20260509_050905.png
+ create mode 100644 charts/screenshots/NBM.V/NBM.V_4H_20260510_053019.png
+ delete mode 100644 charts/screenshots/NBM.V/NBM.V_Daily_20260509_050905.png
+ create mode 100644 charts/screenshots/NBM.V/NBM.V_Daily_20260510_053019.png
+ delete mode 100644 charts/screenshots/NBM.V/NBM.V_Monthly_20260509_050905.png
+ create mode 100644 charts/screenshots/NBM.V/NBM.V_Monthly_20260510_053019.png
+ delete mode 100644 charts/screenshots/NBM.V/NBM.V_Weekly_20260509_050905.png
+ create mode 100644 charts/screenshots/NBM.V/NBM.V_Weekly_20260510_053019.png
+ delete mode 100644 charts/screenshots/NEE/NEE_1H_20260509_045554.png
+ create mode 100644 charts/screenshots/NEE/NEE_1H_20260510_051649.png
+ delete mode 100644 charts/screenshots/NEE/NEE_4H_20260509_045554.png
+ create mode 100644 charts/screenshots/NEE/NEE_4H_20260510_051649.png
+ delete mode 100644 charts/screenshots/NEE/NEE_Daily_20260509_045554.png
+ create mode 100644 charts/screenshots/NEE/NEE_Daily_20260510_051649.png
+ delete mode 100644 charts/screenshots/NEE/NEE_Monthly_20260509_045554.png
+ create mode 100644 charts/screenshots/NEE/NEE_Monthly_20260510_051649.png
+ delete mode 100644 charts/screenshots/NEE/NEE_Weekly_20260509_045554.png
+ create mode 100644 charts/screenshots/NEE/NEE_Weekly_20260510_051649.png
+ delete mode 100644 charts/screenshots/NEM/NEM_1H_20260509_045849.png
+ create mode 100644 charts/screenshots/NEM/NEM_1H_20260510_051945.png
+ delete mode 100644 charts/screenshots/NEM/NEM_4H_20260509_045849.png
+ create mode 100644 charts/screenshots/NEM/NEM_4H_20260510_051945.png
+ delete mode 100644 charts/screenshots/NEM/NEM_Daily_20260509_045849.png
+ create mode 100644 charts/screenshots/NEM/NEM_Daily_20260510_051945.png
+ delete mode 100644 charts/screenshots/NEM/NEM_Monthly_20260509_045849.png
+ create mode 100644 charts/screenshots/NEM/NEM_Monthly_20260510_051945.png
+ delete mode 100644 charts/screenshots/NEM/NEM_Weekly_20260509_045849.png
+ create mode 100644 charts/screenshots/NEM/NEM_Weekly_20260510_051945.png
+ delete mode 100644 charts/screenshots/NKE/NKE_1H_20260509_050610.png
+ create mode 100644 charts/screenshots/NKE/NKE_1H_20260510_052701.png
+ delete mode 100644 charts/screenshots/NKE/NKE_4H_20260509_050610.png
+ create mode 100644 charts/screenshots/NKE/NKE_4H_20260510_052701.png
+ delete mode 100644 charts/screenshots/NKE/NKE_Daily_20260509_050610.png
+ create mode 100644 charts/screenshots/NKE/NKE_Daily_20260510_052701.png
+ delete mode 100644 charts/screenshots/NKE/NKE_Monthly_20260509_050610.png
+ create mode 100644 charts/screenshots/NKE/NKE_Monthly_20260510_052701.png
+ delete mode 100644 charts/screenshots/NKE/NKE_Weekly_20260509_050610.png
+ create mode 100644 charts/screenshots/NKE/NKE_Weekly_20260510_052701.png
+ delete mode 100644 charts/screenshots/NVDA/NVDA_1H_20260509_044210.png
+ create mode 100644 charts/screenshots/NVDA/NVDA_1H_20260510_050259.png
+ delete mode 100644 charts/screenshots/NVDA/NVDA_4H_20260509_044210.png
+ create mode 100644 charts/screenshots/NVDA/NVDA_4H_20260510_050259.png
+ delete mode 100644 charts/screenshots/NVDA/NVDA_Daily_20260509_044210.png
+ create mode 100644 charts/screenshots/NVDA/NVDA_Daily_20260510_050259.png
+ delete mode 100644 charts/screenshots/NVDA/NVDA_Monthly_20260509_044210.png
+ create mode 100644 charts/screenshots/NVDA/NVDA_Monthly_20260510_050259.png
+ delete mode 100644 charts/screenshots/NVDA/NVDA_Weekly_20260509_044210.png
+ create mode 100644 charts/screenshots/NVDA/NVDA_Weekly_20260510_050259.png
+ delete mode 100644 charts/screenshots/NXPI/NXPI_1H_20260509_043321.png
+ create mode 100644 charts/screenshots/NXPI/NXPI_1H_20260510_045337.png
+ delete mode 100644 charts/screenshots/NXPI/NXPI_4H_20260509_043321.png
+ create mode 100644 charts/screenshots/NXPI/NXPI_4H_20260510_045337.png
+ delete mode 100644 charts/screenshots/NXPI/NXPI_Daily_20260509_043321.png
+ create mode 100644 charts/screenshots/NXPI/NXPI_Daily_20260510_045337.png
+ delete mode 100644 charts/screenshots/NXPI/NXPI_Monthly_20260509_043321.png
+ create mode 100644 charts/screenshots/NXPI/NXPI_Monthly_20260510_045337.png
+ delete mode 100644 charts/screenshots/NXPI/NXPI_Weekly_20260509_043321.png
+ create mode 100644 charts/screenshots/NXPI/NXPI_Weekly_20260510_045337.png
+ delete mode 100644 charts/screenshots/ON/ON_1H_20260509_043644.png
+ create mode 100644 charts/screenshots/ON/ON_1H_20260510_045721.png
+ delete mode 100644 charts/screenshots/ON/ON_4H_20260509_043644.png
+ create mode 100644 charts/screenshots/ON/ON_4H_20260510_045721.png
+ delete mode 100644 charts/screenshots/ON/ON_Daily_20260509_043644.png
+ create mode 100644 charts/screenshots/ON/ON_Daily_20260510_045721.png
+ delete mode 100644 charts/screenshots/ON/ON_Monthly_20260509_043644.png
+ create mode 100644 charts/screenshots/ON/ON_Monthly_20260510_045721.png
+ delete mode 100644 charts/screenshots/ON/ON_Weekly_20260509_043644.png
+ create mode 100644 charts/screenshots/ON/ON_Weekly_20260510_045721.png
+ delete mode 100644 charts/screenshots/PANW/PANW_1H_20260509_050018.png
+ create mode 100644 charts/screenshots/PANW/PANW_1H_20260510_052112.png
+ delete mode 100644 charts/screenshots/PANW/PANW_4H_20260509_050018.png
+ create mode 100644 charts/screenshots/PANW/PANW_4H_20260510_052112.png
+ delete mode 100644 charts/screenshots/PANW/PANW_Daily_20260509_050018.png
+ create mode 100644 charts/screenshots/PANW/PANW_Daily_20260510_052112.png
+ delete mode 100644 charts/screenshots/PANW/PANW_Monthly_20260509_050018.png
+ create mode 100644 charts/screenshots/PANW/PANW_Monthly_20260510_052112.png
+ delete mode 100644 charts/screenshots/PANW/PANW_Weekly_20260509_050018.png
+ create mode 100644 charts/screenshots/PANW/PANW_Weekly_20260510_052112.png
+ delete mode 100644 charts/screenshots/PM/PM_1H_20260509_045919.png
+ create mode 100644 charts/screenshots/PM/PM_1H_20260510_052014.png
+ delete mode 100644 charts/screenshots/PM/PM_4H_20260509_045919.png
+ create mode 100644 charts/screenshots/PM/PM_4H_20260510_052014.png
+ delete mode 100644 charts/screenshots/PM/PM_Daily_20260509_045919.png
+ create mode 100644 charts/screenshots/PM/PM_Daily_20260510_052014.png
+ delete mode 100644 charts/screenshots/PM/PM_Monthly_20260509_045919.png
+ create mode 100644 charts/screenshots/PM/PM_Monthly_20260510_052014.png
+ rename charts/screenshots/PM/{PM_Weekly_20260509_045919.png => PM_Weekly_20260510_052014.png} (100%)
+ delete mode 100644 charts/screenshots/PWR/PWR_1H_20260509_043517.png
+ create mode 100644 charts/screenshots/PWR/PWR_1H_20260510_045539.png
+ delete mode 100644 charts/screenshots/PWR/PWR_4H_20260509_043517.png
+ create mode 100644 charts/screenshots/PWR/PWR_4H_20260510_045539.png
+ delete mode 100644 charts/screenshots/PWR/PWR_Daily_20260509_043517.png
+ create mode 100644 charts/screenshots/PWR/PWR_Daily_20260510_045539.png
+ delete mode 100644 charts/screenshots/PWR/PWR_Monthly_20260509_043517.png
+ create mode 100644 charts/screenshots/PWR/PWR_Monthly_20260510_045539.png
+ delete mode 100644 charts/screenshots/PWR/PWR_Weekly_20260509_043517.png
+ create mode 100644 charts/screenshots/PWR/PWR_Weekly_20260510_045539.png
+ delete mode 100644 charts/screenshots/QCOM/QCOM_1H_20260509_045104.png
+ create mode 100644 charts/screenshots/QCOM/QCOM_1H_20260510_051159.png
+ delete mode 100644 charts/screenshots/QCOM/QCOM_4H_20260509_045104.png
+ create mode 100644 charts/screenshots/QCOM/QCOM_4H_20260510_051159.png
+ delete mode 100644 charts/screenshots/QCOM/QCOM_Daily_20260509_045104.png
+ create mode 100644 charts/screenshots/QCOM/QCOM_Daily_20260510_051159.png
+ delete mode 100644 charts/screenshots/QCOM/QCOM_Monthly_20260509_045104.png
+ create mode 100644 charts/screenshots/QCOM/QCOM_Monthly_20260510_051159.png
+ delete mode 100644 charts/screenshots/QCOM/QCOM_Weekly_20260509_045104.png
+ create mode 100644 charts/screenshots/QCOM/QCOM_Weekly_20260510_051159.png
+ delete mode 100644 charts/screenshots/QQQ/QQQ_1H_20260509_045004.png
+ create mode 100644 charts/screenshots/QQQ/QQQ_1H_20260510_051058.png
+ delete mode 100644 charts/screenshots/QQQ/QQQ_4H_20260509_045004.png
+ create mode 100644 charts/screenshots/QQQ/QQQ_4H_20260510_051058.png
+ delete mode 100644 charts/screenshots/QQQ/QQQ_Daily_20260509_045004.png
+ create mode 100644 charts/screenshots/QQQ/QQQ_Daily_20260510_051058.png
+ delete mode 100644 charts/screenshots/QQQ/QQQ_Monthly_20260509_045004.png
+ create mode 100644 charts/screenshots/QQQ/QQQ_Monthly_20260510_051058.png
+ delete mode 100644 charts/screenshots/QQQ/QQQ_Weekly_20260509_045004.png
+ create mode 100644 charts/screenshots/QQQ/QQQ_Weekly_20260510_051058.png
+ delete mode 100644 charts/screenshots/RTX/RTX_1H_20260509_050641.png
+ create mode 100644 charts/screenshots/RTX/RTX_1H_20260510_052732.png
+ delete mode 100644 charts/screenshots/RTX/RTX_4H_20260509_050641.png
+ create mode 100644 charts/screenshots/RTX/RTX_4H_20260510_052732.png
+ delete mode 100644 charts/screenshots/RTX/RTX_Daily_20260509_050641.png
+ create mode 100644 charts/screenshots/RTX/RTX_Daily_20260510_052732.png
+ delete mode 100644 charts/screenshots/RTX/RTX_Monthly_20260509_050641.png
+ create mode 100644 charts/screenshots/RTX/RTX_Monthly_20260510_052732.png
+ delete mode 100644 charts/screenshots/RTX/RTX_Weekly_20260509_050641.png
+ create mode 100644 charts/screenshots/RTX/RTX_Weekly_20260510_052732.png
+ delete mode 100644 charts/screenshots/SBUX/SBUX_1H_20260509_044109.png
+ create mode 100644 charts/screenshots/SBUX/SBUX_1H_20260510_050201.png
+ delete mode 100644 charts/screenshots/SBUX/SBUX_4H_20260509_044109.png
+ create mode 100644 charts/screenshots/SBUX/SBUX_4H_20260510_050201.png
+ delete mode 100644 charts/screenshots/SBUX/SBUX_Daily_20260509_044109.png
+ create mode 100644 charts/screenshots/SBUX/SBUX_Daily_20260510_050201.png
+ delete mode 100644 charts/screenshots/SBUX/SBUX_Monthly_20260509_044109.png
+ create mode 100644 charts/screenshots/SBUX/SBUX_Monthly_20260510_050201.png
+ delete mode 100644 charts/screenshots/SBUX/SBUX_Weekly_20260509_044109.png
+ create mode 100644 charts/screenshots/SBUX/SBUX_Weekly_20260510_050201.png
+ delete mode 100644 charts/screenshots/SLB/SLB_1H_20260509_043547.png
+ create mode 100644 charts/screenshots/SLB/SLB_1H_20260510_045620.png
+ delete mode 100644 charts/screenshots/SLB/SLB_4H_20260509_043547.png
+ create mode 100644 charts/screenshots/SLB/SLB_4H_20260510_045620.png
+ delete mode 100644 charts/screenshots/SLB/SLB_Daily_20260509_043547.png
+ create mode 100644 charts/screenshots/SLB/SLB_Daily_20260510_045620.png
+ delete mode 100644 charts/screenshots/SLB/SLB_Monthly_20260509_043547.png
+ create mode 100644 charts/screenshots/SLB/SLB_Monthly_20260510_045620.png
+ delete mode 100644 charts/screenshots/SLB/SLB_Weekly_20260509_043547.png
+ create mode 100644 charts/screenshots/SLB/SLB_Weekly_20260510_045620.png
+ delete mode 100644 charts/screenshots/SNPS/SNPS_1H_20260509_043840.png
+ create mode 100644 charts/screenshots/SNPS/SNPS_1H_20260510_045923.png
+ delete mode 100644 charts/screenshots/SNPS/SNPS_4H_20260509_043840.png
+ create mode 100644 charts/screenshots/SNPS/SNPS_4H_20260510_045923.png
+ delete mode 100644 charts/screenshots/SNPS/SNPS_Daily_20260509_043840.png
+ create mode 100644 charts/screenshots/SNPS/SNPS_Daily_20260510_045923.png
+ delete mode 100644 charts/screenshots/SNPS/SNPS_Monthly_20260509_043840.png
+ create mode 100644 charts/screenshots/SNPS/SNPS_Monthly_20260510_045923.png
+ delete mode 100644 charts/screenshots/SNPS/SNPS_Weekly_20260509_043840.png
+ create mode 100644 charts/screenshots/SNPS/SNPS_Weekly_20260510_045923.png
+ delete mode 100644 charts/screenshots/SPY/SPY_1H_20260509_044934.png
+ create mode 100644 charts/screenshots/SPY/SPY_1H_20260510_051028.png
+ delete mode 100644 charts/screenshots/SPY/SPY_4H_20260509_044934.png
+ create mode 100644 charts/screenshots/SPY/SPY_4H_20260510_051028.png
+ delete mode 100644 charts/screenshots/SPY/SPY_Daily_20260509_044934.png
+ create mode 100644 charts/screenshots/SPY/SPY_Daily_20260510_051028.png
+ delete mode 100644 charts/screenshots/SPY/SPY_Monthly_20260509_044934.png
+ create mode 100644 charts/screenshots/SPY/SPY_Monthly_20260510_051028.png
+ delete mode 100644 charts/screenshots/SPY/SPY_Weekly_20260509_044934.png
+ create mode 100644 charts/screenshots/SPY/SPY_Weekly_20260510_051028.png
+ delete mode 100644 charts/screenshots/STX/STX_1H_20260509_044609.png
+ create mode 100644 charts/screenshots/STX/STX_1H_20260510_050657.png
+ delete mode 100644 charts/screenshots/STX/STX_4H_20260509_044609.png
+ create mode 100644 charts/screenshots/STX/STX_4H_20260510_050657.png
+ delete mode 100644 charts/screenshots/STX/STX_Daily_20260509_044609.png
+ create mode 100644 charts/screenshots/STX/STX_Daily_20260510_050657.png
+ delete mode 100644 charts/screenshots/STX/STX_Monthly_20260509_044609.png
+ create mode 100644 charts/screenshots/STX/STX_Monthly_20260510_050657.png
+ delete mode 100644 charts/screenshots/STX/STX_Weekly_20260509_044609.png
+ create mode 100644 charts/screenshots/STX/STX_Weekly_20260510_050657.png
+ delete mode 100644 charts/screenshots/T/T_1H_20260509_045948.png
+ create mode 100644 charts/screenshots/T/T_1H_20260510_052043.png
+ delete mode 100644 charts/screenshots/T/T_4H_20260509_045948.png
+ create mode 100644 charts/screenshots/T/T_4H_20260510_052043.png
+ delete mode 100644 charts/screenshots/T/T_Daily_20260509_045948.png
+ create mode 100644 charts/screenshots/T/T_Daily_20260510_052043.png
+ delete mode 100644 charts/screenshots/T/T_Monthly_20260509_045948.png
+ create mode 100644 charts/screenshots/T/T_Monthly_20260510_052043.png
+ delete mode 100644 charts/screenshots/T/T_Weekly_20260509_045948.png
+ create mode 100644 charts/screenshots/T/T_Weekly_20260510_052043.png
+ delete mode 100644 charts/screenshots/TER/TER_1H_20260509_050049.png
+ create mode 100644 charts/screenshots/TER/TER_1H_20260510_052141.png
+ rename charts/screenshots/TER/{TER_4H_20260509_050049.png => TER_4H_20260510_052141.png} (100%)
+ delete mode 100644 charts/screenshots/TER/TER_Daily_20260509_050049.png
+ create mode 100644 charts/screenshots/TER/TER_Daily_20260510_052141.png
+ delete mode 100644 charts/screenshots/TER/TER_Monthly_20260509_050049.png
+ create mode 100644 charts/screenshots/TER/TER_Monthly_20260510_052141.png
+ delete mode 100644 charts/screenshots/TER/TER_Weekly_20260509_050049.png
+ create mode 100644 charts/screenshots/TER/TER_Weekly_20260510_052141.png
+ delete mode 100644 charts/screenshots/TXN/TXN_1H_20260509_044706.png
+ create mode 100644 charts/screenshots/TXN/TXN_1H_20260510_050759.png
+ delete mode 100644 charts/screenshots/TXN/TXN_4H_20260509_044706.png
+ create mode 100644 charts/screenshots/TXN/TXN_4H_20260510_050759.png
+ delete mode 100644 charts/screenshots/TXN/TXN_Daily_20260509_044706.png
+ create mode 100644 charts/screenshots/TXN/TXN_Daily_20260510_050759.png
+ delete mode 100644 charts/screenshots/TXN/TXN_Monthly_20260509_044706.png
+ create mode 100644 charts/screenshots/TXN/TXN_Monthly_20260510_050759.png
+ delete mode 100644 charts/screenshots/TXN/TXN_Weekly_20260509_044706.png
+ create mode 100644 charts/screenshots/TXN/TXN_Weekly_20260510_050759.png
+ delete mode 100644 charts/screenshots/UNH/UNH_1H_20260509_044734.png
+ create mode 100644 charts/screenshots/UNH/UNH_1H_20260510_050829.png
+ delete mode 100644 charts/screenshots/UNH/UNH_4H_20260509_044734.png
+ create mode 100644 charts/screenshots/UNH/UNH_4H_20260510_050829.png
+ delete mode 100644 charts/screenshots/UNH/UNH_Daily_20260509_044734.png
+ create mode 100644 charts/screenshots/UNH/UNH_Daily_20260510_050829.png
+ delete mode 100644 charts/screenshots/UNH/UNH_Monthly_20260509_044734.png
+ create mode 100644 charts/screenshots/UNH/UNH_Monthly_20260510_050829.png
+ delete mode 100644 charts/screenshots/UNH/UNH_Weekly_20260509_044734.png
+ create mode 100644 charts/screenshots/UNH/UNH_Weekly_20260510_050829.png
+ delete mode 100644 charts/screenshots/UNP/UNP_1H_20260509_043811.png
+ create mode 100644 charts/screenshots/UNP/UNP_1H_20260510_045853.png
+ delete mode 100644 charts/screenshots/UNP/UNP_4H_20260509_043811.png
+ create mode 100644 charts/screenshots/UNP/UNP_4H_20260510_045853.png
+ delete mode 100644 charts/screenshots/UNP/UNP_Daily_20260509_043811.png
+ create mode 100644 charts/screenshots/UNP/UNP_Daily_20260510_045853.png
+ delete mode 100644 charts/screenshots/UNP/UNP_Monthly_20260509_043811.png
+ create mode 100644 charts/screenshots/UNP/UNP_Monthly_20260510_045853.png
+ delete mode 100644 charts/screenshots/UNP/UNP_Weekly_20260509_043811.png
+ create mode 100644 charts/screenshots/UNP/UNP_Weekly_20260510_045853.png
+ delete mode 100644 charts/screenshots/VLO/VLO_1H_20260509_045034.png
+ create mode 100644 charts/screenshots/VLO/VLO_1H_20260510_051129.png
+ delete mode 100644 charts/screenshots/VLO/VLO_4H_20260509_045034.png
+ create mode 100644 charts/screenshots/VLO/VLO_4H_20260510_051129.png
+ delete mode 100644 charts/screenshots/VLO/VLO_Daily_20260509_045034.png
+ create mode 100644 charts/screenshots/VLO/VLO_Daily_20260510_051129.png
+ delete mode 100644 charts/screenshots/VLO/VLO_Monthly_20260509_045034.png
+ create mode 100644 charts/screenshots/VLO/VLO_Monthly_20260510_051129.png
+ delete mode 100644 charts/screenshots/VLO/VLO_Weekly_20260509_045034.png
+ create mode 100644 charts/screenshots/VLO/VLO_Weekly_20260510_051129.png
+ delete mode 100644 charts/screenshots/VZ/VZ_1H_20260509_045427.png
+ create mode 100644 charts/screenshots/VZ/VZ_1H_20260510_051523.png
+ delete mode 100644 charts/screenshots/VZ/VZ_4H_20260509_045427.png
+ create mode 100644 charts/screenshots/VZ/VZ_4H_20260510_051523.png
+ delete mode 100644 charts/screenshots/VZ/VZ_Daily_20260509_045427.png
+ create mode 100644 charts/screenshots/VZ/VZ_Daily_20260510_051523.png
+ delete mode 100644 charts/screenshots/VZ/VZ_Monthly_20260509_045427.png
+ create mode 100644 charts/screenshots/VZ/VZ_Monthly_20260510_051523.png
+ delete mode 100644 charts/screenshots/VZ/VZ_Weekly_20260509_045427.png
+ create mode 100644 charts/screenshots/VZ/VZ_Weekly_20260510_051523.png
+ delete mode 100644 charts/screenshots/WDC/WDC_1H_20260509_044541.png
+ create mode 100644 charts/screenshots/WDC/WDC_1H_20260510_050627.png
+ delete mode 100644 charts/screenshots/WDC/WDC_4H_20260509_044541.png
+ create mode 100644 charts/screenshots/WDC/WDC_4H_20260510_050627.png
+ delete mode 100644 charts/screenshots/WDC/WDC_Daily_20260509_044541.png
+ create mode 100644 charts/screenshots/WDC/WDC_Daily_20260510_050627.png
+ delete mode 100644 charts/screenshots/WDC/WDC_Monthly_20260509_044541.png
+ create mode 100644 charts/screenshots/WDC/WDC_Monthly_20260510_050627.png
+ delete mode 100644 charts/screenshots/WDC/WDC_Weekly_20260509_044541.png
+ create mode 100644 charts/screenshots/WDC/WDC_Weekly_20260510_050627.png
+ rename charts/screenshots/WMT/{WMT_1H_20260509_045622.png => WMT_1H_20260510_051720.png} (100%)
+ delete mode 100644 charts/screenshots/WMT/WMT_4H_20260509_045622.png
+ create mode 100644 charts/screenshots/WMT/WMT_4H_20260510_051720.png
+ delete mode 100644 charts/screenshots/WMT/WMT_Daily_20260509_045622.png
+ create mode 100644 charts/screenshots/WMT/WMT_Daily_20260510_051720.png
+ delete mode 100644 charts/screenshots/WMT/WMT_Monthly_20260509_045622.png
+ create mode 100644 charts/screenshots/WMT/WMT_Monthly_20260510_051720.png
+ delete mode 100644 charts/screenshots/WMT/WMT_Weekly_20260509_045622.png
+ create mode 100644 charts/screenshots/WMT/WMT_Weekly_20260510_051720.png
+ rename charts/screenshots/XOM/{XOM_1H_20260509_050837.png => XOM_1H_20260510_052950.png} (100%)
+ delete mode 100644 charts/screenshots/XOM/XOM_4H_20260509_050837.png
+ create mode 100644 charts/screenshots/XOM/XOM_4H_20260510_052950.png
+ delete mode 100644 charts/screenshots/XOM/XOM_Daily_20260509_050837.png
+ create mode 100644 charts/screenshots/XOM/XOM_Daily_20260510_052950.png
+ delete mode 100644 charts/screenshots/XOM/XOM_Monthly_20260509_050837.png
+ create mode 100644 charts/screenshots/XOM/XOM_Monthly_20260510_052950.png
+ delete mode 100644 charts/screenshots/XOM/XOM_Weekly_20260509_050837.png
+ create mode 100644 charts/screenshots/XOM/XOM_Weekly_20260510_052950.png
+[[SP500 차트분석]] GitHub 푸시 완료
+[[SP500 차트분석]] Google Sheets 업데이트 완료
+[Paper Trading] SP500 ranked_df 스냅샷 저장 완료 (130개 종목)
+
+[요약] 파이프라인 완료 – 총 3237.0초 (53.95분) 소요

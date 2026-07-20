@@ -1,0 +1,35 @@
+============================================================
+[Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작
+============================================================
+2026-05-01 07:39:37,427 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+2026-05-01 07:39:37,434 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 233개 종목
+[Unified PT] NASDAQ snapshot 로드: 233개 종목
+[Unified PT] 합산 완료: 335개 종목 (SP500 130 + NASDAQ 233개, 중복 제거 후)
+2026-05-01 07:39:38,859 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 94 | 4.0~5.0: 22 | 5.0~5.5: 16 | 5.5~6.0: 21 | 6.0+: 182
+2026-05-01 07:39:38,871 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=4/335 | Selected: GILD (CCS=0.4669)
+2026-05-01 07:39:38,881 [INFO] paper_trading.engine — [PaperTrading] 교체 기준 미달 — 매수 안 함
+[Unified PT] 매도=0 매수=0 보유=3종목
+[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 153, '바닥반등_52주과열': 0, '판단등급_미달': 173, '과열_차단': 1, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 2, '모멘텀_ADX부족': 0, '바닥_RSI데드존': 2, '섹터_집중': 0, '_통과': 4, '_전체': 335}
+[Unified PT] 스킵 사유: 교체_미달
+[Unified PT] Top5 후보:
+  PODD   CCS=0.4837 전략=📉 바닥반등 섹터=Healthcare
+  CHTR   CCS=0.4805 전략=📉 바닥반등 섹터=Communication Services
+  LBRDK  CCS=0.4698 전략=📉 바닥반등 섹터=Communication Services
+  GILD   CCS=0.4669 전략=📉 바닥반등 섹터=Healthcare
+2026-05-01 07:39:41,206 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-05-01 07:39:43,068 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 7건 거래
+[Unified PT] 구글 시트 동기화 완료
+[시장분석] 7개 종목 데이터 수집 중...
+2026-05-01 07:39:50,008 [WARNING] data.fetch — [fetch_analyst_data] CHTR: 'dict' object has no attribute 'empty'
+2026-05-01 07:39:50,181 [WARNING] data.fetch — [fetch_analyst_data] PODD: 'dict' object has no attribute 'empty'
+2026-05-01 07:39:50,213 [WARNING] data.fetch — [fetch_analyst_data] T: 'dict' object has no attribute 'empty'
+2026-05-01 07:39:50,266 [WARNING] data.fetch — [fetch_analyst_data] GILD: 'dict' object has no attribute 'empty'
+2026-05-01 07:39:50,271 [WARNING] data.fetch — [fetch_analyst_data] LBRDK: 'dict' object has no attribute 'empty'
+2026-05-01 07:39:56,742 [WARNING] data.fetch — [fetch_analyst_data] GE: 'dict' object has no attribute 'empty'
+2026-05-01 07:39:56,798 [WARNING] data.fetch — [fetch_analyst_data] NTLA: 'dict' object has no attribute 'empty'
+[시장분석] enrichment 완료
+[Email] 페이퍼 트레이딩 알림 발송 완료 (매도 0건, 매수 0건, 재평가 0건, 재평가실패 0건, 후보 4건) → chunghwan14@gmail.com, roykim0311@gmail.com, ssamjungtan@naver.com
+============================================================
+[Unified Paper Trading] 완료
+============================================================

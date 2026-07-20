@@ -1,0 +1,68 @@
+============================================================
+[Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작
+============================================================
+2026-06-30 08:59:24,995 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 129개 종목
+[Unified PT] SP500 snapshot 로드: 129개 종목
+2026-06-30 08:59:25,003 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 256개 종목
+[Unified PT] NASDAQ snapshot 로드: 256개 종목
+[Unified PT] 합산 완료: 368개 종목 (SP500 129 + NASDAQ 256개, 중복 제거 후)
+[Unified PT] 골든크로스임박 종목: 34개
+2026-06-30 08:59:25,829 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 84 | 4.0~5.0: 22 | 5.0~5.5: 21 | 5.5~6.0: 37 | 6.0+: 204
+2026-06-30 08:59:25,847 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=3/368 | Selected: CSCO (CCS=0.5980)
+2026-06-30 08:59:25,858 [INFO] paper_trading.engine — [PaperTrading] 교체 기준 미달 — 매수 안 함
+[Unified PT] 매도=0 매수=0 보유=3종목
+[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 164, '바닥반등_52주과열': 1, '판단등급_미달': 156, '과열_차단': 23, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 0, '모멘텀_ADX부족': 11, '바닥_RSI데드존': 2, '섹터_집중': 8, '_통과': 3, '_전체': 368}
+[Unified PT] 스킵 사유: 교체_미달
+[Unified PT] Top5 후보:
+  CSCO   CCS=0.5980 전략=📈 모멘텀 섹터=Technology
+  NXPI   CCS=0.5933 전략=📉 바닥반등 섹터=Technology
+  AMZN   CCS=0.4647 전략=📈 모멘텀 섹터=Consumer Cyclical
+2026-06-30 08:59:26,972 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-06-30 08:59:27,927 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 23건 거래
+[Unified PT] 구글 시트 동기화 완료
+[시장분석] 40개 종목 데이터 수집 중...
+2026-06-30 08:59:34,409 [WARNING] data.fetch — [fetch_analyst_data] SMCI: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:34,460 [WARNING] data.fetch — [fetch_analyst_data] AMZN: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:34,558 [WARNING] data.fetch — [fetch_analyst_data] SFM: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:34,621 [WARNING] data.fetch — [fetch_analyst_data] CSCO: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:34,636 [WARNING] data.fetch — [fetch_analyst_data] NXPI: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:40,803 [WARNING] data.fetch — [fetch_analyst_data] SE: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:40,846 [WARNING] data.fetch — [fetch_analyst_data] WFC: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:40,930 [WARNING] data.fetch — [fetch_analyst_data] TMO: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:41,010 [WARNING] data.fetch — [fetch_analyst_data] ELF: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:41,083 [WARNING] data.fetch — [fetch_analyst_data] RTX: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:47,192 [WARNING] data.fetch — [fetch_analyst_data] UBER: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:47,235 [WARNING] data.fetch — [fetch_analyst_data] MA: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:47,275 [WARNING] data.fetch — [fetch_analyst_data] WGS: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:47,354 [WARNING] data.fetch — [fetch_analyst_data] BKNG: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:47,490 [WARNING] data.fetch — [fetch_analyst_data] SHW: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:53,615 [WARNING] data.fetch — [fetch_analyst_data] MDT: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:53,643 [WARNING] data.fetch — [fetch_analyst_data] HD: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:53,682 [WARNING] data.fetch — [fetch_analyst_data] RNR: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:53,753 [WARNING] data.fetch — [fetch_analyst_data] NEE: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:53,820 [WARNING] data.fetch — [fetch_analyst_data] DASH: 'dict' object has no attribute 'empty'
+2026-06-30 08:59:59,930 [WARNING] data.fetch — [fetch_analyst_data] CGON: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:00,088 [WARNING] data.fetch — [fetch_analyst_data] ABT: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:00,091 [WARNING] data.fetch — [fetch_analyst_data] ASND: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:00,156 [WARNING] data.fetch — [fetch_analyst_data] FOUR: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:00,210 [WARNING] data.fetch — [fetch_analyst_data] GILD: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:06,275 [WARNING] data.fetch — [fetch_analyst_data] WING: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:06,473 [WARNING] data.fetch — [fetch_analyst_data] ILLR: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:06,524 [WARNING] data.fetch — [fetch_analyst_data] SRRK: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:06,551 [WARNING] data.fetch — [fetch_analyst_data] RBLX: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:06,594 [WARNING] data.fetch — [fetch_analyst_data] AZO: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:12,610 [WARNING] data.fetch — [fetch_analyst_data] NCNO: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:12,894 [WARNING] data.fetch — [fetch_analyst_data] PCT: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:12,942 [WARNING] data.fetch — [fetch_analyst_data] V: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:13,008 [WARNING] data.fetch — [fetch_analyst_data] PG: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:13,021 [WARNING] data.fetch — [fetch_analyst_data] TSLA: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:18,954 [WARNING] data.fetch — [fetch_analyst_data] ORCL: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:19,219 [WARNING] data.fetch — [fetch_analyst_data] SNPS: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:19,252 [WARNING] data.fetch — [fetch_analyst_data] LRN: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:19,403 [WARNING] data.fetch — [fetch_analyst_data] TKR: 'dict' object has no attribute 'empty'
+2026-06-30 09:00:19,518 [WARNING] data.fetch — [fetch_analyst_data] PEB: 'dict' object has no attribute 'empty'
+[시장분석] enrichment 완료
+[Email] 페이퍼 트레이딩 알림 발송 완료 (매도 0건, 매수 0건, 재평가 0건, 재평가실패 0건, 후보 3건) → chunghwan14@gmail.com, roykim0311@gmail.com, ssamjungtan@naver.com
+============================================================
+[Unified Paper Trading] 완료
+============================================================

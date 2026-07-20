@@ -1,0 +1,39 @@
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.venv/
+.test_venv/
+
+# macOS metadata
+.DS_Store
+
+# Local editor settings
+.vscode/
+
+# Logs and temp files (루트의 임시 .log는 무시, logs/ 폴더는 git에 포함)
+*.log
+!logs/**/*.log
+
+# Google Sheets credentials
+gspread-service-account.json
+
+# TradingView 로그인 세션 (비밀 쿠키 포함)
+charts/auth.json
+charts/.browser_profile/
+
+# 백테스트 디스크 캐시 (용량이 크므로 git에서 제외)
+data/cache/
+
+# 환경변수 파일 (비밀값 포함)
+.env
+
+# Atomic write 백업/임시 파일
+*.json.bak
+*.tmp
+
+# 백테스트 출력 (로컬 전용)
+output/runs/
+

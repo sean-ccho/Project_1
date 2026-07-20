@@ -1,0 +1,15 @@
+[[SP500 분석]] 강한 섹터: {'Consumer Discretionary', 'Information Technology', 'Financials', 'Materials'}
+[[SP500 분석]] Extreme model 'label_low' walk-forward ROC 0.63, AP 0.31
+[[SP500 분석]] Extreme model 'label_high' walk-forward ROC 0.62, AP 0.23
+[[SP500 분석]] Google Sheets 업데이트 완료
+[Email] 바닥반등 20개 + 모멘텀 55개 = 총 75개 종목 리스트를 chunghwan14@gmail.com, ssamjungtan@naver.com로 발송 완료
+[[SP500 분석]] Signals 결과 기반 차트분석 종목 리스트 생성 중...
+[Dynamic Portfolio] 생성된 차트분석 종목 리스트(76개): ['NBM.V', 'CF', 'ASML', 'GOOGL', 'CSCO', 'TER', 'DE', 'NVDA', 'EOG', 'ABT', 'SLB', 'KLAC', 'SBUX', 'JPM', 'GOOG', 'IWM', 'AMZN', 'FCX', 'MRK', 'INTC', 'PFE', 'ISRG', 'ADI', 'MU', 'MRVL', 'GEV', 'NFLX', 'BAC', 'UNH', 'UNP', 'LRCX', 'WMT', 'ETN', 'NEM', 'WDC', 'ANET', 'DELL', 'AMAT', 'FANG', 'GILD', 'SPY', 'AMD', 'GS', 'CVX', 'TXN', 'DVN', 'AAPL', 'OXY', 'LIN', 'XOM', 'INTU', 'CAT', 'FDX', 'PEP', 'HON', 'COST', 'BSX', 'T', 'MS', 'QQQ', 'COP', 'C', 'GLW', 'VLO', 'NEE', 'BMY', 'STX', 'NKE', 'DAL', 'AMGN', 'LMT', 'TJX', 'RTX', 'AVGO', 'APH', 'VZ']
+[[SP500 차트분석]] [SP500 분석] 결과 기반 [SP500 차트분석] 시트 생성 중 (76개 종목)...
+[[SP500 차트분석]] [SP500 분석]에 없는 종목은 별도 분석: ['NBM.V']
+[[SP500 차트분석]] 강한 섹터: {'Consumer Discretionary', 'Information Technology', 'Financials', 'Materials'}
+[[SP500 차트분석]] Extreme model 'global' skipped: insufficient_tickers
+[[SP500 차트분석]] Google Sheets 업데이트 완료
+[Paper Trading] SP500 ranked_df 스냅샷 저장 완료 (130개 종목)
+
+[요약] 파이프라인 완료 – 총 973.8초 (16.23분) 소요

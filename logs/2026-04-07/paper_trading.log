@@ -1,0 +1,27 @@
+============================================================
+[Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작
+============================================================
+2026-04-07 23:16:44,208 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+2026-04-07 23:16:44,215 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 202개 종목
+[Unified PT] NASDAQ snapshot 로드: 202개 종목
+[Unified PT] 합산 완료: 322개 종목 (SP500 130 + NASDAQ 202개, 중복 제거 후)
+2026-04-07 23:16:45,566 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 107 | 4.0~5.0: 31 | 5.0~5.5: 38 | 5.5~6.0: 24 | 6.0+: 122
+2026-04-07 23:16:45,576 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=neutral | Filtered=8/322 | Selected: SLB (CCS=0.5599)
+2026-04-07 23:16:45,579 [INFO] paper_trading.engine — [PaperTrading] 교체 기준 미달 — 매수 안 함
+[Unified PT] 매도=0 매수=0 보유=3종목
+[Unified PT] 레짐=neutral | 필터={'전략점수<6.0': 200, '바닥반등_52주과열': 1, '판단등급_미달': 110, '과열_차단': 3, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 0, '모멘텀_ADX부족': 0, '섹터_집중': 0, '_통과': 8, '_전체': 322}
+[Unified PT] 스킵 사유: 교체_미달
+[Unified PT] Top5 후보:
+  SLB    CCS=0.5599 전략=📈 모멘텀 섹터=Energy
+  NEE    CCS=0.5393 전략=📈 모멘텀 섹터=Utilities
+  ANNA   CCS=0.5080 전략=📈 모멘텀 섹터=Unknown
+  RH     CCS=0.4802 전략=📉 바닥반등 섹터=Consumer Cyclical
+  GOOG   CCS=0.4760 전략=📈 모멘텀 섹터=Communication Services
+2026-04-07 23:16:47,015 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-04-07 23:16:48,161 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 0건 거래
+[Unified PT] 구글 시트 동기화 완료
+[Email] 페이퍼 트레이딩 변동 없음 — 이메일 발송 생략
+============================================================
+[Unified Paper Trading] 완료
+============================================================

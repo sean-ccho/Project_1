@@ -1,0 +1,15 @@
+[[SP500 분석]] 강한 섹터: {'Materials', 'Real Estate', 'Industrials', 'Information Technology', 'Financials'}
+[[SP500 분석]] Extreme model 'label_low' walk-forward ROC 0.64, AP 0.34
+[[SP500 분석]] Extreme model 'label_high' walk-forward ROC 0.61, AP 0.21
+[[SP500 분석]] Google Sheets 업데이트 완료
+[Email] 바닥반등 19개 + 모멘텀 56개 = 총 75개 종목 리스트를 chunghwan14@gmail.com로 발송 완료
+[[SP500 분석]] Signals 결과 기반 차트분석 종목 리스트 생성 중...
+[Dynamic Portfolio] 생성된 차트분석 종목 리스트(76개): ['NBM.V', 'COST', 'FCX', 'GILD', 'HAL', 'DHR', 'WDC', 'DAL', 'TSLA', 'TER', 'LMT', 'CVX', 'ANET', 'MRVL', 'NFLX', 'WMT', 'GOOGL', 'ASML', 'EOG', 'NEM', 'JNJ', 'GLW', 'DELL', 'PH', 'INTC', 'ABT', 'PEP', 'GEV', 'APP', 'COP', 'LIN', 'AVGO', 'MU', 'BMY', 'AMGN', 'SLB', 'TXN', 'SPY', 'VLO', 'CSCO', 'QCOM', 'RTX', 'MSFT', 'STX', 'BSX', 'LRCX', 'NEE', 'VZ', 'GE', 'PFE', 'AMD', 'MS', 'AMAT', 'MRK', 'WBD', 'APH', 'DVN', 'MCK', 'XOM', 'GOOG', 'HON', 'GS', 'C', 'IWM', 'ETN', 'CAT', 'T', 'KO', 'ADI', 'AMZN', 'CF', 'DE', 'FDX', 'SBUX', 'KLAC', 'OXY']
+[[SP500 차트분석]] [SP500 분석] 결과 기반 [SP500 차트분석] 시트 생성 중 (76개 종목)...
+[[SP500 차트분석]] [SP500 분석]에 없는 종목은 별도 분석: ['NBM.V']
+[[SP500 차트분석]] 강한 섹터: {'Materials', 'Real Estate', 'Industrials', 'Information Technology', 'Financials'}
+[[SP500 차트분석]] Extreme model 'global' skipped: insufficient_tickers
+[[SP500 차트분석]] Google Sheets 업데이트 완료
+[Paper Trading] SP500 ranked_df 스냅샷 저장 완료 (130개 종목)
+
+[요약] 파이프라인 완료 – 총 1054.1초 (17.57분) 소요

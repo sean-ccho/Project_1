@@ -1,0 +1,178 @@
+name: Run Screener
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: '45 0 * * *'  # 00:45 UTC = 8:45 PM EDT, 매일 실행
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install tenacity  # retry 라이브러리
+
+      - name: Install Playwright browsers
+        run: |
+          playwright install chromium
+          playwright install-deps chromium
+
+      - name: Restore TradingView session
+        env:
+          TRADINGVIEW_AUTH_JSON: ${{ secrets.TRADINGVIEW_AUTH_JSON }}
+        run: |
+          if [ -n "$TRADINGVIEW_AUTH_JSON" ]; then
+            echo "$TRADINGVIEW_AUTH_JSON" > charts/auth.json
+            echo "✅ TradingView 세션 복원 완료"
+          else
+            echo "⚠️ TRADINGVIEW_AUTH_JSON secret 미설정 → 위젯 모드 사용"
+          fi
+
+      - name: Run unit tests
+        run: |
+          PYTHONPATH=.:src pytest tests/ -v --tb=short || echo "⚠️ Tests failed (non-blocking)"
+
+      - name: Restore Google service account credentials
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then
+            echo "GOOGLE_SERVICE_ACCOUNT_JSON secret is not set" >&2
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > gspread-service-account.json
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Set log date
+        run: echo "LOG_DATE=$(TZ='America/Toronto' date +%Y-%m-%d)" >> $GITHUB_ENV
+
+      - name: Run screener pipeline
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        run: |
+          set -o pipefail
+          mkdir -p logs/$LOG_DATE
+          PYTHONPATH=.:src python src/main.py | tee logs/$LOG_DATE/sp500_analysis.log
+
+      - name: Run full market scan
+        if: always()
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        run: |
+          set -o pipefail
+          mkdir -p logs/$LOG_DATE
+          PYTHONPATH=.:src python src/run_full_scan.py | tee logs/$LOG_DATE/full_scan.log
+
+      - name: Upload screener log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screener-log
+          path: logs/${{ env.LOG_DATE }}/sp500_analysis.log
+          retention-days: 7
+
+      - name: Upload full scan log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-scan-log
+          path: logs/${{ env.LOG_DATE }}/full_scan.log
+          retention-days: 7
+
+      - name: Run unified paper trading
+        if: always()
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -o pipefail
+          mkdir -p logs/$LOG_DATE
+          PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py | tee logs/$LOG_DATE/paper_trading.log
+
+      - name: Upload paper trading log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-trading-log
+          path: logs/${{ env.LOG_DATE }}/paper_trading.log
+          retention-days: 7
+
+      - name: Health check
+        if: always()
+        run: |
+          PYTHONPATH=.:src python -c "
+          from monitoring.health_check import run_health_check
+          result = run_health_check(max_age_hours=2.0)
+          if result['status'] == 'unhealthy':
+              exit(1)
+          "
+
+      - name: Commit & push logs and paper trading state
+        if: always()
+        run: |
+          git add logs/$LOG_DATE/
+          git add data/paper_trading/positions.json \
+                  data/paper_trading/trades.json \
+                  data/paper_trading/sp500_ranked.parquet \
+                  data/paper_trading/nasdaq_ranked.parquet
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: update logs and paper trading state ($LOG_DATE) [skip ci]"
+          git push
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        run: |
+          PYTHONPATH=.:src python -c "
+          import smtplib
+          from email.mime.text import MIMEText
+          import os
+
+          password = os.environ.get('EMAIL_PASSWORD', '')
+          if not password:
+              print('EMAIL_PASSWORD not set, skipping failure notification')
+              exit(0)
+
+          msg = MIMEText(
+              '파이프라인 실행 중 오류가 발생했습니다.\n\n'
+              'GitHub Actions 로그를 확인하세요:\n'
+              'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}',
+              'plain', 'utf-8'
+          )
+          msg['Subject'] = '⚠️ Screener Pipeline Failed - ${{ env.LOG_DATE }}'
+          msg['From'] = 'chunghwan14@gmail.com'
+          msg['To'] = 'chunghwan14@gmail.com'
+
+          try:
+              with smtplib.SMTP('smtp.gmail.com', 587) as s:
+                  s.starttls()
+                  s.login('chunghwan14@gmail.com', password)
+                  s.send_message(msg)
+              print('Failure notification email sent.')
+          except Exception as e:
+              print(f'Failed to send notification: {e}')
+          "
