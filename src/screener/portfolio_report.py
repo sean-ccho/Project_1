@@ -517,87 +517,154 @@ def update_sheet_with_indicators(
 # HTML 이메일 빌드
 # ---------------------------------------------------------------------------
 
-def _rsi_cell(v: Optional[float]) -> str:
+def _rsi_badge(v: Optional[float]) -> str:
+    """RSI 값을 색상 배지 HTML로 반환."""
     if v is None:
-        return "<td style='color:#aaa;text-align:center'>N/A</td>"
+        return "<span style='color:#bbb;font-size:12px'>—</span>"
     if v >= 70:
-        bg, color = "#fde8e8", "#c0392b"
-        label = f"🔴 {v:.1f}"
+        bg, fg = "#fde8e8", "#c0392b"
+        icon = "🔴"
     elif v <= 30:
-        bg, color = "#e8f8f0", "#1e8449"
-        label = f"🟢 {v:.1f}"
+        bg, fg = "#e8f5ee", "#1e8449"
+        icon = "🟢"
     else:
-        bg, color = "transparent", "#2c3e50"
-        label = f"{v:.1f}"
-    return f"<td style='background:{bg};color:{color};font-weight:600;text-align:center'>{label}</td>"
+        bg, fg = "#f0f4ff", "#2c5282"
+        icon = ""
+    return (
+        f"<span style='background:{bg};color:{fg};font-weight:700;font-size:13px;"
+        f"padding:3px 9px;border-radius:20px;display:inline-block;white-space:nowrap'>"
+        f"{icon} {v:.1f}</span>"
+    )
+
+
+def _rsi_cell(v: Optional[float]) -> str:
+    return f"<td style='text-align:center;padding:10px 8px'>{_rsi_badge(v)}</td>"
 
 
 def _macd_cell(v: Optional[float]) -> str:
     if v is None:
-        return "<td style='color:#aaa;text-align:center'>N/A</td>"
+        return "<td style='color:#bbb;text-align:center;font-size:12px'>—</td>"
     if v > 0:
-        color, arrow = "#1a9641", "▲"
+        bg, fg, arrow = "#e8f5ee", "#1a7a41", "▲"
     else:
-        color, arrow = "#d7191c", "▼"
-    return f"<td style='color:{color};font-weight:600;text-align:center'>{arrow} {v:+.4f}</td>"
+        bg, fg, arrow = "#fde8e8", "#c0392b", "▼"
+    return (
+        f"<td style='text-align:center;padding:10px 8px'>"
+        f"<span style='background:{bg};color:{fg};font-weight:700;font-size:12px;"
+        f"padding:3px 8px;border-radius:4px;display:inline-block'>"
+        f"{arrow} {v:+.4f}</span></td>"
+    )
 
 
 def _vol_cell(v: Optional[float]) -> str:
     if v is None:
-        return "<td style='color:#aaa;text-align:center'>N/A</td>"
+        return "<td style='color:#bbb;text-align:center;font-size:12px'>—</td>"
     if v >= 2.0:
-        s = f"🔥 {v:.1f}x"
-        color = "#d35400"
+        txt, bg, fg = f"🔥 {v:.1f}x", "#fff3e0", "#d35400"
     elif v >= 1.5:
-        s = f"⬆ {v:.1f}x"
-        color = "#e67e22"
+        txt, bg, fg = f"↑ {v:.1f}x", "#fff8e1", "#e67e22"
     elif v < 0.7:
-        s = f"⬇ {v:.1f}x"
-        color = "#95a5a6"
+        txt, bg, fg = f"↓ {v:.1f}x", "#f5f5f5", "#95a5a6"
     else:
-        s = f"{v:.1f}x"
-        color = "#555"
-    return f"<td style='color:{color};text-align:center'>{s}</td>"
+        txt, bg, fg = f"{v:.1f}x", "transparent", "#555"
+    return (
+        f"<td style='text-align:center;padding:10px 8px'>"
+        f"<span style='background:{bg};color:{fg};font-weight:600;font-size:12px;"
+        f"padding:2px 8px;border-radius:4px;display:inline-block'>{txt}</span></td>"
+    )
 
+
+# 타임프레임별 헤더 색상
+_TF_COLORS = {
+    "1H":      ("#3a5a8a", "#dce8f7"),
+    "4H":      ("#2e5282", "#d4e5f5"),
+    "Daily":   ("#1a6b4a", "#d4f0e4"),
+    "Weekly":  ("#6a4a1a", "#f5e8d0"),
+    "Monthly": ("#5a1a6a", "#f0d4f5"),
+}
 
 CSS = """<style>
-  body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;margin:0;padding:20px;color:#2c3e50}
-  .wrap{max-width:860px;margin:0 auto}
-  .hdr{background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);color:#fff;
-       padding:24px 28px;border-radius:14px 14px 0 0}
-  .hdr h1{margin:0 0 4px;font-size:21px}
-  .hdr p{margin:0;opacity:.65;font-size:12px}
-  .card{background:#fff;padding:28px;border-radius:0 0 14px 14px;
-        box-shadow:0 4px 16px rgba(0,0,0,.08)}
-  .section{margin-bottom:36px;padding-bottom:28px;border-bottom:1px solid #eee}
-  .section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
-  .ticker-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-  .ticker-name{font-size:18px;font-weight:700;color:#1a1a2e}
-  .tv-btn{font-size:11px;color:#3498db;text-decoration:none;background:#eaf4fd;
-          padding:3px 9px;border-radius:4px;border:1px solid #b3d7f5}
-  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-  .chip{font-size:12px;padding:3px 10px;border-radius:12px;border:1px solid #ddd;color:#555;background:#f8f9fa}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  .th-group{text-align:center;font-weight:700;font-size:11px;letter-spacing:.4px;
-            text-transform:uppercase;padding:8px 10px;color:#fff}
-  .th-input{background:#2e4080}
-  .th-1h{background:#1a3a5c}
-  .th-4h{background:#1a3a5c}
-  .th-daily{background:#0d2b45}
-  .th-weekly{background:#0a2035}
-  .th-monthly{background:#071626}
-  th.sub{background:#f8f9fa;color:#6c757d;font-weight:600;font-size:11px;
-         text-transform:uppercase;letter-spacing:.3px;padding:7px 10px;border-bottom:2px solid #e0e0e0}
-  td{padding:9px 10px;border-bottom:1px solid #f2f2f2;vertical-align:middle}
-  tr:last-child td{border-bottom:none}
-  .tf-label{font-weight:700;color:#34495e;white-space:nowrap}
-  .footer{text-align:center;color:#aaa;font-size:11px;margin-top:18px;line-height:1.9}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+body{font-family:'Inter',sans-serif;background:#f4f6f9;margin:0;padding:0;color:#1a202c}
+.wrap{max-width:900px;margin:0 auto;padding:24px 16px}
+.hdr{
+  background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0f3460 100%);
+  color:#fff;padding:28px 32px;border-radius:16px 16px 0 0;
+  border-bottom:3px solid #3b82f6;
+}
+.hdr-top{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.hdr h1{margin:0;font-size:22px;font-weight:700;letter-spacing:-.3px}
+.hdr p{margin:0;color:rgba(255,255,255,.55);font-size:12px;letter-spacing:.2px}
+.card{
+  background:#fff;border-radius:0 0 16px 16px;
+  box-shadow:0 4px 24px rgba(0,0,0,.07);
+  padding:0;
+}
+.section{
+  padding:24px 28px;
+  border-bottom:1px solid #f0f0f0;
+}
+.section:last-child{border-bottom:none}
+.ticker-hdr{
+  display:flex;align-items:center;gap:12px;margin-bottom:8px;
+}
+.ticker-sym{
+  font-size:20px;font-weight:700;color:#0f172a;letter-spacing:-.3px;
+}
+.price-tag{
+  font-size:15px;font-weight:500;color:#64748b;
+}
+.tv-btn{
+  font-size:11px;color:#2563eb;text-decoration:none;
+  background:#eff6ff;padding:4px 10px;border-radius:6px;
+  border:1px solid #bfdbfe;font-weight:600;white-space:nowrap;
+}
+.summary-row{
+  display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;
+}
+.badge{
+  font-size:12px;padding:4px 12px;border-radius:20px;
+  font-weight:600;display:inline-flex;align-items:center;gap:4px;
+}
+.tbl-wrap{border-radius:10px;overflow:hidden;border:1px solid #e5e9ef}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr.tf-header th{
+  padding:0;border:none;
+}
+thead tr.tf-header th .tf-label-cell{
+  padding:9px 14px;
+  font-weight:700;font-size:11px;letter-spacing:.5px;text-transform:uppercase;
+  text-align:center;
+}
+thead tr.col-header th{
+  background:#f8fafc;color:#64748b;font-weight:600;
+  font-size:11px;text-transform:uppercase;letter-spacing:.3px;
+  padding:8px 10px;text-align:center;
+  border-top:1px solid #e5e9ef;border-bottom:2px solid #dde3ec;
+}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:#f9fafb}
+tbody td{
+  padding:11px 10px;border-bottom:1px solid #f0f4f8;
+  vertical-align:middle;
+}
+tbody tr:last-child td{border-bottom:none}
+td.tf-row-label{
+  font-weight:700;font-size:12px;text-align:center;
+  white-space:nowrap;padding:11px 14px;
+  border-right:1px solid #e5e9ef;
+}
+.footer{
+  text-align:center;color:#94a3b8;font-size:11px;
+  margin-top:20px;line-height:2;padding:0 16px 8px;
+}
 </style>"""
 
 
 def build_html_report(ticker_results: dict[str, dict[str, dict]]) -> str:
     now_edt = datetime.now(tz=timezone(timedelta(hours=-4)))
     date_str = now_edt.strftime("%Y-%m-%d %H:%M EDT")
+    n_tickers = len(ticker_results)
 
     body = f"""<!DOCTYPE html>
 <html lang="ko">
@@ -610,8 +677,11 @@ def build_html_report(ticker_results: dict[str, dict[str, dict]]) -> str:
 {CSS}
 <div class="wrap">
   <div class="hdr">
-    <h1>📊 내계좌 포트폴리오 일일 리포트</h1>
-    <p>{date_str} | 멀티 타임프레임 기술 지표 (RSI · MACD · 거래량)</p>
+    <div class="hdr-top">
+      <span style='font-size:26px'>📊</span>
+      <h1>내계좌 포트폴리오 일일 리포트</h1>
+    </div>
+    <p>{date_str} &nbsp;·&nbsp; {n_tickers}종목 &nbsp;·&nbsp; RSI · MACD · 거래량 (멀티 타임프레임)</p>
   </div>
   <div class="card">
 """
@@ -620,76 +690,67 @@ def build_html_report(ticker_results: dict[str, dict[str, dict]]) -> str:
         tv_ticker = TRADINGVIEW_TICKER_MAP.get(ticker, ticker)
         tv_link = f"https://www.tradingview.com/chart/?symbol={tv_ticker}"
 
-        # 요약 칩
+        current_price = tf_data.get("_price")
+        price_str = f"${current_price:.4f}" if current_price is not None else ""
+
+        # 요약 배지
         daily = tf_data.get("Daily", {})
-        chips_html = ""
         d_rsi = daily.get("rsi")
         d_hist = daily.get("macd_hist")
+        d_vol  = daily.get("volume_ratio")
+        badges = ""
         if d_rsi is not None:
-            c = "#c0392b" if d_rsi >= 70 else ("#1e8449" if d_rsi <= 30 else "#555")
-            chips_html += f"<span class='chip' style='color:{c}'>일봉 RSI {d_rsi:.0f}</span>"
+            if d_rsi >= 70:
+                badges += "<span class='badge' style='background:#fde8e8;color:#c0392b'>🔴 RSI 과매수</span>"
+            elif d_rsi <= 30:
+                badges += "<span class='badge' style='background:#e8f5ee;color:#1e8449'>🟢 RSI 과매도</span>"
         if d_hist is not None:
-            c = "#1a9641" if d_hist > 0 else "#d7191c"
-            chips_html += f"<span class='chip' style='color:{c}'>일봉 MACD {'▲ 상승' if d_hist > 0 else '▼ 하락'}</span>"
-
-        # RSI 개요: 5개 TF
-        rsi_overview = " | ".join(
-            f"{tf}: {tf_data.get(tf, {}).get('rsi', 'N/A')}"
-            if tf_data.get(tf, {}).get("rsi") is not None
-            else f"{tf}: N/A"
-            for tf in TIMEFRAMES
-        )
-        chips_html += f"<span class='chip'>RSI → {rsi_overview}</span>"
-
-
-        # 현재가
-        current_price = tf_data.get("_price")
-        price_html = ""
-        if current_price is not None:
-            price_html = f"<span style='font-size:15px;font-weight:400;color:#555;margin-left:6px'>${current_price:.4f}</span>"
+            if d_hist > 0:
+                badges += "<span class='badge' style='background:#e8f5ee;color:#1a7a41'>▲ MACD 상승</span>"
+            else:
+                badges += "<span class='badge' style='background:#fde8e8;color:#c0392b'>▼ MACD 하락</span>"
+        if d_vol is not None and d_vol >= 2.0:
+            badges += "<span class='badge' style='background:#fff3e0;color:#d35400'>🔥 거래량 급증</span>"
 
         body += f"""
     <div class="section">
       <div class="ticker-hdr">
-        <span class="ticker-name">{ticker}{price_html}</span>
+        <span class="ticker-sym">{ticker}</span>
+        <span class="price-tag">{price_str}</span>
         <a href="{tv_link}" class="tv-btn" target="_blank">TradingView →</a>
       </div>
-      {f'<div class="chips">{chips_html}</div>' if chips_html else ''}
-
+      {f'<div class="summary-row">{badges}</div>' if badges else ''}
+      <div class="tbl-wrap">
       <table>
         <thead>
-          <tr>
-            <th rowspan="2" class="th-group th-input" style="width:90px">타임프레임</th>
-            <th colspan="3" class="th-group th-1h">1H</th>
-            <th colspan="3" class="th-group th-4h">4H</th>
-            <th colspan="3" class="th-group th-daily">Daily</th>
-            <th colspan="3" class="th-group th-weekly">Weekly</th>
-            <th colspan="3" class="th-group th-monthly">Monthly</th>
+          <tr class="col-header">
+            <th style='width:80px;text-align:left;padding-left:14px'>타임프레임</th>
+            <th>RSI</th>
+            <th>MACD 히스토그램</th>
+            <th>거래량 (vs 20일평균)</th>
           </tr>
-          <tr>
+        </thead>
+        <tbody>
 """
-        for _ in TIMEFRAMES:
-            body += "<th class='sub'>RSI</th><th class='sub'>MACD</th><th class='sub'>거래량</th>"
-        body += "</tr>\n        </thead>\n        <tbody>\n"
-
-        # 데이터 행 (타임프레임을 행이 아닌 컬럼으로 — 한 행에 전부)
-        body += "          <tr>\n"
-        body += f"            <td class='tf-label'>지표</td>\n"
         for tf in TIMEFRAMES:
             ind = tf_data.get(tf, {})
+            tf_color, tf_bg = _TF_COLORS.get(tf, ("#374151", "#f9fafb"))
+            body += (
+                f"          <tr>\n"
+                f"            <td class='tf-row-label' style='background:{tf_bg};color:{tf_color}'>{tf}</td>\n"
+            )
             body += _rsi_cell(ind.get("rsi"))
             body += _macd_cell(ind.get("macd_hist"))
             body += _vol_cell(ind.get("volume_ratio"))
-        body += "\n          </tr>\n"
+            body += "\n          </tr>\n"
 
-        body += "        </tbody>\n      </table>\n    </div>\n"
+        body += "        </tbody>\n      </table>\n      </div>\n    </div>\n"
 
     body += """  </div>
   <div class="footer">
     🔴 RSI 70+ 과매수 &nbsp;|&nbsp; 🟢 RSI 30- 과매도 &nbsp;|&nbsp;
-    MACD ▲ 상승세 / ▼ 하락세 &nbsp;|&nbsp; 🔥 거래량 2x+ 급증<br>
-    MACD 값은 히스토그램 (양수=골든, 음수=데드) &nbsp;|&nbsp; 거래량 = 현재 / 20일 평균 배수<br>
-    본 메일은 시스템에 의해 자동으로 발송되었습니다.
+    ▲ MACD 양수=골든 / ▼ 음수=데드 &nbsp;|&nbsp; 🔥 거래량 2x+ 급증<br>
+    거래량 = 현재 캔들 / 20일 평균 배수 &nbsp;·&nbsp; 본 메일은 시스템에 의해 자동으로 발송되었습니다.
   </div>
 </div>
 </body>
