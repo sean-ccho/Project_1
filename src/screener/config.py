@@ -140,6 +140,12 @@ GOOGLE_SHEETS_SIGNALS2_ENABLED = True  # Signals2 워크시트 업데이트 on/o
 GOOGLE_SHEETS_SIGNALS2_CHART_WORKSHEET = "[NASDAQ/NYSE 차트분석]"
 GOOGLE_SHEETS_SIGNALS2_CHART_ENABLED = True  # NASDAQ/NYSE 차트분석 워크시트 업데이트 on/off
 
+# 내계좌 포트폴리오 일일 리포트 설정
+MY_ACCOUNT_WORKSHEET = "내계좌"               # 내 보유 종목 워크시트 이름
+MY_ACCOUNT_TICKER_COLUMN = "티커"             # 워크시트에서 티커를 읽어올 컬럼명
+MY_ACCOUNT_EMAIL = "chunghwan14@gmail.com"    # 개인 전용 수신자 (기존 리스트와 별개)
+MY_ACCOUNT_REPORT_ENABLED = True              # 리포트 발송 on/off
+
 # 전 종목 스캔: 바닥 탈출(Turnaround) 전략 임계값
 TURNAROUND_MIN_DROP = -0.50          # 52주 고점 대비 최소 낙폭 (-50%)
 TURNAROUND_MA200_LOOKBACK = 5       # 200일선 돌파 확인 기간 (거래일)

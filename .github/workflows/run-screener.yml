@@ -120,6 +120,25 @@ jobs:
           path: logs/${{ env.LOG_DATE }}/paper_trading.log
           retention-days: 7
 
+      - name: Run 내계좌 portfolio report
+        if: always()
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -o pipefail
+          mkdir -p logs/$LOG_DATE
+          PYTHONPATH=.:src python src/screener/portfolio_report.py | tee logs/$LOG_DATE/portfolio_report.log
+
+      - name: Upload portfolio report log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portfolio-report-log
+          path: logs/${{ env.LOG_DATE }}/portfolio_report.log
+          retention-days: 7
+
+
       - name: Health check
         if: always()
         run: |
