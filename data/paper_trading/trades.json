@@ -703,5 +703,30 @@
     "upside_bucket_key": "바닥반등|0.55+|5★(7-9)",
     "hit_p50": -1,
     "hit_p75": -1
+  },
+  {
+    "ticker": "ACA",
+    "entry_date": "2026-07-03",
+    "exit_date": "2026-07-22",
+    "entry_price": 144.97000122070312,
+    "exit_price": 144.64999389648438,
+    "return_pct": -0.0022,
+    "holding_days": 19,
+    "highest_price": 145.3800048828125,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (14.0)",
+    "ccs_score": 0.5332,
+    "sector": "Industrials",
+    "exit_reason": "장기보유(19일,-0.2%)",
+    "defer_count": 0,
+    "entry_rsi": 71.69545014210073,
+    "predicted_upside_p50": 0.05497606942136206,
+    "predicted_upside_p75": 0.0752055214504091,
+    "upside_sample_size": 18,
+    "actual_max_upside_pct": 0.0028,
+    "upside_level": "bucket",
+    "upside_bucket_key": "모멘텀|0.50-0.55|5★(9+)",
+    "hit_p50": -1,
+    "hit_p75": -1
   }
 ]
