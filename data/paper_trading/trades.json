@@ -728,5 +728,30 @@
     "upside_bucket_key": "모멘텀|0.50-0.55|5★(9+)",
     "hit_p50": -1,
     "hit_p75": -1
+  },
+  {
+    "ticker": "RTX",
+    "entry_date": "2026-07-09",
+    "exit_date": "2026-07-24",
+    "entry_price": 194.91000366210938,
+    "exit_price": 209.16000366210938,
+    "return_pct": 0.0731,
+    "holding_days": 15,
+    "highest_price": 209.16000366210938,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (13.0)",
+    "ccs_score": 0.6187,
+    "sector": "Industrials",
+    "exit_reason": "시간익절(15일,+7.3%)",
+    "defer_count": 0,
+    "entry_rsi": 59.08975885434122,
+    "predicted_upside_p50": 0.043097132238084215,
+    "predicted_upside_p75": 0.08289792197501204,
+    "upside_sample_size": 16,
+    "actual_max_upside_pct": 0.0731,
+    "upside_level": "bucket",
+    "upside_bucket_key": "모멘텀|0.55+|5★(9+)",
+    "hit_p50": 1,
+    "hit_p75": -1
   }
 ]

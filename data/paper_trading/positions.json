@@ -1,28 +1,5 @@
 [
   {
-    "ticker": "RTX",
-    "entry_price": 194.91000366210938,
-    "entry_date": "2026-07-09",
-    "strategy": "📈 모멘텀",
-    "star_rating": "★★★★★ (13.0)",
-    "ccs_score": 0.6187,
-    "sector": "Industrials",
-    "highest_price": 196.38999938964844,
-    "defer_count": 0,
-    "trailing_stop_override": null,
-    "last_defer_date": null,
-    "defer_debug": null,
-    "entry_rsi": 59.08975885434122,
-    "predicted_upside_p25": 0.02266632391612564,
-    "predicted_upside_p50": 0.043097132238084215,
-    "predicted_upside_p75": 0.08289792197501204,
-    "predicted_upside_p90": 0.13369179959419494,
-    "upside_sample_size": 16,
-    "upside_days_to_peak": 9.3125,
-    "upside_level": "bucket",
-    "upside_bucket_key": "모멘텀|0.55+|5★(9+)"
-  },
-  {
     "ticker": "LRCX",
     "entry_price": 313.29998779296875,
     "entry_date": "2026-07-18",
@@ -67,5 +44,28 @@
     "upside_days_to_peak": 8.304347826086957,
     "upside_level": "strategy:바닥반등",
     "upside_bucket_key": "바닥반등|0.55+|5★(7-9)"
+  },
+  {
+    "ticker": "UUUU",
+    "entry_price": 12.010000228881836,
+    "entry_date": "2026-07-24",
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (6.0)",
+    "ccs_score": 0.4943,
+    "sector": "Energy",
+    "highest_price": 12.010000228881836,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 35.196854752943906,
+    "predicted_upside_p25": 0.01786239482901973,
+    "predicted_upside_p50": 0.04631805240560767,
+    "predicted_upside_p75": 0.07620830235907791,
+    "predicted_upside_p90": 0.11342645172059196,
+    "upside_sample_size": 46,
+    "upside_days_to_peak": 8.304347826086957,
+    "upside_level": "strategy:바닥반등",
+    "upside_bucket_key": "바닥반등|0.45-0.50|5★(<7)"
   }
 ]
