@@ -753,5 +753,30 @@
     "upside_bucket_key": "모멘텀|0.55+|5★(9+)",
     "hit_p50": 1,
     "hit_p75": -1
+  },
+  {
+    "ticker": "LRCX",
+    "entry_date": "2026-07-18",
+    "exit_date": "2026-07-28",
+    "entry_price": 313.29998779296875,
+    "exit_price": 291.6099853515625,
+    "return_pct": -0.0692,
+    "holding_days": 10,
+    "highest_price": 322.0,
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (6.2)",
+    "ccs_score": 0.5772,
+    "sector": "Technology",
+    "exit_reason": "트레일링(-9.4%)",
+    "defer_count": 0,
+    "entry_rsi": 42.12106953963134,
+    "predicted_upside_p50": 0.04631805240560767,
+    "predicted_upside_p75": 0.07620830235907791,
+    "upside_sample_size": 46,
+    "actual_max_upside_pct": 0.0278,
+    "upside_level": "strategy:바닥반등",
+    "upside_bucket_key": "바닥반등|0.55+|5★(<7)",
+    "hit_p50": -1,
+    "hit_p75": -1
   }
 ]
