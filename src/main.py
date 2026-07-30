@@ -272,18 +272,25 @@ def build_export_dataframe(
                 try:
                     import subprocess
                     print(f"[{context_label}] GitHub에 차트 이미지 푸시 중...")
-                    
-                    # 1. 변경사항 스테이징 (삭제된 파일 포함)
+
+                    # 1. 이전 스크린샷을 git 인덱스에서 제거 (히스토리 누적 방지)
+                    #    실제 파일은 삭제되지 않음 — git 추적에서만 해제
+                    subprocess.run(
+                        ["git", "rm", "-r", "--cached", "--ignore-unmatch", "charts/screenshots"],
+                        check=True,
+                    )
+
+                    # 2. 오늘 새 스크린샷만 스테이징
                     subprocess.run(["git", "add", "charts/screenshots"], check=True)
-                    
-                    # 2. 커밋 (메시지에 타임스탬프)
+
+                    # 3. 커밋 (메시지에 타임스탬프)
                     commit_msg = f"Update chart screenshots {int(time.time())}"
-                    subprocess.run(["git", "commit", "-m", commit_msg], check=False) # 변경사항 없으면 실패할 수 있으므로 check=False
-                    
-                    # 3. 푸시
+                    subprocess.run(["git", "commit", "-m", commit_msg], check=False)  # 변경사항 없으면 실패할 수 있으므로 check=False
+
+                    # 4. 푸시
                     subprocess.run(["git", "push"], check=True)
                     print(f"[{context_label}] GitHub 푸시 완료")
-                    
+
                 except Exception as e:
                     print(f"[{context_label}] GitHub 푸시 실패: {e}")
             # ---------------------------------------------
@@ -483,6 +490,13 @@ def main() -> None:
                         try:
                             import subprocess
                             print(f"[{portfolio_label}] GitHub에 차트 이미지 푸시 중...")
+
+                            # 이전 스크린샷을 git 인덱스에서 제거 (히스토리 누적 방지)
+                            subprocess.run(
+                                ["git", "rm", "-r", "--cached", "--ignore-unmatch", "charts/screenshots"],
+                                check=True,
+                            )
+
                             subprocess.run(["git", "add", "charts/screenshots"], check=True)
                             commit_msg = f"Update chart screenshots {int(time.time())}"
                             subprocess.run(["git", "commit", "-m", commit_msg], check=False)

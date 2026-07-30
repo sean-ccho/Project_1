@@ -463,6 +463,13 @@ def main() -> None:
                         try:
                             import subprocess
                             print(f"[{chart_label}] GitHub에 차트 이미지 푸시 중...")
+
+                            # 이전 스크린샷을 git 인덱스에서 제거 (히스토리 누적 방지)
+                            subprocess.run(
+                                ["git", "rm", "-r", "--cached", "--ignore-unmatch", "charts/screenshots_nasdaq"],
+                                check=True,
+                            )
+
                             subprocess.run(["git", "add", "charts/screenshots_nasdaq"], check=True)
                             commit_msg = f"Update NASDAQ/NYSE chart screenshots {int(time.time())}"
                             subprocess.run(["git", "commit", "-m", commit_msg], check=False)
