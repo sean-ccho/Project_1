@@ -30,7 +30,7 @@
     "star_rating": "★★★★★ (7.0)",
     "ccs_score": 0.5212,
     "sector": "Communication Services",
-    "highest_price": 587.9400024414062,
+    "highest_price": 588.77001953125,
     "defer_count": 0,
     "trailing_stop_override": null,
     "last_defer_date": null,
@@ -44,5 +44,28 @@
     "upside_days_to_peak": 8.304347826086957,
     "upside_level": "strategy:바닥반등",
     "upside_bucket_key": "바닥반등|0.50-0.55|5★(7-9)"
+  },
+  {
+    "ticker": "HTZ",
+    "entry_price": 1.559999942779541,
+    "entry_date": "2026-08-06",
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (6.0)",
+    "ccs_score": 0.4634,
+    "sector": "Industrials",
+    "highest_price": 1.559999942779541,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 27.96424691594818,
+    "predicted_upside_p25": 0.01786239482901973,
+    "predicted_upside_p50": 0.04631805240560767,
+    "predicted_upside_p75": 0.07620830235907791,
+    "predicted_upside_p90": 0.11342645172059196,
+    "upside_sample_size": 46,
+    "upside_days_to_peak": 8.304347826086957,
+    "upside_level": "strategy:바닥반등",
+    "upside_bucket_key": "바닥반등|0.45-0.50|5★(<7)"
   }
 ]
