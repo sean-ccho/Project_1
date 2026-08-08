@@ -1,0 +1,191 @@
+============================================================
+[Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작
+============================================================
+2026-08-08 05:59:00,073 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 129개 종목
+[Unified PT] SP500 snapshot 로드: 129개 종목
+2026-08-08 05:59:00,080 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 211개 종목
+[Unified PT] NASDAQ snapshot 로드: 211개 종목
+[Unified PT] 합산 완료: 335개 종목 (SP500 129 + NASDAQ 211개, 중복 제거 후)
+[Unified PT] 골든크로스임박 종목: 72개
+2026-08-08 05:59:00,789 [INFO] paper_trading.engine — [PaperTrading] DEFER SKIP HTZ: bb_not_peaked (RSI=52.5, ADX=39.4, vol_mult=6.14, vol_z=3.57, ret_5d=+43.22%, bb_pband=1.14)
+2026-08-08 05:59:00,790 [INFO] paper_trading.engine — [PaperTrading] SELL HTZ @ 2.27 (목표가(+45.5%))
+2026-08-08 05:59:00,794 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 91 | 4.0~5.0: 35 | 5.0~5.5: 22 | 5.5~6.0: 16 | 6.0+: 171
+2026-08-08 05:59:00,813 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=9/335 | Selected: ARWR (CCS=0.5992)
+2026-08-08 05:59:00,819 [INFO] paper_trading.engine — [PaperTrading] BUY ARWR @ 87.65 (CCS=0.5992, RSI=58, upside P50=+4% P75=+8%)
+[Unified PT] 매도=1 매수=1 보유=3종목
+[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 164, '바닥반등_52주과열': 0, '판단등급_미달': 126, '과열_차단': 23, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 1, '모멘텀_ADX부족': 11, '바닥_RSI데드존': 1, '섹터_집중': 0, '_통과': 9, '_전체': 335}
+[Unified PT] Top5 후보:
+  ARWR   CCS=0.5992 전략=📈 모멘텀 섹터=Unknown
+  BRUN   CCS=0.5069 전략=📉 바닥반등 섹터=Unknown
+  SRAD   CCS=0.4954 전략=📉 바닥반등 섹터=Unknown
+  FLUT   CCS=0.4851 전략=📉 바닥반등 섹터=Unknown
+  PODD   CCS=0.4735 전략=📉 바닥반등 섹터=Unknown
+2026-08-08 05:59:01,839 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 append: SELL HTZ
+2026-08-08 05:59:02,603 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 append: BUY ARWR
+2026-08-08 05:59:03,641 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-08-08 05:59:04,743 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 36건 거래
+[Unified PT] 구글 시트 동기화 완료
+2026-08-08 05:59:05,107 [INFO] matplotlib.font_manager — Failed to extract font properties from /usr/share/fonts/truetype/noto/NotoColorEmoji.ttf: Non-scalable fonts are not supported
+2026-08-08 05:59:05,132 [INFO] matplotlib.font_manager — generated new fontManager
+2026-08-08 05:59:06,108 [WARNING] fpdf.output — Font MPDFAA+NanumGothic is missing the following glyphs: '📈' (\U0001f4c8), '📉' (\U0001f4c9)
+2026-08-08 05:59:06,181 [INFO] fontTools.subset — maxp pruned
+2026-08-08 05:59:06,181 [INFO] fontTools.subset — cmap pruned
+2026-08-08 05:59:06,182 [INFO] fontTools.subset — post pruned
+2026-08-08 05:59:06,182 [INFO] fontTools.subset — DSIG dropped
+2026-08-08 05:59:06,182 [INFO] fontTools.subset — GPOS dropped
+2026-08-08 05:59:06,182 [INFO] fontTools.subset — GSUB dropped
+2026-08-08 05:59:06,182 [INFO] fontTools.subset — glyf pruned
+2026-08-08 05:59:06,183 [INFO] fontTools.subset — Added gid0 to subset
+2026-08-08 05:59:06,183 [INFO] fontTools.subset — Added first four glyphs to subset
+2026-08-08 05:59:06,184 [INFO] fontTools.subset — Closing glyph list over 'glyf': 103 glyphs before
+2026-08-08 05:59:06,184 [INFO] fontTools.subset — Glyph names: ['.notdef', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'Y', 'a', 'arrowright', 'b', 'bar', 'c', 'colon', 'comma', 'copyright', 'd', 'dollar', 'e', 'eight', 'emdash', 'exclam', 'f', 'five', 'four', 'g', 'h', 'hyphen', 'i', 'k', 'l', 'm', 'n', 'nine', 'numbersign', 'o', 'one', 'p', 'parenleft', 'parenright', 'percent', 'period', 'periodcentered', 'plus', 'q', 'quotedbl', 'r', 's', 'seven', 'six', 'slash', 'space', 't', 'three', 'triagup', 'two', 'u', 'uniAC00', 'uniAC04', 'uniAD50', 'uniAE30', 'uniB2E5', 'uniB4F1', 'uniB808', 'uniB9C1', 'uniBA58', 'uniBAA8', 'uniBAA9', 'uniBC14', 'uniBC18', 'uniBCF4', 'uniC190', 'uniC2DC', 'uniC720', 'uniC775', 'uniC77C', 'uniC7A5', 'uniC808', 'uniCCB4', 'uniD140', 'uniD2B8', 'uniD45C', 'v', 'w', 'x', 'y', 'z', 'zero']
+2026-08-08 05:59:06,185 [INFO] fontTools.subset — Glyph IDs:   [0, 1, 2, 3, 4, 5, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 33, 34, 35, 36, 37, 38, 39, 40, 41, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 57, 64, 65, 66, 67, 68, 69, 70, 71, 72, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 96, 99, 104, 159, 162, 495, 497, 607, 654, 928, 1042, 1177, 1267, 1310, 1326, 1327, 1397, 1401, 1458, 1675, 1751, 2013, 2043, 2045, 2067, 2091, 2308, 2518, 2576, 2661, 13296]
+2026-08-08 05:59:06,185 [INFO] fontTools.subset — Closed glyph list over 'glyf': 103 glyphs after
+2026-08-08 05:59:06,185 [INFO] fontTools.subset — Glyph names: ['.notdef', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'Y', 'a', 'arrowright', 'b', 'bar', 'c', 'colon', 'comma', 'copyright', 'd', 'dollar', 'e', 'eight', 'emdash', 'exclam', 'f', 'five', 'four', 'g', 'h', 'hyphen', 'i', 'k', 'l', 'm', 'n', 'nine', 'numbersign', 'o', 'one', 'p', 'parenleft', 'parenright', 'percent', 'period', 'periodcentered', 'plus', 'q', 'quotedbl', 'r', 's', 'seven', 'six', 'slash', 'space', 't', 'three', 'triagup', 'two', 'u', 'uniAC00', 'uniAC04', 'uniAD50', 'uniAE30', 'uniB2E5', 'uniB4F1', 'uniB808', 'uniB9C1', 'uniBA58', 'uniBAA8', 'uniBAA9', 'uniBC14', 'uniBC18', 'uniBCF4', 'uniC190', 'uniC2DC', 'uniC720', 'uniC775', 'uniC77C', 'uniC7A5', 'uniC808', 'uniCCB4', 'uniD140', 'uniD2B8', 'uniD45C', 'v', 'w', 'x', 'y', 'z', 'zero']
+2026-08-08 05:59:06,185 [INFO] fontTools.subset — Glyph IDs:   [0, 1, 2, 3, 4, 5, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 33, 34, 35, 36, 37, 38, 39, 40, 41, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 57, 64, 65, 66, 67, 68, 69, 70, 71, 72, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 96, 99, 104, 159, 162, 495, 497, 607, 654, 928, 1042, 1177, 1267, 1310, 1326, 1327, 1397, 1401, 1458, 1675, 1751, 2013, 2043, 2045, 2067, 2091, 2308, 2518, 2576, 2661, 13296]
+2026-08-08 05:59:06,186 [INFO] fontTools.subset — Retaining 103 glyphs
+2026-08-08 05:59:06,186 [INFO] fontTools.subset — head subsetting not needed
+2026-08-08 05:59:06,186 [INFO] fontTools.subset — hhea subsetting not needed
+2026-08-08 05:59:06,186 [INFO] fontTools.subset — maxp subsetting not needed
+2026-08-08 05:59:06,186 [INFO] fontTools.subset — OS/2 subsetting not needed
+2026-08-08 05:59:06,186 [INFO] fontTools.subset — hmtx subsetted
+2026-08-08 05:59:06,188 [INFO] fontTools.subset — cmap subsetted
+2026-08-08 05:59:06,188 [INFO] fontTools.subset — fpgm subsetting not needed
+2026-08-08 05:59:06,188 [INFO] fontTools.subset — prep subsetting not needed
+2026-08-08 05:59:06,188 [INFO] fontTools.subset — cvt  subsetting not needed
+2026-08-08 05:59:06,188 [INFO] fontTools.subset — loca subsetting not needed
+2026-08-08 05:59:06,188 [INFO] fontTools.subset — post subsetted
+2026-08-08 05:59:06,188 [INFO] fontTools.subset — gasp subsetting not needed
+2026-08-08 05:59:06,188 [INFO] fontTools.subset — name subsetting not needed
+2026-08-08 05:59:06,191 [INFO] fontTools.subset — glyf subsetted
+2026-08-08 05:59:06,191 [INFO] fontTools.subset — head pruned
+2026-08-08 05:59:06,191 [INFO] fontTools.subset — OS/2 Unicode ranges pruned: [0, 1, 31, 37, 45, 56]
+2026-08-08 05:59:06,192 [INFO] fontTools.subset — OS/2 CodePage ranges pruned: [0]
+2026-08-08 05:59:06,193 [INFO] fontTools.subset — glyf pruned
+2026-08-08 05:59:06,193 [INFO] fontTools.subset — name pruned
+2026-08-08 05:59:06,213 [WARNING] fpdf.output — Font MPDFAA+NanumGothicBold is missing the following glyphs: '📉' (\U0001f4c9), '📈' (\U0001f4c8)
+2026-08-08 05:59:06,214 [INFO] fontTools.subset — maxp pruned
+2026-08-08 05:59:06,214 [INFO] fontTools.subset — cmap pruned
+2026-08-08 05:59:06,214 [INFO] fontTools.subset — post pruned
+2026-08-08 05:59:06,214 [INFO] fontTools.subset — DSIG dropped
+2026-08-08 05:59:06,214 [INFO] fontTools.subset — GPOS dropped
+2026-08-08 05:59:06,214 [INFO] fontTools.subset — GSUB dropped
+2026-08-08 05:59:06,214 [INFO] fontTools.subset — glyf pruned
+2026-08-08 05:59:06,215 [INFO] fontTools.subset — Added gid0 to subset
+2026-08-08 05:59:06,216 [INFO] fontTools.subset — Added first four glyphs to subset
+2026-08-08 05:59:06,216 [INFO] fontTools.subset — Closing glyph list over 'glyf': 98 glyphs before
+2026-08-08 05:59:06,216 [INFO] fontTools.subset — Glyph names: ['.notdef', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'ampersand', 'b', 'c', 'colon', 'd', 'dollar', 'e', 'eight', 'emdash', 'equal', 'exclam', 'f', 'five', 'four', 'g', 'h', 'hyphen', 'i', 'j', 'k', 'l', 'm', 'n', 'nine', 'numbersign', 'o', 'one', 'p', 'parenleft', 'parenright', 'percent', 'period', 'periodcentered', 'plus', 'q', 'quotedbl', 'quotesingle', 'r', 's', 'seven', 'six', 'slash', 'space', 't', 'three', 'two', 'u', 'uni2605', 'uniAC15', 'uniAC78', 'uniB2E5', 'uniB4F1', 'uniBA58', 'uniBAA8', 'uniBC14', 'uniBC18', 'uniBC30', 'uniC138', 'uniC5F4', 'uniC644', 'uniC789', 'uniC804', 'uniC815', 'uniD140', 'uniD551', 'v', 'w', 'x', 'y', 'zero']
+2026-08-08 05:59:06,216 [INFO] fontTools.subset — Glyph IDs:   [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 29, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 99, 104, 150, 505, 533, 926, 1040, 1308, 1324, 1395, 1399, 1410, 1648, 1915, 1949, 2051, 2088, 2094, 2516, 2700, 13533]
+2026-08-08 05:59:06,216 [INFO] fontTools.subset — Closed glyph list over 'glyf': 98 glyphs after
+2026-08-08 05:59:06,216 [INFO] fontTools.subset — Glyph names: ['.notdef', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'ampersand', 'b', 'c', 'colon', 'd', 'dollar', 'e', 'eight', 'emdash', 'equal', 'exclam', 'f', 'five', 'four', 'g', 'h', 'hyphen', 'i', 'j', 'k', 'l', 'm', 'n', 'nine', 'numbersign', 'o', 'one', 'p', 'parenleft', 'parenright', 'percent', 'period', 'periodcentered', 'plus', 'q', 'quotedbl', 'quotesingle', 'r', 's', 'seven', 'six', 'slash', 'space', 't', 'three', 'two', 'u', 'uni2605', 'uniAC15', 'uniAC78', 'uniB2E5', 'uniB4F1', 'uniBA58', 'uniBAA8', 'uniBC14', 'uniBC18', 'uniBC30', 'uniC138', 'uniC5F4', 'uniC644', 'uniC789', 'uniC804', 'uniC815', 'uniD140', 'uniD551', 'v', 'w', 'x', 'y', 'zero']
+2026-08-08 05:59:06,216 [INFO] fontTools.subset — Glyph IDs:   [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 29, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 99, 104, 150, 505, 533, 926, 1040, 1308, 1324, 1395, 1399, 1410, 1648, 1915, 1949, 2051, 2088, 2094, 2516, 2700, 13533]
+2026-08-08 05:59:06,217 [INFO] fontTools.subset — Retaining 98 glyphs
+2026-08-08 05:59:06,217 [INFO] fontTools.subset — head subsetting not needed
+2026-08-08 05:59:06,218 [INFO] fontTools.subset — hhea subsetting not needed
+2026-08-08 05:59:06,218 [INFO] fontTools.subset — maxp subsetting not needed
+2026-08-08 05:59:06,218 [INFO] fontTools.subset — OS/2 subsetting not needed
+2026-08-08 05:59:06,218 [INFO] fontTools.subset — hmtx subsetted
+2026-08-08 05:59:06,220 [INFO] fontTools.subset — cmap subsetted
+2026-08-08 05:59:06,220 [INFO] fontTools.subset — fpgm subsetting not needed
+2026-08-08 05:59:06,220 [INFO] fontTools.subset — prep subsetting not needed
+2026-08-08 05:59:06,220 [INFO] fontTools.subset — cvt  subsetting not needed
+2026-08-08 05:59:06,220 [INFO] fontTools.subset — loca subsetting not needed
+2026-08-08 05:59:06,220 [INFO] fontTools.subset — post subsetted
+2026-08-08 05:59:06,221 [INFO] fontTools.subset — gasp subsetting not needed
+2026-08-08 05:59:06,221 [INFO] fontTools.subset — name subsetting not needed
+2026-08-08 05:59:06,223 [INFO] fontTools.subset — glyf subsetted
+2026-08-08 05:59:06,223 [INFO] fontTools.subset — head pruned
+2026-08-08 05:59:06,224 [INFO] fontTools.subset — OS/2 Unicode ranges pruned: [0, 1, 31, 46, 56]
+2026-08-08 05:59:06,224 [INFO] fontTools.subset — OS/2 CodePage ranges pruned: [0]
+2026-08-08 05:59:06,225 [INFO] fontTools.subset — glyf pruned
+2026-08-08 05:59:06,225 [INFO] fontTools.subset — name pruned
+[Unified PT] PDF 리포트 생성 완료 (148,461 bytes)
+[시장분석] 80개 종목 데이터 수집 중...
+2026-08-08 05:59:12,732 [WARNING] data.fetch — [fetch_analyst_data] SRAD: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:12,803 [WARNING] data.fetch — [fetch_analyst_data] BRUN: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:12,887 [WARNING] data.fetch — [fetch_analyst_data] PODD: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:12,896 [WARNING] data.fetch — [fetch_analyst_data] FLUT: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:12,917 [WARNING] data.fetch — [fetch_analyst_data] ARWR: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:19,077 [WARNING] data.fetch — [fetch_analyst_data] HTZ: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:19,183 [WARNING] data.fetch — [fetch_analyst_data] HD: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:19,225 [WARNING] data.fetch — [fetch_analyst_data] BULL: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:19,340 [WARNING] data.fetch — [fetch_analyst_data] PYPL: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:19,386 [WARNING] data.fetch — [fetch_analyst_data] PG: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:25,463 [WARNING] data.fetch — [fetch_analyst_data] DHR: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:25,601 [WARNING] data.fetch — [fetch_analyst_data] SYK: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:25,621 [WARNING] data.fetch — [fetch_analyst_data] BMNR: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:25,732 [WARNING] data.fetch — [fetch_analyst_data] DIS: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:25,786 [WARNING] data.fetch — [fetch_analyst_data] T: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:26,035 [ERROR] yfinance — HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"No fundamentals data found for symbol: QQQ"}}}
+2026-08-08 05:59:29,278 [ERROR] yfinance — HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"No fundamentals data found for symbol: QQQ"}}}
+2026-08-08 05:59:31,802 [WARNING] data.fetch — [fetch_analyst_data] DOCS: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:32,074 [WARNING] data.fetch — [fetch_analyst_data] COUR: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:32,106 [WARNING] data.fetch — [fetch_analyst_data] CMCSA: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:32,292 [WARNING] data.fetch — [fetch_analyst_data] EPAM: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:32,478 [ERROR] yfinance — HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"No fundamentals data found for symbol: QQQ"}}}
+2026-08-08 05:59:32,478 [WARNING] data.fetch — [fetch_analyst_data] QQQ: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:38,113 [WARNING] data.fetch — [fetch_analyst_data] UPWK: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:38,412 [WARNING] data.fetch — [fetch_analyst_data] AI: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:38,493 [WARNING] data.fetch — [fetch_analyst_data] TJX: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:38,677 [WARNING] data.fetch — [fetch_analyst_data] TME: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:38,821 [WARNING] data.fetch — [fetch_analyst_data] INTU: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:44,517 [WARNING] data.fetch — [fetch_analyst_data] PFE: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:44,724 [WARNING] data.fetch — [fetch_analyst_data] CEG: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:44,861 [WARNING] data.fetch — [fetch_analyst_data] ACN: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:45,006 [WARNING] data.fetch — [fetch_analyst_data] GLOB: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:45,215 [WARNING] data.fetch — [fetch_analyst_data] BA: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:50,852 [WARNING] data.fetch — [fetch_analyst_data] NVDA: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:51,107 [WARNING] data.fetch — [fetch_analyst_data] AVGO: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:51,293 [WARNING] data.fetch — [fetch_analyst_data] MCD: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:51,434 [WARNING] data.fetch — [fetch_analyst_data] FCX: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:51,528 [WARNING] data.fetch — [fetch_analyst_data] WIX: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:57,281 [WARNING] data.fetch — [fetch_analyst_data] ETN: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:57,467 [WARNING] data.fetch — [fetch_analyst_data] MPWR: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:57,615 [WARNING] data.fetch — [fetch_analyst_data] AMZN: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:57,750 [WARNING] data.fetch — [fetch_analyst_data] NXTC: 'dict' object has no attribute 'empty'
+2026-08-08 05:59:57,927 [WARNING] data.fetch — [fetch_analyst_data] WMT: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:03,604 [WARNING] data.fetch — [fetch_analyst_data] CSIQ: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:03,863 [WARNING] data.fetch — [fetch_analyst_data] AVAV: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:03,991 [WARNING] data.fetch — [fetch_analyst_data] WHR: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:04,085 [WARNING] data.fetch — [fetch_analyst_data] IESC: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:04,239 [WARNING] data.fetch — [fetch_analyst_data] PLTR: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:09,919 [WARNING] data.fetch — [fetch_analyst_data] SMCI: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:10,197 [WARNING] data.fetch — [fetch_analyst_data] BSX: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:10,385 [WARNING] data.fetch — [fetch_analyst_data] MTRN: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:10,429 [WARNING] data.fetch — [fetch_analyst_data] PEGA: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:10,596 [WARNING] data.fetch — [fetch_analyst_data] ACHR: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:16,235 [WARNING] data.fetch — [fetch_analyst_data] KTOS: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:16,541 [WARNING] data.fetch — [fetch_analyst_data] SOUN: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:16,772 [WARNING] data.fetch — [fetch_analyst_data] CRK: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:16,805 [WARNING] data.fetch — [fetch_analyst_data] NFLX: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:16,929 [WARNING] data.fetch — [fetch_analyst_data] CSGP: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:22,564 [WARNING] data.fetch — [fetch_analyst_data] QUBT: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:23,104 [WARNING] data.fetch — [fetch_analyst_data] LI: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:23,149 [WARNING] data.fetch — [fetch_analyst_data] ATKR: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:23,233 [WARNING] data.fetch — [fetch_analyst_data] QBTS: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:23,418 [WARNING] data.fetch — [fetch_analyst_data] PLPC: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:28,906 [WARNING] data.fetch — [fetch_analyst_data] MA: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:29,430 [WARNING] data.fetch — [fetch_analyst_data] LRN: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:29,541 [WARNING] data.fetch — [fetch_analyst_data] PGY: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:29,652 [WARNING] data.fetch — [fetch_analyst_data] BKNG: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:29,758 [WARNING] data.fetch — [fetch_analyst_data] STUB: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:35,277 [WARNING] data.fetch — [fetch_analyst_data] DASH: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:35,799 [WARNING] data.fetch — [fetch_analyst_data] KLAR: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:35,907 [WARNING] data.fetch — [fetch_analyst_data] DUOL: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:35,999 [WARNING] data.fetch — [fetch_analyst_data] WTW: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:36,113 [WARNING] data.fetch — [fetch_analyst_data] MELI: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:41,579 [WARNING] data.fetch — [fetch_analyst_data] CPHI: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:42,131 [WARNING] data.fetch — [fetch_analyst_data] BTDR: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:42,335 [WARNING] data.fetch — [fetch_analyst_data] VST: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:42,363 [WARNING] data.fetch — [fetch_analyst_data] ABT: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:42,545 [WARNING] data.fetch — [fetch_analyst_data] SPGI: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:47,894 [WARNING] data.fetch — [fetch_analyst_data] UBER: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:48,486 [WARNING] data.fetch — [fetch_analyst_data] MSFT: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:48,682 [WARNING] data.fetch — [fetch_analyst_data] CDNS: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:48,721 [WARNING] data.fetch — [fetch_analyst_data] UTZ: 'dict' object has no attribute 'empty'
+2026-08-08 06:00:48,900 [WARNING] data.fetch — [fetch_analyst_data] META: 'dict' object has no attribute 'empty'
+[시장분석] enrichment 완료
+[Email] 페이퍼 트레이딩 알림 발송 완료 (PDF 첨부) (매도 1건, 매수 1건, 재평가 0건, 재평가실패 1건, 후보 5건) → chunghwan14@gmail.com, roykim0311@gmail.com, ssamjungtan@naver.com
+============================================================
+[Unified Paper Trading] 완료
+============================================================

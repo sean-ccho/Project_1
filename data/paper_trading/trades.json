@@ -853,5 +853,30 @@
     "upside_bucket_key": "바닥반등|0.50-0.55|5★(<7)",
     "hit_p50": 1,
     "hit_p75": 1
+  },
+  {
+    "ticker": "HTZ",
+    "entry_date": "2026-08-06",
+    "exit_date": "2026-08-08",
+    "entry_price": 1.559999942779541,
+    "exit_price": 2.2699999809265137,
+    "return_pct": 0.4551,
+    "holding_days": 2,
+    "highest_price": 2.2699999809265137,
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (6.0)",
+    "ccs_score": 0.4634,
+    "sector": "Industrials",
+    "exit_reason": "목표가(+45.5%)",
+    "defer_count": 1,
+    "entry_rsi": 27.96424691594818,
+    "predicted_upside_p50": 0.04631805240560767,
+    "predicted_upside_p75": 0.07620830235907791,
+    "upside_sample_size": 46,
+    "actual_max_upside_pct": 0.4551,
+    "upside_level": "strategy:바닥반등",
+    "upside_bucket_key": "바닥반등|0.45-0.50|5★(<7)",
+    "hit_p50": 1,
+    "hit_p75": 1
   }
 ]
