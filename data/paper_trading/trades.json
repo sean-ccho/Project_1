@@ -878,5 +878,30 @@
     "upside_bucket_key": "바닥반등|0.45-0.50|5★(<7)",
     "hit_p50": 1,
     "hit_p75": 1
+  },
+  {
+    "ticker": "CDNS",
+    "entry_date": "2026-07-22",
+    "exit_date": "2026-08-13",
+    "entry_price": 344.6400146484375,
+    "exit_price": 323.1300048828125,
+    "return_pct": -0.0624,
+    "holding_days": 22,
+    "highest_price": 344.7200012207031,
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (7.2)",
+    "ccs_score": 0.5587,
+    "sector": "Technology",
+    "exit_reason": "트레일링(-6.3%)",
+    "defer_count": 0,
+    "entry_rsi": 38.36959830083442,
+    "predicted_upside_p50": 0.04631805240560767,
+    "predicted_upside_p75": 0.07620830235907791,
+    "upside_sample_size": 46,
+    "actual_max_upside_pct": 0.0002,
+    "upside_level": "strategy:바닥반등",
+    "upside_bucket_key": "바닥반등|0.55+|5★(7-9)",
+    "hit_p50": -1,
+    "hit_p75": -1
   }
 ]
