@@ -1,0 +1,94 @@
+============================================================
+[Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작
+============================================================
+2026-08-14 06:28:19,252 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 129개 종목
+[Unified PT] SP500 snapshot 로드: 129개 종목
+2026-08-14 06:28:19,261 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 217개 종목
+[Unified PT] NASDAQ snapshot 로드: 217개 종목
+[Unified PT] 합산 완료: 339개 종목 (SP500 129 + NASDAQ 217개, 중복 제거 후)
+[Unified PT] 골든크로스임박 종목: 62개
+2026-08-14 06:28:20,127 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 94 | 4.0~5.0: 40 | 5.0~5.5: 20 | 5.5~6.0: 19 | 6.0+: 166
+2026-08-14 06:28:20,139 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=3/339 | Selected: LIF (CCS=0.5536)
+2026-08-14 06:28:20,149 [INFO] paper_trading.engine — [PaperTrading] 교체 기준 미달 — 매수 안 함
+[Unified PT] 매도=0 매수=0 보유=3종목
+[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 173, '바닥반등_52주과열': 1, '판단등급_미달': 158, '과열_차단': 0, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 0, '모멘텀_ADX부족': 3, '바닥_RSI데드존': 1, '섹터_집중': 0, '_통과': 3, '_전체': 339}
+[Unified PT] 스킵 사유: 교체_미달
+[Unified PT] Top5 후보:
+  LIF    CCS=0.5536 전략=📉 바닥반등 섹터=Technology
+  SOC    CCS=0.5363 전략=📉 바닥반등 섹터=Energy
+  UAMY   CCS=0.4724 전략=📉 바닥반등 섹터=Basic Materials
+2026-08-14 06:28:21,467 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-08-14 06:28:22,605 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 37건 거래
+[Unified PT] 구글 시트 동기화 완료
+[시장분석] 66개 종목 데이터 수집 중...
+2026-08-14 06:28:29,419 [WARNING] data.fetch — [fetch_analyst_data] SOC: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:29,520 [WARNING] data.fetch — [fetch_analyst_data] UAMY: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:29,582 [WARNING] data.fetch — [fetch_analyst_data] SMCI: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:29,601 [WARNING] data.fetch — [fetch_analyst_data] LIF: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:29,603 [WARNING] data.fetch — [fetch_analyst_data] UBER: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:35,889 [WARNING] data.fetch — [fetch_analyst_data] DUOL: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:35,906 [WARNING] data.fetch — [fetch_analyst_data] HD: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:35,980 [WARNING] data.fetch — [fetch_analyst_data] BULL: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:36,061 [WARNING] data.fetch — [fetch_analyst_data] PG: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:36,103 [WARNING] data.fetch — [fetch_analyst_data] CPHI: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:42,320 [WARNING] data.fetch — [fetch_analyst_data] DHR: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:42,335 [WARNING] data.fetch — [fetch_analyst_data] MELI: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:42,384 [WARNING] data.fetch — [fetch_analyst_data] SYK: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:42,564 [WARNING] data.fetch — [fetch_analyst_data] COST: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:42,603 [WARNING] data.fetch — [fetch_analyst_data] CEG: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:48,698 [WARNING] data.fetch — [fetch_analyst_data] KTOS: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:48,759 [WARNING] data.fetch — [fetch_analyst_data] BSX: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:48,815 [WARNING] data.fetch — [fetch_analyst_data] TER: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:49,034 [WARNING] data.fetch — [fetch_analyst_data] WHR: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:49,046 [WARNING] data.fetch — [fetch_analyst_data] DIS: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:55,068 [WARNING] data.fetch — [fetch_analyst_data] BMNR: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:55,159 [WARNING] data.fetch — [fetch_analyst_data] CMCSA: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:55,205 [WARNING] data.fetch — [fetch_analyst_data] SOUN: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:55,463 [WARNING] data.fetch — [fetch_analyst_data] ADI: 'dict' object has no attribute 'empty'
+2026-08-14 06:28:55,486 [WARNING] data.fetch — [fetch_analyst_data] T: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:01,486 [WARNING] data.fetch — [fetch_analyst_data] PEP: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:01,534 [WARNING] data.fetch — [fetch_analyst_data] LEU: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:01,560 [WARNING] data.fetch — [fetch_analyst_data] AVAV: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:01,865 [WARNING] data.fetch — [fetch_analyst_data] INTU: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:01,903 [WARNING] data.fetch — [fetch_analyst_data] ZG: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:07,836 [WARNING] data.fetch — [fetch_analyst_data] Z: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:07,978 [WARNING] data.fetch — [fetch_analyst_data] NEM: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:08,030 [WARNING] data.fetch — [fetch_analyst_data] WMT: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:08,249 [WARNING] data.fetch — [fetch_analyst_data] CSGP: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:08,298 [WARNING] data.fetch — [fetch_analyst_data] NFLX: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:14,199 [WARNING] data.fetch — [fetch_analyst_data] QUBT: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:14,359 [WARNING] data.fetch — [fetch_analyst_data] BLDR: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:14,413 [WARNING] data.fetch — [fetch_analyst_data] ISRG: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:14,693 [WARNING] data.fetch — [fetch_analyst_data] HP: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:14,749 [WARNING] data.fetch — [fetch_analyst_data] RGTI: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:20,619 [WARNING] data.fetch — [fetch_analyst_data] QBTS: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:20,847 [WARNING] data.fetch — [fetch_analyst_data] DOCS: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:20,857 [WARNING] data.fetch — [fetch_analyst_data] IBM: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:21,090 [WARNING] data.fetch — [fetch_analyst_data] FIGR: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:21,125 [WARNING] data.fetch — [fetch_analyst_data] FGI: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:26,994 [WARNING] data.fetch — [fetch_analyst_data] SNPS: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:27,266 [WARNING] data.fetch — [fetch_analyst_data] ASST: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:27,287 [WARNING] data.fetch — [fetch_analyst_data] ZTS: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:27,459 [WARNING] data.fetch — [fetch_analyst_data] HYMC: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:27,513 [WARNING] data.fetch — [fetch_analyst_data] SMR: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:33,338 [WARNING] data.fetch — [fetch_analyst_data] JOBY: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:33,658 [WARNING] data.fetch — [fetch_analyst_data] WDAY: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:33,741 [WARNING] data.fetch — [fetch_analyst_data] BKNG: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:33,818 [WARNING] data.fetch — [fetch_analyst_data] DASH: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:33,900 [WARNING] data.fetch — [fetch_analyst_data] LRN: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:39,676 [WARNING] data.fetch — [fetch_analyst_data] KLAR: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:40,032 [WARNING] data.fetch — [fetch_analyst_data] CHYM: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:40,136 [WARNING] data.fetch — [fetch_analyst_data] MSFT: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:40,227 [WARNING] data.fetch — [fetch_analyst_data] CLRO: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:40,314 [WARNING] data.fetch — [fetch_analyst_data] ABT: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:46,104 [WARNING] data.fetch — [fetch_analyst_data] SPGI: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:46,402 [WARNING] data.fetch — [fetch_analyst_data] PGY: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:46,524 [WARNING] data.fetch — [fetch_analyst_data] ZYBT: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:46,633 [WARNING] data.fetch — [fetch_analyst_data] HIVE: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:46,750 [WARNING] data.fetch — [fetch_analyst_data] META: 'dict' object has no attribute 'empty'
+2026-08-14 06:29:52,449 [WARNING] data.fetch — [fetch_analyst_data] ARWR: 'dict' object has no attribute 'empty'
+[시장분석] enrichment 완료
+[Email] 페이퍼 트레이딩 알림 발송 완료 (매도 0건, 매수 0건, 재평가 0건, 재평가실패 0건, 후보 3건) → chunghwan14@gmail.com, roykim0311@gmail.com, ssamjungtan@naver.com
+============================================================
+[Unified Paper Trading] 완료
+============================================================
