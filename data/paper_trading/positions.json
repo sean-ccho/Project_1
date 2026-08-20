@@ -7,7 +7,7 @@
     "star_rating": "★★★★★ (13.0)",
     "ccs_score": 0.5992,
     "sector": "Unknown",
-    "highest_price": 89.23999786376953,
+    "highest_price": 89.41000366210938,
     "defer_count": 0,
     "trailing_stop_override": null,
     "last_defer_date": null,
@@ -44,5 +44,28 @@
     "upside_days_to_peak": 9.853658536585366,
     "upside_level": "strategy:모멘텀",
     "upside_bucket_key": "모멘텀|0.45-0.50|5★(<7)"
+  },
+  {
+    "ticker": "WYFI",
+    "entry_price": 21.3799991607666,
+    "entry_date": "2026-08-20",
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (7.0)",
+    "ccs_score": 0.5993,
+    "sector": "Technology",
+    "highest_price": 21.3799991607666,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 39.49648473109737,
+    "predicted_upside_p25": 0.01786239482901973,
+    "predicted_upside_p50": 0.04631805240560767,
+    "predicted_upside_p75": 0.07620830235907791,
+    "predicted_upside_p90": 0.11342645172059196,
+    "upside_sample_size": 46,
+    "upside_days_to_peak": 8.304347826086957,
+    "upside_level": "strategy:바닥반등",
+    "upside_bucket_key": "바닥반등|0.55+|5★(7-9)"
   }
 ]
