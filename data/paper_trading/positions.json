@@ -1,28 +1,5 @@
 [
   {
-    "ticker": "ARWR",
-    "entry_price": 87.6500015258789,
-    "entry_date": "2026-08-08",
-    "strategy": "📈 모멘텀",
-    "star_rating": "★★★★★ (13.0)",
-    "ccs_score": 0.5992,
-    "sector": "Unknown",
-    "highest_price": 89.41000366210938,
-    "defer_count": 0,
-    "trailing_stop_override": null,
-    "last_defer_date": null,
-    "defer_debug": null,
-    "entry_rsi": 58.36727244020252,
-    "predicted_upside_p25": 0.02266632391612564,
-    "predicted_upside_p50": 0.043097132238084215,
-    "predicted_upside_p75": 0.08289792197501204,
-    "predicted_upside_p90": 0.13369179959419494,
-    "upside_sample_size": 16,
-    "upside_days_to_peak": 9.3125,
-    "upside_level": "bucket",
-    "upside_bucket_key": "모멘텀|0.55+|5★(9+)"
-  },
-  {
     "ticker": "CVS",
     "entry_price": 94.91000366210938,
     "entry_date": "2026-08-19",
@@ -67,5 +44,28 @@
     "upside_days_to_peak": 8.304347826086957,
     "upside_level": "strategy:바닥반등",
     "upside_bucket_key": "바닥반등|0.55+|5★(7-9)"
+  },
+  {
+    "ticker": "NXPI",
+    "entry_price": 223.14999389648438,
+    "entry_date": "2026-08-27",
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (6.5)",
+    "ccs_score": 0.5128,
+    "sector": "Technology",
+    "highest_price": 223.14999389648438,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 35.82172477967926,
+    "predicted_upside_p25": 0.01786239482901973,
+    "predicted_upside_p50": 0.04631805240560767,
+    "predicted_upside_p75": 0.07620830235907791,
+    "predicted_upside_p90": 0.11342645172059196,
+    "upside_sample_size": 46,
+    "upside_days_to_peak": 8.304347826086957,
+    "upside_level": "strategy:바닥반등",
+    "upside_bucket_key": "바닥반등|0.50-0.55|5★(<7)"
   }
 ]

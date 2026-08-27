@@ -953,5 +953,30 @@
     "upside_bucket_key": "모멘텀|0.55+|5★(9+)",
     "hit_p50": 1,
     "hit_p75": -1
+  },
+  {
+    "ticker": "ARWR",
+    "entry_date": "2026-08-08",
+    "exit_date": "2026-08-27",
+    "entry_price": 87.6500015258789,
+    "exit_price": 88.26000213623047,
+    "return_pct": 0.007,
+    "holding_days": 19,
+    "highest_price": 89.41000366210938,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (13.0)",
+    "ccs_score": 0.5992,
+    "sector": "Unknown",
+    "exit_reason": "장기보유(19일,+0.7%)",
+    "defer_count": 0,
+    "entry_rsi": 58.36727244020252,
+    "predicted_upside_p50": 0.043097132238084215,
+    "predicted_upside_p75": 0.08289792197501204,
+    "upside_sample_size": 16,
+    "actual_max_upside_pct": 0.0201,
+    "upside_level": "bucket",
+    "upside_bucket_key": "모멘텀|0.55+|5★(9+)",
+    "hit_p50": -1,
+    "hit_p75": -1
   }
 ]
