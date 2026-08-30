@@ -1003,5 +1003,30 @@
     "upside_bucket_key": "바닥반등|0.55+|5★(7-9)",
     "hit_p50": -1,
     "hit_p75": -1
+  },
+  {
+    "ticker": "CVS",
+    "entry_date": "2026-08-19",
+    "exit_date": "2026-08-30",
+    "entry_price": 94.91000366210938,
+    "exit_price": 93.05999755859375,
+    "return_pct": -0.0195,
+    "holding_days": 11,
+    "highest_price": 94.91000366210938,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (6.5)",
+    "ccs_score": 0.4781,
+    "sector": "Healthcare",
+    "exit_reason": "교체→BAC",
+    "defer_count": 0,
+    "entry_rsi": 37.79721375614889,
+    "predicted_upside_p50": 0.05659633797771464,
+    "predicted_upside_p75": 0.09518680348496925,
+    "upside_sample_size": 82,
+    "actual_max_upside_pct": 0.0,
+    "upside_level": "strategy:모멘텀",
+    "upside_bucket_key": "모멘텀|0.45-0.50|5★(<7)",
+    "hit_p50": -1,
+    "hit_p75": -1
   }
 ]
