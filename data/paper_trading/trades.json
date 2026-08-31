@@ -1028,5 +1028,30 @@
     "upside_bucket_key": "모멘텀|0.45-0.50|5★(<7)",
     "hit_p50": -1,
     "hit_p75": -1
+  },
+  {
+    "ticker": "NXPI",
+    "entry_date": "2026-08-27",
+    "exit_date": "2026-08-31",
+    "entry_price": 223.14999389648438,
+    "exit_price": 223.5800018310547,
+    "return_pct": 0.0019,
+    "holding_days": 4,
+    "highest_price": 223.8800048828125,
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (6.5)",
+    "ccs_score": 0.5128,
+    "sector": "Technology",
+    "exit_reason": "교체→DIS",
+    "defer_count": 0,
+    "entry_rsi": 35.82172477967926,
+    "predicted_upside_p50": 0.04631805240560767,
+    "predicted_upside_p75": 0.07620830235907791,
+    "upside_sample_size": 46,
+    "actual_max_upside_pct": 0.0033,
+    "upside_level": "strategy:바닥반등",
+    "upside_bucket_key": "바닥반등|0.50-0.55|5★(<7)",
+    "hit_p50": -1,
+    "hit_p75": -1
   }
 ]
