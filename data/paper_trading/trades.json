@@ -1078,5 +1078,30 @@
     "upside_bucket_key": "모멘텀|0.55+|5★(9+)",
     "hit_p50": 1,
     "hit_p75": -1
+  },
+  {
+    "ticker": "DHT",
+    "entry_date": "2026-09-05",
+    "exit_date": "2026-09-13",
+    "entry_price": 20.8700008392334,
+    "exit_price": 22.0,
+    "return_pct": 0.0541,
+    "holding_days": 8,
+    "highest_price": 22.0,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (12.0)",
+    "ccs_score": 0.6125,
+    "sector": "Energy",
+    "exit_reason": "시간익절(8일,+5.4%)",
+    "defer_count": 0,
+    "entry_rsi": 70.56891886866357,
+    "predicted_upside_p50": 0.043097132238084215,
+    "predicted_upside_p75": 0.08289792197501204,
+    "upside_sample_size": 16,
+    "actual_max_upside_pct": 0.0541,
+    "upside_level": "bucket",
+    "upside_bucket_key": "모멘텀|0.55+|5★(9+)",
+    "hit_p50": 1,
+    "hit_p75": -1
   }
 ]
