@@ -1103,5 +1103,30 @@
     "upside_bucket_key": "모멘텀|0.55+|5★(9+)",
     "hit_p50": 1,
     "hit_p75": -1
+  },
+  {
+    "ticker": "BAC",
+    "entry_date": "2026-08-30",
+    "exit_date": "2026-09-15",
+    "entry_price": 62.31999969482422,
+    "exit_price": 59.470001220703125,
+    "return_pct": -0.0457,
+    "holding_days": 16,
+    "highest_price": 63.040000915527344,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (11.0)",
+    "ccs_score": 0.6725,
+    "sector": "Financial Services",
+    "exit_reason": "트레일링(-5.7%)",
+    "defer_count": 0,
+    "entry_rsi": 50.85562081144543,
+    "predicted_upside_p50": 0.043097132238084215,
+    "predicted_upside_p75": 0.08289792197501204,
+    "upside_sample_size": 16,
+    "actual_max_upside_pct": 0.0116,
+    "upside_level": "bucket",
+    "upside_bucket_key": "모멘텀|0.55+|5★(9+)",
+    "hit_p50": -1,
+    "hit_p75": -1
   }
 ]
