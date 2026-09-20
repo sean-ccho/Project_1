@@ -44,5 +44,28 @@
     "upside_days_to_peak": 9.3125,
     "upside_level": "bucket",
     "upside_bucket_key": "모멘텀|0.55+|5★(9+)"
+  },
+  {
+    "ticker": "MMYT",
+    "entry_price": 47.91999816894531,
+    "entry_date": "2026-09-20",
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (7.5)",
+    "ccs_score": 0.6248,
+    "sector": "Consumer Cyclical",
+    "highest_price": 47.91999816894531,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 29.03612530588859,
+    "predicted_upside_p25": 0.01786239482901973,
+    "predicted_upside_p50": 0.04631805240560767,
+    "predicted_upside_p75": 0.07620830235907791,
+    "predicted_upside_p90": 0.11342645172059196,
+    "upside_sample_size": 46,
+    "upside_days_to_peak": 8.304347826086957,
+    "upside_level": "strategy:바닥반등",
+    "upside_bucket_key": "바닥반등|0.55+|5★(7-9)"
   }
 ]
