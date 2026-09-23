@@ -1178,5 +1178,30 @@
     "upside_bucket_key": "바닥반등|0.55+|5★(7-9)",
     "hit_p50": 1,
     "hit_p75": -1
+  },
+  {
+    "ticker": "VLO",
+    "entry_date": "2026-09-15",
+    "exit_date": "2026-09-23",
+    "entry_price": 382.95001220703125,
+    "exit_price": 377.14,
+    "return_pct": -0.0152,
+    "holding_days": 8,
+    "highest_price": 413.2799987792969,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (14.0)",
+    "ccs_score": 0.6347,
+    "sector": "Energy",
+    "exit_reason": "트레일링(-8.7%)",
+    "defer_count": 0,
+    "entry_rsi": 70.85054655542754,
+    "predicted_upside_p50": 0.043097132238084215,
+    "predicted_upside_p75": 0.08289792197501204,
+    "upside_sample_size": 16,
+    "actual_max_upside_pct": 0.0792,
+    "upside_level": "bucket",
+    "upside_bucket_key": "모멘텀|0.55+|5★(9+)",
+    "hit_p50": 1,
+    "hit_p75": -1
   }
 ]
