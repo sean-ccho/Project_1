@@ -36,17 +36,6 @@ jobs:
           playwright install chromium
           playwright install-deps chromium
 
-      - name: Restore TradingView session
-        env:
-          TRADINGVIEW_AUTH_JSON: ${{ secrets.TRADINGVIEW_AUTH_JSON }}
-        run: |
-          if [ -n "$TRADINGVIEW_AUTH_JSON" ]; then
-            echo "$TRADINGVIEW_AUTH_JSON" > charts/auth.json
-            echo "✅ TradingView 세션 복원 완료"
-          else
-            echo "⚠️ TRADINGVIEW_AUTH_JSON secret 미설정 → 위젯 모드 사용"
-          fi
-
       - name: Run unit tests
         run: |
           PYTHONPATH=.:src pytest tests/ -v --tb=short || echo "⚠️ Tests failed (non-blocking)"
@@ -72,6 +61,7 @@ jobs:
       - name: Run screener pipeline
         env:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          TRADINGVIEW_SESSIONID: ${{ secrets.TRADINGVIEW_SESSIONID }}
         run: |
           set -o pipefail
           mkdir -p logs/$LOG_DATE
@@ -81,6 +71,7 @@ jobs:
         if: always()
         env:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          TRADINGVIEW_SESSIONID: ${{ secrets.TRADINGVIEW_SESSIONID }}
         run: |
           set -o pipefail
           mkdir -p logs/$LOG_DATE
@@ -107,6 +98,7 @@ jobs:
         env:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          TRADINGVIEW_SESSIONID: ${{ secrets.TRADINGVIEW_SESSIONID }}
         run: |
           set -o pipefail
           mkdir -p logs/$LOG_DATE
@@ -119,25 +111,6 @@ jobs:
           name: paper-trading-log
           path: logs/${{ env.LOG_DATE }}/paper_trading.log
           retention-days: 7
-
-      - name: Run 내계좌 portfolio report
-        if: always()
-        env:
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-        run: |
-          set -o pipefail
-          mkdir -p logs/$LOG_DATE
-          PYTHONPATH=.:src python src/screener/portfolio_report.py | tee logs/$LOG_DATE/portfolio_report.log
-
-      - name: Upload portfolio report log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: portfolio-report-log
-          path: logs/${{ env.LOG_DATE }}/portfolio_report.log
-          retention-days: 7
-
 
       - name: Health check
         if: always()
