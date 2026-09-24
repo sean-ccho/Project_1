@@ -37,3 +37,4 @@ data/cache/
 # 백테스트 출력 (로컬 전용)
 output/runs/
 
+tv_state.json
