@@ -281,7 +281,7 @@ def build_export_dataframe(
                     )
 
                     # 2. 오늘 새 스크린샷만 스테이징
-                    subprocess.run(["git", "add", "charts/screenshots"], check=True)
+                    subprocess.run(["git", "add", "-f", "charts/screenshots"], check=True)
 
                     # 3. 커밋 (메시지에 타임스탬프)
                     commit_msg = f"Update chart screenshots {int(time.time())}"
@@ -497,7 +497,7 @@ def main() -> None:
                                 check=True,
                             )
 
-                            subprocess.run(["git", "add", "charts/screenshots"], check=True)
+                            subprocess.run(["git", "add", "-f", "charts/screenshots"], check=True)
                             commit_msg = f"Update chart screenshots {int(time.time())}"
                             subprocess.run(["git", "commit", "-m", commit_msg], check=False)
                             subprocess.run(["git", "push"], check=True)
