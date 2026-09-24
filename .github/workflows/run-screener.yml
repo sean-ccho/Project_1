@@ -58,6 +58,53 @@ jobs:
       - name: Set log date
         run: echo "LOG_DATE=$(TZ='America/Toronto' date +%Y-%m-%d)" >> $GITHUB_ENV
 
+      - name: Yahoo Finance connectivity check
+        run: |
+          echo "=== Runner IP ==="
+          curl -s https://api.ipify.org && echo ""
+          echo ""
+          echo "=== Yahoo Finance API 진단 ==="
+          python -c "
+          import yfinance as yf
+          import sys
+
+          print(f'yfinance version: {yf.__version__}')
+          print()
+
+          # 1) 단일 티커 다운로드 테스트
+          print('--- Test 1: yf.download (AAPL, 5d) ---')
+          try:
+              data = yf.download('AAPL', period='5d', progress=False)
+              if data.empty:
+                  print('⚠️  다운로드 성공했지만 데이터가 비어 있음 (rate limit 가능성)')
+              else:
+                  print(f'✅ 성공: {len(data)}행 반환')
+                  print(data.tail(2))
+          except Exception as e:
+              print(f'❌ 실패: {e}')
+              if 'Unauthorized' in str(e) or 'Invalid Crumb' in str(e) or '401' in str(e):
+                  print('🚫 Yahoo Finance가 이 IP를 차단한 것으로 보입니다')
+                  sys.exit(1)
+
+          print()
+
+          # 2) Ticker.info 테스트 (crumb/cookie 필요)
+          print('--- Test 2: yf.Ticker.get_info (AAPL) ---')
+          try:
+              info = yf.Ticker('AAPL').get_info()
+              name = info.get('shortName', 'N/A')
+              price = info.get('currentPrice') or info.get('regularMarketPrice', 'N/A')
+              print(f'✅ 성공: {name}, \${price}')
+          except Exception as e:
+              print(f'❌ 실패: {e}')
+              if 'Unauthorized' in str(e) or 'Invalid Crumb' in str(e) or '401' in str(e):
+                  print('🚫 Yahoo Finance가 이 IP를 차단한 것으로 보입니다')
+                  sys.exit(1)
+
+          print()
+          print('=== Yahoo Finance 접속 정상 ===')
+          "
+
       - name: Run screener pipeline
         env:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}

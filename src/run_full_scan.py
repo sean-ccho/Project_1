@@ -58,10 +58,10 @@ from screener.sector_rotation import get_strong_sectors
 # 2단계: 전략별 후보 필터링 (yfinance 1년 데이터 기반)
 # ---------------------------------------------------------------------------
 
-_STAGE2_BATCH_SIZE = 150       # 배치 크기
-_STAGE2_BATCH_DELAY = 1.5      # 배치 간 대기 시간(초)
-_STAGE2_MAX_RETRIES = 3        # rate limit 재시도 횟수
-_STAGE2_RETRY_BASE_DELAY = 30  # 재시도 기본 대기(초) — 30/60/120
+_STAGE2_BATCH_SIZE = 50        # 배치 크기 (Yahoo rate limit 대응: 150→50)
+_STAGE2_BATCH_DELAY = 3.0      # 배치 간 대기 시간(초) (1.5→3)
+_STAGE2_MAX_RETRIES = 4        # rate limit 재시도 횟수
+_STAGE2_RETRY_BASE_DELAY = 60  # 재시도 기본 대기(초) — 60/120/240
 
 
 def _stage2_download_with_retry(
@@ -84,13 +84,19 @@ def _stage2_download_with_retry(
 
         except Exception as e:
             err_str = str(e)
-            is_rate_limit = "Rate" in err_str or "Too Many" in err_str
+            is_retryable = (
+                "Rate" in err_str
+                or "Too Many" in err_str
+                or "Unauthorized" in err_str
+                or "Invalid Crumb" in err_str
+                or "401" in err_str
+            )
 
-            if is_rate_limit and attempt < _STAGE2_MAX_RETRIES:
+            if is_retryable and attempt < _STAGE2_MAX_RETRIES:
                 wait = _STAGE2_RETRY_BASE_DELAY * (2 ** (attempt - 1))
                 print(
                     f"[2단계] 배치 {batch_num}/{total_batches} "
-                    f"rate limit → {wait}초 대기 후 재시도 "
+                    f"rate limit/auth 오류 → {wait}초 대기 후 재시도 "
                     f"({attempt}/{_STAGE2_MAX_RETRIES})..."
                 )
                 time.sleep(wait)

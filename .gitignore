@@ -37,3 +37,7 @@ data/cache/
 # 백테스트 출력 (로컬 전용)
 output/runs/
 
+tv_state.json
+
+# TradingView 차트 스크린샷 (용량 큼, CI에서 매번 생성)
+charts/screenshots/
