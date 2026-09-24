@@ -21,10 +21,10 @@ NASDAQ_FILE = "nasdaqlisted.txt"
 OTHER_FILE = "otherlisted.txt"
 
 # 1단계 필터 설정
-_BATCH_SIZE = 150          # yfinance 배치 크기
-_BATCH_DELAY = 1.5         # 배치 간 대기 시간(초)
-_MAX_RETRIES = 3           # rate limit 시 재시도 횟수
-_RETRY_BASE_DELAY = 30     # 재시도 기본 대기 시간(초) — 30/60/120
+_BATCH_SIZE = 50           # yfinance 배치 크기 (Yahoo rate limit 대응: 150→50)
+_BATCH_DELAY = 3.0         # 배치 간 대기 시간(초) (1.5→3)
+_MAX_RETRIES = 4           # rate limit 시 재시도 횟수
+_RETRY_BASE_DELAY = 60     # 재시도 기본 대기 시간(초) — 60/120/240
 
 # 비표준 심볼 패턴 (보통주가 아닌 것들)
 #   $ 포함       → 우선주         (BAC$K, ALL$H)
@@ -158,13 +158,19 @@ def _download_batch_with_retry(
 
         except Exception as e:
             err_str = str(e)
-            is_rate_limit = "Rate" in err_str or "Too Many" in err_str
+            is_retryable = (
+                "Rate" in err_str
+                or "Too Many" in err_str
+                or "Unauthorized" in err_str
+                or "Invalid Crumb" in err_str
+                or "401" in err_str
+            )
 
-            if is_rate_limit and attempt < _MAX_RETRIES:
+            if is_retryable and attempt < _MAX_RETRIES:
                 wait = _RETRY_BASE_DELAY * (2 ** (attempt - 1))
                 print(
                     f"[ticker_fetcher] 배치 {batch_num}/{total_batches} "
-                    f"rate limit → {wait}초 대기 후 재시도 "
+                    f"rate limit/auth 오류 → {wait}초 대기 후 재시도 "
                     f"({attempt}/{_MAX_RETRIES})..."
                 )
                 time.sleep(wait)

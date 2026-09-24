@@ -5,7 +5,7 @@
 pandas==2.3.2
 numpy==2.3.3
 pyarrow==23.0.1
-yfinance==0.2.66
+yfinance>=1.7.0
 beautifulsoup4==4.14.0
 ta==0.11.0
 scikit-learn==1.7.2

@@ -13,12 +13,12 @@ import yfinance as yf
 
 logger = logging.getLogger(__name__)
 
-MAX_DOWNLOAD_RETRIES = 3
-RETRY_DELAY_SECONDS = 3
+MAX_DOWNLOAD_RETRIES = 4
+RETRY_DELAY_SECONDS = 10
 
 # OHLCV 배치 다운로드 설정
-_OHLCV_BATCH_SIZE = 150        # 배치당 티커 수 (1단계/2단계와 동일)
-_OHLCV_BATCH_DELAY = 1.5       # 배치 간 대기 시간(초)
+_OHLCV_BATCH_SIZE = 50         # 배치당 티커 수 (Yahoo rate limit 대응: 150→50)
+_OHLCV_BATCH_DELAY = 3.0       # 배치 간 대기 시간(초) (1.5→3)
 
 # OHLCV 디스크 캐시 설정 (백테스트용)
 _OHLCV_CACHE_DIR = Path("data/cache")
