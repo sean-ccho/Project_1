@@ -44,5 +44,28 @@
     "upside_days_to_peak": 8.304347826086957,
     "upside_level": "strategy:바닥반등",
     "upside_bucket_key": "바닥반등|0.55+|5★(7-9)"
+  },
+  {
+    "ticker": "INSP",
+    "entry_price": 69.05999755859375,
+    "entry_date": "2026-09-24",
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (13.0)",
+    "ccs_score": 0.573,
+    "sector": "Unknown",
+    "highest_price": 69.05999755859375,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 55.28705109859989,
+    "predicted_upside_p25": 0.02266632391612564,
+    "predicted_upside_p50": 0.043097132238084215,
+    "predicted_upside_p75": 0.08289792197501204,
+    "predicted_upside_p90": 0.13369179959419494,
+    "upside_sample_size": 16,
+    "upside_days_to_peak": 9.3125,
+    "upside_level": "bucket",
+    "upside_bucket_key": "모멘텀|0.55+|5★(9+)"
   }
 ]
