@@ -284,7 +284,7 @@ def build_export_dataframe(
                     subprocess.run(["git", "add", "-f", "charts/screenshots"], check=True)
 
                     # 3. 커밋 (메시지에 타임스탬프)
-                    commit_msg = f"Update chart screenshots {int(time.time())}"
+                    commit_msg = f"chore: update chart screenshots {int(time.time())} [skip ci]"
                     subprocess.run(["git", "commit", "-m", commit_msg], check=False)  # 변경사항 없으면 실패할 수 있으므로 check=False
 
                     # 4. 푸시
@@ -498,7 +498,7 @@ def main() -> None:
                             )
 
                             subprocess.run(["git", "add", "-f", "charts/screenshots"], check=True)
-                            commit_msg = f"Update chart screenshots {int(time.time())}"
+                            commit_msg = f"chore: update chart screenshots {int(time.time())} [skip ci]"
                             subprocess.run(["git", "commit", "-m", commit_msg], check=False)
                             subprocess.run(["git", "push"], check=True)
                             print(f"[{portfolio_label}] GitHub 푸시 완료")

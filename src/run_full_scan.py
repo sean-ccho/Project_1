@@ -477,7 +477,7 @@ def main() -> None:
                             )
 
                             subprocess.run(["git", "add", "-f", "charts/screenshots_nasdaq"], check=True)
-                            commit_msg = f"Update NASDAQ/NYSE chart screenshots {int(time.time())}"
+                            commit_msg = f"chore: update NASDAQ/NYSE chart screenshots {int(time.time())} [skip ci]"
                             subprocess.run(["git", "commit", "-m", commit_msg], check=False)
                             subprocess.run(["git", "push"], check=True)
                             print(f"[{chart_label}] GitHub 푸시 완료")

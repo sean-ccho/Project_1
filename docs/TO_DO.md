@@ -65,3 +65,24 @@ To do
 - [ ] 먼저 1·2·3 (시점/가격) 통일 방향 결정 — "당일 종가 모델" vs "다음날 시가 모델" 중 하나 **⚠️ 페이퍼 트레이딩 결과 신뢰성 핵심 — 우선 처리**
 - [x] 5번 (`HOLD_WINNERS_MIN_CHECKS`) 의도 확인 — 5/5 유지 확정
 - [ ] 6번부터는 안전한 정합성 수정이라 한꺼번에 가능
+
+---
+
+2026-09-24 — 퀀트 시스템 개선 (CCS 재설계 및 동적 스탑)
+
+### A급 (결과 및 성능 개선 최우선)
+- [ ] **레짐+섹터 필터 추가** (`candidate_selector.py`) — ⏳ 미처리
+  - 바닥반등 전략에서 Bull 레짐 + Industrials/Consumer Defensive/Financial Services 제외.
+  - Bear 레짐 + Financial Services/Technology 우대.
+- [ ] **ATR 기반 동적 스탑로스 적용** (`engine.py`, `backtest.py`) — ⏳ 미처리
+  - 고정된 -5% 트레일링/손절을 종목의 변동성(`feat_atr_pct`)에 비례하도록 동적으로 변경 (예: ATR의 2~2.5배).
+
+### B급 (CCS 재설계 - IC 기반)
+- [ ] **CCS 스코어 가중치 및 공식 재조정** (`candidate_selector.py`) — ⏳ 미처리
+  - `feat_reversal_score`와 `feat_bottom_reversal_fit`이 실제 수익과 역의 상관관계(IC 음수)를 가지므로 가중치를 대폭 낮추거나 산식 수정.
+  - `feat_atr_pct`, `feat_momentum_fit` 등 IC가 긍정적인 지표의 가중치 강화.
+- [ ] 백테스트 파이프라인에 IC(Information Coefficient) 및 10분위(Decile) 분석 자동 측정 모듈 추가.
+
+### C급 (중장기)
+- [ ] Kelly Criterion을 참고한 포지션 사이징(동적 비중) 적용 검토.
+- [ ] ML 기반 포지션 사이징 예측 모델 재학습 및 적용 (`src/ml/`).
