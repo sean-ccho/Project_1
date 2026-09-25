@@ -416,16 +416,27 @@ def fetch_analyst_data(tickers: List[str]) -> Dict[str, dict]:
                 apt = ticker_obj.analyst_price_targets
                 target_mean: float | None = None
                 num_analysts: int = 0
-                if apt is not None and not apt.empty:
-                    row = apt.iloc[-1] if hasattr(apt, "iloc") else apt
-                    target_mean = float(row.get("mean") or row.get("targetMeanPrice") or 0) or None
-                    num_analysts = int(row.get("numberOfAnalystOpinions") or row.get("numAnalysts") or 0)
+                if apt is not None:
+                    if isinstance(apt, dict):
+                        row = apt
+                    elif hasattr(apt, "empty") and not apt.empty:
+                        row = apt.iloc[-1] if hasattr(apt, "iloc") else apt
+                    else:
+                        row = None
+                    if row is not None:
+                        target_mean = float(row.get("mean") or row.get("targetMeanPrice") or 0) or None
+                        num_analysts = int(row.get("numberOfAnalystOpinions") or row.get("numAnalysts") or 0)
 
                 # 컨센서스 추천
                 rec_summary = ticker_obj.recommendations_summary
                 recommendation = "N/A"
-                if rec_summary is not None and not rec_summary.empty:
-                    latest = rec_summary.iloc[0]
+                latest = None
+                if rec_summary is not None:
+                    if isinstance(rec_summary, dict):
+                        latest = rec_summary
+                    elif hasattr(rec_summary, "empty") and not rec_summary.empty:
+                        latest = rec_summary.iloc[0]
+                if latest is not None:
                     buy_cnt = int(latest.get("strongBuy", 0) or 0) + int(latest.get("buy", 0) or 0)
                     hold_cnt = int(latest.get("hold", 0) or 0)
                     sell_cnt = int(latest.get("sell", 0) or 0) + int(latest.get("strongSell", 0) or 0)
