@@ -1,0 +1,141 @@
+# 퀀트 트레이딩 전략 개선 계획서 (Project_1)
+
+> 작성일: 2026-09-25
+> 대상 리포: sean-ccho/Project_1 (Stock Market Screener, Python 97.5%)
+> 목표: 실망스러운 현재 성과를 진단하고, "월스트리트급"에 근접한 수준으로 리스크조정수익을 끌어올린다.
+> 최종 지향: 맥미니 서버에서 Optuna로 파라미터를 자동 탐색 (단, 이건 마지막 단계)
+
+---
+
+## 0. 핵심 결론 (TL;DR)
+
+1. **Optuna 파라미터 튜닝은 지금 답이 아니다.** 49거래 표본에 파라미터 수십 개 최적화 = 과적합 확정.
+2. 백테스트·실거래가 **둘 다 실망스럽고 일관됨** → 과적합 문제가 아니라 **엣지 자체가 얇음 + 측정 구멍**.
+3. 진짜 지렛대는 **① 거래비용 반영 ② 포지션 분산 ③ 팩터 IC 검증** 세 가지.
+4. `alpha_model.py`의 IC 기반 팩터모델은 **정통 방법론이라 살릴 자산**. 문제는 이 좋은 엔진을 3종목 몰빵·비용무시·생존편향 환경에서 죽이고 있다는 것.
+5. 권장 진행 순서: **D(현재 성과 재측정) → A(측정 정합성) → B(포지션 분산) → C(Optuna/맥미니)**.
+
+---
+
+## 1. 현재 성과 진단
+
+### 실거래 성과 (2026-04 ~ 09, 페이퍼 트레이딩)
+| 구분 | 총거래 | 승률 | 평균수익 | 누적수익 | 최대손실 |
+|------|--------|------|----------|----------|----------|
+| 전체 | 49 | 39% | +1.30% | +46.5%* | -14.2% |
+| 바닥반등 | 24 | 33% | +1.40% | +13.4%* | -14.2% |
+| 모멘텀 | 24 | 42% | +0.70% | +14.0%* | -9.7% |
+
+\* 누적수익은 거래수익률 **단순 합산**이라 실제 자본 기준 아님 (오해 소지).
+
+### 왜 실망스러운가 (구조적 문제)
+| # | 문제 | 근거 (실제 코드) | 영향 |
+|---|------|------------------|------|
+| 1 | **거래비용 0** | `backtest.py`·`config.py`에 수수료·슬리피지 없음 | 모든 최적화가 허상 엣지 추격 |
+| 2 | **생존편향** | `TICKERS = SP500_TICKERS + NASDAQ_TICKERS` (현재 구성종목) | 과거 백테스트에서 상장폐지 패자 누락 → 성과 과대 |
+| 3 | **극단 집중** | `PAPER_TRADING_MAX_POSITIONS = 3` | 분산 전무. 개별 -14% = 자본 -4.7% |
+| 4 | **표본 부족** | 49거래 / 6개월 | 통계적 무의미. 스킬 vs 운 구분 불가 |
+| 5 | **가짜 수익률** | 시트 누적수익 = 거래수익률 단순합 | 실제 자본곡선 기준 아님 |
+| 6 | **동일비중 사이징** | 페이퍼는 `cash / empty_slots` 균등배분 | 변동성·컨빅션 무시 |
+| 7 | **핸드튜닝 상수 수십 개** | CCS 서브스코어 임계치 전부 수작업 | 예측력 검증 안 됨 |
+
+### 살릴 자산 (토대는 좋음)
+- `alpha_model.py`: 5팩터(모멘텀/추세/거래량/변동성/평균회귀) tanh 스케일링 + **IC(Spearman) 동적 가중**. 정통 팩터모델.
+- CCS 5-서브스코어 구조, 레짐 감지, Hold-Winners defer 로직 설계 탄탄.
+
+---
+
+## 2. 재우선순위 로드맵 (월스트리트급)
+
+### 🥇 Tier 1 — 측정 정합성 (최우선)
+- [ ] 거래비용·슬리피지 모델 추가 (수수료 + 스프레드)
+- [ ] 생존편향 제거 (시점별 지수 구성종목, 또는 상장폐지 포함 데이터)
+- [ ] 자본곡선 기준 지표 (`initial_capital` 모드 기본화 → CAGR·Sharpe·Sortino·MaxDD·Calmar·vs SPY)
+- [ ] 기간·표본 확대 (200~500+ 거래)
+
+### 🥈 Tier 2 — 포트폴리오 구성 (리스크조정수익 최대 지렛대)
+- [ ] 포지션 3 → 10~20개 (분산)
+- [ ] 리스크 기반 사이징 (역-변동성 + 컨빅션 CCS 가중)
+- [ ] 섹터/팩터 중립화
+
+### 🥉 Tier 3 — 알파 검증·강화
+- [ ] 팩터 IC 실측 + t-stat (장기)
+- [ ] 크로스섹셔널 랭킹 롱북 ("top 1" → 상위 분위 보유)
+- [ ] deflated Sharpe / 다중검정 인식
+
+### 🏅 Tier 4 — Optuna 최적화 (원래 계획, 이제 최후)
+- [ ] Tier 1-3 후, 소수 견고 파라미터만 walk-forward + 비용 반영 목적함수
+- [ ] 과적합 방어: 파라미터 최소화, out-of-sample 필수
+
+### Tier 5 — ML (선택)
+- [ ] 표본 커진 뒤 기존 `ml/` (`ML_ENABLED`) 활성화
+
+---
+
+## 3. Optuna 상세 설계 (Tier 4용, 확정 사항)
+
+### 목표지표: 옵션 A 확정
+- 주 목표: `summary["Sharpe"]` 최대화 (`direction="maximize"`, 단일 목적)
+- 제약(Pruning): `총거래수 < 50` → TrialPruned / `승률 < 0.40` → TrialPruned(선택)
+- 페널티: `score = Sharpe − max(0, |MDD| − 0.30) × 2.0`
+- 승률·수익률·MDD·거래수는 `trial.set_user_attr()`로 저장(리포팅용)
+
+### ⚠️ 백테스트 함수 연동 시 주의 (실제 코드 확인됨)
+- 함수: `run_paper_trading_backtest(tickers, *, period="1y", rebalance_every, include_fundamentals, max_tickers, initial_capital, no_cache)` → `{"trades","summary","equity_curve"}`
+- **지표 키가 한글**: `summary["Sharpe"]`, `["MDD"]`, `["승률"]`, `["총거래수"]`, `["전략총수익률"]`
+- **날짜 구간 미지원**: `period="2y"` 방식뿐. Walk-Forward엔 `start_date/end_date` 슬라이싱 **추가 필요**.
+- **config override 함정**:
+  - `EXIT_PARAMS`, `CANDIDATE_REGIME_WEIGHTS` = dict → **in-place 수정 안전** (모든 모듈 공유)
+  - 스칼라(`ADX_BUY_MIN`, `CANDIDATE_MIN_STRATEGY_SCORE`, `HOLD_WINNERS_*` 등) = `from config import X`로 바인딩 → `setattr(cfg, ...)` **효과 없음**. 소비 모듈(`candidate_selector`, `engine`) 네임스페이스에 직접 `setattr` 하거나 `cfg.X` 동적참조로 리팩터 필요.
+- **캐시 정합성**: OHLCV/feature 디스크 캐시는 tickers+period 고정이라 반복 시 재사용(빠름). 단 CCS/alpha 가중치 최적화 시 ranked snapshot 캐시가 param 비의존이면 stale 위험 → 검증 필요. **진입/청산 파라미터만 하면 캐시 안전.**
+
+### CCS 가중치: 1차 제외 (권장)
+- Phase 1은 진입(그룹A) + 청산(그룹B, `EXIT_PARAMS`)만. CCS 가중치(그룹C)는 캐시 검증 후 Phase 1.5로 분리.
+
+---
+
+## 4. 맥미니 서버 세팅 (Tier 4 실행 인프라)
+
+- [ ] `pmset` 잠자기 방지 + 정전 후 자동 시작 + 자동 로그인
+- [ ] Tailscale (원격/대시보드 접속) + SSH 키 인증
+- [ ] launchd: 옵티마이저(`KeepAlive`, `Nice=10`) + optuna-dashboard(8080)
+- [ ] 로그 로테이션 + `optuna.db` 백업 + `.gitignore`(`*.db`, `data/`, `logs/`)
+- 하드웨어: 8GB RAM은 Tier 1-2 + 순차실행(`n_jobs=1`) 가능. Tier 5 ML은 16GB 권장. 256GB 저장공간은 충분(로그 관리 필요).
+- 비용: Optuna/xgboost/lightgbm/shap 전부 무료(오픈소스).
+
+---
+
+## 5. 데이터 인벤토리 (2026-09-25 확인)
+
+리포에 커밋된 것:
+- `data/paper_trading/trades.json` = **실거래 49건** (현재, 09-23) + `positions.json`
+- `data/paper_trading/*_ranked.parquet` (16h전), `backtest_validation.json`, `upside_distribution.json`
+- `logs/` = 일별 2026-04-04~09-25 (~120일치 연속)
+- `output/runs/` = 백테스트 스냅샷 **~17개 (4월치만! 마지막 push 07-20)**. 각 `meta.json` = 파라미터+성과
+- `output/backtest_trades_enhanced.csv/json` = **거래별 entry_features + 결과**(`post_exit_return_5/10/20d`). 매 실행 덮어씀 → git엔 마지막 1회만
+- `data/ml_models/` = ML 아티팩트
+
+**핵심:** "엄청 많이 돌린" 백테스트 대부분은 **로컬 맥 `output/runs/`에만** 있음(git엔 17개). `enhanced.csv` 구조가 **Tier 3(팩터 IC/ML)에 필요한 라벨링 데이터셋 그 자체** → 재실행 없이 로그 마이닝 가능.
+
+---
+
+## 6. 재개 시작점 (다음에 할 것)
+
+1. **Project_1을 VS Code로 열기** (현재는 AutoCell이 열려 있어 파일 수정 불가)
+2. 이 문서를 리포에 저장
+3. **미해결 질문 확인:**
+   - [ ] 로컬 `output/runs/` 폴더 개수? (`ls output/runs | wc -l`) → 수백 개면 재실행 없이 즉시 분석
+   - [ ] CCS 가중치를 Optuna 1차에 포함할지 (현재 제외 가정)
+   - [x] 목표지표 = 옵션 A 확정
+4. **권장 첫 작업 = D:** 현재 전략을 **비용 반영 + 자본곡선 기준**으로 재측정해서 진짜 출발점 확인
+5. 이후 A(측정 정합성) → B(포지션 분산) → C(Optuna/맥미니)
+
+---
+
+## 부록: 전략 로직 요약 (참고)
+
+- **진입:** 7~9개 Hard Filter (전략점수≥6.0, RSI<75, 유동성≥$10M, 어닝회피, 섹터캡2, ADX≥25 등) → CCS 5-서브스코어(strategy_fit/timing/alpha/risk/confluence) 레짐별 가중 → Top 1 선정
+- **청산:** 목표가/손절/트레일링/시간익절 + Hold-Winners defer(모멘텀 강하면 익절 지연)
+- **레짐:** SPY EMA 기반 bull/neutral/bear, 약세장은 모멘텀 제외 + 포지션 축소
+- **알파:** 5팩터 tanh 정규화 + 60일 IC(Spearman) 동적 가중, 합=1 정규화
+- **현재 설정:** `STRATEGY_MODE="AGGRESSIVE"`, `ML_ENABLED=False`, 최대 3포지션
