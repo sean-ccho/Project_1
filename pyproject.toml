@@ -1,0 +1,34 @@
+[project]
+name = "quant-trading-system"
+version = "1.0.0"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+]
+ignore = [
+    "E501",   # line-too-long (이미 120자 제한)
+    "B904",   # raise-without-from-inside-except (기존 코드 호환)
+    "SIM108", # ternary expression (가독성 우선)
+    "UP007",  # Optional -> X | None (기존 코드 호환)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["screener", "paper_trading", "data", "analytics", "ml"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

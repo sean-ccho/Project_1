@@ -1,0 +1,120 @@
+{
+  "run_label": "2026-04-18_17-00",
+  "period": "5y",
+  "capital": 5000.0,
+  "flags": {
+    "include_fundamentals": true,
+    "no_cache": false,
+    "rebalance_every": 1,
+    "max_positions": 3,
+    "min_history_days": 220
+  },
+  "git": {
+    "sha": "e7c68ce66e7c",
+    "branch": "main",
+    "dirty": true
+  },
+  "simulation": {
+    "start_date": "2022-03-02",
+    "end_date": "2026-04-17",
+    "trading_days": 1035,
+    "ticker_count": 500
+  },
+  "benchmark": {
+    "spy_return": 0.7508,
+    "strategy_return": 0.2007,
+    "excess_return": -0.5501,
+    "mdd": -0.3185,
+    "sharpe": 0.23,
+    "initial_capital": 5000.0,
+    "final_capital": 6003.27
+  },
+  "hold_winners": {
+    "defer_triggered": 5,
+    "defer_total_count": 6,
+    "MIN_CHECKS": 5,
+    "DEFER_FREEZE_DAYS": 0,
+    "MAX_DEFERS": 2
+  },
+  "performance": {
+    "total_trades": 224,
+    "win_rate": 0.4688,
+    "avg_return": 0.0037,
+    "avg_win": 0.0614,
+    "avg_loss": -0.0472,
+    "by_strategy": {
+      "바닥반등": {
+        "n": 101,
+        "win_rate": 0.4059,
+        "avg_return": -0.0011
+      },
+      "모멘텀": {
+        "n": 123,
+        "win_rate": 0.5203,
+        "avg_return": 0.0077
+      }
+    }
+  },
+  "params": {
+    "ALPHA_DEFAULT_WEIGHTS": {
+      "momentum": 0.2,
+      "trend": 0.2,
+      "volume": 0.25,
+      "volatility": 0.15,
+      "mean_reversion": 0.2
+    },
+    "CANDIDATE_REGIME_WEIGHTS": {
+      "bull": {
+        "strategy": 0.25,
+        "timing": 0.2,
+        "alpha": 0.15,
+        "risk": 0.2,
+        "confluence": 0.2
+      },
+      "neutral": {
+        "strategy": 0.25,
+        "timing": 0.2,
+        "alpha": 0.15,
+        "risk": 0.25,
+        "confluence": 0.15
+      },
+      "bear": {
+        "strategy": 0.2,
+        "timing": 0.25,
+        "alpha": 0.1,
+        "risk": 0.3,
+        "confluence": 0.15
+      }
+    },
+    "ADX_BUY_MIN": 25,
+    "EXIT_PARAMS": {
+      "바닥반등": {
+        "profit_target": 0.18,
+        "stop_loss": 0.07,
+        "trailing_stop": 0.06,
+        "max_holding_days": 25,
+        "stale_min_return": 0.02,
+        "time_profit_days": 12,
+        "time_profit_min": 0.07
+      },
+      "모멘텀": {
+        "profit_target": 0.12,
+        "stop_loss": 0.055,
+        "trailing_stop": 0.05,
+        "max_holding_days": 18,
+        "stale_min_return": 0.02,
+        "time_profit_days": 8,
+        "time_profit_min": 0.05
+      }
+    },
+    "EXIT_PARAMS_DEFAULT": {
+      "profit_target": 0.15,
+      "stop_loss": 0.05,
+      "trailing_stop": 0.05,
+      "max_holding_days": 21,
+      "stale_min_return": 0.02,
+      "time_profit_days": 10,
+      "time_profit_min": 0.06
+    }
+  }
+}
