@@ -1,0 +1,27 @@
+============================================================
+[Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작
+============================================================
+2026-09-29 09:13:19,009 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 128개 종목
+[Unified PT] SP500 snapshot 로드: 128개 종목
+2026-09-29 09:13:19,018 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 223개 종목
+[Unified PT] NASDAQ snapshot 로드: 223개 종목
+[Unified PT] 합산 완료: 341개 종목 (SP500 128 + NASDAQ 223개, 중복 제거 후)
+[Unified PT] 골든크로스임박 종목: 51개
+2026-09-29 09:13:19,672 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 123 | 4.0~5.0: 24 | 5.0~5.5: 40 | 5.5~6.0: 36 | 6.0+: 118
+2026-09-29 09:13:19,688 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=3/341 | Selected: VEEE (CCS=0.4061)
+2026-09-29 09:13:19,700 [INFO] paper_trading.engine — [PaperTrading] 교체 기준 미달 — 매수 안 함
+[Unified PT] 매도=0 매수=0 보유=3종목
+[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 223, '바닥반등_52주과열': 4, '판단등급_미달': 102, '과열_차단': 3, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 1, '모멘텀_ADX부족': 3, '바닥_RSI데드존': 2, '섹터_집중': 0, '_통과': 3, '_전체': 341}
+[Unified PT] 스킵 사유: 교체_미달
+[Unified PT] Top5 후보:
+  CAR    CCS=0.4077 전략=📉 바닥반등 섹터=Industrials
+  VEEE   CCS=0.4061 전략=📈 모멘텀 섹터=Consumer Cyclical
+2026-09-29 09:13:20,812 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-09-29 09:13:22,114 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 49건 거래
+[Unified PT] 구글 시트 동기화 완료
+[시장분석] 52개 종목 데이터 수집 중...
+[시장분석] enrichment 완료
+[Email] 페이퍼 트레이딩 알림 발송 완료 (매도 0건, 매수 0건, 재평가 0건, 재평가실패 0건, 후보 2건) → chunghwan14@gmail.com, roykim0311@gmail.com, ssamjungtan@naver.com
+============================================================
+[Unified Paper Trading] 완료
+============================================================
