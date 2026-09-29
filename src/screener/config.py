@@ -180,7 +180,7 @@ DRIVE_FOLDER_ID = "1KbDahjFYZF0bPDwIAJ5soBmbOhxFznrU"
 DRIVE_SHARE_EMAIL = "chunghwan14@gmail.com"
 
 # GitHub 이미지 호스팅 설정 (Public Repo인 경우 사용)
-GITHUB_UPLOAD_ENABLED = False
+GITHUB_UPLOAD_ENABLED = True
 GITHUB_REPO_NAME = "sean-ccho/Project_1"  # "username/repo_name" 형식
 GITHUB_BRANCH_NAME = "main"
 
