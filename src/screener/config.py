@@ -191,8 +191,8 @@ EMAIL_SENDER = "chunghwan14@gmail.com"
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")  # Gmail의 경우 '앱 비밀번호' 사용 권장
 EMAIL_RECIPIENTS = [
     "chunghwan14@gmail.com",
-    "roykim0311@gmail.com",
-    "ssamjungtan@naver.com",
+    # "roykim0311@gmail.com",
+    # "ssamjungtan@naver.com",
 ]
 EMAIL_RECIPIENT = EMAIL_RECIPIENTS[0]  # 하위 호환 (기존 참조 안전)
 SMTP_SERVER = "smtp.gmail.com"

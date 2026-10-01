@@ -265,47 +265,8 @@ def build_export_dataframe(
                     continue
             
             print(f"[{context_label}] 차트 캡처 완료")
-            
-            # --- GitHub 자동 푸시 (orphan 브랜치 방식 — 히스토리 누적 없음) ---
-            if GITHUB_UPLOAD_ENABLED:
-                try:
-                    import subprocess
-                    print(f"[{context_label}] GitHub에 차트 이미지 푸시 중 (orphan 방식)...")
-
-                    tmp_branch = "screenshots-sp500-tmp"
-
-                    # 1. 혹시 남아있는 임시 브랜치 삭제
-                    subprocess.run(["git", "branch", "-D", tmp_branch], check=False)
-
-                    # 2. orphan 브랜치 생성 (히스토리 없음 — 매번 커밋 1개로 교체)
-                    subprocess.run(["git", "checkout", "--orphan", tmp_branch], check=True)
-
-                    # 3. 스테이지 초기화
-                    subprocess.run(["git", "reset"], check=True)
-
-                    # 4. 스크린샷만 스테이징
-                    subprocess.run(["git", "add", "-f", "charts/screenshots"], check=True)
-
-                    # 5. 커밋 (커밋 1개만 존재)
-                    commit_msg = f"screenshots update {int(time.time())} [skip ci]"
-                    subprocess.run(["git", "commit", "-m", commit_msg], check=True)
-
-                    # 6. screenshots-sp500 브랜치에 force push (기존 내용 통째로 교체)
-                    subprocess.run(
-                        ["git", "push", "origin", f"{tmp_branch}:screenshots-sp500", "--force"],
-                        check=True,
-                    )
-                    print(f"[{context_label}] GitHub 푸시 완료 → screenshots-sp500 브랜치")
-
-                    # 7. main으로 복귀 후 임시 브랜치 삭제
-                    subprocess.run(["git", "checkout", "main"], check=True)
-                    subprocess.run(["git", "branch", "-D", tmp_branch], check=False)
-
-                except Exception as e:
-                    print(f"[{context_label}] GitHub 푸시 실패: {e}")
-                    subprocess.run(["git", "checkout", "main"], check=False)
-                    subprocess.run(["git", "branch", "-D", "screenshots-sp500-tmp"], check=False)
-            # ---------------------------------------------
+            # GitHub orphan push는 YAML step에서 처리 (git 브랜치 전환을 Python 내부에서 하면
+            # 이후 YAML step의 브랜치 상태가 꼬이는 문제 발생)
             
         else:
             print(f"[{context_label}] 차트 캡처 대상 종목이 없어 건너뜁니다.")
@@ -496,31 +457,7 @@ def main() -> None:
                             continue
                     
                     print(f"[{portfolio_label}] 차트 캡처 완료")
-                    
-                    # GitHub 자동 푸시 (orphan 방식 — screenshots-sp500 브랜치 재사용)
-                    if GITHUB_UPLOAD_ENABLED:
-                        try:
-                            import subprocess
-                            print(f"[{portfolio_label}] GitHub에 차트 이미지 푸시 중 (orphan 방식)...")
-
-                            tmp_branch = "screenshots-sp500-tmp"
-                            subprocess.run(["git", "branch", "-D", tmp_branch], check=False)
-                            subprocess.run(["git", "checkout", "--orphan", tmp_branch], check=True)
-                            subprocess.run(["git", "reset"], check=True)
-                            subprocess.run(["git", "add", "-f", "charts/screenshots"], check=True)
-                            commit_msg = f"screenshots update {int(time.time())} [skip ci]"
-                            subprocess.run(["git", "commit", "-m", commit_msg], check=True)
-                            subprocess.run(
-                                ["git", "push", "origin", f"{tmp_branch}:screenshots-sp500", "--force"],
-                                check=True,
-                            )
-                            print(f"[{portfolio_label}] GitHub 푸시 완료 → screenshots-sp500 브랜치")
-                            subprocess.run(["git", "checkout", "main"], check=True)
-                            subprocess.run(["git", "branch", "-D", tmp_branch], check=False)
-                        except Exception as e:
-                            print(f"[{portfolio_label}] GitHub 푸시 실패: {e}")
-                            subprocess.run(["git", "checkout", "main"], check=False)
-                            subprocess.run(["git", "branch", "-D", "screenshots-sp500-tmp"], check=False)
+                    # GitHub orphan push는 YAML step에서 처리
                 
                 # 내부자 거래 요약 컬럼 머지 (표시용, openinsider)
                 from screener.insider import attach_insider_summary

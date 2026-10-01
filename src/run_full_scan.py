@@ -464,33 +464,7 @@ def main() -> None:
                             continue
 
                     print(f"[{chart_label}] 차트 캡처 완료")
-
-                    if GITHUB_UPLOAD_ENABLED:
-                        try:
-                            import subprocess
-                            print(f"[{chart_label}] GitHub에 차트 이미지 푸시 중 (orphan 방식)...")
-
-                            tmp_branch = "screenshots-nasdaq-tmp"
-
-                            # orphan 브랜치: 새 커밋 1개로 교체 — .git 히스토리 누적 없음
-                            subprocess.run(["git", "branch", "-D", tmp_branch], check=False)
-                            subprocess.run(["git", "checkout", "--orphan", tmp_branch], check=True)
-                            subprocess.run(["git", "reset"], check=True)
-                            subprocess.run(["git", "add", "-f", "charts/screenshots_nasdaq"], check=True)
-                            commit_msg = f"screenshots update {int(time.time())} [skip ci]"
-                            subprocess.run(["git", "commit", "-m", commit_msg], check=True)
-                            subprocess.run(
-                                ["git", "push", "origin", f"{tmp_branch}:screenshots-nasdaq", "--force"],
-                                check=True,
-                            )
-                            print(f"[{chart_label}] GitHub 푸시 완료 → screenshots-nasdaq 브랜치")
-                            subprocess.run(["git", "checkout", "main"], check=True)
-                            subprocess.run(["git", "branch", "-D", tmp_branch], check=False)
-
-                        except Exception as e:
-                            print(f"[{chart_label}] GitHub 푸시 실패: {e}")
-                            subprocess.run(["git", "checkout", "main"], check=False)
-                            subprocess.run(["git", "branch", "-D", "screenshots-nasdaq-tmp"], check=False)
+                    # GitHub orphan push는 YAML step에서 처리
 
                 # 내부자 거래 요약 컬럼 머지 (표시용, openinsider)
                 from screener.insider import attach_insider_summary
