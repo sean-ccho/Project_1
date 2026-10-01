@@ -251,45 +251,60 @@ PYTHONPATH=src python src/run_full_scan.py
 
 ---
 
+## 차트 이미지 저장 방식 (Orphan Branch)
+
+TradingView 스크린샷은 `main` 브랜치 히스토리에 누적되지 않도록 **별도의 orphan 브랜치**에 저장됩니다.
+
+| 브랜치 | 내용 | 관리 방식 |
+|---|---|---|
+| `screenshots-sp500` | SP500 차트 이미지 | 매일 force push로 교체 (커밋 1개 유지) |
+| `screenshots-nasdaq` | NASDAQ/NYSE 차트 이미지 | 매일 force push로 교체 (커밋 1개 유지) |
+
+- 브랜치는 **첫 실행 시 자동 생성**됩니다.
+- 매일 실행 시 이전 이미지를 통째로 교체(force push)하므로 **`.git` 용량이 누적되지 않습니다.**
+- Google Sheets의 `=IMAGE()` 수식은 각 orphan 브랜치의 Raw URL을 참조합니다:
+  ```
+  https://raw.githubusercontent.com/sean-ccho/Project_1/screenshots-sp500/charts/screenshots/...
+  https://raw.githubusercontent.com/sean-ccho/Project_1/screenshots-nasdaq/charts/screenshots_nasdaq/...
+  ```
+
+---
+
 ## 용량 관리 및 Git 히스토리 초기화
 
-매일 깃허브 액션이 실행되면서 `charts/screenshots/` 이미지와 `logs/`가 누적되어 `.git` 폴더 용량이 매우 커질 수 있습니다 (수십 GB).
-이때는 아래 방법 중 하나를 택해 용량을 비울 수 있습니다.
+`.git` 폴더가 이미 커진 경우 아래 방법으로 정리할 수 있습니다.
 
-### 방법 1: 전체 기록 초기화 (가장 빠르고 확실한 방법)
-과거의 커밋(Commit) 기록은 모두 지워지지만, 최신 코드는 유지되면서 `.git` 용량을 완전히 비워냅니다.
+### 방법 1: 특정 폴더만 히스토리에서 제거 (`git filter-repo`) ← 권장
 
 ```bash
-# 1. 로컬의 무거운 과거 버전 기록(.git 폴더) 삭제
-rm -rf .git
-
-# 2. 새로운 깃(Git) 저장소로 다시 시작
-git init -b main
-
-# 3. 깃허브 원격 저장소와 연결
-git remote add origin https://github.com/sean-ccho/Project_1
-
-# 4. 모든 파일 커밋
-git add .
-git commit -m "chore: 용량 확보를 위해 git 히스토리 초기화"
-
-# 5. 깃허브에 강제로 덮어쓰기
-git push -f origin main
-```
-
-### 방법 2: 과거 특정 폴더(스크린샷 등)만 완전히 지우기 (`git filter-repo`)
-과거 커밋 기록을 살리되, 용량을 많이 차지했던 스크린샷과 로그 폴더만 과거 역사에서 도려냅니다.
-
-```bash
-# 1. 파이썬으로 도구 설치
+# 1. 도구 설치
 pip install git-filter-repo
 
-# 2. 'charts/screenshots'와 'logs' 폴더만 찾아서 삭제 (시간 다소 소요됨)
-git filter-repo --path charts/screenshots --path logs --invert-paths --force
+# 2. 스크린샷 히스토리 제거 (시간 다소 소요)
+python3 $(pip show git-filter-repo | grep Location | awk '{print $2}')/git_filter_repo.py \
+  --path charts/screenshots --invert-paths --force
+python3 $(pip show git-filter-repo | grep Location | awk '{print $2}')/git_filter_repo.py \
+  --path charts/screenshots_nasdaq --invert-paths --force
 
-# 3. 깃허브 다시 연결 후 강제로 덮어쓰기
-git remote add origin https://github.com/sean-ccho/Project_1
+# 3. 디스크에서 실제 삭제
+git gc --aggressive --prune=now
+
+# 4. remote 재설정 후 force push (filter-repo가 remote를 자동 제거함)
+git remote add origin https://github.com/sean-ccho/Project_1.git
+git push origin main --force
+```
+
+### 방법 2: 전체 기록 초기화 (가장 빠른 방법)
+
+```bash
+rm -rf .git
+git init -b main
+git remote add origin https://github.com/sean-ccho/Project_1.git
+git add .
+git commit -m "chore: 용량 확보를 위해 git 히스토리 초기화"
 git push -f origin main
 ```
 
-> **💡 팁**: 깃허브 용량 누적을 막으려면 `src/screener/config.py` 등에서 `GITHUB_UPLOAD_ENABLED = False` 로 변경하여 스크린샷 업로드 기능을 끄는 것을 권장합니다.
+> **💡 참고**: 2026-09-30 기준으로 `git filter-repo`를 통해 `.git` 25GB → 70MB로 정리 완료.
+> 이후 orphan 브랜치 방식 적용으로 재누적 방지됨.
+
