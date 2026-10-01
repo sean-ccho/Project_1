@@ -637,11 +637,16 @@ def _build_chart_images_html(
             matches = list(Path(search_dir).glob(f"{ticker}/{pattern}"))
             if matches:
                 latest = sorted(matches)[-1]
-                # GitHub Raw URL
+                # orphan 브랜치 Raw URL
+                # search_dir에 따라 브랜치 결정
                 rel_path = str(latest)
+                if CHARTS_OUTPUT_DIR in search_dir:
+                    img_branch = "screenshots-sp500"
+                else:
+                    img_branch = "screenshots-nasdaq"
                 url = (
                     f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}"
-                    f"/{GITHUB_BRANCH_NAME}/{rel_path}?v={cache_buster}"
+                    f"/{img_branch}/{rel_path}?v={cache_buster}"
                 )
                 chart_urls[tf] = url
                 break  # 이 timeframe에서 파일 찾았으면 다음 tf로

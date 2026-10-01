@@ -455,7 +455,7 @@ def main() -> None:
                                             chart_export.loc[chart_export["티커"] == ticker, col_name] = f'=IMAGE("{drive_url}")'
                                     elif GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
                                         cache_buster = int(time.time())
-                                        github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/{GITHUB_BRANCH_NAME}/{local_path}?v={cache_buster}"
+                                        github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/screenshots-nasdaq/{local_path}?v={cache_buster}"
                                         chart_export.loc[chart_export["티커"] == ticker, col_name] = f'=IMAGE("{github_url}")'
 
                                 print(f"[{chart_label}] {ticker} 차트 {len(chart_paths)}개 처리 완료")
@@ -468,21 +468,29 @@ def main() -> None:
                     if GITHUB_UPLOAD_ENABLED:
                         try:
                             import subprocess
-                            print(f"[{chart_label}] GitHub에 차트 이미지 푸시 중...")
+                            print(f"[{chart_label}] GitHub에 차트 이미지 푸시 중 (orphan 방식)...")
 
-                            # 이전 스크린샷을 git 인덱스에서 제거 (히스토리 누적 방지)
+                            tmp_branch = "screenshots-nasdaq-tmp"
+
+                            # orphan 브랜치: 새 커밋 1개로 교체 — .git 히스토리 누적 없음
+                            subprocess.run(["git", "branch", "-D", tmp_branch], check=False)
+                            subprocess.run(["git", "checkout", "--orphan", tmp_branch], check=True)
+                            subprocess.run(["git", "reset"], check=True)
+                            subprocess.run(["git", "add", "-f", "charts/screenshots_nasdaq"], check=True)
+                            commit_msg = f"screenshots update {int(time.time())} [skip ci]"
+                            subprocess.run(["git", "commit", "-m", commit_msg], check=True)
                             subprocess.run(
-                                ["git", "rm", "-r", "--cached", "--ignore-unmatch", "charts/screenshots_nasdaq"],
+                                ["git", "push", "origin", f"{tmp_branch}:screenshots-nasdaq", "--force"],
                                 check=True,
                             )
+                            print(f"[{chart_label}] GitHub 푸시 완료 → screenshots-nasdaq 브랜치")
+                            subprocess.run(["git", "checkout", "main"], check=True)
+                            subprocess.run(["git", "branch", "-D", tmp_branch], check=False)
 
-                            subprocess.run(["git", "add", "-f", "charts/screenshots_nasdaq"], check=True)
-                            commit_msg = f"chore: update NASDAQ/NYSE chart screenshots {int(time.time())} [skip ci]"
-                            subprocess.run(["git", "commit", "-m", commit_msg], check=False)
-                            subprocess.run(["git", "push"], check=True)
-                            print(f"[{chart_label}] GitHub 푸시 완료")
                         except Exception as e:
                             print(f"[{chart_label}] GitHub 푸시 실패: {e}")
+                            subprocess.run(["git", "checkout", "main"], check=False)
+                            subprocess.run(["git", "branch", "-D", "screenshots-nasdaq-tmp"], check=False)
 
                 # 내부자 거래 요약 컬럼 머지 (표시용, openinsider)
                 from screener.insider import attach_insider_summary

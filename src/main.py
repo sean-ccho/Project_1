@@ -250,13 +250,12 @@ def build_export_dataframe(
                                     ranked.loc[ranked["티커"] == ticker, col_name] = image_formula
                                 # 업로드 실패 시 로컬 경로 그대로 유지
                             
-                            # GitHub 호스팅 사용 (Raw URL 생성)
+                            # GitHub 호스팅 사용 (orphan 브랜치 Raw URL)
                             elif GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
-                                # GitHub Raw URL 생성: https://raw.githubusercontent.com/{USER}/{REPO}/{BRANCH}/{PATH}
-                                # local_path는 상대 경로여야 함 (예: charts/screenshots/...)
+                                # screenshots-sp500 orphan 브랜치에서 이미지 참조
                                 # 구글 시트 캐싱 방지를 위해 쿼리 파라미터 추가 (?v=timestamp)
                                 cache_buster = int(time.time())
-                                github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/{GITHUB_BRANCH_NAME}/{local_path}?v={cache_buster}"
+                                github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/screenshots-sp500/{local_path}?v={cache_buster}"
                                 image_formula = f'=IMAGE("{github_url}")'
                                 ranked.loc[ranked["티커"] == ticker, col_name] = image_formula
                         
@@ -267,32 +266,45 @@ def build_export_dataframe(
             
             print(f"[{context_label}] 차트 캡처 완료")
             
-            # --- GitHub 자동 푸시 (이미지 업데이트 반영) ---
+            # --- GitHub 자동 푸시 (orphan 브랜치 방식 — 히스토리 누적 없음) ---
             if GITHUB_UPLOAD_ENABLED:
                 try:
                     import subprocess
-                    print(f"[{context_label}] GitHub에 차트 이미지 푸시 중...")
+                    print(f"[{context_label}] GitHub에 차트 이미지 푸시 중 (orphan 방식)...")
 
-                    # 1. 이전 스크린샷을 git 인덱스에서 제거 (히스토리 누적 방지)
-                    #    실제 파일은 삭제되지 않음 — git 추적에서만 해제
-                    subprocess.run(
-                        ["git", "rm", "-r", "--cached", "--ignore-unmatch", "charts/screenshots"],
-                        check=True,
-                    )
+                    tmp_branch = "screenshots-sp500-tmp"
 
-                    # 2. 오늘 새 스크린샷만 스테이징
+                    # 1. 혹시 남아있는 임시 브랜치 삭제
+                    subprocess.run(["git", "branch", "-D", tmp_branch], check=False)
+
+                    # 2. orphan 브랜치 생성 (히스토리 없음 — 매번 커밋 1개로 교체)
+                    subprocess.run(["git", "checkout", "--orphan", tmp_branch], check=True)
+
+                    # 3. 스테이지 초기화
+                    subprocess.run(["git", "reset"], check=True)
+
+                    # 4. 스크린샷만 스테이징
                     subprocess.run(["git", "add", "-f", "charts/screenshots"], check=True)
 
-                    # 3. 커밋 (메시지에 타임스탬프)
-                    commit_msg = f"chore: update chart screenshots {int(time.time())} [skip ci]"
-                    subprocess.run(["git", "commit", "-m", commit_msg], check=False)  # 변경사항 없으면 실패할 수 있으므로 check=False
+                    # 5. 커밋 (커밋 1개만 존재)
+                    commit_msg = f"screenshots update {int(time.time())} [skip ci]"
+                    subprocess.run(["git", "commit", "-m", commit_msg], check=True)
 
-                    # 4. 푸시
-                    subprocess.run(["git", "push"], check=True)
-                    print(f"[{context_label}] GitHub 푸시 완료")
+                    # 6. screenshots-sp500 브랜치에 force push (기존 내용 통째로 교체)
+                    subprocess.run(
+                        ["git", "push", "origin", f"{tmp_branch}:screenshots-sp500", "--force"],
+                        check=True,
+                    )
+                    print(f"[{context_label}] GitHub 푸시 완료 → screenshots-sp500 브랜치")
+
+                    # 7. main으로 복귀 후 임시 브랜치 삭제
+                    subprocess.run(["git", "checkout", "main"], check=True)
+                    subprocess.run(["git", "branch", "-D", tmp_branch], check=False)
 
                 except Exception as e:
                     print(f"[{context_label}] GitHub 푸시 실패: {e}")
+                    subprocess.run(["git", "checkout", "main"], check=False)
+                    subprocess.run(["git", "branch", "-D", "screenshots-sp500-tmp"], check=False)
             # ---------------------------------------------
             
         else:
@@ -485,25 +497,30 @@ def main() -> None:
                     
                     print(f"[{portfolio_label}] 차트 캡처 완료")
                     
-                    # GitHub 자동 푸시
+                    # GitHub 자동 푸시 (orphan 방식 — screenshots-sp500 브랜치 재사용)
                     if GITHUB_UPLOAD_ENABLED:
                         try:
                             import subprocess
-                            print(f"[{portfolio_label}] GitHub에 차트 이미지 푸시 중...")
+                            print(f"[{portfolio_label}] GitHub에 차트 이미지 푸시 중 (orphan 방식)...")
 
-                            # 이전 스크린샷을 git 인덱스에서 제거 (히스토리 누적 방지)
+                            tmp_branch = "screenshots-sp500-tmp"
+                            subprocess.run(["git", "branch", "-D", tmp_branch], check=False)
+                            subprocess.run(["git", "checkout", "--orphan", tmp_branch], check=True)
+                            subprocess.run(["git", "reset"], check=True)
+                            subprocess.run(["git", "add", "-f", "charts/screenshots"], check=True)
+                            commit_msg = f"screenshots update {int(time.time())} [skip ci]"
+                            subprocess.run(["git", "commit", "-m", commit_msg], check=True)
                             subprocess.run(
-                                ["git", "rm", "-r", "--cached", "--ignore-unmatch", "charts/screenshots"],
+                                ["git", "push", "origin", f"{tmp_branch}:screenshots-sp500", "--force"],
                                 check=True,
                             )
-
-                            subprocess.run(["git", "add", "-f", "charts/screenshots"], check=True)
-                            commit_msg = f"chore: update chart screenshots {int(time.time())} [skip ci]"
-                            subprocess.run(["git", "commit", "-m", commit_msg], check=False)
-                            subprocess.run(["git", "push"], check=True)
-                            print(f"[{portfolio_label}] GitHub 푸시 완료")
+                            print(f"[{portfolio_label}] GitHub 푸시 완료 → screenshots-sp500 브랜치")
+                            subprocess.run(["git", "checkout", "main"], check=True)
+                            subprocess.run(["git", "branch", "-D", tmp_branch], check=False)
                         except Exception as e:
                             print(f"[{portfolio_label}] GitHub 푸시 실패: {e}")
+                            subprocess.run(["git", "checkout", "main"], check=False)
+                            subprocess.run(["git", "branch", "-D", "screenshots-sp500-tmp"], check=False)
                 
                 # 내부자 거래 요약 컬럼 머지 (표시용, openinsider)
                 from screener.insider import attach_insider_summary
