@@ -156,7 +156,7 @@ def build_export_dataframe(
     # --- TradingView 차트 캡처 (CHARTS_ENABLED이고 capture_charts가 True일 때만) ---
     from screener.config import CHARTS_ENABLED, CHARTS_MIN_SCORE, CHARTS_TIMEFRAMES
     from screener.config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, GOOGLE_SHEETS_CREDENTIALS_PATH
-    from screener.config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME, GITHUB_BRANCH_NAME
+    from screener.config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME
     from screener.config import CHARTS_OUTPUT_DIR
     
     if CHARTS_ENABLED and capture_charts:
@@ -397,7 +397,7 @@ def main() -> None:
                 # --- TradingView 차트 캡처 ---
                 from screener.config import CHARTS_ENABLED, CHARTS_TIMEFRAMES, CHARTS_OUTPUT_DIR
                 from screener.config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, GOOGLE_SHEETS_CREDENTIALS_PATH
-                from screener.config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME, GITHUB_BRANCH_NAME
+                from screener.config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME
                 
                 if CHARTS_ENABLED:
                     from charts.tradingview_capture import capture_multiple_timeframes
@@ -447,7 +447,8 @@ def main() -> None:
                                             portfolio_export.loc[portfolio_export["티커"] == ticker, col_name] = image_formula
                                     elif GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
                                         cache_buster = int(time.time())
-                                        github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/{GITHUB_BRANCH_NAME}/{local_path}?v={cache_buster}"
+                                        # screenshots-sp500 orphan 브랜치에서 이미지 참조 (GITHUB_BRANCH_NAME=main이 아님!)
+                                        github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/screenshots-sp500/{local_path}?v={cache_buster}"
                                         image_formula = f'=IMAGE("{github_url}")'
                                         portfolio_export.loc[portfolio_export["티커"] == ticker, col_name] = image_formula
                                 
