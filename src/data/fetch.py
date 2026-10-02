@@ -1,3 +1,4 @@
+from __future__ import annotations  # Python 3.9 호환
 """시세 및 부가 정보 수집 유틸리티."""
 
 import logging

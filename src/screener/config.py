@@ -3,6 +3,8 @@
 프로젝트 전반에서 공유하는 티커 목록, 섹터 매핑, 가중치, 임계치 등을 한 곳에서 관리하여
 파일이 나뉘어 있어도 수정 포인트를 명확히 하기 위한 모듈이다."""
 
+from __future__ import annotations  # Python 3.9: str | None 등 타입 힌트 호환
+
 import os
 from typing import Dict
 
