@@ -1,4 +1,3 @@
-from __future__ import annotations  # Python 3.9 호환
 """출력 및 연동 유틸리티."""
 
 from datetime import datetime, timedelta, timezone
