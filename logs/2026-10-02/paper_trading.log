@@ -1,0 +1,9 @@
+============================================================
+[Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작
+============================================================
+2026-10-02 07:26:47,936 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 128개 종목
+[Unified PT] SP500 snapshot 로드: 128개 종목
+2026-10-02 07:26:47,944 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 227개 종목
+[Unified PT] NASDAQ snapshot 로드: 227개 종목
+[Unified PT] 합산 완료: 343개 종목 (SP500 128 + NASDAQ 227개, 중복 제거 후)
+[Unified PT] 건너뜀: 이미 처리한 일봉 (2026-10-01, 마지막 처리 2026-10-01)
