@@ -777,13 +777,21 @@ EXPORT_COLUMNS = [
 
 PAPER_TRADING_ENABLED = True
 PAPER_TRADING_MAX_POSITIONS = 3
-PAPER_TRADING_MAX_DAILY_BUY = 1
+PAPER_TRADING_MAX_DAILY_BUY = 1       # Tier 2: 빈 슬롯이 있을 때 하루 최대 매수 수 (백테스트만 반영, 실거래 엔진은 1)
 PAPER_TRADING_PROFIT_TARGET = 0.15     # +15%
 PAPER_TRADING_STOP_LOSS = 0.07         # -7%
 PAPER_TRADING_TRAILING_STOP = 0.05     # 고점 대비 -5% (기존 -8%)
 PAPER_TRADING_MAX_HOLDING_DAYS = 21    # 3주 (기존 2주)
 PAPER_TRADING_STALE_MIN_RETURN = 0.02  # 21일 후 최소 수익률 (기존 3%)
 PAPER_TRADING_DATA_DIR = "data/paper_trading"
+
+# 백테스트 측정 정합성 (Tier 1)
+BACKTEST_FUNDAMENTALS_PIT_SAFE = True  # yfinance info는 현재 값이라 과거 날짜에 쓰면 미래 정보가 섞임
+BACKTEST_COST_PER_SIDE = 0.001         # 수수료+슬리피지 편도 10bp
+# 생존 편향 완화: 그 날짜의 S&P 500 구성종목만 후보로 (scripts/fetch_sp500_membership.py로 파일 준비)
+BACKTEST_PIT_UNIVERSE = False
+SP500_MEMBERSHIP_PATH = "data/universe/sp500_membership.csv"
+BENCHMARK_MOMENTUM_TOP_N = 20          # 비교 기준: 12-1 모멘텀 상위 N개 매달 교체
 
 # 후보 선정 Hard Filters
 CANDIDATE_MIN_STRATEGY_SCORE = 6.0     # 전략 점수 최소 (기존 5.0)
@@ -796,6 +804,18 @@ CANDIDATE_5D_RETURN_MAX = 0.15
 CANDIDATE_LIQUIDITY_MIN = 10_000_000   # $10M 일평균 거래대금
 CANDIDATE_EARNINGS_BUFFER_DAYS = 3
 CANDIDATE_MAX_SAME_SECTOR = 2
+
+# ── Tier 1.5 가설 스위치 (기본값 = 현재 동작). A/B: scripts/run_hypothesis_ab.py ──
+# 실행 중에 _cfg.X로 읽힌다 → paper_trading.config_override로 런타임 변경 가능
+CANDIDATE_ALLOWED_STRATEGIES: list[str] | None = None  # H2: None=전부, ["모멘텀"]=바닥반등 중단
+CANDIDATE_BEAR_BLOCK_NEW = False       # H3: 약세장(SPY < EMA200)이면 신규 진입 중단
+PT1_REPLACE_ENABLED = True             # H4: False면 교체 안 함
+CCS_REPLACE_MARGIN = 0.10              # H4: 새 후보 CCS가 최약 보유 종목보다 이만큼 높아야 교체 (기존 0.05)
+# H6: CCS alpha 서브스코어의 5팩터 가중치. "기본" = 모멘텀·기타 (모멘텀/추세 과대평가 → 거래량·평균회귀 비중 강화)
+CANDIDATE_ALPHA_WEIGHTS: dict[str, dict[str, float]] = {
+    "바닥반등": {"mom": 0.10, "trend": 0.10, "vol": 0.15, "volat": 0.25, "mr": 0.40},
+    "기본": {"mom": 0.20, "trend": 0.20, "vol": 0.25, "volat": 0.15, "mr": 0.20},
+}
 
 # CCS 가중치 (시장 레짐별)
 CANDIDATE_REGIME_WEIGHTS = {
@@ -814,6 +834,7 @@ EXIT_PARAMS: dict[str, dict[str, float]] = {
         "stale_min_return": 0.02,
         "time_profit_days": 12,      # 시간 익절 기준일
         "time_profit_min": 0.07,     # 시간 익절 최소 수익률
+        "trail_activate_pct": 0.0,   # H1: 고점이 매수가 대비 이만큼 올라야 트레일링 활성 (0 = 기존 동작)
     },
     "모멘텀": {
         "profit_target": 0.12,       # +12% (빠른 익절)
@@ -823,6 +844,7 @@ EXIT_PARAMS: dict[str, dict[str, float]] = {
         "stale_min_return": 0.02,
         "time_profit_days": 8,       # 더 빠른 시간 익절
         "time_profit_min": 0.05,     # +5%면 충분
+        "trail_activate_pct": 0.0,
     },
 }
 EXIT_PARAMS_DEFAULT: dict[str, float] = {
@@ -833,6 +855,7 @@ EXIT_PARAMS_DEFAULT: dict[str, float] = {
     "stale_min_return": 0.02,
     "time_profit_days": 10,
     "time_profit_min": 0.06,
+    "trail_activate_pct": 0.0,
 }
 
 # Hold-Winners 재평가 파라미터 (목표가 도달 시 defer + tight trail)
@@ -859,6 +882,99 @@ HIGH_RSI_FLAG_THRESHOLD = 70.0
 PAPER_TRADING_WORKSHEET_LOG = "페이퍼_거래로그"
 PAPER_TRADING_WORKSHEET_POSITIONS = "페이퍼_포지션현황"
 PAPER_TRADING_WORKSHEET_SUMMARY = "페이퍼_성과요약"
+
+# CCS 버전: "v1" = 기존 5-서브스코어, "v2" = 근거 있는 피처 + 유니버스 백분위 (검증 전까지 v1 유지)
+CCS_VERSION = "v1"
+CCS_V2_WEIGHTS: dict[str, float] = {
+    "strategy_fit": 0.40,   # max(바닥반등, 모멘텀) / 10 — 396건 분석에서 유일하게 유의
+    "trend": 0.20,          # ema_gap_50_200 백분위
+    "pos_52w": 0.20,        # 52주포지션 백분위 (높을수록 좋음)
+    "rel_strength": 0.20,   # 20일수익률 백분위
+}
+CCS_V2_MIN = 0.55           # v2 최소 점수 (v1의 0.40/0.45 대신)
+
+# ═══════════════════════════════════════════════════════════════
+# 페이퍼 트레이딩 계좌 2·3 (PT-2 골든크로스 스윙, PT-3 일봉 단타)
+# 파라미터를 dict로 두는 이유: Optuna가 런타임에 in-place로 바꿀 수 있게
+# (from config import X 로 묶인 스칼라 상수는 런타임 변경이 반영되지 않음)
+# 체결: 장 마감 후 신호 → 다음 일봉 시가 체결, 손절·목표는 일봉 고가/저가로 판정
+# ═══════════════════════════════════════════════════════════════
+PT2_ENABLED = True
+PT2_PARAMS: dict = {
+    "version": "pt2-v0",
+    "data_dir": "data/paper_trading/pt2",
+    "initial_capital": 5000.0,
+    "cost_per_side": 0.001,          # 편도 10bp (수수료+슬리피지)
+    "max_positions": 5,
+    "max_daily_buys": 2,
+    "max_same_sector": 2,
+    "max_gap_up": 0.05,              # 다음날 시가가 신호 종가 대비 +5% 넘게 뜨면 매수 취소
+    "min_alloc_ratio": 0.25,         # 목표 배분의 25% 미만 현금이면 매수 취소
+    # 진입
+    "entry_types": ["crossed"],      # "crossed"=교차 직후, "imminent"=교차 임박
+    "timeframes": ["일봉", "주봉", "월봉"],
+    "min_dollar_volume": 10_000_000,
+    "min_price": 5.0,
+    "earnings_buffer_days": 3,
+    "rsi_max": 75.0,
+    "bb_max": 0.95,
+    "ret5_max": 0.15,
+    "require_above_ema200": True,
+    "block_new_in_bear": True,       # SPY < EMA200이면 신규 진입 중단
+    "rank_weights": {
+        "tf": 0.30, "daily": 0.10, "gap": 0.10,
+        "trend": 0.20, "pos52w": 0.15, "adx": 0.10, "volume": 0.05,
+    },
+    # 청산
+    "stop_atr_mult": 2.0,            # 초기 손절: 매수가 - 2×ATR
+    "below_ema50_days": 2,           # 종가 < EMA50 연속 일수 → 추세 이탈
+    "trail_activate_pct": 0.05,      # 최고 종가가 +5% 넘은 뒤에만 트레일링
+    "trail_atr_mult": 3.0,           # 트레일링: 최고 종가 - 3×ATR
+    "hold_days": 30,                 # 달력일. 이후엔 매일 추세 체크, 통과하면 계속 보유
+    "trail_atr_mult_after_hold": 2.5,
+    "extend_adx_min": 20.0,
+}
+PT2_WORKSHEETS = {"log": "페이퍼2_거래로그", "positions": "페이퍼2_포지션현황", "summary": "페이퍼2_성과요약"}
+
+PT3_ENABLED = True
+PT3_PARAMS: dict = {
+    "version": "pt3-v0",
+    "data_dir": "data/paper_trading/pt3",
+    "initial_capital": 5000.0,
+    "cost_per_side": 0.001,
+    "max_positions": 5,
+    "max_daily_buys": 2,
+    "max_same_sector": 2,
+    "max_gap_up": 0.03,
+    "min_alloc_ratio": 0.25,
+    # 진입 공통
+    "setups": ["breakout", "pullback"],   # 둘 다 해당하면 앞쪽 셋업으로 기록
+    "min_dollar_volume": 20_000_000,
+    "min_price": 5.0,
+    "earnings_buffer_days": 5,
+    "block_breakout_in_bear": True,
+    # 셋업 A: 상승 추세 속 눌림목
+    "pullback_rsi_min": 35.0,
+    "pullback_rsi_max": 50.0,
+    "pullback_bb_max": 0.3,
+    # 셋업 B: 변동성 압축 후 돌파
+    "breakout_days": 20,
+    "breakout_compression_max": 0.9,      # 변동성압축(ATR% / 1년 중앙값)
+    "breakout_volume_min": 1.5,
+    "breakout_adx_min": 20.0,
+    "breakout_rsi_max": 80.0,
+    "breakout_ret5_max": 0.15,
+    "rank_weights": {"trend": 0.35, "rs": 0.25, "pos52w": 0.20, "volume": 0.20},
+    # 청산
+    "stop_atr_mult": 1.5,
+    "target_atr_mult": 2.0,
+    "breakeven_atr_mult": 1.0,            # 고가가 +1×ATR에 닿으면 손절선을 매수가로
+    "max_hold_bars": 10,                  # 거래일
+    "pullback_exit_rsi": 60.0,
+    "pullback_exit_bb": 0.8,
+    "breakout_fail_atr": 0.5,             # 종가가 돌파선 - 0.5×ATR 아래면 돌파 실패
+}
+PT3_WORKSHEETS = {"log": "페이퍼3_거래로그", "positions": "페이퍼3_포지션현황", "summary": "페이퍼3_성과요약"}
 
 # ═══════════════════════════════════════════════════════════════
 # Machine Learning

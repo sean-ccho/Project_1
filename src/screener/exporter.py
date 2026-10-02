@@ -750,7 +750,7 @@ def send_paper_trading_email(
         print("[Email] 페이퍼 트레이딩 변동 없음, 보유 종목도 없음 — 이메일 발송 생략")
         return False
 
-    date_str = datetime.now().strftime("%Y-%m-%d")
+    date_str = str(result.get("date") or datetime.now().strftime("%Y-%m-%d"))
     if sells or buys:
         subject = f"[페이퍼 트레이딩] {date_str} 매매 알림"
     else:

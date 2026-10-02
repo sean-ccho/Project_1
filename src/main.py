@@ -57,6 +57,14 @@ def build_export_dataframe(
 
     df = fetch_ohlcv(tickers, period="5y")
 
+    from paper_trading.market_date import is_bar_complete
+
+    # 차트 캡처 등으로 스냅샷 저장이 16:30을 넘길 수 있어 받은 시점에 판단한다
+    bar_date = str(pd.Timestamp(df.index.max()).date()) if not df.empty else ""
+    if bar_date and not is_bar_complete(bar_date):
+        print(f"[{context_label}] {bar_date} 일봉은 장중 데이터 → 페이퍼 트레이딩 대상 아님")
+        bar_date = ""
+
     features = compute_all_features(df)
     if features.empty:
         print(f"[{context_label}] 조건을 만족하는 종목이 없습니다.")
@@ -273,6 +281,7 @@ def build_export_dataframe(
     # ----------------------------------------------
 
     # ranked(전체 컬럼)를 paper trading에서 사용하기 위해 캐시
+    ranked["_bar_date"] = bar_date
     build_export_dataframe._last_ranked = ranked
 
     return prepare_export_dataframe(ranked)

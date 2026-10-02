@@ -107,9 +107,6 @@ def _prepare_price_map(raw: pd.DataFrame) -> dict[str, pd.DataFrame]:
     return {ticker: raw[ticker].dropna(how="all") for ticker in raw.columns.levels[0]}
 
 
-_IC_WEIGHTS_REFRESH_DAYS = 20  # IC 가중치를 재계산하는 주기 (거래일 기준)
-
-
 def _compute_ranked_snapshot(
     price_map: dict[str, pd.DataFrame],
     cutoff: pd.Timestamp,
@@ -122,8 +119,7 @@ def _compute_ranked_snapshot(
 ) -> pd.DataFrame:
     """주어진 시점까지의 데이터로 특징 계산 및 시그널 부착.
 
-    ic_weights_cache: {"weights": dict, "last_cutoff": Timestamp, "call_count": int}
-    IC 가중치를 매일 재계산하지 않고 _IC_WEIGHTS_REFRESH_DAYS마다 재계산해 성능 개선.
+    ic_weights_cache: {"key": "YYYY-MM", "weights": dict} — 월 단위 IC 가중치 (전월 말 기준)
 
     ohlcv_hash: 디스크 캐시 키. 제공되면 feature 스냅샷을 디스크에 캐싱한다.
     fundamentals_df: 시뮬레이션 시작 전에 미리 가져온 펀더멘탈 DataFrame.
@@ -142,22 +138,16 @@ def _compute_ranked_snapshot(
         cache[cutoff] = pd.DataFrame()
         return cache[cutoff]
 
-    # IC 가중치: 매 _IC_WEIGHTS_REFRESH_DAYS 거래일마다 재계산 (성능 최적화)
+    # IC 가중치: 달마다 "전월 말까지의 데이터"로 계산한다.
+    # (예전엔 호출 횟수 기준 주기라 리밸런스 설정에 따라 디스크 캐시의 주기 번호가 다른 날짜를 가리켜
+    #  나중 날짜로 계산한 가중치를 앞 날짜에 쓰는 미래 정보 누설이 생길 수 있었다)
     ic_override: dict | None = None
     if ic_weights_cache is not None:
-        ic_weights_cache["call_count"] = ic_weights_cache.get("call_count", 0) + 1
-        call_count = ic_weights_cache["call_count"]
-        needs_refresh = (
-            ic_weights_cache.get("weights") is None
-            or call_count % _IC_WEIGHTS_REFRESH_DAYS == 1
-        )
-        if needs_refresh:
-            ic_cycle = call_count // _IC_WEIGHTS_REFRESH_DAYS
-            # 디스크 캐시에서 IC 가중치 로드 시도
-            cached_ic = load_ic_weights(ohlcv_hash, ic_cycle) if ohlcv_hash else None
-            if cached_ic is not None:
-                ic_weights_cache["weights"] = cached_ic
-            else:
+        anchor = cutoff.to_period("M") - 1
+        anchor_key = str(anchor)
+        if ic_weights_cache.get("key") != anchor_key:
+            weights = load_ic_weights(ohlcv_hash, anchor_key) if ohlcv_hash else None
+            if weights is None:
                 try:
                     from screener.alpha_model import compute_ic_weights
                     from screener.config import (
@@ -168,17 +158,21 @@ def _compute_ranked_snapshot(
                         ALPHA_MODEL_ENABLED,
                     )
                     if ALPHA_MODEL_ENABLED:
-                        ic_weights_cache["weights"] = compute_ic_weights(
-                            snapshot,
+                        anchor_end = anchor.end_time
+                        history = {t: f.loc[:anchor_end] for t, f in snapshot.items()}
+                        weights = compute_ic_weights(
+                            {t: f for t, f in history.items() if not f.empty},
                             lookback=ALPHA_IC_LOOKBACK,
                             forward_days=ALPHA_FORWARD_RETURN_DAYS,
                             min_samples=ALPHA_IC_MIN_SAMPLES,
                             default_weights=ALPHA_DEFAULT_WEIGHTS,
                         )
-                        if ohlcv_hash and ic_weights_cache.get("weights"):
-                            save_ic_weights(ohlcv_hash, ic_cycle, ic_weights_cache["weights"])
+                        if ohlcv_hash and weights:
+                            save_ic_weights(ohlcv_hash, anchor_key, weights)
                 except Exception:
-                    pass
+                    weights = None
+            ic_weights_cache["key"] = anchor_key
+            ic_weights_cache["weights"] = weights
         ic_override = ic_weights_cache.get("weights")
 
     # ── 캐싱 대상: compute_features_snapshot (느린 부분) ────────────────────────

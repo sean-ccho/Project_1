@@ -159,6 +159,26 @@ jobs:
           path: logs/${{ env.LOG_DATE }}/paper_trading.log
           retention-days: 7
 
+      - name: Run PT-2 golden cross swing
+        if: always()
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -o pipefail
+          mkdir -p logs/$LOG_DATE
+          PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt2 | tee logs/$LOG_DATE/paper_trading_pt2.log
+
+      - name: Run PT-3 daily short-term
+        if: always()
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -o pipefail
+          mkdir -p logs/$LOG_DATE
+          PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt3 | tee logs/$LOG_DATE/paper_trading_pt3.log
+
       - name: Run 내계좌 portfolio report
         if: always()
         env:
@@ -228,6 +248,7 @@ jobs:
                   data/paper_trading/trades.json \
                   data/paper_trading/sp500_ranked.parquet \
                   data/paper_trading/nasdaq_ranked.parquet
+          git add data/paper_trading/state.json data/paper_trading/pt2/*.json data/paper_trading/pt3/*.json 2>/dev/null || true
           git diff --cached --quiet && echo "No changes to commit" && exit 0
           git commit -m "chore: update logs and paper trading state ($LOG_DATE) [skip ci]"
           git push

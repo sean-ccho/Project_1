@@ -1,0 +1,4 @@
+# 연구·최적화용 (매일 돌아가는 GitHub Actions에는 필요 없음)
+# 설치: pip install -r requirements.txt -r requirements-research.txt
+optuna>=3.6
+optuna-dashboard>=0.15

@@ -15,7 +15,8 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────
-
+# CCS_VERSION·CCS_V2_* 는 런타임 변경(Optuna, A/B)을 위해 호출 시점에 읽는다
+from screener import config as _cfg
 from screener.config import (
     ADX_BUY_MIN,
     CANDIDATE_MIN_STRATEGY_SCORE,
@@ -96,6 +97,14 @@ def _apply_hard_filters(
     bottom_pos_ok = ~is_bottom | (pos_52w <= CANDIDATE_BOTTOM_MAX_52W_POS)
     rejections["바닥반등_52주과열"] = int((~bottom_pos_ok).sum())
     df = df[bottom_pos_ok]
+
+    # 1c. 허용 전략 (H2, 기본 None = 전부 허용)
+    allowed = _cfg.CANDIDATE_ALLOWED_STRATEGIES
+    if allowed:
+        strategy_col = df.get("전략구분", pd.Series("", index=df.index)).astype(str)
+        mask = strategy_col.apply(lambda s: any(a in s for a in allowed)).astype(bool)
+        rejections["허용전략_외"] = int((~mask).sum())
+        df = df[mask]
 
     # 2. 판단 등급
     judgment_ok = df.get("판단", pd.Series("", index=df.index)).isin(_TOP_JUDGMENTS)
@@ -229,11 +238,8 @@ def _score_alpha_factor(row: pd.Series) -> float:
     mr = _safe_float(row.get("팩터_평균회귀"))
     strategy = str(row.get("전략구분", ""))
 
-    if "바닥반등" in strategy:
-        raw = 0.10 * mom + 0.10 * trend + 0.15 * vol + 0.25 * volat + 0.40 * mr
-    else:  # 모멘텀 또는 기타
-        # 모멘텀/추세 과대평가 → 고점매수 방지: volume·mean_reversion 비중 강화
-        raw = 0.20 * mom + 0.20 * trend + 0.25 * vol + 0.15 * volat + 0.20 * mr
+    w = _cfg.CANDIDATE_ALPHA_WEIGHTS["바닥반등" if "바닥반등" in strategy else "기본"]
+    raw = w["mom"] * mom + w["trend"] * trend + w["vol"] * vol + w["volat"] * volat + w["mr"] * mr
 
     # [-1, 1] → [0, 1]
     rule_score = max(0.0, min((raw + 1.0) / 2.0, 1.0))
@@ -411,6 +417,28 @@ def _sector_penalty(
     return 0.0
 
 
+# ── CCS v2 (검증 전까지 기록만, CCS_VERSION="v2"일 때 선정에 사용) ───────────────────────────
+
+_V2_PERCENTILE_COLUMNS = {"trend": "ema_gap_50_200", "pos_52w": "52주포지션", "rel_strength": "20일수익률"}
+
+
+def _ccs_v2_components(df: pd.DataFrame) -> pd.DataFrame:
+    """CCS v2 구성요소 (0~1). 백분위는 필터 전 그날 전체 종목 기준.
+
+    백테스트와 실거래에서 똑같이 계산되는 피처만 쓴다 (펀더멘털·저점확률 제외).
+    """
+    out = pd.DataFrame(index=df.index)
+    bottom = pd.to_numeric(df.get("바닥반등_적합도", pd.Series(0, index=df.index)), errors="coerce").fillna(0)
+    momentum = pd.to_numeric(df.get("모멘텀_적합도", pd.Series(0, index=df.index)), errors="coerce").fillna(0)
+    out["strategy_fit"] = (bottom.combine(momentum, max) / 10.0).clip(0.0, 1.0)
+    for name, col in _V2_PERCENTILE_COLUMNS.items():
+        values = pd.to_numeric(df[col], errors="coerce") if col in df.columns else pd.Series(np.nan, index=df.index)
+        out[name] = values.rank(pct=True).fillna(0.5)
+    weights = _cfg.CCS_V2_WEIGHTS
+    out["ccs_v2"] = sum(weights[k] * out[k] for k in weights)
+    return out
+
+
 # ── Main: Select Best Candidate ──────────────────────────────
 
 
@@ -424,12 +452,41 @@ def select_best_candidate(
         (best_candidate_dict | None, debug_info)
         debug_info: regime, rejections, top5 등 디버깅 정보.
     """
+    picks, debug = select_top_candidates(df, current_holdings, k=1)
+    return (picks[0] if picks else None), debug
+
+
+def select_top_candidates(
+    df: pd.DataFrame,
+    current_holdings: list[dict[str, Any]],
+    k: int = 1,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """CCS 순으로 후보 최대 k개 선정 (첫 번째는 select_best_candidate와 동일).
+
+    같은 날 고른 종목끼리도 섹터 한도(CANDIDATE_MAX_SAME_SECTOR)를 지킨다.
+
+    Returns:
+        (후보 dict 리스트, debug_info)
+    """
     debug: dict[str, Any] = {}
 
     # 레짐 판단
     regime = detect_market_regime(df)
     debug["regime"] = regime
     weights = REGIME_WEIGHTS[regime]
+
+    if regime == "bear" and _cfg.CANDIDATE_BEAR_BLOCK_NEW:
+        debug["rejections"] = {}
+        debug["top5"] = []
+        debug["rejection_reason"] = "약세장(SPY < EMA200) 신규 진입 중단 (H3)"
+        return [], debug
+
+    use_v2 = _cfg.CCS_VERSION == "v2"
+    debug["ccs_version"] = _cfg.CCS_VERSION
+    v2 = _ccs_v2_components(df)
+    if use_v2 and "티커" in df.columns:
+        # 교체 판단 때 보유 종목도 오늘 점수로 비교하기 위해 전 종목 점수를 남긴다
+        debug["ccs_v2_by_ticker"] = dict(zip(df["티커"].astype(str), v2["ccs_v2"].round(4)))
 
     # 약세장 추가 제한 (글로벌 변수 대신 로컬 변수 사용)
     effective_rsi_max = 70 if regime == "bear" else CANDIDATE_RSI_MAX
@@ -440,7 +497,7 @@ def select_best_candidate(
 
     if filtered.empty:
         debug["top5"] = []
-        return None, debug
+        return [], debug
 
     # 약세장: buy_signal 필수 + 모멘텀 전략 제외
     if regime == "bear":
@@ -487,17 +544,24 @@ def select_best_candidate(
         elif regime == "bear" and "바닥반등" in row_strategy:
             regime_bonus = 0.015 * (dominant_score / 10.0)
 
-        ccs = base_ccs + regime_bonus
+        ccs_v1 = base_ccs + regime_bonus
+        ccs_v2 = float(v2.at[idx, "ccs_v2"]) - penalty
+        ccs = ccs_v2 if use_v2 else ccs_v1
 
         scores.append({
             "idx": idx,
             "ticker": row.get("티커", ""),
             "ccs": round(ccs, 4),
+            "ccs_v1": round(ccs_v1, 4),
+            "ccs_v2": round(ccs_v2, 4),
             "strategy_fit": round(a, 3),
             "timing": round(b, 3),
             "alpha": round(c, 3),
             "risk": round(d, 3),
             "confluence": round(e, 3),
+            "v2_trend": round(float(v2.at[idx, "trend"]), 3),
+            "v2_pos_52w": round(float(v2.at[idx, "pos_52w"]), 3),
+            "v2_rel_strength": round(float(v2.at[idx, "rel_strength"]), 3),
             "penalty": round(penalty, 3),
             "strategy": str(row.get("전략구분", "")),
             "star": str(row.get("매수적합도_표시", "")),
@@ -513,13 +577,16 @@ def select_best_candidate(
     # (골든크로스 임박 등 후보 외 티커의 CCS 조회용)
     debug["all_scores"] = {s["ticker"]: s for s in scores}
 
-    # CCS 최소 문턱값 (약세장: 0.45, 그 외: 0.40)
-    min_ccs = CANDIDATE_CCS_MIN_BEAR if regime == "bear" else CANDIDATE_CCS_MIN_NORMAL
+    # CCS 최소 문턱값 (v1: 약세장 0.45, 그 외 0.40 / v2: CCS_V2_MIN)
+    if use_v2:
+        min_ccs = _cfg.CCS_V2_MIN
+    else:
+        min_ccs = CANDIDATE_CCS_MIN_BEAR if regime == "bear" else CANDIDATE_CCS_MIN_NORMAL
     scores = [s for s in scores if s["ccs"] >= min_ccs]
     if not scores:
         debug["top5"] = []
         debug["rejection_reason"] = f"CCS 문턱값 미달 (min={min_ccs})"
-        return None, debug
+        return [], debug
 
     # 동점 처리 (차이 < 0.02)
     if len(scores) >= 2 and abs(scores[0]["ccs"] - scores[1]["ccs"]) < 0.02:
@@ -560,27 +627,49 @@ def select_best_candidate(
     # Top 5 로깅
     debug["top5"] = scores[:5]
 
-    # 선정된 종목의 전체 row를 dict로 반환
-    best_row = filtered.loc[best_score["idx"]]
-    result = {
-        "ticker": best_score["ticker"],
-        "entry_price": _safe_float(best_row.get("현재가격", best_row.get("close"))),
-        "strategy": best_score["strategy"],
-        "star_rating": best_score["star"],
-        "ccs_score": best_score["ccs"],
-        "sector": best_score["sector"],
-        "ccs_breakdown": {
-            k: best_score[k]
-            for k in ("strategy_fit", "timing", "alpha", "risk", "confluence", "penalty")
-        },
-        "vol_ratio": _safe_float(best_row.get("거래량돌파배수")),
-        "vol_ma20": _safe_float(best_row.get("volume_ma20")),
-    }
+    sector_counts: dict[str, int] = {}
+    for p in current_holdings:
+        if p.get("sector"):
+            sector_counts[p["sector"]] = sector_counts.get(p["sector"], 0) + 1
+
+    picks: list[dict[str, Any]] = []
+    for s in [best_score] + [x for x in scores if x is not best_score]:
+        if len(picks) >= max(1, k):
+            break
+        sector = s["sector"]
+        if picks and sector and sector_counts.get(sector, 0) >= CANDIDATE_MAX_SAME_SECTOR:
+            continue
+        picks.append(_candidate_from_score(s, filtered.loc[s["idx"]]))
+        if sector:
+            sector_counts[sector] = sector_counts.get(sector, 0) + 1
 
     logger.info(
         f"[CandidateSelector] Regime={regime} | "
         f"Filtered={rejections['_통과']}/{rejections['_전체']} | "
-        f"Selected: {result['ticker']} (CCS={result['ccs_score']:.4f})"
+        f"Selected: {', '.join(p['ticker'] for p in picks)} (CCS={picks[0]['ccs_score']:.4f})"
     )
 
-    return result, debug
+    return picks, debug
+
+
+def _candidate_from_score(score: dict[str, Any], row: pd.Series) -> dict[str, Any]:
+    """점수 dict + 원본 row → 매수 후보 dict."""
+    return {
+        "ticker": score["ticker"],
+        "entry_price": _safe_float(row.get("현재가격", row.get("close"))),
+        "strategy": score["strategy"],
+        "star_rating": score["star"],
+        "ccs_score": score["ccs"],
+        "sector": score["sector"],
+        "ccs_breakdown": {
+            k: score[k]
+            for k in ("strategy_fit", "timing", "alpha", "risk", "confluence", "penalty")
+        },
+        "ccs_v1": score["ccs_v1"],
+        "ccs_v2": score["ccs_v2"],
+        "ccs_v2_breakdown": {
+            k: score[k] for k in ("strategy_fit", "v2_trend", "v2_pos_52w", "v2_rel_strength")
+        },
+        "vol_ratio": _safe_float(row.get("거래량돌파배수")),
+        "vol_ma20": _safe_float(row.get("volume_ma20")),
+    }

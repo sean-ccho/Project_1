@@ -35,8 +35,9 @@ logger = logging.getLogger(__name__)
 
 # ── Config ───────────────────────────────────────────────────
 
+# 교체 스위치·최대 포지션은 A/B·Optuna에서 바꾸므로 호출 시점에 _cfg에서 읽는다
+from screener import config as _cfg
 from screener.config import (
-    PAPER_TRADING_MAX_POSITIONS as MAX_POSITIONS,
     EXIT_PARAMS,
     EXIT_PARAMS_DEFAULT,
     HOLD_WINNERS_ADX_MIN,
@@ -50,8 +51,6 @@ from screener.config import (
     HOLD_WINNERS_VOLUME_Z_MIN,
     HIGH_RSI_FLAG_THRESHOLD,
 )
-
-CCS_REPLACE_MARGIN = 0.10     # 교체 시 새 후보가 최약 종목 CCS보다 이만큼 높아야 함 (기존 0.05)
 
 
 # ── Sell Conditions ──────────────────────────────────────────
@@ -111,7 +110,8 @@ def check_sell_conditions(
 
     # 3. 트레일링 스탑 (defer 시 override 우선 적용)
     # 고점이 매수가를 넘은 적이 있을 때만 활성화 — 한 번도 안 오른 종목은 손절(-stop_loss)에 맡김
-    if highest > entry_price:
+    # H1: trail_activate_pct > 0이면 그만큼 수익이 난 뒤에만 활성화
+    if highest > entry_price * (1 + p.get("trail_activate_pct", 0.0)):
         drawdown = (current_price - highest) / highest
         trailing_threshold = pos.get("trailing_stop_override") or p["trailing_stop"]
         if drawdown <= -trailing_threshold:
@@ -268,9 +268,17 @@ def _build_high_rsi_rationale(row: pd.Series | None) -> str:
 
 
 def should_replace(candidate_ccs: float, worst_ccs: float) -> bool:
-    """보유 3개일 때 교체 여부 판단.
-    새 후보의 CCS가 최약 종목보다 충분히 높아야 교체."""
-    return candidate_ccs > worst_ccs + CCS_REPLACE_MARGIN
+    """보유가 꽉 찼을 때 교체 여부 판단.
+    새 후보의 CCS가 최약 종목보다 CCS_REPLACE_MARGIN 이상 높아야 교체 (H4: PT1_REPLACE_ENABLED로 끌 수 있음)."""
+    return bool(_cfg.PT1_REPLACE_ENABLED) and candidate_ccs > worst_ccs + _cfg.CCS_REPLACE_MARGIN
+
+
+def current_ccs(pos: dict[str, Any] | None, selection_debug: dict[str, Any]) -> float:
+    """교체 비교용 보유 종목 점수. CCS v2면 오늘 스냅샷 점수, v1이면 매수 당시 점수(기존 동작)."""
+    if pos is None:
+        return 0.0
+    today = selection_debug.get("ccs_v2_by_ticker", {}).get(pos["ticker"])
+    return float(today) if today is not None else float(pos.get("ccs_score", 0) or 0)
 
 
 # ── Daily Trading Logic ──────────────────────────────────────
@@ -368,12 +376,15 @@ def run_daily_trading(
             logger.info(f"[PaperTrading] SELL {ticker} @ {price:.2f} ({reason})")
 
     # ── 3. 후보 선정 ──
+    if int(_cfg.PAPER_TRADING_MAX_DAILY_BUY) > 1:
+        logger.warning("[PaperTrading] PAPER_TRADING_MAX_DAILY_BUY>1은 백테스트 전용 — 실거래 PT-1은 하루 1종목만 매수")
     candidate, debug = select_best_candidate(ranked_df, positions)
     result["selection_debug"] = debug
 
     # 약세장 최대 포지션 축소
     regime = debug.get("regime", "neutral")
-    effective_max_positions = MAX_POSITIONS if regime != "bear" else max(1, MAX_POSITIONS - 1)
+    max_positions = int(_cfg.PAPER_TRADING_MAX_POSITIONS)
+    effective_max_positions = max_positions if regime != "bear" else max(1, max_positions - 1)
 
     if candidate is None:
         logger.info("[PaperTrading] 오늘 매수 후보 없음")
@@ -464,7 +475,7 @@ def run_daily_trading(
     elif len(positions) >= effective_max_positions:
         # 풀슬롯 → 교체 검토
         worst = get_worst_position(positions, prices, ranked_df)
-        if worst and should_replace(candidate["ccs_score"], worst.get("ccs_score", 0)):
+        if worst and should_replace(candidate["ccs_score"], current_ccs(worst, debug)):
             worst_ticker = worst["ticker"]
             worst_price = prices.get(worst_ticker, worst["entry_price"])
 

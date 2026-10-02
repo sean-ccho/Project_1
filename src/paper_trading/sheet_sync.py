@@ -61,13 +61,13 @@ def _fmt_price(val) -> str:
         return str(val) if val else ""
 
 
-def sync_trade_log(trade: dict[str, Any], action: str = "SELL") -> bool:
-    """거래 기록 1건을 [페이퍼_거래로그]에 append."""
+def sync_trade_log(trade: dict[str, Any], action: str = "SELL", worksheet: str = WORKSHEET_LOG) -> bool:
+    """거래 기록 1건을 거래로그 탭(기본 [페이퍼_거래로그])에 append."""
     sheet = _open_sheet()
     if sheet is None:
         return False
 
-    ws = _get_or_create_worksheet(sheet, WORKSHEET_LOG)
+    ws = _get_or_create_worksheet(sheet, worksheet)
     if ws is None:
         return False
 
@@ -133,13 +133,14 @@ _POS_HEADERS = [
 def sync_positions(
     positions: list[dict[str, Any]],
     prices: dict[str, float],
+    worksheet: str = WORKSHEET_POSITIONS,
 ) -> bool:
-    """현재 보유 종목을 [페이퍼_포지션현황]에 덮어쓰기."""
+    """현재 보유 종목을 포지션 탭(기본 [페이퍼_포지션현황])에 덮어쓰기."""
     sheet = _open_sheet()
     if sheet is None:
         return False
 
-    ws = _get_or_create_worksheet(sheet, WORKSHEET_POSITIONS)
+    ws = _get_or_create_worksheet(sheet, worksheet)
     if ws is None:
         return False
 
@@ -195,13 +196,13 @@ def sync_positions(
 # ── [페이퍼_성과요약] — 매일 덮어씀 ─────────────────────────
 
 
-def sync_summary(trades: list[dict[str, Any]]) -> bool:
-    """전체 거래 히스토리 기반 성과 집계를 [페이퍼_성과요약]에 덮어쓰기."""
+def sync_summary(trades: list[dict[str, Any]], worksheet: str = WORKSHEET_SUMMARY) -> bool:
+    """전체 거래 히스토리 기반 성과 집계를 성과요약 탭(기본 [페이퍼_성과요약])에 덮어쓰기."""
     sheet = _open_sheet()
     if sheet is None:
         return False
 
-    ws = _get_or_create_worksheet(sheet, WORKSHEET_SUMMARY)
+    ws = _get_or_create_worksheet(sheet, worksheet)
     if ws is None:
         return False
 
@@ -247,11 +248,16 @@ def sync_summary(trades: list[dict[str, Any]]) -> bool:
                 key = "바닥반등"
             elif "모멘텀" in s:
                 key = "모멘텀"
+            elif "골든크로스" in s:
+                key = "골든크로스"
+            elif s.startswith("단타-"):
+                key = s
             else:
                 key = "기타"
             strategy_groups.setdefault(key, []).append(t)
 
-        for label in ["바닥반등", "모멘텀", "기타"]:
+        _fixed = ["바닥반등", "모멘텀", "기타"]
+        for label in _fixed + sorted(k for k in strategy_groups if k not in _fixed):
             if label in strategy_groups:
                 rows.append(_calc_stats(label, strategy_groups[label]))
 
