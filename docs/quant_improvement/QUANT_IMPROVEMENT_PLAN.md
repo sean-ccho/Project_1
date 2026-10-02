@@ -1,6 +1,6 @@
 # 퀀트 트레이딩 전략 개선 계획서 (Project_1)
 
-> 최종 갱신: 2026-09-28
+> 최종 갱신: 2026-10-01 (10절 추가: 페이퍼 트레이딩 3계좌 + CCS v2 + 구현 현황 / 작업 요약·진행 가이드는 [WORK_SUMMARY.md](WORK_SUMMARY.md))
 > 대상 리포: `sean-ccho/Project_1` (Stock Market Screener, Python)
 > 목표: 현재 전략의 진짜 성과를 측정하고, 리스크조정수익을 최대한 끌어올린다. 최종적으로 맥미니 서버에서 Optuna로 파라미터를 자동 탐색한다.
 > 코드 변경 절차는 같은 폴더의 **`CODE_CHANGES_GUIDE.md`** 참고.
@@ -16,6 +16,9 @@
 5. `alpha_model.py`의 IC(Spearman) 기반 팩터모델은 방법론이 탄탄해서 **살릴 자산**이다.
 6. 진행 순서: **Tier 0 → Tier 1 → Tier 1.5 → Tier 2 → Tier 3 → Tier 4(Optuna/맥미니) → Tier 5(ML, 선택)**. Tier별 개발 방법은 **9절**.
 7. **거래 로그 396건 분석 결과 (2-1절)**: 수익은 **모멘텀 전략 + 상승장**에서 나온다. 바닥반등은 중앙값이 마이너스이고, 트레일링 스탑이 전체 거래의 32%를 승률 7%로 잘라내고 있다. CCS 점수는 수익 순위를 거의 가르지 못한다(IC +0.058, 유의하지 않음).
+8. **CCS는 구조적으로 바닥반등 쪽으로 기운다 (10-1절)**: 타이밍·컨플루언스 점수가 바닥반등 종목에 최대 약 +0.15를 더 주고, 상승장 모멘텀 보너스는 최대 0.015다. 그래서 근거 있는 피처만 쓰는 **CCS v2**를 만들었고, 검증 전까지는 스위치(`CCS_VERSION="v1"`)로 꺼 두었다.
+9. **페이퍼 트레이딩을 3계좌로 늘린다 (10절)**: PT-1(기존) + PT-2(골든크로스 스윙, 30일 + 추세 유지 시 계속 보유) + PT-3(일봉 단타, 최대 10거래일). 브랜치는 나누지 않고 main 하나에서 계좌 설정으로 운영한다.
+10. **실거래 기록에도 버그가 있었다 (10-5절)**: 워크플로가 주말·휴일에도 돌고 날짜를 UTC로 기록해서, 49건 중 6건의 매수가 장이 열리지 않은 날의 묵은 데이터로 체결됐다. 코드는 고쳤고, 워크플로 수정은 10-7절.
 
 ---
 
@@ -28,6 +31,8 @@
 | 모멘텀 | 24 | 42% | +0.70% | +14.0% | -9.7% |
 
 \* 누적수익은 거래수익률의 **단순 합**이다. 실제 자본 기준 수익률이 아니다.
+
+⚠️ 49건 중 6건의 매수(05-18, 05-31, 06-20, 08-30, 08-31, 09-13 기록)는 주말·휴일(또는 장중 push 실행)의 묵은 데이터로 체결됐다. 기록된 날짜도 UTC라서 미국 동부 날짜보다 하루 늦다. 기록은 고치지 않고, 분석할 때 감안한다 (10-5절).
 
 ---
 
@@ -174,6 +179,10 @@ CCS 서브스코어 중 유의한 것은 `ccs_strategy_fit`(IC +0.120, t=2.40) �
 | C | **어닝 회피 필터가 백테스트에서 작동하지 않는다** | 확정 | `days_to_next_earnings`를 실행일 기준으로 계산해서 백테스트 4년 내내 같은 값이 적용된다. 실거래 로직과 다르다. |
 | D | **백테스트에 저점확률 계산이 없다** | **확정** | 거래 396건의 `feat_low_prob`이 전부 비어 있다. 바닥반등 최대 가점(2.5)과 CCS confluence(0.4)가 백테스트에서 항상 0이다. 백테스트의 바닥반등은 실거래 바닥반등과 다른 전략이다. |
 | E | 손절 7% → 10% 변경에도 결과 동일 | **유력한 설명** | 트레일링 스탑이 먼저 걸려서 손절까지 가는 거래가 396건 중 8건뿐이다(2-1절 ③). 검증 스크립트로 최종 확인한다. |
+| G | **`--max-tickers`로 자른 유니버스가 실행할 때마다 다르다** | 확정 (2026-09-30) | `TICKERS = list(set(...))`라서 파이썬 해시 랜덤화로 프로세스마다 순서가 바뀐다. `max_tickers=100`(기본값)이면 매번 다른 100종목이다. "같은 설정인데 결과가 다른" 원인 후보. |
+| H | **IC 가중치 디스크 캐시가 "호출 횟수" 번호로 저장됐다** | 확정 (2026-09-30) | 리밸런스 주기가 다른 run이 같은 캐시를 쓰면 같은 번호가 다른 날짜를 가리킨다. 나중 날짜로 계산한 가중치를 앞 날짜에 쓰는 **미래 정보 누설**이 가능하다. |
+
+> 2026-09-30: A · B · C · G · H는 코드를 고쳤다 (실행 검증은 10-7절). D는 백테스트에 추가하지 않고 **CCS v2에서 저점확률을 빼는** 쪽으로 결정했다 (실거래 저점확률은 날짜마다 2년치 모델을 학습해서 백테스트에 넣기에 너무 무겁다). 실거래 쪽 버그(F 등)는 10-5절.
 
 ### 3-2. 구조적 문제 (월스트리트급 관점)
 
@@ -197,31 +206,34 @@ CCS 서브스코어 중 유의한 것은 `ccs_strategy_fit`(IC +0.120, t=2.40) �
 ## 4. 로드맵
 
 ### 🔴 Tier 0 — 백테스트 재현성 (가장 먼저)
-- [ ] 캐시 키에 fundamentals 플래그 + 코드 해시 포함 (A)
-- [ ] `meta.json`에 config 전체 + `config_hash` + `code_hash` 저장
-- [ ] 결정성 테스트: 같은 설정 두 번 → 결과 동일 확인
-- [ ] 파라미터 반영 테스트: 손절 변경 → 결과가 실제로 달라지는지 확인 (E)
+> 2026-09-30: 코드 변경은 끝났고 표시는 "코드 반영". 실제 실행 검증은 내 컴퓨터에서 (10-7절).
+- [x] 캐시 키에 fundamentals 플래그 + 코드 해시 포함 (A) — 코드 반영
+- [x] `meta.json`에 config 전체 + `config_hash` + `code_hash` 저장 — 코드 반영
+- [x] 유니버스 순서 고정 (G), IC 가중치 캐시를 "전월 말 기준 월 단위"로 (H) — 코드 반영
+- [ ] 결정성 테스트: 같은 설정 두 번 → 결과 동일 확인 (`scripts/verify_backtest_integrity.py` 준비됨)
+- [ ] 파라미터 반영 테스트: 손절 변경 → 결과가 실제로 달라지는지 확인 (E, 같은 스크립트)
 - [x] 저점확률이 백테스트에 빠져 있는지 확인 (D) → **빠져 있음 확정**
-- [ ] 백테스트에 저점확률 계산 추가 (실거래와 같은 로직으로)
+- [x] ~~백테스트에 저점확률 계산 추가~~ → 추가하지 않고 CCS v2에서 제외하기로 결정 (3-1절)
 - [ ] 이후 모든 백테스트는 커밋된 코드에서만 실행
 
 ### 🥇 Tier 1 — 측정 정합성
-- [ ] 백테스트 날짜 구간(`start_date` / `end_date`) 지원 (원래 Tier 4 항목을 앞당김)
-- [ ] 최근 12개월 **홀드아웃 봉인** (Tier 4 마지막에 한 번만 평가)
-- [ ] 거래비용·슬리피지 반영 (편도 10bp부터)
-- [ ] 펀더멘털 미래 정보 차단 (B, C)
-- [ ] 자본곡선 기준 지표: CAGR · 일간 Sharpe · Sortino · Calmar · SPY Sharpe
+- [x] 백테스트 날짜 구간(`start_date` / `end_date`) 지원 — PT-1·PT-2·PT-3 백테스트 모두 코드 반영
+- [x] 최근 12개월 **홀드아웃 봉인** — `scripts/optimize_optuna.py`가 자동으로 빼고, `--evaluate-holdout`으로 한 번만 평가
+- [x] 거래비용·슬리피지 반영 (편도 10bp) — 코드 반영 (PT-2/PT-3 페이퍼 계좌에도 적용)
+- [x] 펀더멘털 미래 정보 차단 (B, C) — 코드 반영 (`BACKTEST_FUNDAMENTALS_PIT_SAFE`)
+- [x] 자본곡선 기준 지표: CAGR · 일간 Sharpe · Sortino · Calmar · SPY Sharpe — 코드 반영
 - [ ] 생존편향 대응 (시점별 지수 구성종목, 최소한 한계 명시)
-- [ ] 위를 모두 적용한 **Baseline v1** 확정 (개발 기간 5년, 캐시 없이)
+- [ ] 위를 모두 적용한 **Baseline v1** 확정 (개발 기간 5년, 캐시 없이) — 10-7절 ⑤
 
 ### 🧪 Tier 1.5 — 전략 로직 가설 검증 (2-1절 H1 ~ H6)
 - [ ] H1: 트레일링 스탑 활성화 조건 변경 (수익 +3 ~ 5% 이후)
 - [ ] H2: 바닥반등 비중 축소/중단 (D 수정 후 재평가)
 - [ ] H3: 시장 레짐 필터 강화 (SPY < EMA200 시 신규 진입 중단/축소)
 - [ ] H4: 교체 마진 상향 또는 교체 중단
-- [ ] H5: CCS 단순화
+- [ ] H5: CCS 단순화 — CCS v2 코드 반영(스위치 꺼짐), 채택 판단은 10-1절 기준
 - [ ] H6: 바닥반등 알파 가중치 재검토
 - 규칙: 한 번에 하나만 바꾸고, Baseline v1과 비교한다. 채택한 것을 합친 결과가 **Baseline v2**.
+- 구현 상태: H1 ~ H6 스위치는 코드에 들어가 있다 (기본값 = 현재 동작). `scripts/run_hypothesis_ab.py`로 한 번에 비교 → 10-7절 ⑤-2. 체크는 결과를 보고 채택/기각을 정한 뒤에 한다.
 
 ### 🥈 Tier 2 — 포트폴리오 구성 (리스크조정수익 최대 지렛대)
 - [ ] 후보 상위 k개 선정 + 하루 여러 종목 매수
@@ -305,6 +317,8 @@ CCS 서브스코어 중 유의한 것은 `ccs_strategy_fit`(IC +0.120, t=2.40) �
 
 ## 8. 진행 상태와 다음 단계
 
+> 2026-09-30: `CODE_CHANGES_GUIDE.md`의 변경 1~8은 코드에 반영됐다. 지금 할 일 목록은 **10-7절**이다 (아래 "다음 단계"는 기록용으로 남긴다).
+
 ### 완료
 - [x] 코드 전체 정독 (진입/청산/스코어링/알파모델/캐시/펀더멘털/시그널)
 - [x] 백테스트 35개 run 전수 분석
@@ -323,7 +337,7 @@ CCS 서브스코어 중 유의한 것은 `ccs_strategy_fit`(IC +0.120, t=2.40) �
 
 ### 미해결 질문
 - [x] D: 저점확률이 백테스트에 정말 빠져 있는가? → **빠져 있음 (396건 전부 공백)**
-- [ ] D 후속: 실거래는 저점확률을 어디서 계산하는가? (백테스트에 같은 로직 추가 필요)
+- [x] D 후속: 실거래 저점확률은 `main.py` / `run_full_scan.py`의 `score_extremes_for_snapshot()`(날짜마다 2년치 모델 학습)에서 만든다 → 백테스트에 넣지 않고 CCS v2에서 제외
 - [ ] E: 트레일링이 먼저 걸린다는 설명이 맞는가? (검증 스크립트 C 단계로 확인)
 - [ ] 생존편향 대응을 어느 수준까지 할 것인가 (데이터 구매 vs 한계 명시)
 
@@ -416,21 +430,21 @@ flowchart LR
 
 **권장 순서** (효과 기대치가 크고 변경이 작은 것부터)
 
-| 순서 | 가설 | 추가할 설정 (기본값 = 현재 동작) | 수정 위치 |
-|------|------|--------------------------------|----------|
-| 1 | H1 트레일링 활성화 조건 | `TRAILING_ACTIVATION_GAIN = 0.0` → 실험값 0.03, 0.05 | `engine.py::check_sell_conditions` |
-| 2 | H3 레짐 필터 강화 | `BEAR_NEW_ENTRY_MODE = "current"` → `"block"`, `"half"` | `candidate_selector.py`, 백테스트 매수 루프 |
-| 3 | H4 교체 완화/중단 | `CCS_REPLACE_MARGIN`을 config로 이동 → 0.20, 무한대(교체 끔) | `engine.py::should_replace` |
-| 4 | H2 바닥반등 축소 | `BOTTOM_STRATEGY_ENABLED = True` → False, 또는 슬롯 제한 | `candidate_selector.py` |
-| 5 | H6 바닥반등 알파 가중치 | 하드코딩된 `0.10/0.10/0.15/0.25/0.40`을 config로 이동 | `candidate_selector.py::_score_alpha_factor` |
-| 6 | H5 CCS 단순화 | Tier 3에서 재설계와 함께 진행 | — |
+| 순서 | 가설 | 설정 (기본값 = 현재 동작) → 실험값 | A/B 변형 | 수정 위치 |
+|------|------|--------------------------------|------|----------|
+| 1 | H1 트레일링 활성화 조건 | `EXIT_PARAMS[전략]["trail_activate_pct"] = 0.0` → 0.03, 0.05 | `H1a`, `H1b` | `engine.py::check_sell_conditions` |
+| 2 | H3 레짐 필터 강화 | `CANDIDATE_BEAR_BLOCK_NEW = False` → True ("절반만" 옵션은 Tier 2 사이징과 함께) | `H3` | `candidate_selector.py::select_best_candidate` |
+| 3 | H4 교체 완화/중단 | `CCS_REPLACE_MARGIN = 0.10` → 0.20, `PT1_REPLACE_ENABLED = True` → False | `H4a`, `H4b` | `engine.py::should_replace` |
+| 4 | H2 바닥반등 축소 | `CANDIDATE_ALLOWED_STRATEGIES = None` → `["모멘텀"]` | `H2` | `candidate_selector.py::_apply_hard_filters` |
+| 5 | H6 바닥반등 알파 가중치 | `CANDIDATE_ALPHA_WEIGHTS["바닥반등"]` (현재 .10/.10/.15/.25/.40) → .25/.25/.20/.10/.20 | `H6` | `candidate_selector.py::_score_alpha_factor` |
+| 6 | H5 CCS 단순화 | `CCS_VERSION = "v1"` → "v2" (10-1절) | `H5` | `candidate_selector.py` |
 
 H2는 **D(저점확률)를 고친 뒤** 평가해야 공정하다.
 
 **실험 방법**
 1. 설정 추가 + 기본값으로 백테스트 → Baseline v1과 **완전히 같은지** 확인 (코드 추가가 동작을 바꾸지 않았는지)
 2. 실험값으로 빠른 반복(100종목 × 3년) → 유망하면 정식 검증(500종목 × 5년)
-3. `scripts/run_experiments.py`를 만들어 "기준선 vs 변형"을 한 번에 돌리고 표로 출력하게 하면 편하다
+3. `scripts/run_hypothesis_ab.py`가 "기준선 vs 변형"을 같은 조건으로 한 번에 돌리고 표로 출력한다 (`output/hypothesis_ab.csv`에 누적). config 파일은 고치지 않고 실행 중에만 바꾼다 (`paper_trading/config_override.py`)
 4. 결과를 실험 기록표에 추가
 
 **완료 기준 (게이트)**
@@ -536,11 +550,212 @@ H2는 **D(저점확률)를 고친 뒤** 평가해야 공정하다.
 
 ---
 
+## 10. 페이퍼 트레이딩 3계좌 체계 + CCS v2 (2026-09-30)
+
+> 결정 사항: PT-3 = 기존 일봉 지표로 만든 단타 전용 규칙(최대 10거래일) / PT-2 = 30 달력일 + 추세가 살아 있으면 계속 보유 / 이메일은 계좌별 3통 / 순서는 "공통 버그 수정 + 멀티계좌 → PT-2·PT-3 페이퍼 바로 시작, Tier 0는 병행".
+
+### 10-1. CCS 진단과 v2 설계
+
+현재 CCS(v1) = 레짐별 가중치 × 서브스코어 5개 − 섹터 페널티 + 레짐 보너스(최대 0.015)
+
+| 서브스코어 | 계산 | 396건 분석 | 코드에서 찾은 문제 |
+|---|---|---|---|
+| A 전략적합도 | max(바닥반등, 모멘텀) ÷ 10 | **유일하게 유의** (IC +0.12) | — |
+| B 타이밍 | RSI 구간 +0.4, 볼린저 < 0.2 +0.3, 거래량 +0.15, MACD +0.15 | 유의하지 않음 | 볼린저 하단 가점이 모멘텀에도 적용 → 바닥반등 종목이 유리 |
+| C 알파 | 5팩터 가중합 (바닥반등: 평균회귀 40% + 변동성 25%) | 유의하지 않음, 바닥반등은 **음수**(-0.108) | IC가 음수인 팩터에 가중치가 가장 큼 |
+| D 리스크 | 변동성 압축, 52주 위치, 펀더멘털(최대 0.4), 정배열 | 유의하지 않음 | 모멘텀은 52주 위치 0.55~0.85만 가점 → 신고가 근처는 0점 (데이터는 높을수록 좋음, IC +0.11). 펀더멘털은 백테스트에서 미래 정보 |
+| E 컨플루언스 | 저점확률 +0.4(바닥반등만), 반등스코어 +0.2, 멀티TF 패턴 +0.3, 정배열 +0.1 | 유의하지 않음 | 저점확률이 백테스트에서 항상 0 → 백테스트와 실거래가 **다른 점수** |
+| 교체 | 오늘 후보 CCS > 보유 종목 CCS + 0.10 | 74건, 비용 반영 시 순손실 | 보유 종목은 **매수 당시** 점수, 후보는 **오늘** 점수 |
+
+**핵심**: B·E가 바닥반등 종목에 최대 약 +0.15를 더 주는데, 상승장 모멘텀 보너스는 최대 0.015다. 그래서 상승장에서도 CCS가 더 약한 전략(바닥반등, 중앙값 -0.39%) 쪽으로 기운다.
+
+**CCS v2** (`candidate_selector._ccs_v2_components`)
+- 점수 = 0.40 × 전략적합도 + 0.20 × 장기 추세(`ema_gap_50_200`) 백분위 + 0.20 × 52주 위치 백분위 + 0.20 × 20일 수익률 백분위 − 섹터 페널티 (`CCS_V2_WEIGHTS`)
+- 백분위는 하드필터 전 **그날 전체 종목** 기준 (후보 풀은 5~20개라 불안정)
+- 펀더멘털·저점확률·타이밍·알파·컨플루언스는 쓰지 않는다 → 백테스트와 실거래 점수가 같아진다
+- 레짐은 점수에 넣지 않고, 기존 약세장 제한(모멘텀 제외, 포지션 축소)으로만 쓴다
+- 최소 점수 `CCS_V2_MIN = 0.55` (v1의 0.40/0.45 대신)
+- 교체: v2 모드에서는 보유 종목도 오늘 스냅샷 점수로 다시 매겨 비교한다 (`engine.current_ccs`)
+- 스위치: `CCS_VERSION = "v1"`(기본) / `"v2"`. v1 모드에서도 백테스트 거래 로그에 `feat_ccs_v1`, `feat_ccs_v2`를 함께 남긴다
+
+**채택 기준** (모두 통과해야 `CCS_VERSION = "v2"`)
+1. `scripts/analyze_ccs_ic.py`: v2의 평균 IC t값 ≥ 2, v1보다 높음, 2022~2026 연도별 부호가 대부분 양수
+2. 같은 조건(비용 포함, 캐시 정상) 백테스트에서 일간 Sharpe가 좋아지고 MDD는 나빠지지 않음
+3. 켤 때 PT-1 체결도 다음날 시가로 바꾼다 (10-5절 I)
+
+### 10-2. 3계좌 구조
+
+| 계좌 | 보유 기간 | 시험하는 가설 | 코드 | 데이터 |
+|---|---|---|---|---|
+| PT-1 기존 | 모멘텀 8~18일 / 바닥반등 12~25일 (달력일, 시간익절·장기보유 규칙) | 스크리너 점수 + CCS | `engine.py`, `candidate_selector.py` | `data/paper_trading/` |
+| PT-2 골든크로스 스윙 | 30 달력일 + 추세 유지 시 기간 제한 없음 | 추세 초입 진입 + 수익을 길게 끌고 가기 | `pt2_golden_cross.py` | `data/paper_trading/pt2/` |
+| PT-3 일봉 단타 | 최대 10거래일 | 짧은 눌림목 반등·돌파 | `pt3_short_term.py` | `data/paper_trading/pt3/` |
+
+- **운영은 main 하나.** 전략별 브랜치는 쓰지 않는다: ① GitHub Actions cron은 기본 브랜치에서만 돈다 ② 브랜치마다 스크리너를 돌리면 Yahoo 다운로드가 3배가 된다 ③ 공통 코드 수정이 갈라진다 ④ 상태 파일 커밋이 충돌한다. 브랜치는 개발용(기능 브랜치 → PR → main)으로만 쓴다.
+- **하루 흐름**: `main.py` → `run_full_scan.py` → `run_paper_trading.py`(PT-1) → `--account pt2` → `--account pt3`. 스크리너는 한 번만 돌고 세 계좌가 같은 스냅샷을 쓴다.
+- **PT-2/PT-3 체결·회계 규칙** (`account_engine.py`)
+  - 신호는 장 마감 기준 → 다음 일봉 시가 체결 (시가가 갭 상한을 넘으면 매수 취소)
+  - 손절·목표는 일봉 고가/저가로 판정. 갭으로 뚫고 시작하면 시가 체결, 같은 날 둘 다 닿으면 손절로 본다 (보수적)
+  - 편도 비용 0.1%, 가상 자본 $5,000, 목표 배분 = 평가액 ÷ 최대 포지션 수, 섹터당 최대 2종목
+  - 실행이 빠진 날은 최대 10거래일까지 따라잡는다 (체결·손절만. 신규 선정은 스냅샷이 있는 날만)
+  - 실거래와 백테스트가 같은 `process_bar()`를 호출한다
+- 파라미터는 dict(`PT2_PARAMS`, `PT3_PARAMS`)로 둬서 Optuna가 런타임에 바꿀 수 있다.
+
+### 10-3. PT-2 골든크로스 스윙 (v0)
+
+| 단계 | 규칙 | 파라미터 |
+|---|---|---|
+| 후보 | 골든크로스 목록 (일봉 EMA20/50, 주봉 SMA10/40, 월봉 SMA3/10). v0는 **교차 직후**만, 임박은 백테스트로 비교 | `entry_types`, `timeframes` |
+| 필터 | 주가 ≥ $5, 거래대금 ≥ $10M, 어닝 3일 이내 제외, RSI < 75 · 볼린저 < 0.95 · 5일 수익 < 15%, 종가 > EMA200, SPY < EMA200이면 신규 진입 중단 | `min_*`, `rsi_max` 등 |
+| 순위 | 교차 TF 수 0.30 + 일봉 포함 0.10 + 갭 근접 0.10 + 장기 추세 0.20 + 52주 위치 0.15 + ADX 0.10 + 거래량 배수 0.05 (추세 이하 4개는 백분위) | `rank_weights` |
+| 손절 | 매수가 − 2×ATR | `stop_atr_mult` |
+| 추세 이탈 | 일봉 데드크로스(정배열을 한 번 본 뒤부터) 또는 종가 < EMA50 2일 연속 → 다음날 시가 매도 | `below_ema50_days` |
+| 트레일링 | 최고 종가가 +5%를 넘은 뒤에만, 최고 종가 − 3×ATR | `trail_activate_pct`, `trail_atr_mult` |
+| 30일 규칙 | 30일째부터 매일 추세 체크 (종가 > EMA20 > EMA50, ADX ≥ 20, 20일 수익 > 0). 통과하면 계속 보유, 실패하면 매도. 이후 트레일링은 2.5×ATR | `hold_days`, `extend_adx_min` |
+| 운용 | 최대 5종목, 하루 최대 2종목, 교체 없음, 목표가 없음 | `max_positions`, `max_daily_buys` |
+
+### 10-4. PT-3 일봉 단타 (v0)
+
+| 단계 | 규칙 | 파라미터 |
+|---|---|---|
+| 셋업 A 눌림목 | 종가 > EMA50 > EMA200, RSI 35~50 또는 볼린저 < 0.3, 5일 수익 < 0, 반전 확인 (강세잉걸핑·모닝스타·망치형, 또는 종가 > 전일 고가) | `pullback_*` |
+| 셋업 B 돌파 | 변동성압축 ≤ 0.9, 종가 > 직전 20일 고가, 거래량 ≥ 1.5배, ADX ≥ 20, 종가 > EMA50, RSI < 80, 5일 수익 < 15%. 약세장이면 중단 | `breakout_*` |
+| 공통 필터 | 주가 ≥ $5, 거래대금 ≥ $20M, 어닝 5일 이내 제외 | |
+| 순위 | 장기 추세 0.35 + 20일 수익 0.25 + 52주 위치 0.20 + 거래량 배수 0.20 (백분위) | `rank_weights` |
+| 손절 / 목표 | 매수가 − 1.5×ATR / + 2×ATR (일봉 고가·저가로 체결) | `stop_atr_mult`, `target_atr_mult` |
+| 본절 | 고가가 +1×ATR에 닿으면 손절선을 매수가로 올림 | `breakeven_atr_mult` |
+| 셋업 완료 | A: RSI ≥ 60 또는 볼린저 ≥ 0.8 / B: 종가 < 돌파선 − 0.5×ATR → 다음날 시가 매도 | `pullback_exit_*`, `breakout_fail_atr` |
+| 시간 청산 | 10거래일 보유 후 다음날 시가 | `max_hold_bars` |
+| 운용 | 최대 5종목, 하루 최대 2종목, 시가가 +3% 넘게 갭 상승하면 매수 취소 | |
+
+### 10-5. 이번에 새로 찾아서 고친 문제
+
+| # | 문제 | 영향 | 수정 |
+|---|---|---|---|
+| F | 워크플로가 주말·휴일·push 때마다 돌고, 엔진은 `date.today()`(러너 = UTC)를 거래일로 씀 | 실거래 49건 중 6건 매수가 묵은 데이터로 체결, 날짜도 하루 늦게 기록 | `market_date.py`: 거래일 = 스냅샷의 마지막 일봉 날짜(`_bar_date`), 장중이면 건너뜀, 계좌별 `state.json`에 처리한 일봉 기록 → 같은 일봉은 한 번만 처리. **워크플로가 `state.json`을 커밋해야 동작한다 (10-7절 ②)**. 배포 이후 기록 날짜는 미국 동부 거래일 |
+| G | 백테스트 유니버스 순서가 실행마다 바뀜 (3-1절) | 같은 설정인데 결과가 다름 | `default_universe()`: 정렬 후 고정 시드 |
+| H | IC 가중치 캐시가 호출 횟수 번호로 저장됨 (3-1절) | 미래 정보 누설 가능 | 월 단위(전월 말 기준)로 계산·저장 |
+| I | 실거래는 장 마감 후 그날 가격으로 매수 기록, 백테스트는 다음날 시가 | 실거래 성과가 실제로 살 수 없는 가격 기준 | PT-2/PT-3는 다음날 시가로 통일. PT-1은 CCS v2 전환 때 함께 바꾼다 |
+| J | 헬스체크가 로그 폴더를 UTC 날짜로 찾음 | 매일 "degraded" | 토론토 날짜로 |
+| K | 한쪽 스크리너가 실패하면 전날 스냅샷이 섞임 | 묵은 데이터로 매매 | 일봉 날짜가 가장 최신인 스냅샷만 사용 |
+| L | 실행 가드가 '지금 시각'으로 일봉 확정을 판단 (2026-10-01) | 장중 push 실행이 16:30을 넘겨 페이퍼 단계에 오면 미완성 일봉으로 매매, 그날 저녁 실행은 건너뜀 | `main.py`·`run_full_scan.py`가 데이터를 받은 시점에 판단, 미확정이면 `_bar_date`를 비워 건너뜀 |
+
+### 10-6. 구현 현황 (이 노트북의 Source Control에서 변경 확인 가능)
+
+| 파일 | 내용 |
+|---|---|
+| `src/paper_trading/market_date.py`, `json_store.py` | 거래일 판정·중복 실행 방지, 원자적 JSON 저장 |
+| `src/paper_trading/accounts.py`, `account_engine.py` | 계좌 프로필, 공통 엔진(예약 체결·손절·평가액·따라잡기), 실거래 실행 |
+| `src/paper_trading/pt2_golden_cross.py`, `pt3_short_term.py` | PT-2/PT-3 선정·청산 규칙 |
+| `src/paper_trading/indicators.py`, `golden_cross.py` | 순수 파이썬 지표(EMA·ATR·RSI·ADX·볼린저), 골든크로스 추출(PT-1 이메일과 공용) |
+| `src/paper_trading/account_email.py`, `sheet_sync.py` | 계좌별 이메일, 시트 탭 인자화 (`페이퍼2_*`, `페이퍼3_*`) |
+| `src/paper_trading/run_paper_trading.py` | `--account pt1/pt2/pt3/all`, `--dry-run`, `--as-of` |
+| `src/paper_trading/runner.py`, `src/main.py`, `src/run_full_scan.py` | PT-1 실행 가드, 스냅샷에 `_bar_date` 기록 |
+| `src/paper_trading/backtest.py`, `src/screener/backtest.py`, `src/screener/cache.py` | Tier 0 (가이드 변경 1~6), G·H 수정, `start_date`/`end_date`, `save_run` |
+| `src/paper_trading/candidate_selector.py`, `engine.py` | CCS v2 (스위치), v2 모드 교체 시 오늘 점수 비교, Tier 1.5 스위치 H1 ~ H4·H6 |
+| `src/paper_trading/config_override.py`, `scripts/run_hypothesis_ab.py` | 실행 중 config 덮어쓰기(끝나면 원복), Tier 1.5 A/B 비교 실행기 |
+| `src/paper_trading/account_backtest.py`, `scripts/run_account_backtest.py` | PT-2/PT-3 백테스트 (실거래와 같은 엔진) |
+| `scripts/verify_backtest_integrity.py`, `analyze_trade_features.py`, `analyze_ccs_ic.py`, `optimize_optuna.py`, `requirements-research.txt` | 검증·분석·최적화 |
+| `src/screener/config.py` | `PT2_PARAMS`, `PT3_PARAMS`, `CCS_VERSION`, `CCS_V2_*`, `BACKTEST_COST_PER_SIDE`, `BACKTEST_FUNDAMENTALS_PIT_SAFE`, Tier 1.5 스위치 (`trail_activate_pct`, `CANDIDATE_ALLOWED_STRATEGIES`, `CANDIDATE_BEAR_BLOCK_NEW`, `PT1_REPLACE_ENABLED`, `CCS_REPLACE_MARGIN`, `CANDIDATE_ALPHA_WEIGHTS`) |
+| `tests/paper_trading/test_*.py` (새 파일 13개) | pandas 없이 도는 테스트 73개(엔진·규칙·지표·이메일 본문·합성 시세 통합·config 덮어쓰기·통계·구성종목)는 이 노트북에서 전부 통과. `test_pt1_switches.py`(H1 ~ H6·T2, 9개), `test_snapshot_bar_date.py`(L, 3개), `test_benchmarks.py`(5개)는 pandas가 필요해서 내 컴퓨터에서 돌린다 |
+| `src/paper_trading/evaluation.py`, `benchmarks.py`, `universe.py`, `scripts/fetch_sp500_membership.py` | 비판적 검토 반영: 쉬운 방법(SPY·12-1 모멘텀 상위 20) 비교와 알파, A/B 운 판정(짝지은 블록 부트스트랩), 하루 여러 종목 매수(T2, 백테스트만), PIT 유니버스(`--pit-universe`). 자세한 내용은 [WORK_SUMMARY.md](WORK_SUMMARY.md) 2-8 |
+| `docs/quant_improvement/WORK_SUMMARY.md` | 작업 요약 + 메인 컴퓨터 진행 가이드 |
+
+**아직 실행하지 못한 것** (회사 프록시로 pip·yfinance가 막힘): pandas가 필요한 코드 경로 전부 (스냅샷 로드, 백테스트, 시트 동기화, 이메일 발송).
+
+### 10-7. 내 컴퓨터에서 할 일 (순서대로)
+
+> 2026-10-01: 실제 진행 순서와 전환 주의사항은 [WORK_SUMMARY.md](WORK_SUMMARY.md) 4절이 기준이다 (⑧ 머지는 ④ 다음에 하고, ⑤~⑦·⑨는 병행). 변경 옮기기(①)는 패치 대신 zip + AirDrop → [HANDOFF.md](HANDOFF.md).
+
+① **변경 옮기기** — 이 노트북 저장소는 원격 main(2026-09-28) 사본에 기준선 커밋을 만든 것이다.
+```bash
+# 이 노트북에서: 변경 전체를 패치 하나로
+git add -A && git diff --cached --binary > ~/pt_3accounts.patch
+# 내 컴퓨터에서
+git checkout -b feat/pt-3accounts && git apply ~/pt_3accounts.patch
+```
+
+② **워크플로 수정** (`.github/workflows/run-screener.yml`은 로컬 사본에 없어서 여기서 못 고쳤다)
+
+"Upload paper trading log" 스텝 다음에 추가:
+```yaml
+      - name: Run PT-2 golden cross swing
+        if: always()
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -o pipefail
+          mkdir -p logs/$LOG_DATE
+          PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt2 | tee logs/$LOG_DATE/paper_trading_pt2.log
+
+      - name: Run PT-3 daily short-term
+        if: always()
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -o pipefail
+          mkdir -p logs/$LOG_DATE
+          PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt3 | tee logs/$LOG_DATE/paper_trading_pt3.log
+```
+
+"Commit & push logs and paper trading state" 스텝의 기존 `git add` 다음 줄에 추가 (**`state.json`이 커밋되지 않으면 주말 중복 매매 방지가 동작하지 않는다**):
+```bash
+          git add data/paper_trading/state.json data/paper_trading/pt2/*.json data/paper_trading/pt3/*.json 2>/dev/null || true
+```
+cron(주말 포함)은 그대로 둬도 된다. 주말·휴일 실행은 코드에서 건너뛴다.
+
+③ **테스트**: `pip install -r requirements.txt pytest` → `PYTHONPATH=.:src pytest tests/paper_trading -v`
+
+④ **dry-run** (지금 커밋된 스냅샷에는 `_bar_date`가 없어서 `--as-of`가 필요):
+```bash
+PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt1 --dry-run --as-of 2026-09-29
+PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt2 --dry-run --as-of 2026-09-29
+PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt3 --dry-run --as-of 2026-09-29
+```
+
+⑤ **Tier 0 검증 + Baseline v1**:
+```bash
+rm -rf data/cache/features data/cache/ic_weights
+PYTHONPATH=.:src python scripts/verify_backtest_integrity.py
+PYTHONPATH=.:src python scripts/run_sp500_backtest.py --period 5y --rebalance 1 --capital 5000 --no-cache
+```
+
+⑤-2 **Tier 1.5 A/B** (Baseline v1 다음. 최근 12개월 홀드아웃은 `--end`로 뺀다):
+```bash
+PYTHONPATH=.:src python scripts/run_hypothesis_ab.py --period 5y --max-tickers 300 --end 2025-09-30
+```
+같은 조건으로 돈 `BASE`가 기준선이다. 기간·종목 수가 같은 Baseline v1과 `BASE` 숫자가 다르면 스위치 추가가 동작을 바꾼 것이니 먼저 조사한다. 변형별 채택/기각은 9-8절 기록표에 남기고, 채택한 것만 config 기본값을 바꾼 뒤 합친 상태로 다시 돌려 Baseline v2로 확정한다.
+
+⑥ **PT-2/PT-3 백테스트**:
+```bash
+PYTHONPATH=.:src python scripts/run_account_backtest.py --account pt2 --period 5y --max-tickers 300
+PYTHONPATH=.:src python scripts/run_account_backtest.py --account pt3 --period 5y --max-tickers 300
+```
+
+⑦ **CCS v1 vs v2**: `PYTHONPATH=.:src python scripts/analyze_ccs_ic.py --period 5y --max-tickers 300` → 10-1절 채택 기준 확인
+
+⑧ **기능 브랜치 → PR → main 머지**. 머지 push가 워크플로를 한 번 돌리는데, 장중이면 페이퍼 트레이딩은 자동으로 건너뛴다.
+
+⑨ **Optuna** (⑤~⑦ 이후): `pip install -r requirements-research.txt` → `PYTHONPATH=.:src python scripts/optimize_optuna.py --account pt2 --trials 100` → 끝나면 `--evaluate-holdout`으로 홀드아웃을 한 번만 평가
+
+### 10-8. 성공·중단 기준 (미리 정해 둔다)
+
+- **백테스트 우선**: PT-2/PT-3 백테스트(5년, 비용 포함)의 일간 Sharpe가 SPY 일간 Sharpe보다 낮으면, 페이퍼 결과와 상관없이 규칙을 다시 설계한다 (v1).
+- **페이퍼 = 실행 검증**: 3개월 또는 30건이 쌓이면 같은 기간 백테스트와 비교한다. 거래당 평균수익 차이가 백테스트 표준오차의 2배를 넘으면 체결·데이터 차이부터 조사한다.
+- **버전 분리**: 규칙을 바꾸면 `version`(예: `pt2-v1`)을 올리고, 성과는 버전별로 따로 본다.
+- **CCS v2**: 10-1절 채택 기준을 모두 통과할 때만 켠다.
+- **Optuna**: 계좌별 파라미터 5~8개, 거래 50건 미만·승률 40% 미만은 버리고, 구간 간 편차를 감점한다. 홀드아웃은 한 번만 본다.
+
+---
+
 ## 부록: 전략 로직 요약
 
 - **진입**: Hard Filter 9개 (전략점수 ≥ 6.0, 바닥반등 52주 포지션 ≤ 0.65, 판단 등급, RSI < 75 · 볼린저 < 0.95 · 5일 수익 < 15%, 유동성 ≥ $10M, 어닝 3일 회피, 보유 중복 제외, 모멘텀 ADX ≥ 25, 바닥반등 RSI 30~35 차단, 섹터당 2개) → CCS 5-서브스코어(strategy_fit / timing / alpha / risk / confluence)를 레짐별 가중 → Top 1 선정
 - **청산**: 목표가 / 시간익절 / 손절 / 트레일링 / 장기보유 + Hold-Winners defer(모멘텀이 강하면 익절 지연, tight trail 3.5%)
 - **교체**: 새 후보 CCS가 가장 약한 보유 종목보다 0.10 이상 높으면 교체
 - **레짐**: SPY EMA 기반 bull / neutral / bear. 약세장은 모멘텀 제외 + 포지션 1개 축소
-- **알파**: 5팩터 tanh 정규화 + 60일 IC(Spearman) 동적 가중, 20거래일마다 재계산
-- **현재 설정**: `STRATEGY_MODE="AGGRESSIVE"`, `ML_ENABLED=False`, 최대 3포지션
+- **알파**: 5팩터 tanh 정규화 + 60일 IC(Spearman) 동적 가중. 백테스트에서는 2026-09-30부터 매달 "전월 말까지의 데이터"로 재계산 (예전: 20회 호출마다)
+- **현재 설정**: `STRATEGY_MODE="AGGRESSIVE"`, `ML_ENABLED=False`, 최대 3포지션, `CCS_VERSION="v1"`
+- **PT-2 / PT-3**: 10절 참고

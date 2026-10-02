@@ -12,6 +12,7 @@ import os
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,8 @@ def _check_positions_schema(path: Path) -> tuple[bool, str]:
 def _check_log_exists(log_date: str | None = None) -> tuple[bool, str]:
     """오늘 날짜 로그 파일이 생성되었는지 확인."""
     if log_date is None:
-        log_date = datetime.now().strftime("%Y-%m-%d")
+        # 워크플로 LOG_DATE와 같은 토론토 날짜 (러너는 UTC라 date.today()와 하루 어긋남)
+        log_date = datetime.now(ZoneInfo("America/Toronto")).strftime("%Y-%m-%d")
     log_dir = Path(f"logs/{log_date}")
     if not log_dir.exists():
         return False, f"로그 디렉토리 없음: {log_dir}"
@@ -93,6 +95,15 @@ def run_health_check(
     trades_path = data_path / "trades.json"
     ok, msg = _check_json_valid(trades_path)
     checks.append({"name": "trades.json 파싱", "ok": ok, "message": msg})
+
+    # 2b. PT-2/PT-3 계좌 (data/paper_trading/pt*/)
+    if data_path.exists():
+        for account_dir in sorted(p for p in data_path.iterdir() if p.is_dir() and p.name.startswith("pt")):
+            for name in ("positions.json", "trades.json", "account.json"):
+                ok, msg = _check_json_valid(account_dir / name)
+                checks.append({"name": f"{account_dir.name}/{name} 파싱", "ok": ok, "message": msg})
+            ok, msg = _check_positions_schema(account_dir / "positions.json")
+            checks.append({"name": f"{account_dir.name}/positions.json 스키마", "ok": ok, "message": msg})
 
     # 3. 스냅샷 파일 최신 여부
     for snapshot in ["sp500_ranked.parquet", "nasdaq_ranked.parquet"]:

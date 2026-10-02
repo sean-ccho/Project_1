@@ -104,18 +104,18 @@ def count_cached_snapshots(ohlcv_hash: str) -> int:
 
 # ── IC weights 저장/로드 ────────────────────────────────────────────────────────
 
-def _ic_path(ohlcv_hash: str, cycle: int) -> Path:
-    return _IC_CACHE_DIR / f"{ohlcv_hash}_{cycle}.json"
+def _ic_path(ohlcv_hash: str, period_key: str) -> Path:
+    return _IC_CACHE_DIR / f"{ohlcv_hash}_{period_key}.json"
 
 
-def save_ic_weights(ohlcv_hash: str, cycle: int, weights: dict) -> None:
-    path = _ic_path(ohlcv_hash, cycle)
+def save_ic_weights(ohlcv_hash: str, period_key: str, weights: dict) -> None:
+    path = _ic_path(ohlcv_hash, period_key)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(weights))
 
 
-def load_ic_weights(ohlcv_hash: str, cycle: int) -> Optional[dict]:
-    path = _ic_path(ohlcv_hash, cycle)
+def load_ic_weights(ohlcv_hash: str, period_key: str) -> Optional[dict]:
+    path = _ic_path(ohlcv_hash, period_key)
     if not path.exists():
         return None
     try:

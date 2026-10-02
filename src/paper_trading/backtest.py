@@ -9,7 +9,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import random
 import subprocess
 import sys
 import warnings
@@ -26,16 +28,19 @@ import hashlib
 from data.fetch import fetch_ohlcv
 from screener.backtest import _compute_ranked_snapshot, _prepare_price_map
 from screener.cache import cache_meta_valid, count_cached_snapshots, write_cache_meta
+from screener import config as _cfg
 from screener.config import (
-    PAPER_TRADING_MAX_POSITIONS as MAX_POSITIONS,
+    BACKTEST_COST_PER_SIDE,
+    BACKTEST_FUNDAMENTALS_PIT_SAFE,
     TICKERS,
 )
-from paper_trading.candidate_selector import select_best_candidate
+from paper_trading.candidate_selector import select_top_candidates
 from paper_trading.engine import (
     _activate_tight_trail,
     _get_row_for_ticker,
     _should_defer_sell,
     check_sell_conditions,
+    current_ccs,
     should_replace,
 )
 from paper_trading.portfolio import get_worst_position
@@ -60,6 +65,72 @@ def _git_info() -> dict[str, Any]:
         }
     except Exception:
         return {"sha": None, "branch": None, "dirty": None}
+
+
+_HASHED_SOURCES = (
+    "screener/features.py", "screener/alpha_model.py", "screener/patterns.py",
+    "screener/fundamentals.py", "screener/processing.py", "screener/signals.py",
+    "screener/backtest.py", "screener/config.py",
+)
+_SECRET_MARKERS = ("PASSWORD", "SECRET", "TOKEN", "CREDENTIAL", "EMAIL", "SPREADSHEET", "DRIVE", "GITHUB", "KEY")
+_SNAPSHOT_SKIP = {"TICKERS", "SECTOR_MAP", "COMPANY_NAME_MAP"}
+
+
+def _code_hash() -> str:
+    """피처 계산에 영향을 주는 소스의 지문. 파일을 고칠 때만 바뀜 (Optuna 런타임 오버라이드는 캐시를 깨지 않음)."""
+    src_root = Path(__file__).resolve().parents[1]
+    h = hashlib.md5()
+    for rel in _HASHED_SOURCES:
+        p = src_root / rel
+        if p.exists():
+            h.update(p.read_bytes())
+    return h.hexdigest()[:8]
+
+
+def _config_snapshot() -> dict[str, Any]:
+    """JSON으로 저장 가능한 config 값 전체. meta.json은 공개 리포에 올라가므로 비밀·개인정보 키는 제외."""
+    import screener.config as cfg
+
+    snap: dict[str, Any] = {}
+    for k in dir(cfg):
+        if not k.isupper() or k in _SNAPSHOT_SKIP or any(m in k for m in _SECRET_MARKERS):
+            continue
+        v = getattr(cfg, k)
+        try:
+            json.dumps(v)
+        except TypeError:
+            continue
+        snap[k] = v
+    return snap
+
+
+def default_universe() -> list[str]:
+    """기본 백테스트 유니버스 (고정 순서).
+
+    TICKERS는 set으로 만들어져 프로세스마다 순서가 달라서, max_tickers로 자르면
+    실행할 때마다 다른 종목이 뽑혔다. 정렬 후 고정 시드로 섞어 항상 같은 종목을 쓴다.
+    """
+    universe = sorted(TICKERS)
+    random.Random(42).shuffle(universe)
+    return universe
+
+
+def _pit_universe_tickers(membership: Any, period: str) -> list[str]:
+    """기간 중 한 번이라도 S&P 500이었던 종목 (고정 순서). 나중에 빠진 종목까지 넣어야 생존 편향이 줄어든다."""
+    years = int(period[:-1]) if period.endswith("y") and period[:-1].isdigit() else 10
+    today = date.today()
+    start = date(today.year - years, today.month, min(today.day, 28))
+    universe = sorted(membership.union_between(str(start), str(today)))
+    random.Random(42).shuffle(universe)
+    return universe
+
+
+def _next_open(opens: pd.DataFrame, next_date_ts: pd.Timestamp, ticker: str) -> float | None:
+    """다음날 시가 (없거나 0이면 None)."""
+    if ticker not in opens.columns:
+        return None
+    price = float(opens.at[next_date_ts, ticker])
+    return None if np.isnan(price) or price == 0 else price
 
 
 @dataclass
@@ -120,12 +191,14 @@ def _close_position(
         if pos.ticker == ticker:
             positions.pop(i)
             entry_price = pos.entry_price
-            return_pct = (exit_price - entry_price) / entry_price if entry_price else 0.0
+            entry_eff = entry_price * (1 + BACKTEST_COST_PER_SIDE)
+            exit_eff = exit_price * (1 - BACKTEST_COST_PER_SIDE)
+            return_pct = (exit_eff - entry_eff) / entry_eff if entry_price else 0.0
             entry_dt = datetime.strptime(pos.entry_date, "%Y-%m-%d")
             exit_dt = datetime.strptime(exit_date, "%Y-%m-%d")
             holding_days = (exit_dt - entry_dt).days
-            proceeds = pos.shares * exit_price if pos.shares > 0 else 0.0
-            dollar_pnl = pos.shares * (exit_price - entry_price) if pos.shares > 0 else 0.0
+            proceeds = pos.shares * exit_eff if pos.shares > 0 else 0.0
+            dollar_pnl = pos.shares * (exit_eff - entry_eff) if pos.shares > 0 else 0.0
             trade = {
                 "ticker": ticker,
                 "entry_date": pos.entry_date,
@@ -241,6 +314,21 @@ def _calculate_metrics(
         summary["총수익금"] = round(total_dollar_pnl, 2)
         summary["총수익률_자본기준"] = round((final_cash - initial_capital) / initial_capital, 4)
 
+    if equity_series is not None and len(equity_series) > 20 and initial_capital > 0:
+        eq = equity_series.dropna()
+        daily = eq.pct_change().dropna()
+        if daily.std() > 0:
+            summary["Sharpe_일간"] = round(float(daily.mean() / daily.std() * np.sqrt(252)), 2)
+            down = daily[daily < 0].std()
+            summary["Sortino_일간"] = round(float(daily.mean() / down * np.sqrt(252)), 2) if down > 0 else None
+        years = len(eq) / 252
+        if years > 0 and eq.iloc[0] > 0:
+            cagr = float((eq.iloc[-1] / eq.iloc[0]) ** (1 / years) - 1)
+            summary["CAGR"] = round(cagr, 4)
+            summary["Calmar"] = round(cagr / abs(mdd), 2) if mdd else None
+    if spy_returns is not None and len(spy_returns) > 20 and spy_returns.std() > 0:
+        summary["SPY_Sharpe_일간"] = round(float(spy_returns.mean() / spy_returns.std() * np.sqrt(252)), 2)
+
     return summary
 
 
@@ -316,6 +404,12 @@ def _extract_entry_features(
     ccs_breakdown: dict = candidate.get("ccs_breakdown", {})
     for k in ("strategy_fit", "timing", "alpha", "risk", "confluence", "penalty"):
         feats[f"ccs_{k}"] = _safe_val(ccs_breakdown.get(k))
+    # v1·v2 점수를 모두 남겨 같은 거래로 IC를 비교한다
+    feats["ccs_v1"] = _safe_val(candidate.get("ccs_v1"))
+    feats["ccs_v2"] = _safe_val(candidate.get("ccs_v2"))
+    for k, v in (candidate.get("ccs_v2_breakdown") or {}).items():
+        if k != "strategy_fit":
+            feats[f"ccs_{k}"] = _safe_val(v)
 
     return feats
 
@@ -330,11 +424,15 @@ def run_paper_trading_backtest(
     max_tickers: int | None = 100,
     initial_capital: float = 0.0,
     no_cache: bool = False,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    save_run: bool = True,
+    pit_universe: bool | None = None,
 ) -> dict[str, Any]:
     """페이퍼 트레이딩 로직을 과거 데이터로 시뮬레이션.
 
     Args:
-        tickers: 분석할 종목 리스트 (None이면 config의 TICKERS 사용)
+        tickers: 분석할 종목 리스트 (None이면 default_universe())
         no_cache: True이면 디스크 캐시를 무시하고 처음부터 전체 재계산
         period: 데이터 기간 ('1y', '2y' 등)
         rebalance_every: 후보 선정 주기 (거래일 기준)
@@ -342,12 +440,22 @@ def run_paper_trading_backtest(
         min_history_days: 기술적 지표 계산에 필요한 최소 히스토리 일수
         max_tickers: 최대 티커 수 제한 (None이면 전체)
         initial_capital: 초기 자본금 (0이면 수익률 모드, >0이면 달러 추적 모드)
+        start_date/end_date: 시뮬레이션 구간 YYYY-MM-DD (walk-forward·홀드아웃용)
+        save_run: False면 output/ 에 파일을 남기지 않는다 (Optuna 반복 실행용)
+        pit_universe: True면 그날의 S&P 500 구성종목만 후보로 (None이면 config.BACKTEST_PIT_UNIVERSE)
 
     Returns:
         {"trades": list[dict], "summary": dict, "equity_curve": pd.Series}
     """
+    membership = None
+    if _cfg.BACKTEST_PIT_UNIVERSE if pit_universe is None else pit_universe:
+        from paper_trading.universe import Membership, load_membership
+        membership = Membership(load_membership(_PROJECT_ROOT / _cfg.SP500_MEMBERSHIP_PATH))
+        if tickers is None:
+            tickers = _pit_universe_tickers(membership, period)
+            print(f"[백테스트] PIT 유니버스: 기간 중 S&P 500 이었던 {len(tickers)}개 종목")
     if tickers is None:
-        tickers = list(TICKERS)
+        tickers = default_universe()
 
     # SPY 추가 (레짐 감지 + 벤치마크)
     if "SPY" not in tickers:
@@ -381,7 +489,7 @@ def run_paper_trading_backtest(
         spy_returns = spy_closes.pct_change().dropna()
 
     # OHLCV 해시 계산 (캐시 키)
-    ohlcv_key = ",".join(sorted(tickers)) + "|" + period
+    ohlcv_key = ",".join(sorted(tickers)) + "|" + period + f"|fund={int(include_fundamentals)}|code={_code_hash()}"
     ohlcv_hash = hashlib.md5(ohlcv_key.encode()).hexdigest()[:12]
 
     # Feature 캐시 유효성 확인
@@ -414,6 +522,10 @@ def run_paper_trading_backtest(
             non_spy_tickers, use_cache=(not no_cache)
         )
 
+    if prefetched_fundamentals is not None and BACKTEST_FUNDAMENTALS_PIT_SAFE:
+        keep = [c for c in ("티커", "fund_sector") if c in prefetched_fundamentals.columns]
+        prefetched_fundamentals = prefetched_fundamentals[keep]
+
     price_map = _prepare_price_map(raw)
     ranked_cache: dict[pd.Timestamp, pd.DataFrame] = {}
     ic_weights_cache: dict = {}  # IC 가중치 캐시 (20거래일마다 재계산)
@@ -426,14 +538,21 @@ def run_paper_trading_backtest(
     equity_points: list[tuple[str, float]] = []
 
     start_idx = min_history_days
+    last_idx = len(dates) - 1
+    if start_date:
+        start_idx = max(start_idx, next((i for i, d in enumerate(dates) if str(d.date()) >= start_date), last_idx))
+    if end_date:
+        last_idx = max((i for i, d in enumerate(dates) if str(d.date()) <= end_date), default=start_idx)
+    if last_idx - start_idx < 2:
+        raise ValueError(f"시뮬레이션 구간이 너무 짧습니다 (start={start_date}, end={end_date})")
     sim_start_date = str(dates[start_idx].date())
-    sim_end_date = str(dates[-1].date())
+    sim_end_date = str(dates[last_idx].date())
 
-    total_days = len(dates) - start_idx - 1
+    total_days = last_idx - start_idx
     sim_wall_start = datetime.now()
     print(f"[백테스트] 시뮬레이션 시작: {sim_start_date} ~ {sim_end_date} ({total_days}거래일)")
 
-    for idx in range(start_idx, len(dates) - 1):
+    for idx in range(start_idx, last_idx):
         date_ts = dates[idx]
         next_date_ts = dates[idx + 1]
         today_str = str(date_ts.date())
@@ -543,72 +662,73 @@ def run_paper_trading_backtest(
             ohlcv_hash=ohlcv_hash,
             fundamentals_df=prefetched_fundamentals,
         )
+        if membership is not None and "티커" in ranked_df.columns:
+            ranked_df = ranked_df[ranked_df["티커"].isin(membership.on(today_str) | {"SPY"})]
 
         if ranked_df.empty:
             _record_equity(equity_points, positions, closes, date_ts, today_str, cash=cash, use_capital=use_capital)
             continue
 
         pos_dicts = [p.to_dict() for p in positions]
-        candidate, cand_debug = select_best_candidate(ranked_df, pos_dicts)
+        candidates, cand_debug = select_top_candidates(
+            ranked_df, pos_dicts, k=max(1, int(_cfg.PAPER_TRADING_MAX_DAILY_BUY)),
+        )
 
         # 약세장 최대 포지션 축소
         bt_regime = cand_debug.get("regime", "neutral")
-        effective_max = MAX_POSITIONS if bt_regime != "bear" else max(1, MAX_POSITIONS - 1)
-
-        if candidate is None:
-            _record_equity(equity_points, positions, closes, date_ts, today_str, cash=cash, use_capital=use_capital)
-            continue
-
-        cand_ticker = candidate["ticker"]
-        if cand_ticker not in opens.columns:
-            _record_equity(equity_points, positions, closes, date_ts, today_str, cash=cash, use_capital=use_capital)
-            continue
-
-        entry_price = float(opens.at[next_date_ts, cand_ticker])
-        if np.isnan(entry_price) or entry_price == 0:
-            _record_equity(equity_points, positions, closes, date_ts, today_str, cash=cash, use_capital=use_capital)
-            continue
+        max_positions = int(_cfg.PAPER_TRADING_MAX_POSITIONS)
+        effective_max = max_positions if bt_regime != "bear" else max(1, max_positions - 1)
 
         # ── 4. 매수/교체 판단 ───────────────────────────────────
         if len(positions) < effective_max:
-            # 빈 슬롯 → 신규 매수
-            if use_capital:
-                empty_slots = effective_max - len(positions)
-                allocation = cash / max(1, empty_slots)
-                shares = allocation / entry_price
-                cash -= allocation
-            else:
-                shares = 0.0
-            positions.append(BtPosition(
-                ticker=cand_ticker,
-                entry_price=entry_price,
-                entry_date=next_str,
-                strategy=candidate["strategy"],
-                star_rating=candidate["star_rating"],
-                ccs_score=candidate["ccs_score"],
-                sector=candidate["sector"],
-                highest_price=entry_price,
-                shares=shares,
-                entry_features=_extract_entry_features(ranked_df, cand_ticker, candidate, cand_debug),
-            ))
-            logger.debug(f"[BtPaper] BUY {cand_ticker} @ {entry_price:.2f} (CCS={candidate['ccs_score']:.4f}) on {next_str}")
+            # 빈 슬롯 → 신규 매수 (하루 최대 PAPER_TRADING_MAX_DAILY_BUY개)
+            for candidate in candidates:
+                if len(positions) >= effective_max:
+                    break
+                cand_ticker = candidate["ticker"]
+                entry_price = _next_open(opens, next_date_ts, cand_ticker)
+                if entry_price is None:
+                    continue
+                if use_capital:
+                    empty_slots = effective_max - len(positions)
+                    allocation = cash / max(1, empty_slots)
+                    shares = allocation / (entry_price * (1 + BACKTEST_COST_PER_SIDE))
+                    cash -= allocation
+                else:
+                    shares = 0.0
+                positions.append(BtPosition(
+                    ticker=cand_ticker,
+                    entry_price=entry_price,
+                    entry_date=next_str,
+                    strategy=candidate["strategy"],
+                    star_rating=candidate["star_rating"],
+                    ccs_score=candidate["ccs_score"],
+                    sector=candidate["sector"],
+                    highest_price=entry_price,
+                    shares=shares,
+                    entry_features=_extract_entry_features(ranked_df, cand_ticker, candidate, cand_debug),
+                ))
+                logger.debug(f"[BtPaper] BUY {cand_ticker} @ {entry_price:.2f} (CCS={candidate['ccs_score']:.4f}) on {next_str}")
 
-        elif len(positions) >= effective_max:
-            # 풀슬롯 → 교체 검토
+        elif candidates:
+            # 풀슬롯 → 교체 검토 (하루 1건)
+            candidate = candidates[0]
+            cand_ticker = candidate["ticker"]
+            entry_price = _next_open(opens, next_date_ts, cand_ticker)
             cur_prices = {
                 p.ticker: float(closes.at[date_ts, p.ticker])
                 for p in positions
                 if p.ticker in closes.columns and not np.isnan(float(closes.at[date_ts, p.ticker]))
             }
-            worst = get_worst_position(pos_dicts, cur_prices, ranked_df)
-            if worst and should_replace(candidate["ccs_score"], worst.get("ccs_score", 0)):
+            worst = get_worst_position(pos_dicts, cur_prices, ranked_df) if entry_price is not None else None
+            if worst and should_replace(candidate["ccs_score"], current_ccs(worst, cand_debug)):
                 worst_ticker = worst["ticker"]
                 worst_price = cur_prices.get(worst_ticker, worst["entry_price"])
                 _, proceeds = _close_position(positions, trades, worst_ticker, worst_price, next_str, f"교체→{cand_ticker}")
                 if use_capital:
                     cash += proceeds
                     allocation = cash / max(1, effective_max - len(positions))
-                    shares = allocation / entry_price
+                    shares = allocation / (entry_price * (1 + BACKTEST_COST_PER_SIDE))
                     cash -= allocation
                 else:
                     shares = 0.0
@@ -629,7 +749,7 @@ def run_paper_trading_backtest(
         _record_equity(equity_points, positions, closes, date_ts, today_str, cash=cash, use_capital=use_capital)
 
     # ── 잔여 포지션 강제 청산 ────────────────────────────────────
-    final_date_ts = dates[-1]
+    final_date_ts = dates[last_idx]
     final_str = str(final_date_ts.date())
     for pos in list(positions):
         if pos.ticker in closes.columns:
@@ -659,6 +779,38 @@ def run_paper_trading_backtest(
             else:
                 trade[key] = None
 
+    # ── 성과 지표 계산 (파일 저장보다 먼저 수행) ──────────────
+    if spy_returns is not None:
+        spy_in_range = spy_returns[(spy_returns.index >= dates[start_idx]) & (spy_returns.index <= dates[last_idx])]
+    else:
+        spy_in_range = None
+
+    equity_curve = pd.Series(
+        {pd.Timestamp(d): v for d, v in equity_points},
+        name="equity_curve",
+    ) if equity_points else pd.Series(dtype=float)
+
+    summary = _calculate_metrics(
+        trades, spy_in_range,
+        initial_capital=initial_capital, final_cash=cash,
+        equity_series=equity_curve if not equity_curve.empty else None,
+    )
+    summary["시뮬레이션_시작"] = sim_start_date
+    summary["시뮬레이션_종료"] = sim_end_date
+    if use_capital and summary.get("총거래수"):
+        from paper_trading.benchmarks import benchmark_summary
+        summary.update(benchmark_summary(
+            equity_curve, closes,
+            top_n=int(_cfg.BENCHMARK_MOMENTUM_TOP_N),
+            cost_per_side=BACKTEST_COST_PER_SIDE,
+            members_on=membership.on if membership is not None else None,
+        ))
+        summary["PIT_유니버스"] = membership is not None
+
+    if not save_run:
+        sys.stdout.write("\n")
+        return {"trades": trades, "summary": summary, "equity_curve": equity_curve, "enhanced_trades_path": None}
+
     # ── 향상된 거래 로그 저장 ────────────────────────────────────
     import json, os, csv
     output_dir = "output"
@@ -683,25 +835,6 @@ def run_paper_trading_backtest(
             writer.writeheader()
             writer.writerows(flat_trades)
         print(f"[백테스트] 향상된 거래 로그 저장: {enhanced_json_path}, {enhanced_csv_path}")
-
-    # ── 성과 지표 계산 (meta.json 저장보다 먼저 수행) ──────────────
-    if spy_returns is not None:
-        spy_in_range = spy_returns[spy_returns.index >= dates[start_idx]]
-    else:
-        spy_in_range = None
-
-    equity_curve = pd.Series(
-        {pd.Timestamp(d): v for d, v in equity_points},
-        name="equity_curve",
-    ) if equity_points else pd.Series(dtype=float)
-
-    summary = _calculate_metrics(
-        trades, spy_in_range,
-        initial_capital=initial_capital, final_cash=cash,
-        equity_series=equity_curve if not equity_curve.empty else None,
-    )
-    summary["시뮬레이션_시작"] = sim_start_date
-    summary["시뮬레이션_종료"] = sim_end_date
 
     # ── 버전 run 폴더 자동 저장 ────────────────────────────────────
     run_ts = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -750,13 +883,30 @@ def run_paper_trading_backtest(
 
         meta = {
             "run_label": run_ts,
+            "code_hash": _code_hash(),
+            "config_hash": hashlib.md5(
+                json.dumps(_config_snapshot(), sort_keys=True, ensure_ascii=False, default=str).encode()
+            ).hexdigest()[:8],
+            "equity_metrics": {
+                k: summary.get(k)
+                for k in ("CAGR", "Sharpe_일간", "Sortino_일간", "Calmar", "SPY_Sharpe_일간")
+            },
+            "baselines": {
+                k: v for k, v in summary.items()
+                if k.startswith(("기준_", "알파_", "베타_", "모멘텀대비_", "PIT_"))
+            },
+            "cost_per_side": BACKTEST_COST_PER_SIDE,
+            "fundamentals_pit_safe": BACKTEST_FUNDAMENTALS_PIT_SAFE,
+            "config_full": _config_snapshot(),
             "period": period,
             "capital": initial_capital,
             "flags": {
                 "include_fundamentals": bool(include_fundamentals),
                 "no_cache": bool(no_cache),
                 "rebalance_every": int(rebalance_every),
-                "max_positions": int(MAX_POSITIONS),
+                "max_positions": int(_cfg.PAPER_TRADING_MAX_POSITIONS),
+                "max_daily_buy": int(_cfg.PAPER_TRADING_MAX_DAILY_BUY),
+                "pit_universe": membership is not None,
                 "min_history_days": int(min_history_days),
             },
             "git": _git_info(),
@@ -887,6 +1037,17 @@ def print_summary(summary: dict[str, Any], trades: list[dict]) -> None:
         print(f"\n  SPY수익률:  {summary['SPY수익률']:+.2%}")
         print(f"  전략수익률: {summary.get('전략총수익률', 0):+.2%}")
         print(f"  초과수익:   {summary.get('SPY초과수익', 0):+.2%}")
+
+    if "기준_모멘텀_Sharpe" in summary:
+        n = summary.get("기준_모멘텀_N", 20)
+        print(f"\n  쉬운 방법과 비교 (Sharpe / CAGR / MDD){'  [PIT 유니버스]' if summary.get('PIT_유니버스') else ''}")
+        print(f"    이 전략        {summary.get('Sharpe_일간', 0):5.2f} / {summary.get('CAGR', 0):+.1%} / {summary.get('MDD', 0):.1%}")
+        print(f"    SPY 보유       {summary['기준_SPY_Sharpe']:5.2f} / {summary['기준_SPY_CAGR']:+.1%} / {summary['기준_SPY_MDD']:.1%}")
+        print(f"    모멘텀 상위{n:<3} {summary['기준_모멘텀_Sharpe']:5.2f} / {summary['기준_모멘텀_CAGR']:+.1%} / {summary['기준_모멘텀_MDD']:.1%}")
+        if "알파_연" in summary:
+            print(f"    알파(시장·모멘텀 제외) {summary['알파_연']:+.1%}/년 (t={summary['알파_t']:.2f}, 2 이상이면 의미)")
+        if "모멘텀대비_판정" in summary:
+            print(f"    모멘텀 대비 ΔSharpe {summary['모멘텀대비_ΔSharpe']:+.2f} {summary['모멘텀대비_95%']} → {summary['모멘텀대비_판정']}")
 
     strat_perf = summary.get("전략별", {})
     if strat_perf:

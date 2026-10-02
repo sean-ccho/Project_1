@@ -11,11 +11,15 @@ parquet 스냅샷으로 저장한 뒤, 합쳐서 단 한 번 paper trading을 �
 from __future__ import annotations
 
 import logging
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
+from paper_trading.golden_cross import extract_golden_cross as _extract_golden_cross_imminent
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +27,18 @@ logger = logging.getLogger(__name__)
 _SNAPSHOT_DIR = Path("data/paper_trading")
 _SP500_SNAPSHOT = _SNAPSHOT_DIR / "sp500_ranked.parquet"
 _NASDAQ_SNAPSHOT = _SNAPSHOT_DIR / "nasdaq_ranked.parquet"
+
+# 스크리너가 쓴 마지막 일봉 날짜 (main.py / run_full_scan.py에서 기록)
+BAR_DATE_COL = "_bar_date"
+
+
+def snapshot_bar_date(df: pd.DataFrame | None) -> str | None:
+    """스냅샷의 일봉 날짜(YYYY-MM-DD). 컬럼이 없으면 None."""
+    if df is None or df.empty or BAR_DATE_COL not in df.columns:
+        return None
+    values = df[BAR_DATE_COL].dropna().astype(str)
+    values = values[values.str.len() == 10]
+    return str(values.max()) if not values.empty else None
 
 
 # ── 저장 ─────────────────────────────────────────────────────
@@ -106,6 +122,15 @@ def load_and_merge_snapshots() -> pd.DataFrame | None:
         logger.error("[Runner] 로드된 snapshot이 없습니다.")
         return None
 
+    # 한쪽 스크리너가 실패하면 이전 날짜 스냅샷이 남는다 → 최신 일봉 날짜 스냅샷만 사용
+    dated = [snapshot_bar_date(d) for d in dfs]
+    known = [d for d in dated if d]
+    if known:
+        newest = max(known)
+        if any(d != newest for d in dated):
+            print(f"[Unified PT] 일봉 날짜가 다른 스냅샷 제외: {dated} → {newest}만 사용")
+            dfs = [d for d, bd in zip(dfs, dated) if bd == newest]
+
     if len(dfs) == 1:
         return dfs[0]
 
@@ -146,106 +171,17 @@ def load_and_merge_snapshots() -> pd.DataFrame | None:
     return combined.reset_index(drop=True)
 
 
-def _extract_golden_cross_imminent(df: pd.DataFrame | None) -> list[dict]:
-    """merged_df에서 골든크로스 임박/직후 종목을 추출.
-
-    각 TF(일봉/주봉/월봉) 패턴 컬럼에서:
-      - "골든크로스임박" → 음수 갭 (단기MA < 장기MA, 5% 이내)
-      - "골든크로스" → 양수 갭 (방금 교차, 0~5% 이내만 포함)
-    부호로 임박/직후를 구분한다 (표시 레이어가 +/- 그대로 출력).
-
-    정렬:
-      1) 다중 TF 우선 (tf_count 내림차순)
-      2) 일봉 포함 우선
-      3) 갭 0에 가장 가까운 순 (교차 시점 근접도)
-    """
-    if df is None or df.empty or "티커" not in df.columns:
-        return []
-
-    # 패턴 컬럼 ↔ MA갭 컬럼 매핑.
-    # gap_col이 dataframe에 없으면 conf_col로 폴백 (임박 conf만 역산 가능, 직후는 미감지).
-    # 폴백은 features.py 업데이트 전의 기존 parquet에서 회귀를 막기 위한 안전망.
-    pattern_cols = [
-        ("일봉패턴", "일봉", "ema_gap_20_50", "일봉_골든크로스_신뢰도"),
-        ("주봉패턴", "주봉", "주봉_MA갭", "주봉_골든크로스_신뢰도"),
-        ("월봉패턴", "월봉", "월봉_MA갭", "월봉_골든크로스_신뢰도"),
-    ]
-    result: list[dict] = []
-
-    def _safe_float(val) -> float:
-        try:
-            return float(val)
-        except (TypeError, ValueError):
-            return 0.0
-
-    def _conf_to_neg_gap(conf: float) -> float:
-        # patterns.py 임박 공식: conf = 0.7 + (0.05 - |gap|) / 0.05 * 0.25 → |gap| 역산.
-        # 결과는 임박 가정으로 항상 음수 반환.
-        if conf <= 0:
-            return 0.0
-        return -max(0.0, 0.05 - 0.2 * (conf - 0.7))
-
-    for _, row in df.iterrows():
-        ticker = str(row.get("티커", "")).strip()
-        if not ticker:
-            continue
-        hit_tfs: list[str] = []
-        tf_gaps: list[tuple[str, float]] = []
-        for col, label, gap_col, conf_col in pattern_cols:
-            if col not in df.columns:
-                continue
-            tokens = [t.strip() for t in str(row.get(col, "")).split(",")]
-            is_imminent = "골든크로스임박" in tokens
-            is_passed = "골든크로스" in tokens
-            if not (is_imminent or is_passed):
-                continue
-            # 새 갭 컬럼 우선, 없으면 conf 역산 폴백 (임박만)
-            if gap_col in df.columns:
-                gap = _safe_float(row.get(gap_col))
-            elif is_imminent:
-                gap = _conf_to_neg_gap(_safe_float(row.get(conf_col)))
-            else:
-                # 직후인데 갭 컬럼 없음 → 표시 불가, 스킵
-                continue
-            if is_imminent:
-                # 임박은 음수 갭(단기<장기) — 5% 이내 안전 필터
-                if gap > 0 or abs(gap) > 0.05:
-                    continue
-            else:
-                # 직후는 양수 갭(단기>장기) — 0~5% 이내만 (HCWB +37% 같은 과이자 제외)
-                if gap < 0 or gap > 0.05:
-                    continue
-            hit_tfs.append(label)
-            tf_gaps.append((label, gap))
-        if hit_tfs:
-            result.append({
-                "ticker": ticker,
-                "sector": str(row.get("섹터", "")),
-                "current_price": _safe_float(row.get("현재가격", row.get("close"))),
-                "timeframes": hit_tfs,
-                "tf_gaps": tf_gaps,
-                "strategy": str(row.get("전략구분", "")),
-                "star": str(row.get("매수적합도_표시", "")),
-                "vol_ratio": _safe_float(row.get("거래량돌파배수")),
-                "vol_ma20": _safe_float(row.get("volume_ma20")),
-                "tf_count": len(hit_tfs),
-                "has_daily": "일봉" in hit_tfs,
-            })
-
-    # 정렬: 다중 TF → 일봉 포함 → 갭 0에 가까운 순
-    result.sort(
-        key=lambda g: (-g["tf_count"], not g["has_daily"], min(abs(x) for _, x in g["tf_gaps"]))
-    )
-    return result
-
-
 # ── 통합 실행 ─────────────────────────────────────────────────
 
 
-def run_unified_paper_trading() -> None:
-    """통합 paper trading 실행 진입점.
+def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None) -> None:
+    """통합 paper trading 실행 진입점 (PT-1).
 
     GitHub Actions: main.py → run_full_scan.py → run_paper_trading.py 순으로 실행.
+
+    Args:
+        dry_run: True면 임시 폴더에서만 매매하고 시트·이메일·상태 기록을 하지 않는다.
+        as_of: 거래일(YYYY-MM-DD) 강제 지정. 없으면 스냅샷의 일봉 날짜를 쓴다.
     """
     logging.basicConfig(
         level=logging.INFO,
@@ -254,13 +190,29 @@ def run_unified_paper_trading() -> None:
     )
 
     print("=" * 60)
-    print("[Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작")
+    print("[Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작" + (" (DRY-RUN)" if dry_run else ""))
     print("=" * 60)
 
     merged_df = load_and_merge_snapshots()
     if merged_df is None or merged_df.empty:
         print("[Unified PT] merged ranked_df가 없어 paper trading을 건너뜁니다.")
         return
+
+    from paper_trading.market_date import check_run_guard, mark_processed, market_today
+    from screener.config import PAPER_TRADING_DATA_DIR
+
+    data_dir = Path(PAPER_TRADING_DATA_DIR)
+    bar_date = as_of or snapshot_bar_date(merged_df)
+    if dry_run:
+        if not bar_date:
+            bar_date = str(market_today())
+            print(f"[Unified PT] 스냅샷에 일봉 날짜가 없어 {bar_date}로 가정 (DRY-RUN)")
+    else:
+        ok, reason = check_run_guard(bar_date, data_dir)
+        if not ok:
+            print(f"[Unified PT] 건너뜀: {reason}")
+            return
+    print(f"[Unified PT] 거래일(일봉 날짜): {bar_date}")
 
     golden_cross = _extract_golden_cross_imminent(merged_df)
     print(f"[Unified PT] 골든크로스임박 종목: {len(golden_cross)}개")
@@ -271,7 +223,16 @@ def run_unified_paper_trading() -> None:
     from screener.exporter import send_paper_trading_email
     from data.fetch import fetch_latest_prices
 
-    pt_result = run_daily_trading(merged_df)
+    work_dir = data_dir
+    if dry_run:
+        work_dir = Path(tempfile.mkdtemp(prefix="pt1_dryrun_"))
+        for name in ("positions.json", "trades.json"):
+            if (data_dir / name).exists():
+                shutil.copy2(data_dir / name, work_dir / name)
+
+    pt_result = run_daily_trading(merged_df, data_dir=work_dir, today=bar_date)
+    if not dry_run:
+        mark_processed(data_dir, bar_date, account="pt1")
 
     sells: list[dict[str, Any]] = pt_result.get("sells", [])
     buys: list[dict[str, Any]] = pt_result.get("buys", [])
@@ -298,6 +259,10 @@ def run_unified_paper_trading() -> None:
                     f"  {s['ticker']:6s} CCS={s['ccs']:.4f} "
                     f"전략={s['strategy'][:8]} 섹터={s['sector']}"
                 )
+
+    if dry_run:
+        print(f"[Unified PT] DRY-RUN 종료 — 결과 파일: {work_dir} (시트·이메일·상태 기록 안 함)")
+        return
 
     # ── 구글 시트 동기화 ──
     positions = load_positions()
