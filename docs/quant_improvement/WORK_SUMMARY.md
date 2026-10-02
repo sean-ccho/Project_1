@@ -461,3 +461,4 @@ PYTHONPATH=.:src python scripts/optimize_optuna.py --account pt2 --evaluate-hold
 | 2026-10-01 | Tier 1.5 스위치 H1~H6 + A/B 실행기, 버그 L 수정, 이 문서 |
 | 2026-10-01 | 비판적 검토 반영 (2-8): 쉬운 방법 비교·알파, A/B 운 판정, 하루 여러 종목 매수(T2), PIT 유니버스. 연구 순서를 T2 → H1~H6으로 변경 |
 | 2026-10-01 | 메인 컴퓨터 이전 가이드 [HANDOFF.md](HANDOFF.md) + zip 패키지 (패치 방식 대체) |
+| 2026-10-02 | 메인 컴퓨터 이전 완료 (머지 커밋 `3b732a4`). Python 3.11.17 설치, 테스트 134개 통과, dry-run 3계좌(PT-1·PT-2·PT-3) 정상 확인 |
