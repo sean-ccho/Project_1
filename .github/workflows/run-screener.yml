@@ -191,11 +191,11 @@ jobs:
         if: always()
         run: |
           # SP500 스크린샷 → screenshots-sp500 브랜치 (히스토리 없이 매번 교체)
-          if [ -d "charts/screenshots" ] && [ "$(ls -A charts/screenshots 2>/dev/null)" ]; then
+          if [ -d "charts/screenshots_sp500" ] && [ "$(ls -A charts/screenshots_sp500 2>/dev/null)" ]; then
             echo "📸 SP500 스크린샷 orphan 푸시 중..."
             git checkout --orphan screenshots-sp500-tmp
             git reset
-            git add -f charts/screenshots
+            git add -f charts/screenshots_sp500
             git commit -m "screenshots update $(date +%s) [skip ci]"
             git push origin screenshots-sp500-tmp:screenshots-sp500 --force
             git checkout -f main

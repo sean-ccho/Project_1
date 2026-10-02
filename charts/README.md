@@ -16,7 +16,7 @@ python test_chart_capture.py
 브라우저가 자동으로 열리고 TradingView 차트를 캡처합니다.
 
 ### 3. 결과 확인
-캡처된 이미지는 `charts/screenshots/` 폴더에 저장됩니다.
+캡처된 이미지는 `charts/screenshots_sp500/` 폴더에 저장됩니다.
 
 ---
 

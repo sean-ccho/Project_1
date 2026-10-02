@@ -41,7 +41,7 @@ def test_chart_capture():
     
     print("\n" + "=" * 60)
     print("테스트 완료")
-    print(f"저장 위치: {project_root}/charts/screenshots/")
+    print(f"저장 위치: {project_root}/charts/screenshots_sp500/")
     print("=" * 60)
 
 if __name__ == "__main__":

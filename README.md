@@ -264,8 +264,8 @@ TradingView 스크린샷은 `main` 브랜치 히스토리에 누적되지 않도
 - 매일 실행 시 이전 이미지를 통째로 교체(force push)하므로 **`.git` 용량이 누적되지 않습니다.**
 - Google Sheets의 `=IMAGE()` 수식은 각 orphan 브랜치의 Raw URL을 참조합니다:
   ```
-  https://raw.githubusercontent.com/sean-ccho/Project_1/screenshots-sp500/charts/screenshots/...
-  https://raw.githubusercontent.com/sean-ccho/Project_1/screenshots-nasdaq/charts/screenshots_nasdaq/...
+  https://raw.githubusercontent.com/sean-ccho/Project_1/screenshots-sp500/charts/screenshots_sp500/...
+  https://raw.githubusercontent.com/sean-ccho/Project_1/screenshots-nasdaq/charts/screenshots_sp500_nasdaq/...
   ```
 
 ---
@@ -282,9 +282,9 @@ pip install git-filter-repo
 
 # 2. 스크린샷 히스토리 제거 (시간 다소 소요)
 python3 $(pip show git-filter-repo | grep Location | awk '{print $2}')/git_filter_repo.py \
-  --path charts/screenshots --invert-paths --force
+  --path charts/screenshots_sp500 --invert-paths --force
 python3 $(pip show git-filter-repo | grep Location | awk '{print $2}')/git_filter_repo.py \
-  --path charts/screenshots_nasdaq --invert-paths --force
+  --path charts/screenshots_sp500_nasdaq --invert-paths --force
 
 # 3. 디스크에서 실제 삭제
 git gc --aggressive --prune=now

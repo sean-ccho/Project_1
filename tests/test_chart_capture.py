@@ -83,4 +83,4 @@ if __name__ == "__main__":
         sys.exit(1)
     
     print("✨ 테스트 완료!")
-    print(f"📁 스크린샷 위치: {project_root}/charts/screenshots/")
+    print(f"📁 스크린샷 위치: {project_root}/charts/screenshots_sp500/")

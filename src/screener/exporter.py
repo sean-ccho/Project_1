@@ -605,7 +605,7 @@ def _build_chart_images_html(
 ) -> str:
     """종목 차트 이미지 3개(Daily/Weekly/Monthly)를 가로로 배치한 HTML 생성.
 
-    charts/screenshots/{ticker}/ 폴더에서 최신 파일을 찾아 GitHub Raw URL로 참조.
+    charts/screenshots_sp500/{ticker}/ 폴더에서 최신 파일을 찾아 GitHub Raw URL로 참조.
     파일이 없으면 빈 문자열 반환 (graceful degradation).
     """
     from pathlib import Path

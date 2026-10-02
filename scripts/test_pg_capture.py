@@ -10,12 +10,12 @@ from charts.tradingview_capture import capture_tradingview_chart
 
 def main():
     print("Capturing PG chart...")
-    path_pg = capture_tradingview_chart("PG", timeframe="Daily", output_dir="charts/screenshots/test", headless=True)
+    path_pg = capture_tradingview_chart("PG", timeframe="Daily", output_dir="charts/screenshots_sp500/test", headless=True)
     if path_pg:
         print(f"PG Success! Saved to {path_pg}")
         
     print("Capturing NBM.V chart...")
-    path_nbm = capture_tradingview_chart("NBM.V", timeframe="Daily", output_dir="charts/screenshots/test", headless=True)
+    path_nbm = capture_tradingview_chart("NBM.V", timeframe="Daily", output_dir="charts/screenshots_sp500/test", headless=True)
     if path_nbm:
         print(f"NBM.V Success! Saved to {path_nbm}")
 
