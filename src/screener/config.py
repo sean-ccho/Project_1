@@ -160,7 +160,7 @@ MOMENTUM_MIN_GAIN_20D = 0.15         # 최근 20일 최소 수익률 (15%)
 CHARTS_ENABLED = True  # 차트 캡처 기능 on/off
 CHARTS_TIMEFRAMES = ["1H", "4H", "Daily", "Weekly", "Monthly"]  # 캡처할 타임프레임 목록
 CHARTS_MIN_SCORE = 0.0  # 차트 캡처 최소 매수적합도 (0.0 = 모든 종목)
-CHARTS_OUTPUT_DIR = "charts/screenshots"          # SP500 차트 저장 디렉토리
+CHARTS_OUTPUT_DIR = "charts/screenshots_sp500"          # SP500 차트 저장 디렉토리
 CHARTS_SIGNALS2_OUTPUT_DIR = "charts/screenshots_nasdaq"  # NASDAQ/NYSE 차트 저장 디렉토리 (SP500과 분리)
 
 # TradingView 티커 매핑 (시스템 티커 -> TradingView 티커)
@@ -191,8 +191,8 @@ EMAIL_SENDER = "chunghwan14@gmail.com"
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")  # Gmail의 경우 '앱 비밀번호' 사용 권장
 EMAIL_RECIPIENTS = [
     "chunghwan14@gmail.com",
-    "roykim0311@gmail.com",
-    "ssamjungtan@naver.com",
+    # "roykim0311@gmail.com",
+    # "ssamjungtan@naver.com",
 ]
 EMAIL_RECIPIENT = EMAIL_RECIPIENTS[0]  # 하위 호환 (기존 참조 안전)
 SMTP_SERVER = "smtp.gmail.com"

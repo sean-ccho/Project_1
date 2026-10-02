@@ -164,7 +164,7 @@ def build_export_dataframe(
     # --- TradingView 차트 캡처 (CHARTS_ENABLED이고 capture_charts가 True일 때만) ---
     from screener.config import CHARTS_ENABLED, CHARTS_MIN_SCORE, CHARTS_TIMEFRAMES
     from screener.config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, GOOGLE_SHEETS_CREDENTIALS_PATH
-    from screener.config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME, GITHUB_BRANCH_NAME
+    from screener.config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME
     from screener.config import CHARTS_OUTPUT_DIR
     
     if CHARTS_ENABLED and capture_charts:
@@ -258,13 +258,12 @@ def build_export_dataframe(
                                     ranked.loc[ranked["티커"] == ticker, col_name] = image_formula
                                 # 업로드 실패 시 로컬 경로 그대로 유지
                             
-                            # GitHub 호스팅 사용 (Raw URL 생성)
+                            # GitHub 호스팅 사용 (orphan 브랜치 Raw URL)
                             elif GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
-                                # GitHub Raw URL 생성: https://raw.githubusercontent.com/{USER}/{REPO}/{BRANCH}/{PATH}
-                                # local_path는 상대 경로여야 함 (예: charts/screenshots/...)
+                                # screenshots-sp500 orphan 브랜치에서 이미지 참조
                                 # 구글 시트 캐싱 방지를 위해 쿼리 파라미터 추가 (?v=timestamp)
                                 cache_buster = int(time.time())
-                                github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/{GITHUB_BRANCH_NAME}/{local_path}?v={cache_buster}"
+                                github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/screenshots-sp500/{local_path}?v={cache_buster}"
                                 image_formula = f'=IMAGE("{github_url}")'
                                 ranked.loc[ranked["티커"] == ticker, col_name] = image_formula
                         
@@ -274,34 +273,8 @@ def build_export_dataframe(
                     continue
             
             print(f"[{context_label}] 차트 캡처 완료")
-            
-            # --- GitHub 자동 푸시 (이미지 업데이트 반영) ---
-            if GITHUB_UPLOAD_ENABLED:
-                try:
-                    import subprocess
-                    print(f"[{context_label}] GitHub에 차트 이미지 푸시 중...")
-
-                    # 1. 이전 스크린샷을 git 인덱스에서 제거 (히스토리 누적 방지)
-                    #    실제 파일은 삭제되지 않음 — git 추적에서만 해제
-                    subprocess.run(
-                        ["git", "rm", "-r", "--cached", "--ignore-unmatch", "charts/screenshots"],
-                        check=True,
-                    )
-
-                    # 2. 오늘 새 스크린샷만 스테이징
-                    subprocess.run(["git", "add", "-f", "charts/screenshots"], check=True)
-
-                    # 3. 커밋 (메시지에 타임스탬프)
-                    commit_msg = f"chore: update chart screenshots {int(time.time())} [skip ci]"
-                    subprocess.run(["git", "commit", "-m", commit_msg], check=False)  # 변경사항 없으면 실패할 수 있으므로 check=False
-
-                    # 4. 푸시
-                    subprocess.run(["git", "push"], check=True)
-                    print(f"[{context_label}] GitHub 푸시 완료")
-
-                except Exception as e:
-                    print(f"[{context_label}] GitHub 푸시 실패: {e}")
-            # ---------------------------------------------
+            # GitHub orphan push는 YAML step에서 처리 (git 브랜치 전환을 Python 내부에서 하면
+            # 이후 YAML step의 브랜치 상태가 꼬이는 문제 발생)
             
         else:
             print(f"[{context_label}] 차트 캡처 대상 종목이 없어 건너뜁니다.")
@@ -433,7 +406,7 @@ def main() -> None:
                 # --- TradingView 차트 캡처 ---
                 from screener.config import CHARTS_ENABLED, CHARTS_TIMEFRAMES, CHARTS_OUTPUT_DIR
                 from screener.config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, GOOGLE_SHEETS_CREDENTIALS_PATH
-                from screener.config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME, GITHUB_BRANCH_NAME
+                from screener.config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME
                 
                 if CHARTS_ENABLED:
                     from charts.tradingview_capture import capture_multiple_timeframes
@@ -483,7 +456,8 @@ def main() -> None:
                                             portfolio_export.loc[portfolio_export["티커"] == ticker, col_name] = image_formula
                                     elif GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
                                         cache_buster = int(time.time())
-                                        github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/{GITHUB_BRANCH_NAME}/{local_path}?v={cache_buster}"
+                                        # screenshots-sp500 orphan 브랜치에서 이미지 참조 (GITHUB_BRANCH_NAME=main이 아님!)
+                                        github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/screenshots-sp500/{local_path}?v={cache_buster}"
                                         image_formula = f'=IMAGE("{github_url}")'
                                         portfolio_export.loc[portfolio_export["티커"] == ticker, col_name] = image_formula
                                 
@@ -493,26 +467,7 @@ def main() -> None:
                             continue
                     
                     print(f"[{portfolio_label}] 차트 캡처 완료")
-                    
-                    # GitHub 자동 푸시
-                    if GITHUB_UPLOAD_ENABLED:
-                        try:
-                            import subprocess
-                            print(f"[{portfolio_label}] GitHub에 차트 이미지 푸시 중...")
-
-                            # 이전 스크린샷을 git 인덱스에서 제거 (히스토리 누적 방지)
-                            subprocess.run(
-                                ["git", "rm", "-r", "--cached", "--ignore-unmatch", "charts/screenshots"],
-                                check=True,
-                            )
-
-                            subprocess.run(["git", "add", "-f", "charts/screenshots"], check=True)
-                            commit_msg = f"chore: update chart screenshots {int(time.time())} [skip ci]"
-                            subprocess.run(["git", "commit", "-m", commit_msg], check=False)
-                            subprocess.run(["git", "push"], check=True)
-                            print(f"[{portfolio_label}] GitHub 푸시 완료")
-                        except Exception as e:
-                            print(f"[{portfolio_label}] GitHub 푸시 실패: {e}")
+                    # GitHub orphan push는 YAML step에서 처리
                 
                 # 내부자 거래 요약 컬럼 머지 (표시용, openinsider)
                 from screener.insider import attach_insider_summary

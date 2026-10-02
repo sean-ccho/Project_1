@@ -187,6 +187,39 @@ jobs:
               exit(1)
           "
 
+      - name: Push chart screenshots (orphan branch — no history accumulation)
+        if: always()
+        run: |
+          # SP500 스크린샷 → screenshots-sp500 브랜치 (히스토리 없이 매번 교체)
+          if [ -d "charts/screenshots_sp500" ] && [ "$(ls -A charts/screenshots_sp500 2>/dev/null)" ]; then
+            echo "📸 SP500 스크린샷 orphan 푸시 중..."
+            git checkout --orphan screenshots-sp500-tmp
+            git reset
+            git add -f charts/screenshots_sp500
+            git commit -m "screenshots update $(date +%s) [skip ci]"
+            git push origin screenshots-sp500-tmp:screenshots-sp500 --force
+            git checkout -f main
+            git branch -D screenshots-sp500-tmp
+            echo "✅ screenshots-sp500 브랜치 업데이트 완료"
+          else
+            echo "⏭️  SP500 스크린샷 없음, 건너뜀"
+          fi
+
+          # NASDAQ/NYSE 스크린샷 → screenshots-nasdaq 브랜치
+          if [ -d "charts/screenshots_nasdaq" ] && [ "$(ls -A charts/screenshots_nasdaq 2>/dev/null)" ]; then
+            echo "📸 NASDAQ 스크린샷 orphan 푸시 중..."
+            git checkout --orphan screenshots-nasdaq-tmp
+            git reset
+            git add -f charts/screenshots_nasdaq
+            git commit -m "screenshots update $(date +%s) [skip ci]"
+            git push origin screenshots-nasdaq-tmp:screenshots-nasdaq --force
+            git checkout -f main
+            git branch -D screenshots-nasdaq-tmp
+            echo "✅ screenshots-nasdaq 브랜치 업데이트 완료"
+          else
+            echo "⏭️  NASDAQ 스크린샷 없음, 건너뜀"
+          fi
+
       - name: Commit & push logs and paper trading state
         if: always()
         run: |

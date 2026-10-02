@@ -605,7 +605,7 @@ def _build_chart_images_html(
 ) -> str:
     """종목 차트 이미지 3개(Daily/Weekly/Monthly)를 가로로 배치한 HTML 생성.
 
-    charts/screenshots/{ticker}/ 폴더에서 최신 파일을 찾아 GitHub Raw URL로 참조.
+    charts/screenshots_sp500/{ticker}/ 폴더에서 최신 파일을 찾아 GitHub Raw URL로 참조.
     파일이 없으면 빈 문자열 반환 (graceful degradation).
     """
     from pathlib import Path
@@ -637,11 +637,16 @@ def _build_chart_images_html(
             matches = list(Path(search_dir).glob(f"{ticker}/{pattern}"))
             if matches:
                 latest = sorted(matches)[-1]
-                # GitHub Raw URL
+                # orphan 브랜치 Raw URL
+                # search_dir에 따라 브랜치 결정
                 rel_path = str(latest)
+                if search_dir == CHARTS_OUTPUT_DIR:
+                    img_branch = "screenshots-sp500"
+                else:
+                    img_branch = "screenshots-nasdaq"
                 url = (
                     f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}"
-                    f"/{GITHUB_BRANCH_NAME}/{rel_path}?v={cache_buster}"
+                    f"/{img_branch}/{rel_path}?v={cache_buster}"
                 )
                 chart_urls[tf] = url
                 break  # 이 timeframe에서 파일 찾았으면 다음 tf로

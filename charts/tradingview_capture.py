@@ -56,7 +56,7 @@ def prepare_tv_state() -> Path:
 def capture_tradingview_chart(
     ticker: str,
     timeframe: str = "D",
-    output_dir: str = "charts/screenshots",
+    output_dir: str = "charts/screenshots_sp500",
     headless: bool = True,
 ) -> str | None:
     """
@@ -230,7 +230,7 @@ def capture_tradingview_chart(
 def capture_multiple_timeframes(
     ticker: str,
     timeframes: list[str] = None,
-    output_dir: str = "charts/screenshots",
+    output_dir: str = "charts/screenshots_sp500",
     headless: bool = True,
 ) -> Dict[str, str]:
     """

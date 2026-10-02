@@ -464,7 +464,7 @@ def main() -> None:
                                             chart_export.loc[chart_export["티커"] == ticker, col_name] = f'=IMAGE("{drive_url}")'
                                     elif GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
                                         cache_buster = int(time.time())
-                                        github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/{GITHUB_BRANCH_NAME}/{local_path}?v={cache_buster}"
+                                        github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/screenshots-nasdaq/{local_path}?v={cache_buster}"
                                         chart_export.loc[chart_export["티커"] == ticker, col_name] = f'=IMAGE("{github_url}")'
 
                                 print(f"[{chart_label}] {ticker} 차트 {len(chart_paths)}개 처리 완료")
@@ -473,25 +473,7 @@ def main() -> None:
                             continue
 
                     print(f"[{chart_label}] 차트 캡처 완료")
-
-                    if GITHUB_UPLOAD_ENABLED:
-                        try:
-                            import subprocess
-                            print(f"[{chart_label}] GitHub에 차트 이미지 푸시 중...")
-
-                            # 이전 스크린샷을 git 인덱스에서 제거 (히스토리 누적 방지)
-                            subprocess.run(
-                                ["git", "rm", "-r", "--cached", "--ignore-unmatch", "charts/screenshots_nasdaq"],
-                                check=True,
-                            )
-
-                            subprocess.run(["git", "add", "-f", "charts/screenshots_nasdaq"], check=True)
-                            commit_msg = f"chore: update NASDAQ/NYSE chart screenshots {int(time.time())} [skip ci]"
-                            subprocess.run(["git", "commit", "-m", commit_msg], check=False)
-                            subprocess.run(["git", "push"], check=True)
-                            print(f"[{chart_label}] GitHub 푸시 완료")
-                        except Exception as e:
-                            print(f"[{chart_label}] GitHub 푸시 실패: {e}")
+                    # GitHub orphan push는 YAML step에서 처리
 
                 # 내부자 거래 요약 컬럼 머지 (표시용, openinsider)
                 from screener.insider import attach_insider_summary
