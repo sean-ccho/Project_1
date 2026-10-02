@@ -1,28 +1,113 @@
 ============================================================
 [Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작
 ============================================================
-2026-10-01 19:44:38,410 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 128개 종목
+2026-10-02 02:30:44,559 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 128개 종목
 [Unified PT] SP500 snapshot 로드: 128개 종목
-2026-10-01 19:44:38,420 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 228개 종목
-[Unified PT] NASDAQ snapshot 로드: 228개 종목
-[Unified PT] 합산 완료: 344개 종목 (SP500 128 + NASDAQ 228개, 중복 제거 후)
-[Unified PT] 골든크로스임박 종목: 46개
-2026-10-01 19:44:39,087 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 95 | 4.0~5.0: 26 | 5.0~5.5: 45 | 5.5~6.0: 48 | 6.0+: 130
-2026-10-01 19:44:39,099 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=11/344 | Selected: MSFT (CCS=0.5872)
-2026-10-01 19:44:39,108 [INFO] paper_trading.engine — [PaperTrading] 교체 기준 미달 — 매수 안 함
+2026-10-02 02:30:44,566 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 227개 종목
+[Unified PT] NASDAQ snapshot 로드: 227개 종목
+[Unified PT] 합산 완료: 343개 종목 (SP500 128 + NASDAQ 227개, 중복 제거 후)
+[Unified PT] 거래일(일봉 날짜): 2026-10-01
+[Unified PT] 골든크로스임박 종목: 37개
+2026-10-02 02:30:45,179 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 116 | 4.0~5.0: 41 | 5.0~5.5: 32 | 5.5~6.0: 51 | 6.0+: 103
+2026-10-02 02:30:45,194 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=8/343 | Selected: FIG (CCS=0.5106)
+2026-10-02 02:30:45,205 [INFO] paper_trading.engine — [PaperTrading] 교체 기준 미달 — 매수 안 함
 [Unified PT] 매도=0 매수=0 보유=3종목
-[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 214, '바닥반등_52주과열': 2, '판단등급_미달': 116, '과열_차단': 1, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 0, '모멘텀_ADX부족': 0, '바닥_RSI데드존': 0, '섹터_집중': 0, '_통과': 11, '_전체': 344}
+[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 240, '바닥반등_52주과열': 0, '판단등급_미달': 94, '과열_차단': 0, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 0, '모멘텀_ADX부족': 1, '바닥_RSI데드존': 0, '섹터_집중': 0, '_통과': 8, '_전체': 343}
 [Unified PT] 스킵 사유: 교체_미달
 [Unified PT] Top5 후보:
-  MSFT   CCS=0.5872 전략=📈 모멘텀 섹터=Technology
-  PFE    CCS=0.5418 전략=📈 모멘텀 섹터=Healthcare
-  FIG    CCS=0.5080 전략=📉 바닥반등 섹터=Technology
-  HYMC   CCS=0.5027 전략=📉 바닥반등 섹터=Basic Materials
-  DASH   CCS=0.4935 전략=📉 바닥반등 섹터=Consumer Cyclical
-2026-10-01 19:44:40,402 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
-2026-10-01 19:44:41,483 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 49건 거래
+  FIG    CCS=0.5106 전략=📉 바닥반등 섹터=Technology
+  FICO   CCS=0.4724 전략=📉 바닥반등 섹터=Technology
+  FMC    CCS=0.4524 전략=📉 바닥반등 섹터=Basic Materials
+  GENI   CCS=0.4303 전략=📉 바닥반등 섹터=Communication Services
+  FUN    CCS=0.4101 전략=📉 바닥반등 섹터=Consumer Cyclical
+2026-10-02 02:30:46,743 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-10-02 02:30:49,012 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 49건 거래
 [Unified PT] 구글 시트 동기화 완료
-[시장분석] 52개 종목 데이터 수집 중...
+[시장분석] 42개 종목 데이터 수집 중...
+2026-10-02 02:30:50,666 [ERROR] yfinance — FIG: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:50,789 [ERROR] yfinance — FIG: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:50,885 [ERROR] yfinance — FICO: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:51,038 [ERROR] yfinance — FICO: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:51,218 [ERROR] yfinance — FMC: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:51,340 [ERROR] yfinance — FMC: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:51,461 [ERROR] yfinance — GENI: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:51,554 [ERROR] yfinance — GENI: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:51,707 [ERROR] yfinance — FUN: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:51,828 [ERROR] yfinance — FUN: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:52,001 [ERROR] yfinance — PSKY: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:52,129 [ERROR] yfinance — PSKY: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:52,297 [ERROR] yfinance — T: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:52,394 [ERROR] yfinance — T: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:52,541 [ERROR] yfinance — MDT: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:52,742 [ERROR] yfinance — MDT: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:52,887 [ERROR] yfinance — MELI: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:53,015 [ERROR] yfinance — MELI: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:53,162 [ERROR] yfinance — DIS: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:53,317 [ERROR] yfinance — DIS: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:53,409 [ERROR] yfinance — ADBE: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:53,557 [ERROR] yfinance — ADBE: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:53,655 [ERROR] yfinance — ABT: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:53,806 [ERROR] yfinance — ABT: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:53,960 [ERROR] yfinance — HUBS: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:54,142 [ERROR] yfinance — HUBS: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:54,282 [ERROR] yfinance — MNDY: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:54,404 [ERROR] yfinance — MNDY: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:54,547 [ERROR] yfinance — LLY: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:54,643 [ERROR] yfinance — LLY: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:54,813 [ERROR] yfinance — ASML: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:54,961 [ERROR] yfinance — ASML: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:55,104 [ERROR] yfinance — ADI: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:55,220 [ERROR] yfinance — ADI: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:55,373 [ERROR] yfinance — ISRG: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:55,542 [ERROR] yfinance — ISRG: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:55,731 [ERROR] yfinance — HIMS: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:55,883 [ERROR] yfinance — HIMS: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:56,037 [ERROR] yfinance — TER: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:56,196 [ERROR] yfinance — TER: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:56,359 [ERROR] yfinance — NTLA: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:56,511 [ERROR] yfinance — NTLA: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:56,689 [ERROR] yfinance — RKLB: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:56,835 [ERROR] yfinance — RKLB: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:57,005 [ERROR] yfinance — GRAB: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:57,160 [ERROR] yfinance — GRAB: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:57,319 [ERROR] yfinance — DOCS: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:57,466 [ERROR] yfinance — DOCS: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:57,565 [ERROR] yfinance — SDEV: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:57,709 [ERROR] yfinance — SDEV: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:57,867 [ERROR] yfinance — WFC: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:57,997 [ERROR] yfinance — WFC: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:58,144 [ERROR] yfinance — PG: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:58,329 [ERROR] yfinance — PG: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:58,478 [ERROR] yfinance — BKNG: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:58,627 [ERROR] yfinance — BKNG: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:58,784 [ERROR] yfinance — SPGI: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:58,934 [ERROR] yfinance — SPGI: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:59,059 [ERROR] yfinance — SE: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:59,244 [ERROR] yfinance — SE: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:59,363 [ERROR] yfinance — MSGY: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:59,536 [ERROR] yfinance — MSGY: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:59,705 [ERROR] yfinance — OCUL: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:59,813 [ERROR] yfinance — OCUL: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:30:59,903 [ERROR] yfinance — UBER: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:00,026 [ERROR] yfinance — UBER: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:00,190 [ERROR] yfinance — ODD: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:00,366 [ERROR] yfinance — ODD: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:00,495 [ERROR] yfinance — COIN: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:00,651 [ERROR] yfinance — COIN: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:00,804 [ERROR] yfinance — WIX: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:00,893 [ERROR] yfinance — WIX: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:01,015 [ERROR] yfinance — CEG: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:01,215 [ERROR] yfinance — CEG: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:01,359 [ERROR] yfinance — BTBT: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:01,483 [ERROR] yfinance — BTBT: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:01,606 [ERROR] yfinance — DJT: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:01,769 [ERROR] yfinance — DJT: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:01,900 [ERROR] yfinance — ACN: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:02,048 [ERROR] yfinance — ACN: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:02,215 [ERROR] yfinance — MMYT: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:02,349 [ERROR] yfinance — MMYT: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:02,469 [ERROR] yfinance — INSP: Failed to retrieve the news and received faulty response instead.
+2026-10-02 02:31:02,598 [ERROR] yfinance — INSP: Failed to retrieve the news and received faulty response instead.
 [시장분석] enrichment 완료
 [Email] 페이퍼 트레이딩 알림 발송 완료 (매도 0건, 매수 0건, 재평가 0건, 재평가실패 0건, 후보 5건) → chunghwan14@gmail.com
 ============================================================
