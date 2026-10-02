@@ -40,3 +40,6 @@ tv_state.json
 
 # TradingView 차트 스크린샷 (용량 큼, CI에서 매번 생성)
 charts/screenshots/
+
+# 핸드오프 폴더 (다른 컴퓨터에서 파일 이전 시 임시 사용)
+project_1_handoff*/
