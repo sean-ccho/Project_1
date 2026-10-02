@@ -640,7 +640,7 @@ def _build_chart_images_html(
                 # orphan 브랜치 Raw URL
                 # search_dir에 따라 브랜치 결정
                 rel_path = str(latest)
-                if CHARTS_OUTPUT_DIR in search_dir:
+                if search_dir == CHARTS_OUTPUT_DIR:
                     img_branch = "screenshots-sp500"
                 else:
                     img_branch = "screenshots-nasdaq"
