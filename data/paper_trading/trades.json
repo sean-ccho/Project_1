@@ -1203,5 +1203,30 @@
     "upside_bucket_key": "모멘텀|0.55+|5★(9+)",
     "hit_p50": 1,
     "hit_p75": -1
+  },
+  {
+    "ticker": "MMYT",
+    "entry_date": "2026-09-20",
+    "exit_date": "2026-10-02",
+    "entry_price": 47.91999816894531,
+    "exit_price": 44.619998931884766,
+    "return_pct": -0.0689,
+    "holding_days": 12,
+    "highest_price": 48.34,
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (7.5)",
+    "ccs_score": 0.6248,
+    "sector": "Consumer Cyclical",
+    "exit_reason": "트레일링(-7.7%)",
+    "defer_count": 0,
+    "entry_rsi": 29.03612530588859,
+    "predicted_upside_p50": 0.04631805240560767,
+    "predicted_upside_p75": 0.07620830235907791,
+    "upside_sample_size": 46,
+    "actual_max_upside_pct": 0.0088,
+    "upside_level": "strategy:바닥반등",
+    "upside_bucket_key": "바닥반등|0.55+|5★(7-9)",
+    "hit_p50": -1,
+    "hit_p75": -1
   }
 ]
