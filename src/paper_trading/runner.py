@@ -203,6 +203,7 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None) -
 
     data_dir = Path(PAPER_TRADING_DATA_DIR)
     bar_date = as_of or snapshot_bar_date(merged_df)
+    report_only = False  # True면 매매·상태 기록·시트 동기화 없이 현재 보유 현황 리포트만 발송
     if dry_run:
         if not bar_date:
             bar_date = str(market_today())
@@ -210,8 +211,8 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None) -
     else:
         ok, reason = check_run_guard(bar_date, data_dir)
         if not ok:
-            print(f"[Unified PT] 건너뜀: {reason}")
-            return
+            print(f"[Unified PT] 건너뜀: {reason} — 매매 없이 일일 리포트만 발송")
+            report_only = True
     print(f"[Unified PT] 거래일(일봉 날짜): {bar_date}")
 
     golden_cross = _extract_golden_cross_imminent(merged_df)
@@ -230,9 +231,15 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None) -
             if (data_dir / name).exists():
                 shutil.copy2(data_dir / name, work_dir / name)
 
-    pt_result = run_daily_trading(merged_df, data_dir=work_dir, today=bar_date)
-    if not dry_run:
-        mark_processed(data_dir, bar_date, account="pt1")
+    if report_only:
+        pt_result = {
+            "date": bar_date or str(market_today()), "sells": [], "buys": [],
+            "skipped": "신규일봉없음", "holdings": len(load_positions()),
+        }
+    else:
+        pt_result = run_daily_trading(merged_df, data_dir=work_dir, today=bar_date)
+        if not dry_run:
+            mark_processed(data_dir, bar_date, account="pt1")
 
     sells: list[dict[str, Any]] = pt_result.get("sells", [])
     buys: list[dict[str, Any]] = pt_result.get("buys", [])
@@ -269,8 +276,9 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None) -
     trades = load_trades()
     held_tickers = [p["ticker"] for p in positions]
     prices = fetch_latest_prices(held_tickers) if held_tickers else {}
-    sync_all(pt_result, positions, trades, prices)
-    print("[Unified PT] 구글 시트 동기화 완료")
+    if not report_only:
+        sync_all(pt_result, positions, trades, prices)
+        print("[Unified PT] 구글 시트 동기화 완료")
 
     # ── PDF 리포트 생성 ──
     pdf_bytes = None

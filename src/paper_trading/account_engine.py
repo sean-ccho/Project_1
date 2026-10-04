@@ -468,6 +468,23 @@ def _sync_sheets(profile: Any, state: AccountState, result: dict[str, Any]) -> N
         print(f"[{profile.name}] 구글 시트 동기화 실패 (계속 진행): {exc}")
 
 
+def _send_report_only(profile: Any, bar_date: str | None) -> None:
+    """신규 일봉이 없는 날(주말·휴장·재실행): 매매·상태 변경 없이 현재 계좌 일일 리포트만 발송한다."""
+    tag = f"[{profile.name}]"
+    try:
+        from paper_trading.account_email import send_account_email
+
+        state = load_account(profile)
+        result = {
+            "date": bar_date or "-", "buys": [], "sells": [], "cancelled": [],
+            "orders": list(state.pending), "candidates": [], "debug": {},
+            "equity": state.equity, "cash": round(state.cash, 2), "holdings": len(state.positions),
+        }
+        send_account_email(profile, result, state)
+    except Exception as exc:
+        print(f"{tag} 일일 리포트(매매 없음) 발송 실패 (무시): {exc}")
+
+
 def run_account_daily(key: str, *, dry_run: bool = False, as_of: str | None = None) -> dict[str, Any] | None:
     """PT-2/PT-3 하루 실행 (GitHub Actions에서 run_paper_trading.py --account로 호출)."""
     from paper_trading.accounts import get_profile
@@ -494,6 +511,7 @@ def run_account_daily(key: str, *, dry_run: bool = False, as_of: str | None = No
         ok, reason = check_run_guard(bar_date, profile.data_dir)
         if not ok:
             print(f"{tag} 건너뜀: {reason}")
+            _send_report_only(profile, bar_date)
             return None
 
     rows = merged.to_dict("records")
