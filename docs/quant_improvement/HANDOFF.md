@@ -1,240 +1,203 @@
-# 메인 컴퓨터 이전 가이드 (zip + AirDrop)
+# HANDOFF — 이 문서 하나로 이어서 진행
 
-> 작성: 2026-10-01 (토론토) · 회사 노트북 → 메인 컴퓨터 · 리포 `sean-ccho/Project_1`
-> 메인 컴퓨터의 Claude가 **이 문서 하나로 처음부터 끝까지** 진행하도록 쓴 실행 순서다.
-> 무엇을 왜 바꿨는지는 [WORK_SUMMARY.md](WORK_SUMMARY.md) (0·2절), 설계 근거는 [QUANT_IMPROVEMENT_PLAN.md](QUANT_IMPROVEMENT_PLAN.md) 10절.
+> 갱신: 2026-10-03 · 리포 `sean-ccho/Project_1` · 이전 문서(zip 이전 가이드, Tier 3 인수인계)를 합친 **단일 인수인계 문서**.
+> 새 컴퓨터의 Claude는 **이 문서만 읽고 시작한다.** 배경이 더 필요하면 9절의 문서를 본다.
 
 ---
 
-## 0. 사용자가 할 일
+## 0. 30초 요약
 
-1. **노트북**: 바탕화면의 `project_1_handoff_2026-10-01.zip`을 AirDrop으로 메인 컴퓨터에 보낸다 (받으면 `~/Downloads`에 저장된다). AirDrop이 막혀 있으면 회사 정책상 허용되는 다른 방법으로 옮긴다. 노트북에서 파일을 더 고쳤다면 부록 A로 zip을 다시 만든다.
-2. **메인 컴퓨터**: VS Code에서 Project_1 저장소 폴더를 열고 Claude에게 이렇게 말한다.
+- 3계좌 페이퍼 트레이딩(PT-1·2·3)은 **이미 main에 머지됐고 GitHub Actions로 매일 돈다.** 이전 작업은 끝났다.
+- 지금 하는 일은 **백테스트 연구(Tier 3 알파 검증)** 이다.
+- **결론(2026-10-03): 현재 전략에는 통계적으로 의미 있는 알파가 없다.**
+  - 생존 편향을 빼면(PIT 유니버스) Sharpe 0.35, 알파 −4.3% (t=−0.45). 이전의 +147%는 편향이 만든 착시였다.
+  - 종목 수를 늘리면(T2-10) Sharpe 1.09까지 오르지만 부트스트랩 95% 기준에서 "운과 구분 안 됨".
+  - 팩터 44개 × 3기간 검정에서 기준 통과는 1/132건. 합성 점수도 보정 임계(|t|≈3.59)를 못 넘고, 워크포워드 OOS는 t≈±1 이하.
+- **다음 단계는 새 피처 추가 + 더 긴 표본**이다 (5절). 이 둘이 안 되면 개별 종목 알파를 접고 쉬운 방법(지수·모멘텀)을 기준선으로 쓰는 쪽을 사용자와 논의한다.
 
-   > `~/Downloads/project_1_handoff_2026-10-01.zip`을 풀고, 안에 있는 `docs/quant_improvement/HANDOFF.md`를 읽고 순서대로 진행해줘
+---
 
-3. Claude가 🛑에서 멈추고 물어보면 답한다 (push, main 머지 시점 등).
+## 1. 새 컴퓨터에서 시작하기
 
-```mermaid
-flowchart LR
-    A["노트북<br/>zip (파일 52개)"] -->|AirDrop| B["메인 컴퓨터<br/>~/Downloads"]
-    B --> C["3-1~3-5<br/>브랜치 · 커밋 · 최신 main 병합"]
-    C --> D["3-6~3-7<br/>테스트 · dry-run"]
-    D --> E["3-8 워크플로 수정"]
-    E --> F["3-9 🛑 push · main 머지"]
-    F --> G["3-10 첫 정기 실행 확인"]
-    D -.-> H["3-11 연구 작업 병행"]
+```bash
+git clone https://github.com/sean-ccho/Project_1.git && cd Project_1   # 이미 있으면 git pull --ff-only
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt pytest
+PYTHONPATH=.:src pytest tests -q
+```
+
+- 기대 결과: **168 통과, 2 실패.** 실패 2건(`tests/test_portfolio_report.py::test_rsi_cell_colors`, `test_vol_cell`)은 리포트 코드가 "N/A" 대신 "—"를 출력해서 생기는 **기존 문제**이고 이번 연구와 무관하다. 고치지 않아도 된다.
+- 데이터 파일(parquet)은 git에 없다 → **7절**에서 가져온다.
+- 모든 명령은 저장소 루트에서, 앞에 `PYTHONPATH=.:src`를 붙여 실행한다.
+
+데이터를 풀고 나면 아래로 정상 여부를 확인한다 (몇 초).
+
+```bash
+PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리포트가 다시 나오면 정상
 ```
 
 ---
 
-## 1. Claude에게 — 진행 규칙
+## 2. Claude에게 — 진행 규칙
 
-- 3절을 순서대로 진행한다. 각 단계의 **확인**을 통과하지 못하면 멈추고 출력과 함께 보고한다.
-- 🛑 = 사용자 확인 후 진행: push, PR, main 머지, 사용자 파일 삭제·덮어쓰기, `reset`·`stash` 같은 되돌리기 어려운 작업.
-- 커밋 메시지는 `type: 한국어 설명` ([CLAUDE.md](../../CLAUDE.md)). **이 브랜치의 커밋은 모두 끝에 `[skip ci]`** 를 붙인다 (push만으로 실거래 페이퍼 매매가 돌 수 있다, 3-8).
-- stage는 바뀐 파일만 (`git add <파일>`). 날짜는 토론토(미국 동부) 기준.
-- `data/paper_trading/`의 실거래 상태(positions·trades·스냅샷)는 수정·커밋하지 않는다. 봇만 커밋한다.
-- 노트북에는 pandas·네트워크가 없어서 **pandas가 필요한 코드는 한 번도 실행되지 않았다** (3-6 목록). 테스트·dry-run이 실패할 수 있다 → 원인을 찾아 최소한으로 고치고, 커밋하고, [WORK_SUMMARY.md](WORK_SUMMARY.md) 9절에 한 줄 남긴다.
+- 커밋 메시지는 `type: 한국어 설명` ([CLAUDE.md](../../CLAUDE.md)). **끝에 `[skip ci]`** 를 붙인다. push만으로 실거래 페이퍼 매매·이메일·시트가 돌 수 있다.
+- 🛑 = 사용자 확인 후 진행: push, main 머지, 사용자 파일 삭제, 기본 config 값 변경, 되돌리기 어려운 작업.
+- `data/paper_trading/`의 실거래 상태(positions·trades·state)는 수정·커밋하지 않는다. 봇만 커밋한다.
+- **홀드아웃(2025-10-01 이후)은 최종 후보를 확정한 뒤 딱 한 번만 본다.** 개발 구간 실행에는 모두 `--end 2025-09-30`을 붙인다. (지금 연구 패널도 2025-09-29까지다.)
+- 채택 기준: 판정이 `채택 후보`(ΔSharpe 95% 구간이 0 초과)인 것만. `운과 구분 안 됨`은 Sharpe가 올라도 채택하지 않는다. 한 번에 하나씩 바꾼다.
+- 팩터·합성 검정은 **시도 횟수를 기록**하고 다중검정 보정(Bonferroni)을 적용한다. 결과를 본 뒤 고른 팩터의 전체기간 성과는 낙관적이므로 검증 구간·워크포워드를 같이 본다.
+- 백테스트 결과물(`output/runs/` 등)은 커밋하지 않는다. 단 **`output/hypothesis_ab.csv`(A/B 실험 기록표)는 커밋한다** — 시도 횟수 기록이라 다중검정 보정에 필요하다. 연구 결과 요약은 `docs/quant_improvement/tier3/`에 둔다.
+- 작업이 끝나면 [WORK_SUMMARY.md](WORK_SUMMARY.md) **9절에 한 줄** 남기고, 이 문서의 0절·5절을 갱신한다.
 - 문서와 실제 상태가 다르면 추측하지 말고 묻는다.
 
 ---
 
-## 2. zip 구성
+## 3. 지금까지 한 일
 
-```text
-project_1_handoff_2026-10-01/
-├── docs/ src/ scripts/ tests/ requirements-research.txt   ← 저장소에 들어갈 52개 (수정 15 + 새 파일 37)
-└── _handoff/                                             ← 이전용 (저장소에 넣지 않는다)
-    ├── files.txt        노트북의 git status ( M = 수정, ?? = 새 파일)
-    ├── sha256.txt       52개 파일 체크섬
-    ├── base_blobs.txt   수정 15개의 노트북 기준선 blob (git ls-tree)
-    └── base/            수정 15개의 기준선 원본 (3-4 대안 경로용)
-```
+| 단계 | 결과 |
+|---|---|
+| Tier 0 백테스트 정합성 (`verify_backtest_integrity.py`) | 결정적 검사 전부 통과 |
+| PIT 유니버스 (`fetch_sp500_membership.py`) | S&P 500 과거 구성종목 CSV 확보 (`data/universe/sp500_membership.csv`) |
+| Baseline (`run_hypothesis_ab.py --only BASE`) | PIT: Sharpe 0.35 / 알파 −4.3% (t=−0.45). PIT 없음: Sharpe 0.81 / 알파 +4.0% → **생존 편향 확인** |
+| Tier 2 종목 수 (T2-5·10·20) | T2-10 Sharpe 1.09, MDD −11%. 그러나 "운과 구분 안 됨" → **채택 안 함** |
+| H1~H6 미세조정 | **건너뜀.** [WORK_SUMMARY.md](WORK_SUMMARY.md) 4-8절 규칙: 알파 t<1이면 미세조정보다 알파 재설계가 먼저 |
+| Tier 3-1 연구 패널 | 날짜×종목 피처 + 5/10/20일 선행수익률 (t+1 시가 진입 → t+1+h 시가 청산) |
+| Tier 3-2 팩터 IC | 44팩터×3기간=132건. 기준(|t|≥2 & 연도 부호 일관≥67%) 통과 **1건** |
+| Tier 3-3 합성 점수 | 시도 150건, 보정 임계 |t|≈3.59. 통과 없음. **Baseline v4 없음** |
 
-- 데이터·캐시·`output/`은 넣지 않았다 (메인 컴퓨터와 원격에 있다).
-- 노트북 저장소는 원격 연결 없이 만든 커밋 하나(`1347ca8 chore: 로컬 기준선 스냅샷 (원격 main 2026-09-28 사본)`) 위에 있다. SHA가 원격과 달라서 **파일 내용(blob)으로 원격의 같은 시점을 찾는다** (3-3).
-- 기준선 이후 원격 main에 들어간 것 (2026-10-01 확인): README(`62a97f1`), 스크린샷 orphan 브랜치(`f86abec`: `src/main.py`·`src/run_full_scan.py`·`src/screener/exporter.py`), 빈 CI 커밋(`97c8b80`), 매일 봇 커밋. 지금은 더 있을 수 있다.
-- ⚠️ **zip 파일로 저장소를 그냥 덮어쓰면 안 된다.** 위 3개 파일은 원격에서도 바뀌어서 `f86abec` 작업이 사라진다. 기준선 시점에서 브랜치를 만들어 커밋한 뒤 최신 main을 병합해서 git이 합치게 한다.
+실행 결과 원본: `output/hypothesis_ab.csv`(A/B 누적 기록, git에 커밋), `docs/quant_improvement/tier3/*`(팩터·합성 결과, git에 커밋).
 
 ---
 
-## 3. 단계
+## 4. Tier 3 결과 상세
 
-모든 명령은 **저장소 루트, 같은 터미널**에서 실행한다 (변수 `H`·`BASE`를 3-1~3-5에서 이어 쓴다. 터미널이 바뀌면 다시 설정).
+패널: PIT 기준 36.1만 행 / 781일 / 493종목 (2022-08-18 ~ 2025-09-29), 그날 S&P 500 구성종목만. t-stat은 h일 간격 비중첩 샘플.
 
-### 3-1. 압축 풀기 · 무결성 확인
+**팩터 개별 (PIT)**
+- 평균 IC 절댓값이 대부분 0.02 미만. 추세·골든크로스·모멘텀 계열은 예측력이 없거나 오히려 역방향.
+- 방향이 일관된 약한 신호(|t|<2라 채택 불가): `10일고점괴리`·`5일수익률`·`obv_z20` 음(−) = 단기 반전, `최근20일평균거래대금` 양(+) = 큰 종목 우위.
+- 레짐별 결론은 못 낸다: 데이터가 거의 상승장이라 bear 표본이 없고 neutral도 20개뿐.
 
-```bash
-H=~/Downloads/project_1_handoff_2026-10-01
-[ -d "$H" ] || ditto -x -k ~/Downloads/project_1_handoff_2026-10-01.zip ~/Downloads/
-(cd "$H" && shasum -a 256 -c _handoff/sha256.txt | grep -c ': OK$')   # 52
-wc -l < "$H/_handoff/files.txt"                                        # 52
-```
+**합성 점수** (`scripts/composite_research.py`)
 
-확인: 두 숫자 모두 52.
+| 항목 | 결과 |
+|---|---|
+| 고정 합성 REV / LIQ / VOL 및 조합 (전체기간) | 최고 t≈2.2 (5일, REV+LIQ+VOL). 보정 임계 3.59 미달 |
+| 반전(REV) | 학습구간(~2024-08) 5일 t=2.37 → 검증구간(2024-08~) **t=0.14로 소멸** |
+| 워크포워드 (과거 데이터로만 팩터 선택, 정직한 OOS) | 5일 +0.89 / 10일 −0.71 / 20일 +1.03 → 무의미. 고른 팩터도 시기마다 완전히 달라짐 = 노이즈 |
+| 효과 크기 | Q5 초과수익이 5일 +0.1% 안팎 (거래비용 전) |
 
-### 3-2. 저장소 상태 확인
-
-```bash
-git rev-parse --show-toplevel   # VS Code에 열린 저장소 (예: ~/Desktop/Code/Project_1)
-git remote -v                   # sean-ccho/Project_1
-git status --short              # 비어 있어야 한다
-git fetch origin
-git switch main && git pull --ff-only
-```
-
-- 로컬 변경이 있으면 🛑 (사용자 작업일 수 있다. 임의로 stash·삭제하지 않는다)
-- `pull --ff-only`가 실패하면(로컬과 원격이 갈라짐) 🛑. 2026-09-30 `git filter-repo` 히스토리 재작성 이전 클론일 수 있다 → 새로 clone할지 묻는다
-
-### 3-3. 기준선 시점 찾기
-
-수정 15개 파일의 내용이 노트북 기준선과 똑같은 원격 커밋 중 가장 최근 것을 찾는다.
-
-```bash
-BASE=""
-for c in $(git rev-list origin/main -n 500); do
-  if [ "$(git ls-tree "$c" -- $(cut -f2 "$H/_handoff/base_blobs.txt"))" = "$(cat "$H/_handoff/base_blobs.txt")" ]; then BASE=$c; break; fi
-done
-echo "BASE=$BASE"; [ -n "$BASE" ] && git log -1 --format='%h %ad %s' --date=short "$BASE"
-git ls-tree -r --name-only origin/main -- $(grep '^??' "$H/_handoff/files.txt" | cut -c4-)   # 출력이 없어야 한다
-```
-
-- 보통 `62a97f1`(README 커밋)이 나온다 → 3-4 기본 경로
-- `BASE`가 비면 → 3-4 대안 경로
-- 마지막 명령에 출력이 있으면 (새 파일과 같은 경로가 원격에 이미 있음) 🛑
-
-### 3-4. 브랜치 만들기 · 파일 넣기 · 커밋
-
-**기본 경로** (`BASE`를 찾았을 때)
-
-```bash
-git switch -c feat/pt-3accounts "$BASE"
-rsync -a --exclude '_handoff' "$H/" ./
-shasum -a 256 -c "$H/_handoff/sha256.txt" | grep -c ': OK$'   # 52
-diff <(git status --porcelain --untracked-files=all | sort) <(sort "$H/_handoff/files.txt") && echo "목록 일치"
-git add -- $(cut -c4- "$H/_handoff/files.txt")
-git commit -m "feat: 페이퍼 트레이딩 3계좌(PT-2·PT-3), CCS v2·Tier 1.5 스위치, 백테스트 정합성·비교 기준 반영 [skip ci]"
-```
-
-- `diff`에 `<` 줄만 있으면 메인 컴퓨터에만 있는 미추적 파일이다 → 건드리지 않는다 (stage도 안 한다). `>` 줄이 있으면 복사가 잘못된 것 → 멈춘다.
-
-**대안 경로** (`BASE`가 없을 때): 최신 main에서 브랜치 → 새 파일은 복사, 수정 15개는 `git merge-file`로 3-way 병합.
-
-```bash
-git switch -c feat/pt-3accounts origin/main
-grep '^??' "$H/_handoff/files.txt" | cut -c4- | while read -r f; do mkdir -p "$(dirname "$f")"; cp "$H/$f" "$f"; done
-grep '^ M' "$H/_handoff/files.txt" | cut -c4- | while read -r f; do
-  git merge-file -L main -L base -L laptop "$f" "$H/_handoff/base/$f" "$H/$f" || echo "충돌: $f"
-done
-```
-
-- `충돌:`로 나온 파일은 3-5 원칙대로 고친 뒤, 기본 경로와 같은 `git add` · `git commit`. 이 경로면 3-5의 병합은 건너뛴다.
-
-### 3-5. 최신 main 병합 (기본 경로만)
-
-```bash
-git merge origin/main -m "chore: 최신 main 병합 [skip ci]"
-```
-
-- 충돌이 나면 **양쪽 변경을 모두 살린다.** 원격 = 스크린샷 orphan 브랜치 저장, 노트북 = 스냅샷 일봉 날짜(`_bar_date`) 기록·장중 데이터 판정(버그 L)·PT-1 메일 제목 날짜.
-  - `src/main.py`·`src/run_full_scan.py`: `fetch_ohlcv(...)` 바로 다음의 `bar_date` / `is_bar_complete` 블록과 끝부분 `ranked["_bar_date"] = bar_date`는 반드시 남긴다.
-  - 고친 뒤 `git add <파일> && git commit --no-edit`. 애매하면 🛑 충돌 부분을 보여 주고 묻는다.
-- 확인: 원격 변경(`git diff "$BASE" origin/main -- src/main.py src/run_full_scan.py src/screener/exporter.py`)이 병합 결과에 그대로 들어 있다.
-
-### 3-6. 테스트
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate     # 이미 있으면 activate만
-pip install -r requirements.txt pytest
-PYTHONPATH=.:src pytest tests/paper_trading -q
-```
-
-- 기대: 새 테스트 90개(pandas 불필요 73 + pandas 필요 17)와 기존 `test_hold_winners`·`test_upside_model` 모두 통과.
-- 노트북에서 한 번도 실행되지 않은 코드 — 실패하면 여기부터 본다:
-  - `src/paper_trading/benchmarks.py`, `backtest.py`의 하루 여러 종목 매수·PIT 필터·비교 지표, `candidate_selector.select_top_candidates`
-  - `src/paper_trading/account_backtest.py`, `scripts/run_hypothesis_ab.py`·`run_account_backtest.py`·`optimize_optuna.py`·`analyze_ccs_ic.py`
-  - `runner.py`의 스냅샷 병합, `src/main.py`·`src/run_full_scan.py`의 `_bar_date`
-  - 시트 동기화·이메일 발송
-- 고쳤으면 `git add <파일> && git commit -m "fix: ... [skip ci]"` + WORK_SUMMARY 9절 한 줄.
-
-### 3-7. dry-run (3계좌. 파일·시트·이메일은 건드리지 않는다)
-
-```bash
-git log -1 --format='%ad %s' --date=short -- data/paper_trading/sp500_ranked.parquet   # 마지막 봇 실행
-PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account all --dry-run --as-of YYYY-MM-DD
-git status --short data/   # 비어 있어야 한다
-```
-
-- 커밋된 스냅샷은 구 코드가 만들어 일봉 날짜가 없다 → `--as-of`에 위에서 본 마지막 거래일을 넣는다.
-- 확인할 출력은 [WORK_SUMMARY.md](WORK_SUMMARY.md) 4-5.
-
-### 3-8. 워크플로 수정
-
-1. `.github/workflows/run-screener.yml`의 `on:`을 먼저 본다. `push`에 브랜치 제한이 없으면 feat 브랜치 push만으로 **실거래 페이퍼 매매·이메일·시트**가 돈다 → push하는 마지막 커밋에 `[skip ci]`가 꼭 있어야 한다. `pull_request` 트리거가 있으면 PR도 같은 위험이 있다 → 🛑 알리고, PR 없이 3-9처럼 로컬에서 머지할지 묻는다.
-2. PT-2·PT-3 실행 스텝과 상태 파일 `git add` 줄을 추가한다 → 내용은 [WORK_SUMMARY.md](WORK_SUMMARY.md) 4-3 그대로.
-3. `git add .github/workflows/run-screener.yml && git commit -m "chore: 워크플로에 PT-2·PT-3 실행과 상태 파일 커밋 추가 [skip ci]"`
-
-### 3-9. 🛑 push · main 머지
-
-머지 시점 규칙 (WORK_SUMMARY 4-6): ① 미국 장이 열린 평일 ② 직전 정기 실행이 끝난 뒤 ③ 그날 저녁 정기 실행(20:45 토론토) 전 ④ 머지 커밋에 `[skip ci]`. 지금 시각과 Actions 상태를 사용자에게 보여 주고 확인받은 뒤:
-
-```bash
-git push -u origin feat/pt-3accounts
-git switch main && git pull --ff-only
-git merge --no-ff feat/pt-3accounts -m "feat: 페이퍼 트레이딩 3계좌 + 백테스트 정합성·비교 기준 반영 [skip ci]"
-git push origin main
-```
-
-주말·휴일에 머지해야 하면 WORK_SUMMARY 4-6의 `state.json` 예외 절차를 따른다.
-
-### 3-10. 첫 정기 실행 확인
-
-그날 저녁 실행 뒤 WORK_SUMMARY 4-7 체크리스트를 확인하고 사용자에게 요약한다.
-
-### 3-11. 연구 작업 (3-6 이후 아무 때나, 머지와 병행)
-
-WORK_SUMMARY 4-8의 ①~⑧ 순서: Tier 0 검증 → `fetch_sp500_membership.py` → Baseline(쉬운 방법 비교, PIT 있음·없음) → T2 종목 수 → `--base`로 H1~H6 → PT-2·PT-3 백테스트 → CCS IC → Optuna.
-
-- 판정이 `채택 후보`가 아닌 설정은 config 기본값을 바꾸지 않는다. 기본값 변경은 🛑
-- 결과는 4-9 체크리스트대로 정리해서 보여 준다. `output/`은 커밋하지 않는다
-- 전 종목 5년 첫 실행은 피처 계산 때문에 오래 걸린다. 빠른 확인은 `--max-tickers 100 --period 3y`
-
-### 3-12. 마무리
-
-- WORK_SUMMARY 9절에 한 줄: 날짜, 머지 커밋, 고친 것
-- `~/Downloads/project_1_handoff_2026-10-01*` 정리는 사용자에게 묻는다
+**관찰 후보: LIQ(`최근20일평균거래대금`)** — 검증구간(2024-08~) 20일 IC +0.049, t=2.12, 적중률 66%. 하지만 학습구간(2022~2024-08)은 거의 0(t=0.37) → **2024~25 대형주 장세 한정 효과**일 가능성. 결과를 본 뒤 고른 팩터 + 1.1년 표본이라 채택 불가.
+- ⚠️ 이 후보를 홀드아웃(2025-10-01~)으로 확인하지 말 것: 홀드아웃은 최종 1회용이다. 더 긴 개발 구간(5절 2번)에서 재검증한다.
 
 ---
 
-## 4. 문제 해결
+## 5. 다음 할 일 (순서대로)
+
+1. **🛑 결정: 새 피처의 데이터 소스.** 사용자에게 먼저 묻는다.
+   - 가격 기반 (PIT 안전, 추가 데이터 불필요): 섹터 내 순위(섹터 중립화), 시장·섹터를 뺀 잔차 모멘텀, 12-1 모멘텀, 저변동성, 단기 반전(1주·1개월) 변형. 현재 44개 피처는 대부분 가격 지표 변형이라 서로 상관이 높고 정보가 겹친다.
+   - 재무·밸류 (PER/PBR/실적): yfinance는 과거 시점 값을 주지 않으므로 **공시일 기준 지연 반영** 없이 쓰면 미래 정보가 샌다 (백테스트의 `include_fundamentals`는 미래 정보 차단 로직이 따로 있음). 데이터 품질 확인 후에만.
+2. **더 긴 표본으로 패널 재생성**: 지금 3.1년·상승장 위주. 최소 8~10년(`--period 10y`)이면 2022 약세장 외에 다른 레짐도 들어와 레짐별 검증이 가능해진다. 개발 구간 `--end 2025-09-30` 유지.
+3. 새 피처가 들어간 패널로 `factor_research.py` → `composite_research.py` 다시 실행. 시도 횟수는 `composite_research.py`의 `PRIOR_TRIALS`에 누적해 보정 임계를 갱신한다 (지금 150건).
+4. 합성 점수가 **보정 임계를 넘고 워크포워드 OOS에서도 t≥2**이면 → 상위 분위 보유 구조(Tier 2)로 PIT 백테스트 → 부트스트랩 95% 통과 시 Baseline v4. (계획서 [9-5절](QUANT_IMPROVEMENT_PLAN.md))
+5. 위가 모두 실패하면 → **🛑 "개별 종목 알파 추구 중단, 쉬운 방법(지수·모멘텀 ETF)을 기준선으로 채택"을 사용자와 논의.** 페이퍼 3계좌는 실행 검증용으로 계속 둘지도 함께 결정.
+
+---
+
+## 6. 파일 지도
+
+**스크립트** (`scripts/`)
+
+| 파일 | 용도 |
+|---|---|
+| `verify_backtest_integrity.py` | Tier 0: 캐시·재현성 검사 |
+| `fetch_sp500_membership.py` | PIT 구성종목 CSV 다운로드 |
+| `run_hypothesis_ab.py` | A/B 백테스트 (BASE, T2-*, H1~H6), 결과를 `output/hypothesis_ab.csv`에 누적 |
+| `run_account_backtest.py`, `optimize_optuna.py`, `analyze_ccs_ic.py` | PT-2·3 백테스트, Optuna, CCS IC (아직 안 돌림) |
+| `build_research_panel.py` | **Tier 3-1** 패널 생성 → `data/research/panel_{pit,nonpit}.parquet` |
+| `factor_research.py` | **Tier 3-2** 팩터 IC·5분위·레짐 → `tier3/` |
+| `composite_research.py` | **Tier 3-3** 합성 점수 + 워크포워드 + 다중검정 → `tier3/` |
+
+**결과 (git에 있음)**: `docs/quant_improvement/tier3/` — `FACTOR_REPORT_{pit,nonpit}.md`, `COMPOSITE_REPORT_pit.md`, `factor_ic_*.csv`, `factor_quintile_*.csv`, `factor_regime_*.csv`, `composite_pit.csv` (합계 약 150KB). **PIT 파일이 기준**, nonpit은 생존 편향 비교용.
+
+**문서**
+
+| 문서 | 언제 보나 |
+|---|---|
+| 이 문서 | 항상 먼저 |
+| [WORK_SUMMARY.md](WORK_SUMMARY.md) | 배경(1절), 만든 것(2절), 연구 명령어(4-8절), 성공·중단 기준(5절), 알려진 제약(6절), 진행 기록(9절) |
+| [QUANT_IMPROVEMENT_PLAN.md](QUANT_IMPROVEMENT_PLAN.md) | 설계 근거. Tier 3은 9-5절, 3계좌·CCS v2는 10절 |
+
+---
+
+## 7. 데이터 파일 (parquet) — git에 없음
+
+`.gitignore`의 `data/cache/`, `data/research/`는 용량이 커서 git에서 뺐다. 새 컴퓨터에는 아래 중 **하나**로 준비한다.
+
+### 방법 A (권장): 번들 파일 복사
+
+옛 컴퓨터의 `data/research/project_1_research_data_2026-10-03.zip` (약 180MB) 하나를 AirDrop·외장 디스크로 옮긴다. 새 컴퓨터에서 저장소 루트에:
+
+```bash
+unzip -o ~/Downloads/project_1_research_data_2026-10-03.zip -d .
+shasum -a 256 -c data/research/SHA256SUMS.txt   # 모두 OK
+```
+
+번들 내용 (풀면 이 위치에 들어간다):
+
+| 파일 | 크기 | 용도 |
+|---|---|---|
+| `data/research/panel_pit.parquet` | 164MB | **연구 패널 (PIT).** `factor_research.py`·`composite_research.py`의 입력. 이것만 있으면 지금까지 결과를 재현·확장할 수 있다 |
+| `data/cache/ohlcv_e7842ef0a144.parquet` | 27MB | PIT 유니버스 일봉 가격 (1255일 × 3625종목). 새 피처를 가격에서 다시 계산하거나 선행수익률을 바꿀 때 쓴다 |
+| `data/research/SHA256SUMS.txt` | | 체크섬 |
+
+그리고 `data/universe/sp500_membership.csv`(5.3MB)는 **git으로** 온다 (`git pull` 하면 있음).
+
+번들에 넣지 않은 것: `panel_nonpit.parquet`(생존 편향 비교용, 필요 없음), 피처 캐시 `data/cache/features/*`(패널에 이미 들어 있음, 합쳐 510MB), 나머지 ohlcv 캐시.
+
+### 방법 B: 새 컴퓨터에서 처음부터 생성
+
+yfinance 네트워크가 필요하고 **수 시간** 걸린다 (첫 실행은 전 종목 피처 계산). yfinance는 과거 데이터를 수정해서 줄 수 있어 **번들과 숫자가 조금 다를 수 있다.**
+
+```bash
+PYTHONPATH=.:src python scripts/fetch_sp500_membership.py     # 이미 git에 있으면 생략 가능
+PYTHONPATH=.:src python scripts/run_hypothesis_ab.py --only BASE --period 5y --max-tickers 1000 --end 2025-09-30 --pit-universe
+# → data/cache/ohlcv_*.parquet, data/cache/features/*_v1/ 생성 (해시는 새로 정해진다)
+```
+
+그 뒤 `scripts/build_research_panel.py`의 `SETS["pit"]`에 적힌 해시(`fe5a595b6df7` / `ohlcv_e7842ef0a144.parquet`)를 **새로 생긴 해시로 바꾸고** `--set pit`로 실행한다.
+
+### 새 패널을 만들었을 때
+`data/research/`의 parquet은 항상 재생성 가능한 파생물이다. **커밋하지 말고**, 다른 컴퓨터로 보낼 때만 방법 A처럼 zip으로 묶는다. 결과 요약(md·csv)만 `tier3/`에 커밋한다.
+
+---
+
+## 8. 문제 해결
 
 | 증상 | 원인 | 조치 |
 |---|---|---|
-| 체크섬 OK가 52개가 아님 | 전송·압축 해제 문제 | zip을 다시 받아 3-1부터 |
-| `BASE`가 비어 있음 | 기준선 이후 히스토리가 또 바뀌었거나 범위 부족 | `-n 2000`으로 다시 → 그래도 없으면 3-4 대안 경로 |
-| 3-4 `diff`에 `>` 줄 | 복사 누락 | `rsync` 경로(끝의 `/`) 확인 후 다시 |
-| `git merge` 충돌 | 원격이 같은 부분을 고침 | 3-5 원칙, 애매하면 🛑 |
 | `ModuleNotFoundError` | import 경로 | 명령 앞에 `PYTHONPATH=.:src` |
-| 그 밖의 실행 문제 | | WORK_SUMMARY 7절 |
+| `FileNotFoundError: panel_pit.parquet` | 데이터 번들 미설치 | 7절 방법 A |
+| `sp500_membership.csv 없음` | `--pit-universe`인데 CSV 없음 | `git pull` 또는 `scripts/fetch_sp500_membership.py` |
+| `git pull`이 divergent로 거부 | 2026-09-30 히스토리 재작성(`filter-repo`) 이전 클론 | 로컬 전용 작업 백업 후 새로 clone |
+| 표의 판정이 `데이터 부족` | 구간이 40거래일보다 짧음 | 기간을 늘린다 |
+| 그 밖의 운영 문제 (실행 건너뜀, 헬스체크 등) | | [WORK_SUMMARY.md](WORK_SUMMARY.md) 7절 |
+
+주의할 점
+- IC 표본이 약 3.1년(781일)이고 연도별 부호 일관성은 표본 4개짜리라 거친 기준이다.
+- 레짐은 패널 종목 동일가중 지수의 50/200일선으로 판정한다 (CCS의 레짐 판정과 다를 수 있음).
+- 피처는 날짜 t 종가 기준, 수익률은 t+1 시가 진입이라 룩어헤드는 없다.
+- PIT 유니버스는 부분 해결: 상장폐지·인수 회사는 yfinance에 가격이 없다 ([WORK_SUMMARY.md](WORK_SUMMARY.md) 6절).
 
 ---
 
-## 부록 A. (노트북) zip 다시 만들기
+## 9. 이 문서로 대체된 것 (2026-10-03 정리)
 
-노트북에서 파일을 더 고친 경우. 먼저 바탕화면의 `project_1_handoff_2026-10-01` 폴더와 zip을 Finder에서 지운 뒤:
+삭제한 문서는 git 히스토리에 남아 있다 (`git log --diff-filter=D --name-only -- docs/quant_improvement`로 찾는다).
 
-```bash
-cd ~/Documents/project_1
-OUT=~/Desktop/project_1_handoff_2026-10-01
-mkdir -p "$OUT/_handoff/base"
-git status --porcelain --untracked-files=all > "$OUT/_handoff/files.txt"
-cut -c4- "$OUT/_handoff/files.txt" | while read -r f; do mkdir -p "$OUT/$(dirname "$f")"; cp -p "$f" "$OUT/$f"; done
-cut -c4- "$OUT/_handoff/files.txt" | xargs shasum -a 256 > "$OUT/_handoff/sha256.txt"
-git ls-tree HEAD -- $(git diff HEAD --name-only) > "$OUT/_handoff/base_blobs.txt"
-git diff HEAD --name-only | while read -r f; do mkdir -p "$OUT/_handoff/base/$(dirname "$f")"; git show "HEAD:$f" > "$OUT/_handoff/base/$f"; done
-cd ~/Desktop && zip -X -r -q project_1_handoff_2026-10-01.zip project_1_handoff_2026-10-01
-unzip -l project_1_handoff_2026-10-01.zip | tail -1
-```
-
-파일 수가 바뀌면 이 문서와 WORK_SUMMARY의 개수(52 등)도 고친다.
+| 삭제 | 이유 |
+|---|---|
+| 옛 `HANDOFF.md` (zip + AirDrop 이전 가이드) | 이전·머지 완료 (머지 커밋 `3b732a4`, 2026-10-01). 다시 쓸 일 없음 |
+| `tier3/HANDOFF_TIER3.md` | 이 문서 3~5절에 합침 |
+| `CODE_CHANGES_GUIDE.md` (Tier 0 코드 변경 1~8 수동 적용 가이드) | 코드에 반영·검증 완료 (`_code_hash`, `BACKTEST_COST_PER_SIDE`, `verify_backtest_integrity.py`) |
+| `analyze_trades_stdlib.py` (pandas 없는 노트북용 일회성 분석) | 396건 거래 분석은 계획서 2-1절에 결과가 정리됨. 지금은 pandas가 있어 불필요 (같은 종류 분석은 `scripts/analyze_trades.py`). 위치도 `docs/`라 안내된 경로와 달랐음 |

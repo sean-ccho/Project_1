@@ -1,7 +1,7 @@
 # 작업 요약 & 메인 컴퓨터 진행 가이드
 
-> 최종 갱신: 2026-10-01 (토론토) · 대상 리포: `sean-ccho/Project_1`
-> 근거와 설계 전체는 [QUANT_IMPROVEMENT_PLAN.md](QUANT_IMPROVEMENT_PLAN.md) (특히 10절). 이후 작업도 이 문서 9절에 이어서 기록한다.
+> 최종 갱신: 2026-10-03 (토론토) · 대상 리포: `sean-ccho/Project_1`
+> 근거와 설계 전체는 [QUANT_IMPROVEMENT_PLAN.md](QUANT_IMPROVEMENT_PLAN.md) (특히 10절). 이후 작업도 이 문서 9절에 이어서 기록한다. **새 컴퓨터에서 이어서 작업할 때는 [HANDOFF.md](HANDOFF.md) 하나만 보면 된다.**
 
 ---
 
@@ -10,19 +10,18 @@
 | 항목 | 내용 |
 |---|---|
 | 한 일 | 새 페이퍼 계좌 2개(PT-2 골든크로스 스윙, PT-3 일봉 단타), 버그 7개(F~L) 수정, 백테스트 정합성(Tier 0), CCS v2·가설 스위치(H1~H6), 분석·최적화 도구, 비판적 검토 반영(쉬운 방법 비교·운 판정·종목 수 늘리기·생존 편향 완화, 2-8) |
-| 상태 | 회사 노트북에만 있음 (커밋 안 함, GitHub 미연결). 수정 15 + 새 파일 37 = **52개**. pandas 없이 도는 테스트 73개 통과 |
-| 아직 안 한 것 | pandas·네트워크가 필요한 실행(백테스트, 스냅샷, 시트, 이메일), 워크플로 YAML 수정 |
-| 실거래 영향 | PT-1 매매 규칙은 그대로. 바뀌는 건 실행 시점뿐 (주말·장중·중복 실행은 건너뜀, 기록 날짜는 미국 동부 거래일). 새 스위치는 전부 꺼짐 |
-| 다음 | [HANDOFF.md](HANDOFF.md) 순서대로: zip(AirDrop)으로 옮기기 → 브랜치·커밋 → 테스트 → dry-run → 워크플로 수정 → 평일 저녁 실행 전에 머지. 백테스트 연구는 병행 |
+| 상태 | **메인 컴퓨터로 이전하고 main에 머지 완료** (머지 커밋 `3b732a4`, 2026-10-01). 매일 GitHub Actions가 PT-1·PT-2·PT-3을 실행한다. 연구는 Tier 3(알파 검증)까지 진행 → **결론: 현재 전략에 통계적으로 의미 있는 알파 없음** |
+| 아직 안 한 것 | 새 피처 추가·더 긴 표본(Tier 3 후속), PT-2·PT-3 백테스트, Optuna, 홀드아웃 1회 평가 |
+| 실거래 영향 | PT-1 매매 규칙은 그대로. 바뀐 건 실행 시점뿐 (주말·장중·중복 실행은 건너뜀, 기록 날짜는 미국 동부 거래일). 새 스위치는 전부 꺼짐 |
+| 다음 | **[HANDOFF.md](HANDOFF.md) 5절** — 새 피처 데이터 소스 결정 → 장기 표본 패널 → 팩터·합성 재검증 |
 
 ```mermaid
 flowchart LR
-    A["회사 노트북<br/>변경 52개 파일"] -->|"zip (AirDrop)"| B["메인 컴퓨터<br/>feat/pt-3accounts 브랜치"]
-    B --> C["테스트 · dry-run"]
-    C --> D["워크플로 YAML 수정"]
-    D --> E["main 머지 (skip ci)"]
-    E --> F["매일 저녁 GitHub Actions<br/>PT-1 · PT-2 · PT-3"]
-    C -.-> G["연구 작업 병행<br/>Baseline v1 · 쉬운 방법 비교 · T2 · A/B · Optuna"]
+    A["Tier 0 검증 ✅"] --> B["Baseline + 쉬운 방법 비교 ✅<br/>PIT: Sharpe 0.35, 알파 t=-0.45"]
+    B --> C["Tier 2 종목 수 ✅<br/>T2-10도 운과 구분 안 됨"]
+    C --> D["Tier 3 팩터·합성 ✅<br/>통과 팩터 없음"]
+    D --> E["새 피처 + 장기 표본"]
+    E -.-> F["실패 시: 쉬운 방법을 기준선으로"]
 ```
 
 ---
@@ -186,7 +185,7 @@ Tier 2 변형(`T2-5`·`T2-10`·`T2-20`)은 2-8 참고. config 파일은 고치�
 | `src/paper_trading/` (14) | `account_backtest.py`, `account_email.py`, `account_engine.py`, `accounts.py`, `benchmarks.py`, `config_override.py`, `evaluation.py`, `golden_cross.py`, `indicators.py`, `json_store.py`, `market_date.py`, `pt2_golden_cross.py`, `pt3_short_term.py`, `universe.py` |
 | `scripts/` (7) | `analyze_ccs_ic.py`, `analyze_trade_features.py`, `fetch_sp500_membership.py`, `optimize_optuna.py`, `run_account_backtest.py`, `run_hypothesis_ab.py`, `verify_backtest_integrity.py` |
 | `tests/paper_trading/` (13) | `test_account_email.py`, `test_account_engine.py`, `test_account_simulation.py`, `test_benchmarks.py`, `test_config_override.py`, `test_evaluation.py`, `test_indicators.py`, `test_market_date.py`, `test_pt1_switches.py`, `test_pt2_golden_cross.py`, `test_pt3_short_term.py`, `test_snapshot_bar_date.py`, `test_universe.py` |
-| 기타 (3) | `requirements-research.txt`, `docs/quant_improvement/WORK_SUMMARY.md` (이 문서), `docs/quant_improvement/HANDOFF.md` (메인 컴퓨터 이전 가이드) |
+| 기타 (3) | `requirements-research.txt`, `docs/quant_improvement/WORK_SUMMARY.md` (이 문서), `docs/quant_improvement/HANDOFF.md` (단일 인수인계 문서) |
 
 </details>
 
@@ -194,115 +193,19 @@ Tier 2 변형(`T2-5`·`T2-10`·`T2-20`)은 2-8 참고. config 파일은 고치�
 
 ## 4. 메인 컴퓨터에서 진행하기
 
-### 4-0. 먼저 알아둘 것 (2026-10-01 원격 상태)
+### 4-0 ~ 4-7. 이전·머지·첫 실행 (완료)
 
-- 이 노트북 저장소는 **GitHub와 연결이 없다** (원격 없음, 기준선 커밋 1개 = 원격 main 2026-09-28 사본). 그래서 바로 pull할 수 없고 zip으로 옮긴다 ([HANDOFF.md](HANDOFF.md)).
-- 그 뒤 원격 main에 커밋 3개가 올라왔다: README, 스크린샷 orphan 브랜치(`main.py`·`run_full_scan.py`·`exporter.py`), 빈 CI 커밋. 우리 변경도 이 세 파일을 건드리므로 **zip으로 그냥 덮어쓰면 안 되고** git 병합으로 합친다 (HANDOFF 3-3~3-5).
-- 최근 실행 #496 실패, #497 취소. **orphan 작업을 먼저 정상화한 뒤 머지**한다 (실패 원인이 섞이지 않게).
-- 2026-09-30에 `git filter-repo`로 히스토리를 다시 썼다. 그 전에 받은 클론이면 pull이 꼬이니 새로 clone한다.
+노트북 변경 52개 파일을 메인 컴퓨터로 옮겨 `feat/pt-3accounts` 브랜치에서 최신 main과 병합하고, 워크플로 수정까지 마쳐 main에 머지했다. 상세 절차 문서(옛 HANDOFF.md 3절)는 완료 후 삭제했다 (git 히스토리에 있음).
 
-### 4-1. 회사 노트북: zip 만들기 → AirDrop
+| 단계 | 상태 | 근거 |
+|---|---|---|
+| 파일 이전 · 브랜치 · 최신 main 병합 | ✅ | 커밋 `d4157de`, 병합 `79d9908` (2026-10-01) |
+| 워크플로 수정 (PT-2·PT-3 실행 + 상태 파일 커밋) | ✅ | `9cfb8ca`, `.github/workflows/run-screener.yml`에 반영 |
+| 테스트 · dry-run (3계좌) | ✅ | 2026-10-02 기록 (9절). 2026-10-03 전체 `pytest tests`: 168 통과, 2 실패(`test_portfolio_report`의 N/A 표기, 이번 작업과 무관) |
+| main 머지 | ✅ | `3b732a4` (2026-10-01, `[skip ci]`) |
+| 첫 정기 실행 | ✅ 봇 커밋 확인 | 2026-10-01·10-02·10-03 `chore: update logs and paper trading state`, `data/paper_trading/pt2·pt3` 상태 파일 생성됨 |
 
-바탕화면의 `project_1_handoff_2026-10-01.zip`(52개 파일 + 이전용 메타데이터)을 AirDrop으로 옮긴다. 노트북에서 더 고쳤으면 [HANDOFF.md](HANDOFF.md) 부록 A로 다시 만든다.
-
-### 4-2. 메인 컴퓨터: 브랜치에 적용 + 커밋
-
-메인 컴퓨터의 Claude에게 "zip을 풀고 안의 `docs/quant_improvement/HANDOFF.md`대로 진행해줘"라고 한다. HANDOFF 3-1~3-5: 무결성 확인 → 기준선 시점에서 `feat/pt-3accounts` 브랜치 → 파일 복사 → 커밋 → 최신 main 병합.
-
-### 4-3. 워크플로 수정 (`.github/workflows/run-screener.yml`)
-
-"Upload paper trading log" 스텝 다음에 추가:
-
-```yaml
-      - name: Run PT-2 golden cross swing
-        if: always()
-        env:
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-        run: |
-          set -o pipefail
-          mkdir -p logs/$LOG_DATE
-          PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt2 | tee logs/$LOG_DATE/paper_trading_pt2.log
-
-      - name: Run PT-3 daily short-term
-        if: always()
-        env:
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-        run: |
-          set -o pipefail
-          mkdir -p logs/$LOG_DATE
-          PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt3 | tee logs/$LOG_DATE/paper_trading_pt3.log
-```
-
-"Commit & push logs and paper trading state" 스텝의 기존 `git add` 다음 줄에 추가 (**빠지면 주말 중복 매매 방지가 동작하지 않는다**):
-
-```bash
-          git add data/paper_trading/state.json data/paper_trading/pt2/*.json data/paper_trading/pt3/*.json 2>/dev/null || true
-```
-
-커밋: `git commit -am "chore: 워크플로에 PT-2·PT-3 실행과 상태 파일 커밋 추가"`
-
-### 4-4. 테스트
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt pytest
-PYTHONPATH=.:src pytest tests/paper_trading -v
-```
-
-새 테스트 90개(73 + pandas 17)와 기존 `test_hold_winners`·`test_upside_model`이 모두 통과해야 한다.
-
-### 4-5. dry-run (3계좌)
-
-```bash
-git log -1 --format=%s -- data/paper_trading/sp500_ranked.parquet   # 마지막 봇 커밋의 날짜 확인
-PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account all --dry-run --as-of 2026-09-29
-```
-
-- 커밋된 스냅샷은 구 코드가 만든 것이라 일봉 날짜가 없다 → `--as-of`에 위에서 확인한 날짜를 넣는다
-- 확인할 것: 에러 없음 / PT-1 `거래일(일봉 날짜): 2026-09-29` / PT-2·PT-3 `일봉 다운로드 N종목`과 예약 목록 / `DRY-RUN — 파일 저장·시트·이메일 생략`
-- 실행 후 `git status`에 `data/paper_trading/` 변경이 없어야 한다
-
-### 4-6. 머지 — 전환 시점 규칙
-
-새 코드의 첫 실행에는 `state.json`이 없다. 구 코드가 어젯밤 처리한 일봉을 다시 처리하면 **PT-1이 같은 날을 두 번 매매**할 수 있다. 그래서 아래 4가지를 지킨다.
-
-1. 미국 장이 열린 **평일**
-2. 직전 정기 실행이 **끝난 뒤** (Actions에서 확인)
-3. 그날 저녁 정기 실행(20:45 토론토) **전**
-4. 머지 커밋 제목에 **`[skip ci]`**
-
-→ 그날 저녁 정기 실행이 새 코드의 첫 실행이 되고, 처리할 일봉(오늘)은 구 코드가 아직 건드리지 않은 날이다.
-
-```bash
-git push -u origin feat/pt-3accounts
-git checkout main && git pull
-git merge --no-ff feat/pt-3accounts -m "feat: 페이퍼 트레이딩 3계좌 + 백테스트 정합성 반영 [skip ci]"
-git push origin main
-```
-
-GitHub에서 PR로 머지해도 된다 (Merge 버튼을 누를 때 커밋 제목 끝에 `[skip ci]` 추가).
-
-<details>
-<summary>예외: 주말·휴일에 머지해야 할 때</summary>
-
-머지 전에 브랜치에 `data/paper_trading/state.json`을 추가한다. 날짜는 구 코드가 마지막으로 처리한 일봉(보통 직전 거래일, Actions의 마지막 성공 실행)이다. 첫 새 실행이 그 일봉을 건너뛴다.
-
-```json
-{"account": "pt1", "last_processed_bar_date": "YYYY-MM-DD"}
-```
-
-</details>
-
-### 4-7. 첫 정기 실행 확인
-
-- [ ] Actions 로그: PT-1 `거래일(일봉 날짜): YYYY-MM-DD`, PT-2·PT-3 실행 로그
-- [ ] 이메일 3통 (PT-1 + PT-2 + PT-3). PT-2·PT-3 첫날은 **예약만** 있고 체결은 다음 거래일 시가
-- [ ] 시트에 `페이퍼2_*`, `페이퍼3_*` 탭 자동 생성
-- [ ] 봇 커밋에 `data/paper_trading/state.json`, `pt2/*.json`, `pt3/*.json` 포함
-- [ ] 헬스체크 healthy (degraded면 로그에서 실패 항목 확인)
-- [ ] 주말 실행 로그에 `건너뜀: 이미 처리한 일봉` — 주말에 PT 이메일이 오지 않는 게 정상
+이메일 3통·시트 탭 자동 생성은 이 문서 작성 시점에 코드로 확인하지 못했다 (정기 실행 로그·받은편지함에서 확인).
 
 ### 4-8. 연구 작업 (머지와 병행, 순서대로)
 
@@ -321,6 +224,8 @@ flowchart LR
     T3 --> T4["Tier 4 Optuna"]
     T4 --> HO["홀드아웃 1회 평가"]
 ```
+
+**진행 상태 (2026-10-03)**: ①~④ 완료, H1~H6(⑤)는 규칙에 따라 건너뜀(알파 t<1), Tier 3 팩터·합성 검증 완료(알파 없음). 이어서 할 일은 [HANDOFF.md](HANDOFF.md) 5절. ⑥~⑧은 아직.
 
 ① **Tier 0 검증**
 ```bash
@@ -399,7 +304,7 @@ PYTHONPATH=.:src python scripts/optimize_optuna.py --account pt2 --evaluate-hold
 
 ## 6. 알려진 제약
 
-- pandas·네트워크 경로(스냅샷 로드, 백테스트, 시트, 이메일)는 노트북에서 실행하지 못했다 → 4-4·4-5가 첫 검증
+- pandas·네트워크 경로(스냅샷 로드, 백테스트)는 2026-10-02 메인 컴퓨터에서 테스트·dry-run·백테스트로 확인했다. 시트·이메일은 정기 실행에서만 동작한다
 - PT-1 체결은 아직 장 마감 가격 기록 (I). CCS v2를 켤 때 다음날 시가로 바꾼다
 - H3의 "절반만 진입" 옵션은 없다 (Tier 2 사이징과 함께)
 - Optuna PT-1 탐색 공간: 청산 4개 × 전략 2 + CCS 버전 + 교체 on/off (시간익절은 고정)
@@ -417,7 +322,6 @@ PYTHONPATH=.:src python scripts/optimize_optuna.py --account pt2 --evaluate-hold
 
 | 증상 | 원인 | 조치 |
 |---|---|---|
-| `git merge origin/main` 충돌 | 원격이 같은 부분을 고침 | HANDOFF 3-5 원칙 (양쪽 변경 모두 유지) |
 | `git pull`이 divergent로 거부 | 2026-09-30 히스토리 재작성 이전 클론 | 로컬 전용 작업 백업 후 새로 clone |
 | `건너뜀: 스냅샷에 일봉 날짜(_bar_date)가 없음` | 옛 스냅샷이거나 장중에 받은 데이터 | dry-run은 `--as-of`. 정기 실행이면 정상 (다음 실행에서 처리) |
 | `일봉이 아직 확정되지 않음 (장중 실행)` | 16:30(토론토) 전 실행 | 정상 |
@@ -433,7 +337,7 @@ PYTHONPATH=.:src python scripts/optimize_optuna.py --account pt2 --evaluate-hold
 ## 8. 참고 문서와 용어
 
 - [QUANT_IMPROVEMENT_PLAN.md](QUANT_IMPROVEMENT_PLAN.md): 근거·설계 전체 (10절 = 이번 작업)
-- [CODE_CHANGES_GUIDE.md](CODE_CHANGES_GUIDE.md): Tier 0 변경 1~8 원본 (이번 패치에 이미 반영됨, 따로 적용하지 않는다)
+- [HANDOFF.md](HANDOFF.md): 새 컴퓨터에서 이어서 작업하는 **단일 인수인계 문서** (현재 상태·다음 할 일·데이터 파일)
 - [CLAUDE.md](../../CLAUDE.md): 커밋 메시지 규칙 (`type: 한국어 설명`)
 
 | 용어 | 뜻 |
@@ -462,3 +366,6 @@ PYTHONPATH=.:src python scripts/optimize_optuna.py --account pt2 --evaluate-hold
 | 2026-10-01 | 비판적 검토 반영 (2-8): 쉬운 방법 비교·알파, A/B 운 판정, 하루 여러 종목 매수(T2), PIT 유니버스. 연구 순서를 T2 → H1~H6으로 변경 |
 | 2026-10-01 | 메인 컴퓨터 이전 가이드 [HANDOFF.md](HANDOFF.md) + zip 패키지 (패치 방식 대체) |
 | 2026-10-02 | 메인 컴퓨터 이전 완료 (머지 커밋 `3b732a4`). Python 3.11.17 설치, 테스트 134개 통과, dry-run 3계좌(PT-1·PT-2·PT-3) 정상 확인 |
+| 2026-10-03 | Tier 3-1·3-2 완료: 연구 패널 + 팩터 IC 리서치(44팩터×3기간). PIT 기준 통과 1/132건 → 유의한 팩터 사실상 없음. 인수인계 [HANDOFF.md](HANDOFF.md) |
+| 2026-10-03 | Tier 3-3 합성 점수 검증: 시도 150건(보정 임계 |t|≈3.59). 고정 합성 최고 t≈2.2, 워크포워드 OOS t≈±1 이하 → 채택할 알파 없음(Baseline v4 없음). 새 피처·장기 표본 필요. [HANDOFF.md](HANDOFF.md) |
+| 2026-10-03 | 문서 정리: HANDOFF.md를 단일 인수인계 문서로 통합. 완료된 문서(옛 HANDOFF 이전 가이드, CODE_CHANGES_GUIDE, analyze_trades_stdlib.py, tier3/HANDOFF_TIER3.md) 삭제. 연구 데이터 번들(parquet) 정리 |

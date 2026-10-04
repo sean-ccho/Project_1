@@ -3,7 +3,7 @@
 > 최종 갱신: 2026-10-01 (10절 추가: 페이퍼 트레이딩 3계좌 + CCS v2 + 구현 현황 / 작업 요약·진행 가이드는 [WORK_SUMMARY.md](WORK_SUMMARY.md))
 > 대상 리포: `sean-ccho/Project_1` (Stock Market Screener, Python)
 > 목표: 현재 전략의 진짜 성과를 측정하고, 리스크조정수익을 최대한 끌어올린다. 최종적으로 맥미니 서버에서 Optuna로 파라미터를 자동 탐색한다.
-> 코드 변경 절차는 같은 폴더의 **`CODE_CHANGES_GUIDE.md`** 참고.
+> 코드 변경(Tier 0 변경 1~8)은 코드에 반영·검증을 마쳤다 (옛 수동 적용 가이드 `CODE_CHANGES_GUIDE.md`는 삭제, git 히스토리에 있음). 현재 상태·다음 할 일은 [HANDOFF.md](HANDOFF.md).
 
 ---
 
@@ -77,7 +77,7 @@
 ## 2-1. 거래 로그 분석 결과 (2026-09-28)
 
 > 데이터: 캐시 미사용 run 3개(`04-22_00-07`, `04-24_02-08`, `04-26_17-03`)를 합쳐 중복 제거한 **고유 거래 396건**.
-> 스크립트: `scripts/analyze_trades_stdlib.py` (pandas 없이 표준 라이브러리만 사용). 실행: `python3 scripts/analyze_trades_stdlib.py`
+> 스크립트: 표준 라이브러리만 쓰는 `analyze_trades_stdlib.py`로 분석했다 (분석 완료 후 정리 때 삭제, git 히스토리에 있음. pandas 버전은 `scripts/analyze_trades.py`).
 > 거래비용은 왕복 0.2%로 가정했다. "유의"는 |t| ≥ 2 기준이다.
 
 ### ① 전략별 성과 — 수익은 모멘텀에서 나온다
@@ -317,18 +317,18 @@ CCS 서브스코어 중 유의한 것은 `ccs_strategy_fit`(IC +0.120, t=2.40) �
 
 ## 8. 진행 상태와 다음 단계
 
-> 2026-09-30: `CODE_CHANGES_GUIDE.md`의 변경 1~8은 코드에 반영됐다. 지금 할 일 목록은 **10-7절**이다 (아래 "다음 단계"는 기록용으로 남긴다).
+> 2026-09-30: Tier 0 변경 1~8(옛 `CODE_CHANGES_GUIDE.md`)은 코드에 반영됐다. 지금 할 일 목록은 **10-7절**이다 (아래 "다음 단계"는 기록용으로 남긴다).
 
 ### 완료
 - [x] 코드 전체 정독 (진입/청산/스코어링/알파모델/캐시/펀더멘털/시그널)
 - [x] 백테스트 35개 run 전수 분석
 - [x] Tier 0 원인 추적 (A ~ D 확정, E 유력한 설명)
 - [x] 거래 로그 396건 분석 → 가설 H1 ~ H6 도출 (2-1절)
-- [x] 패치 및 검증·분석 스크립트 작성 → `CODE_CHANGES_GUIDE.md`
+- [x] 패치 및 검증·분석 스크립트 작성 → 옛 `CODE_CHANGES_GUIDE.md` (삭제, 반영 완료)
 - [x] 목표지표 옵션 A 확정
 
 ### 다음 단계 (본인 맥에서)
-1. `CODE_CHANGES_GUIDE.md` 순서대로 코드 변경 (브랜치에서)
+1. (완료) Tier 0 변경 1~8을 코드에 적용 (옛 `CODE_CHANGES_GUIDE.md`)
 2. `python scripts/verify_backtest_integrity.py` 실행
 3. `python scripts/analyze_trade_features.py` 실행
 4. 저점확률 검색으로 **계산 위치** 파악 (D는 데이터로 확정됨 → 백테스트에 추가하는 패치 준비용)
@@ -386,7 +386,7 @@ flowchart LR
 **목표**: 같은 코드·같은 설정이면 결과가 항상 같고, 설정을 바꾸면 결과가 반드시 바뀌게 만든다.
 
 **작업 순서**
-1. `CODE_CHANGES_GUIDE.md` 변경 1 ~ 8 적용
+1. (완료) Tier 0 변경 1 ~ 8 적용 (옛 `CODE_CHANGES_GUIDE.md`)
 2. `pytest`에 테스트 추가: fundamentals 플래그나 코드 해시가 바뀌면 캐시 키도 바뀌는지 확인
 3. `verify_backtest_integrity.py` 통과시키기. 실패하면 원인을 찾을 때까지 다음 단계로 가지 않는다
 4. **D 수정**: 실거래에서 저점확률을 계산하는 코드를 찾아(가이드 변경 9) 백테스트 경로(`_compute_ranked_snapshot`)에 넣는다
@@ -665,7 +665,7 @@ H2는 **D(저점확률)를 고친 뒤** 평가해야 공정하다.
 
 ### 10-7. 내 컴퓨터에서 할 일 (순서대로)
 
-> 2026-10-01: 실제 진행 순서와 전환 주의사항은 [WORK_SUMMARY.md](WORK_SUMMARY.md) 4절이 기준이다 (⑧ 머지는 ④ 다음에 하고, ⑤~⑦·⑨는 병행). 변경 옮기기(①)는 패치 대신 zip + AirDrop → [HANDOFF.md](HANDOFF.md).
+> 2026-10-01: 실제 진행 순서와 전환 주의사항은 [WORK_SUMMARY.md](WORK_SUMMARY.md) 4절이 기준이다 (⑧ 머지는 ④ 다음에 하고, ⑤~⑦·⑨는 병행). 변경 옮기기(①)는 완료됐다 (2026-10-01 main 머지). 이후 진행은 [HANDOFF.md](HANDOFF.md).
 
 ① **변경 옮기기** — 이 노트북 저장소는 원격 main(2026-09-28) 사본에 기준선 커밋을 만든 것이다.
 ```bash

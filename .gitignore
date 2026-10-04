@@ -43,3 +43,6 @@ charts/screenshots/
 
 # 핸드오프 폴더 (다른 컴퓨터에서 파일 이전 시 임시 사용)
 project_1_handoff*/
+
+# Tier 3 연구 패널 (용량 큼, scripts/build_research_panel.py로 재생성 가능)
+data/research/
