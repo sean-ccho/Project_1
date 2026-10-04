@@ -1,9 +1,18 @@
 ============================================================
 [Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작
 ============================================================
-2026-10-04 07:34:26,816 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 128개 종목
+2026-10-04 18:28:20,145 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 128개 종목
 [Unified PT] SP500 snapshot 로드: 128개 종목
-2026-10-04 07:34:26,825 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 231개 종목
+2026-10-04 18:28:20,151 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 231개 종목
 [Unified PT] NASDAQ snapshot 로드: 231개 종목
 [Unified PT] 합산 완료: 347개 종목 (SP500 128 + NASDAQ 231개, 중복 제거 후)
-[Unified PT] 건너뜀: 이미 처리한 일봉 (2026-10-02, 마지막 처리 2026-10-02)
+[Unified PT] 건너뜀: 이미 처리한 일봉 (2026-10-02, 마지막 처리 2026-10-02) — 매매 없이 일일 리포트만 발송
+[Unified PT] 거래일(일봉 날짜): 2026-10-02
+[Unified PT] 골든크로스임박 종목: 50개
+[Unified PT] 매도=0 매수=0 보유=3종목
+[시장분석] 51개 종목 데이터 수집 중...
+[시장분석] enrichment 완료
+[Email] 페이퍼 트레이딩 알림 발송 완료 (매도 0건, 매수 0건, 재평가 0건, 재평가실패 0건, 후보 0건) → chunghwan14@gmail.com
+============================================================
+[Unified Paper Trading] 완료
+============================================================
