@@ -369,3 +369,4 @@ PYTHONPATH=.:src python scripts/optimize_optuna.py --account pt2 --evaluate-hold
 | 2026-10-03 | Tier 3-1·3-2 완료: 연구 패널 + 팩터 IC 리서치(44팩터×3기간). PIT 기준 통과 1/132건 → 유의한 팩터 사실상 없음. 인수인계 [HANDOFF.md](HANDOFF.md) |
 | 2026-10-03 | Tier 3-3 합성 점수 검증: 시도 150건(보정 임계 |t|≈3.59). 고정 합성 최고 t≈2.2, 워크포워드 OOS t≈±1 이하 → 채택할 알파 없음(Baseline v4 없음). 새 피처·장기 표본 필요. [HANDOFF.md](HANDOFF.md) |
 | 2026-10-03 | 문서 정리: HANDOFF.md를 단일 인수인계 문서로 통합. 완료된 문서(옛 HANDOFF 이전 가이드, CODE_CHANGES_GUIDE, analyze_trades_stdlib.py, tier3/HANDOFF_TIER3.md) 삭제. 연구 데이터 번들(parquet) 정리 |
+| 2026-10-05 | 10년 표본(`px10y`) 데이터 패널 생성 및 팩터·합성 리서치 재실행. 장기 데이터 및 다양한 레짐에서도 팩터들이 다중검정 임계값(t≈3.59)을 넘지 못함 (OOS 실패, 노이즈로 확인). 개별 종목 알파 추구 중단 및 Baseline 대체 방향으로 [HANDOFF.md](HANDOFF.md) 요약 및 할 일 갱신. |
