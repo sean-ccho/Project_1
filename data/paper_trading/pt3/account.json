@@ -2,19 +2,19 @@
   "account": "pt3",
   "version": "pt3-v0",
   "initial_capital": 5000.0,
-  "cash": 5000.0,
+  "cash": 4000.0,
   "pending": [
     {
       "side": "BUY",
-      "ticker": "MRK",
-      "signal_date": "2026-10-02",
-      "signal_close": 144.3000030517578,
+      "ticker": "MA",
+      "signal_date": "2026-10-05",
+      "signal_close": 564.5900268554688,
       "rank": 0,
-      "score": 0.7186,
+      "score": 0.5838,
       "strategy": "단타-눌림목",
-      "star_rating": "★★★★★ (8.0)",
-      "sector": "Healthcare",
-      "atr": 3.3589065856712637,
+      "star_rating": "★★★★★ (6.5)",
+      "sector": "Financial Services",
+      "atr": 9.670994554631445,
       "setup": "pullback",
       "meta": {}
     }
@@ -31,6 +31,12 @@
       "equity": 5000.0,
       "cash": 5000.0,
       "positions": 0
+    },
+    {
+      "date": "2026-10-05",
+      "equity": 4970.28,
+      "cash": 4000.0,
+      "positions": 1
     }
   ]
 }

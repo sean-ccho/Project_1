@@ -1,1 +1,25 @@
-[]
+[
+  {
+    "ticker": "MRK",
+    "entry_price": 143.67,
+    "entry_date": "2026-10-05",
+    "shares": 6.953442,
+    "strategy": "단타-눌림목",
+    "star_rating": "★★★★★ (8.0)",
+    "ccs_score": 0.7186,
+    "sector": "Healthcare",
+    "setup": "pullback",
+    "highest_price": 144.06,
+    "highest_close": 143.67,
+    "last_close": 139.5399932861328,
+    "bars_held": 0,
+    "signal_date": "2026-10-02",
+    "signal_close": 144.3000030517578,
+    "atr_at_signal": 3.3589065856712637,
+    "version": "pt3-v0",
+    "stop_price": 138.6316,
+    "target_price": 150.3878,
+    "stop_kind": "손절",
+    "last_bar_date": "2026-10-05"
+  }
+]

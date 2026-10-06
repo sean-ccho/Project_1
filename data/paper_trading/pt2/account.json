@@ -2,25 +2,45 @@
   "account": "pt2",
   "version": "pt2-v0",
   "initial_capital": 5000.0,
-  "cash": 5000.0,
+  "cash": 4000.0,
   "pending": [
     {
       "side": "BUY",
-      "ticker": "ACN",
-      "signal_date": "2026-10-02",
-      "signal_close": 198.89999389648438,
+      "ticker": "ASML",
+      "signal_date": "2026-10-05",
+      "signal_close": 1859.8599853515625,
       "rank": 0,
-      "score": 0.4384,
-      "strategy": "골든크로스(월봉직후)",
-      "star_rating": "★★★★★ (7.0)",
+      "score": 0.6122,
+      "strategy": "골든크로스(일봉직후)",
+      "star_rating": "★★★★★ (9.5)",
       "sector": "Technology",
-      "atr": 9.963373275332629,
+      "atr": 49.35452368228562,
       "setup": "golden_cross",
       "meta": {
         "gc_timeframes": [
+          "일봉"
+        ],
+        "gc_min_gap": 0.0146
+      }
+    },
+    {
+      "side": "BUY",
+      "ticker": "DIS",
+      "signal_date": "2026-10-05",
+      "signal_close": 103.61000061035156,
+      "rank": 1,
+      "score": 0.4918,
+      "strategy": "골든크로스(주봉직후, 월봉직후)",
+      "star_rating": "★★★★★ (6.5)",
+      "sector": "Communication Services",
+      "atr": 2.134092624558478,
+      "setup": "golden_cross",
+      "meta": {
+        "gc_timeframes": [
+          "주봉",
           "월봉"
         ],
-        "gc_min_gap": 0.0145
+        "gc_min_gap": 0.0251
       }
     }
   ],
@@ -36,6 +56,12 @@
       "equity": 5000.0,
       "cash": 5000.0,
       "positions": 0
+    },
+    {
+      "date": "2026-10-05",
+      "equity": 4992.64,
+      "cash": 4000.0,
+      "positions": 1
     }
   ]
 }

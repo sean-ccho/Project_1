@@ -1,1 +1,30 @@
-[]
+[
+  {
+    "ticker": "ACN",
+    "entry_price": 196.3,
+    "entry_date": "2026-10-05",
+    "shares": 5.089154,
+    "strategy": "골든크로스(월봉직후)",
+    "star_rating": "★★★★★ (7.0)",
+    "ccs_score": 0.4384,
+    "sector": "Technology",
+    "setup": "golden_cross",
+    "highest_price": 199.74,
+    "highest_close": 196.3,
+    "last_close": 195.0500030517578,
+    "bars_held": 0,
+    "signal_date": "2026-10-02",
+    "signal_close": 198.89999389648438,
+    "atr_at_signal": 9.963373275332629,
+    "version": "pt2-v0",
+    "gc_timeframes": [
+      "월봉"
+    ],
+    "gc_min_gap": 0.0145,
+    "stop_price": 176.3733,
+    "stop_kind": "손절",
+    "ema_aligned_seen": true,
+    "trend_checks": 0,
+    "last_bar_date": "2026-10-05"
+  }
+]
