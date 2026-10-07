@@ -2,23 +2,8 @@
   "account": "pt3",
   "version": "pt3-v0",
   "initial_capital": 5000.0,
-  "cash": 4000.0,
-  "pending": [
-    {
-      "side": "BUY",
-      "ticker": "MA",
-      "signal_date": "2026-10-05",
-      "signal_close": 564.5900268554688,
-      "rank": 0,
-      "score": 0.5838,
-      "strategy": "단타-눌림목",
-      "star_rating": "★★★★★ (6.5)",
-      "sector": "Financial Services",
-      "atr": 9.670994554631445,
-      "setup": "pullback",
-      "meta": {}
-    }
-  ],
+  "cash": 3005.94,
+  "pending": [],
   "equity_history": [
     {
       "date": "2026-10-01",
@@ -37,6 +22,12 @@
       "equity": 4970.28,
       "cash": 4000.0,
       "positions": 1
+    },
+    {
+      "date": "2026-10-06",
+      "equity": 4991.41,
+      "cash": 3005.94,
+      "positions": 2
     }
   ]
 }
