@@ -38,6 +38,7 @@ from paper_trading.backtest import (
     default_universe,
 )
 from screener.backtest import _compute_ranked_snapshot, _prepare_price_map
+from paper_trading.earnings_calendar import EarningsCalendar
 from screener.cache import write_cache_meta
 from screener import config as _cfg
 from screener.config import BACKTEST_COST_PER_SIDE, BACKTEST_FUNDAMENTALS_PIT_SAFE
@@ -142,6 +143,7 @@ def run_account_backtest(
         raise ValueError("시뮬레이션할 날짜가 없습니다 (start_date/end_date 확인)")
 
     ic_cache: dict[str, Any] = {}
+    earnings_cal = EarningsCalendar.load(_PROJECT_ROOT / "data" / "research" / "sec_earnings_dates.parquet")
     state = AccountState.new(float(profile.params["initial_capital"]))
     print(f"[{profile.name} 백테스트] {sim[0][1].date()} ~ {sim[-1][1].date()} ({len(sim)}거래일)")
 
@@ -156,6 +158,7 @@ def run_account_backtest(
         )
         if membership is not None and "티커" in ranked.columns:
             ranked = ranked[ranked["티커"].isin(membership.on(str(d.date())) | {"SPY"})]
+        ranked = earnings_cal.annotate(ranked, d)  # 어닝 회피 필터용 (실거래와 같게)
         rows = ranked.to_dict("records") if not ranked.empty else []
         process_bar(state, profile, str(d.date()), series, rows=rows)
         if n % 50 == 0:

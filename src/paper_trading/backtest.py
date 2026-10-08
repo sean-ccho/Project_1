@@ -36,6 +36,7 @@ from screener.config import (
     TICKERS,
 )
 from paper_trading.candidate_selector import select_top_candidates
+from paper_trading.earnings_calendar import EarningsCalendar
 from paper_trading.engine import (
     _activate_tight_trail,
     _get_row_for_ticker,
@@ -456,6 +457,7 @@ def run_paper_trading_backtest(
         if tickers is None:
             tickers = _pit_universe_tickers(membership, period)
             print(f"[백테스트] PIT 유니버스: 기간 중 S&P 500 이었던 {len(tickers)}개 종목")
+    earnings_cal = EarningsCalendar.load(_PROJECT_ROOT / "data" / "research" / "sec_earnings_dates.parquet")
     if tickers is None:
         tickers = default_universe()
 
@@ -691,6 +693,7 @@ def run_paper_trading_backtest(
         )
         if membership is not None and "티커" in ranked_df.columns:
             ranked_df = ranked_df[ranked_df["티커"].isin(membership.on(today_str) | {"SPY"})]
+        ranked_df = earnings_cal.annotate(ranked_df, date_ts)  # 어닝 회피 필터용 (실거래와 같게)
 
         if ranked_df.empty:
             _record_equity(equity_points, positions, closes, date_ts, today_str, cash=cash, use_capital=use_capital)

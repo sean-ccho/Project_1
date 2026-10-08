@@ -36,6 +36,10 @@ from screener.config import (
 _TOP_JUDGMENTS = {"1. 매수 후보", "1. 저점 반등"}
 _TOP_RECOMMENDATIONS = {"1. 즉시 진입", "1. 반등 매수"}
 
+# 바닥반등 MACD "깊은 마이너스 아님" 기준 (주가 대비). 옛 기준 −0.5달러는 가격 단위라 고가주는 거의 못 받고
+# 저가주는 깊이 빠져도 받았다. −1% = 스냅샷 중앙 주가(약 $46~50)에서 옛 기준과 같은 수준
+_BOTTOM_MACD_REL_MIN = -0.01
+
 # 상승 패턴 목록
 _BULLISH_PATTERNS = {
     "이중바닥", "역헤드앤숄더", "하락쐐기", "강세잉걸핑", "모닝스타",
@@ -264,9 +268,11 @@ def _score_entry_timing(row: pd.Series) -> float:
     # MACD 방향
     if "모멘텀" in strategy and macd_hist > 0:
         timing += 0.15
-    elif "바닥반등" in strategy and macd_hist > -0.5:
-        # 턴업 중 (깊은 마이너스가 아닌 경우)
-        timing += 0.1
+    elif "바닥반등" in strategy:
+        # 턴업 중 (깊은 마이너스가 아닌 경우). MACD 히스토그램은 가격 단위라 주가로 나눠 비교한다
+        close = _safe_float(row.get("현재가격", row.get("close")))
+        if close > 0 and macd_hist / close > _BOTTOM_MACD_REL_MIN:
+            timing += 0.1
 
     return min(timing, 1.0)
 
@@ -459,6 +465,51 @@ def _sector_penalty(
     return 0.0
 
 
+def _ccs_v1_row(row: pd.Series, weights: dict[str, float], regime: str,
+                holdings: list[dict[str, Any]]) -> dict[str, float]:
+    """CCS v1 한 종목: 서브스코어 가중합 − 섹터 페널티 + 레짐 보너스."""
+    a = _score_strategy_fit(row)
+    b = _score_entry_timing(row)
+    c = _score_alpha_factor(row)
+    d = _score_risk_quality(row)
+    e = _score_confluence(row)
+    penalty = _sector_penalty(str(row.get("섹터", "")), holdings)
+    base_ccs = (
+        weights["strategy"] * a
+        + weights["timing"] * b
+        + weights["alpha"] * c
+        + weights["risk"] * d
+        + weights["confluence"] * e
+        - penalty
+    )
+    # 레짐-전략 정합성 보너스
+    regime_bonus = 0.0
+    row_strategy = str(row.get("전략구분", ""))
+    dominant_score = max(_safe_float(row.get("바닥반등_적합도")), _safe_float(row.get("모멘텀_적합도")))
+    if regime == "bull" and "모멘텀" in row_strategy:
+        regime_bonus = 0.015 * (dominant_score / 10.0)
+    elif regime == "bear" and "바닥반등" in row_strategy:
+        regime_bonus = 0.015 * (dominant_score / 10.0)
+    return {"ccs_v1": base_ccs + regime_bonus, "strategy_fit": a, "timing": b, "alpha": c,
+            "risk": d, "confluence": e, "penalty": penalty}
+
+
+def held_ccs_v1_today(df: pd.DataFrame, holdings: list[dict[str, Any]], regime: str) -> dict[str, float]:
+    """보유 종목의 **오늘** CCS v1 (스냅샷에 있는 것만). 섹터 페널티는 자기 자신을 뺀 보유 기준."""
+    if "티커" not in df.columns or not holdings:
+        return {}
+    weights = REGIME_WEIGHTS[regime]
+    out: dict[str, float] = {}
+    for pos in holdings:
+        ticker = str(pos.get("ticker", ""))
+        rows = df[df["티커"].astype(str) == ticker]
+        if rows.empty:
+            continue
+        others = [p for p in holdings if p.get("ticker") != ticker]
+        out[ticker] = round(_ccs_v1_row(rows.iloc[0], weights, regime, others)["ccs_v1"], 4)
+    return out
+
+
 # ── CCS v2 (검증 전까지 기록만, CCS_VERSION="v2"일 때 선정에 사용) ───────────────────────────
 
 _V2_PERCENTILE_COLUMNS = {"trend": "ema_gap_50_200", "pos_52w": "52주포지션", "rel_strength": "20일수익률"}
@@ -529,6 +580,8 @@ def select_top_candidates(
     if use_v2 and "티커" in df.columns:
         # 교체 판단 때 보유 종목도 오늘 점수로 비교하기 위해 전 종목 점수를 남긴다
         debug["ccs_v2_by_ticker"] = dict(zip(df["티커"].astype(str), v2["ccs_v2"].round(4)))
+    # v1: 보유 종목의 오늘 점수 (교체 비교용, PT1_REPLACE_TODAY_CCS 일 때 engine.current_ccs 가 사용)
+    debug["held_ccs_v1_today"] = held_ccs_v1_today(df, current_holdings, regime)
 
     # 약세장 추가 제한 (글로벌 변수 대신 로컬 변수 사용)
     effective_rsi_max = 70 if regime == "bear" else CANDIDATE_RSI_MAX
@@ -556,37 +609,10 @@ def select_top_candidates(
     # CCS 계산
     scores = []
     for idx, row in filtered.iterrows():
-        a = _score_strategy_fit(row)
-        b = _score_entry_timing(row)
-        c = _score_alpha_factor(row)
-        d = _score_risk_quality(row)
-        e = _score_confluence(row)
-
-        sector = str(row.get("섹터", ""))
-        penalty = _sector_penalty(sector, current_holdings)
-
-        base_ccs = (
-            weights["strategy"] * a
-            + weights["timing"] * b
-            + weights["alpha"] * c
-            + weights["risk"] * d
-            + weights["confluence"] * e
-            - penalty
-        )
-
-        # 레짐-전략 정합성 보너스
-        regime_bonus = 0.0
-        row_strategy = str(row.get("전략구분", ""))
-        dominant_score = max(
-            _safe_float(row.get("바닥반등_적합도")),
-            _safe_float(row.get("모멘텀_적합도")),
-        )
-        if regime == "bull" and "모멘텀" in row_strategy:
-            regime_bonus = 0.015 * (dominant_score / 10.0)
-        elif regime == "bear" and "바닥반등" in row_strategy:
-            regime_bonus = 0.015 * (dominant_score / 10.0)
-
-        ccs_v1 = base_ccs + regime_bonus
+        v1 = _ccs_v1_row(row, weights, regime, current_holdings)
+        a, b, c, d, e = v1["strategy_fit"], v1["timing"], v1["alpha"], v1["risk"], v1["confluence"]
+        penalty = v1["penalty"]
+        ccs_v1 = v1["ccs_v1"]
         ccs_v2 = float(v2.at[idx, "ccs_v2"]) - penalty
         ccs = ccs_v2 if use_v2 else ccs_v1
 

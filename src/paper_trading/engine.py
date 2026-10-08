@@ -303,10 +303,16 @@ def should_replace(candidate_ccs: float, worst_ccs: float) -> bool:
 
 
 def current_ccs(pos: dict[str, Any] | None, selection_debug: dict[str, Any]) -> float:
-    """교체 비교용 보유 종목 점수. CCS v2면 오늘 스냅샷 점수, v1이면 매수 당시 점수(기존 동작)."""
+    """교체 비교용 보유 종목 점수.
+
+    CCS v2 → 오늘 스냅샷 v2 점수. v1 → PT1_REPLACE_TODAY_CCS 면 오늘 v1 점수, 아니면 매수 당시 점수(기존 동작).
+    오늘 스냅샷에 그 종목이 없으면 매수 당시 점수로 대신한다.
+    """
     if pos is None:
         return 0.0
     today = selection_debug.get("ccs_v2_by_ticker", {}).get(pos["ticker"])
+    if today is None and getattr(_cfg, "PT1_REPLACE_TODAY_CCS", False):
+        today = selection_debug.get("held_ccs_v1_today", {}).get(pos["ticker"])
     return float(today) if today is not None else float(pos.get("ccs_score", 0) or 0)
 
 
