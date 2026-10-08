@@ -1380,8 +1380,30 @@ def send_paper_trading_email(
             )
         golden_cross_html += "<br>"
 
+    # --- SPY 대비 누적 성과 (거래마다 같은 기간 SPY 보유와 비교) ---
+    spy_html = ""
+    try:
+        from paper_trading.benchmarks import load_spy_close, spy_comparison
+        from paper_trading.portfolio import load_trades as _load_trades_spy
+
+        cmp = spy_comparison(_load_trades_spy(), load_spy_close())
+        if cmp:
+            color = "#27ae60" if cmp["diff"] > 0 else "#c0392b"
+            spy_html = f"""
+<h3 style='color:#34495e'>🧭 SPY 대비 누적 성과 (청산 {cmp['n']}건)</h3>
+<table border='1' style='border-collapse:collapse;width:60%;font-size:14px'>
+<tr style='background:#f4f6f7;text-align:center'><th>거래당 평균</th><th>같은 기간 SPY 평균</th><th>SPY 대비</th><th>SPY를 이긴 거래</th></tr>
+<tr style='text-align:center'><td>{cmp['avg']:+.2%}</td><td>{cmp['spy']:+.2%}</td>
+<td style='color:{color}'><b>{cmp['diff'] * 100:+.2f}%p</b></td><td>{cmp['beat']:.0%}</td></tr>
+</table>
+<p style='color:#777;font-size:12px'>SPY 대비가 0 근처면 "그냥 SPY를 들고 있는 것"과 차이가 없다는 뜻입니다.</p>
+"""
+    except Exception as exc:  # noqa: BLE001 — 메일은 계속 발송
+        print(f"[PaperTrading] SPY 비교 계산 실패 (무시): {exc}")
+
     body = f"""
 <h2 style='font-family:sans-serif'>📈 페이퍼 트레이딩 일일 보고 — {date_str}</h2>
+{spy_html}
 {sell_html}
 {buy_html}
 {defer_html}

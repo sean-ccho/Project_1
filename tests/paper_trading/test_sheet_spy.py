@@ -76,3 +76,13 @@ def test_summary_spy_columns(monkeypatch):
     header, total = ws.rows[0], ws.rows[1]
     assert header[7:10] == ["SPY동기간평균", "SPY대비평균", "SPY이긴비율"]
     assert total[0] == "전체" and total[7] == "+3.5%" and total[8] == "+1.0%p" and total[9] == "50%"
+
+
+def test_spy_comparison():
+    from paper_trading.benchmarks import spy_comparison
+    trades = [{"entry_date": "2026-04-01", "exit_date": "2026-04-06", "return_pct": 0.10},
+              {"entry_date": "2026-04-01", "exit_date": "2026-04-03", "return_pct": -0.01},
+              {"entry_date": "2025-01-01", "exit_date": "2025-01-05", "return_pct": 0.5}]  # SPY 데이터 밖 → 제외
+    c = spy_comparison(trades, SPY)
+    assert c["n"] == 2 and abs(c["diff"] - 0.01) < 1e-12 and c["beat"] == 0.5
+    assert spy_comparison([], SPY) is None

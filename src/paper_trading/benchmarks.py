@@ -124,3 +124,18 @@ def load_spy_close(period: str = "2y") -> pd.Series:
         return close.dropna()
     except Exception:  # noqa: BLE001 — 시트 동기화는 벤치마크 없이도 진행
         return pd.Series(dtype=float)
+
+
+def spy_comparison(trades: Sequence[dict], spy_close: pd.Series) -> dict[str, float] | None:
+    """청산 거래 전체 vs 같은 기간 SPY: 건수·평균 수익·SPY 평균·차이·SPY를 이긴 비율. 비교 가능한 거래 없으면 None."""
+    pairs = []
+    for t in trades:
+        b = spy_window_return(spy_close, t.get("entry_date", ""), t.get("exit_date", ""))
+        if b is not None and t.get("return_pct") is not None:
+            pairs.append((float(t["return_pct"]), b))
+    if not pairs:
+        return None
+    n = len(pairs)
+    avg = sum(r for r, _ in pairs) / n
+    spy = sum(b for _, b in pairs) / n
+    return {"n": n, "avg": avg, "spy": spy, "diff": avg - spy, "beat": sum(1 for r, b in pairs if r > b) / n}
