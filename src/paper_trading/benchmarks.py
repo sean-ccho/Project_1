@@ -2,6 +2,7 @@
 
 - SPY 그냥 보유
 - 12-1 모멘텀 상위 N개 매달 교체: "최근 1년간 많이 오른 종목 N개를 매달 산다"
+- 거래별 SPY 같은 기간 수익률: "그 돈으로 같은 날 SPY를 샀다 팔았으면?" (시트 거래로그·성과요약)
 복잡한 전략이 이 둘을 못 이기면 복잡함이 값을 못 하는 것이다.
 """
 
@@ -97,3 +98,29 @@ def benchmark_summary(
         out["모멘텀대비_95%"] = f"[{vs['ΔSharpe_하한']:+.2f}, {vs['ΔSharpe_상한']:+.2f}]"
         out["모멘텀대비_판정"] = verdict(vs, max_drawdown(s), max_drawdown(p))
     return out
+
+
+def spy_window_return(spy_close: pd.Series, entry_date: str, exit_date: str) -> float | None:
+    """entry_date 종가 → exit_date 종가 SPY 수익률 (각 날짜 이전 마지막 종가 기준). 데이터 없으면 None."""
+    if spy_close is None or spy_close.empty or not entry_date or not exit_date:
+        return None
+    s = spy_close.dropna().sort_index()
+    if getattr(s.index, "tz", None) is not None:
+        s = s.tz_localize(None)
+    a = s.loc[: pd.Timestamp(str(entry_date))]
+    b = s.loc[: pd.Timestamp(str(exit_date))]
+    if a.empty or b.empty:
+        return None
+    return float(b.iloc[-1] / a.iloc[-1] - 1.0)
+
+
+def load_spy_close(period: str = "2y") -> pd.Series:
+    """SPY 일봉 종가 (data.fetch 캐시 사용). 실패하면 빈 Series."""
+    try:
+        from data.fetch import fetch_ohlcv
+
+        raw = fetch_ohlcv(["SPY"], period=period)
+        close = raw["SPY"]["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw["Close"]
+        return close.dropna()
+    except Exception:  # noqa: BLE001 — 시트 동기화는 벤치마크 없이도 진행
+        return pd.Series(dtype=float)

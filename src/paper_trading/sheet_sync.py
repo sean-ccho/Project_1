@@ -4,6 +4,9 @@
 - [페이퍼_거래로그] — 매수/매도 기록 append
 - [페이퍼_포지션현황] — 현재 보유 종목 덮어쓰기
 - [페이퍼_성과요약] — 누적 성과 집계 덮어쓰기
+
+매도 거래마다 "같은 기간 SPY를 들고 있었으면" 수익률을 붙인다 (SPY동기간%, SPY대비%p).
+엣지가 없는 전략은 거래 수익이 좋아 보여도 SPY대비가 0 근처로 나온다.
 """
 
 from __future__ import annotations
@@ -22,6 +25,23 @@ from screener.config import (
 )
 
 WORKSHEET_BACKTEST = "백테스트_결과"
+
+_SPY_CLOSE = None  # 실행당 한 번만 받는다 (3개 계좌가 공유)
+
+
+def _spy_close():
+    """SPY 종가 시계열 (실패하면 빈 Series)."""
+    global _SPY_CLOSE
+    if _SPY_CLOSE is None:
+        from paper_trading.benchmarks import load_spy_close
+        _SPY_CLOSE = load_spy_close()
+    return _SPY_CLOSE
+
+
+def _spy_return(trade: dict[str, Any]) -> float | None:
+    """거래와 같은 기간(매수일 종가 → 매도일 종가) SPY 수익률."""
+    from paper_trading.benchmarks import spy_window_return
+    return spy_window_return(_spy_close(), trade.get("entry_date", ""), trade.get("exit_date", ""))
 
 
 def _open_sheet():
@@ -50,6 +70,7 @@ _LOG_HEADERS = [
     "날짜", "종목", "섹터", "액션",
     "매수가", "매도가", "수익률%", "보유일",
     "전략", "별점", "CCS점수", "사유",
+    "SPY동기간%", "SPY대비%p",
 ]
 
 
@@ -76,6 +97,8 @@ def sync_trade_log(trade: dict[str, Any], action: str = "SELL", worksheet: str =
         existing = ws.get_all_values()
         if not existing or existing[0][0] != "날짜":
             ws.insert_row(_LOG_HEADERS, index=1, value_input_option="USER_ENTERED")
+        elif len([c for c in existing[0] if c]) < len(_LOG_HEADERS):
+            ws.update([_LOG_HEADERS], "A1", value_input_option="USER_ENTERED")  # 새 열(SPY) 헤더 보강
 
         if action == "BUY":
             row = [
@@ -91,6 +114,7 @@ def sync_trade_log(trade: dict[str, Any], action: str = "SELL", worksheet: str =
                 trade.get("star_rating", ""),                  # 별점
                 trade.get("ccs_score", trade.get("ccs", "")), # CCS
                 trade.get("reason", "신규매수"),               # 사유
+                "", "",                                       # SPY동기간%, SPY대비%p (매도 시 채움)
             ]
         else:  # SELL
             ret = trade.get("return_pct", 0)
@@ -98,6 +122,12 @@ def sync_trade_log(trade: dict[str, Any], action: str = "SELL", worksheet: str =
                 ret_str = f"{float(ret):+.1%}"
             except (TypeError, ValueError):
                 ret_str = ""
+            spy = _spy_return(trade)
+            try:
+                spy_str = f"{spy:+.1%}" if spy is not None else ""
+                diff_str = f"{(float(ret) - spy) * 100:+.1f}" if spy is not None else ""
+            except (TypeError, ValueError):
+                spy_str = diff_str = ""
             row = [
                 trade.get("exit_date", str(date.today())),   # 날짜
                 trade.get("ticker", ""),                      # 종목
@@ -111,6 +141,8 @@ def sync_trade_log(trade: dict[str, Any], action: str = "SELL", worksheet: str =
                 trade.get("star_rating", ""),                  # 별점
                 trade.get("ccs_score", ""),                   # CCS
                 trade.get("exit_reason", trade.get("reason", "")),  # 사유
+                spy_str,                                      # SPY동기간%
+                diff_str,                                     # SPY대비%p
             ]
 
         ws.append_row(row, value_input_option="USER_ENTERED")
@@ -209,13 +241,15 @@ def sync_summary(trades: list[dict[str, Any]], worksheet: str = WORKSHEET_SUMMAR
     try:
         est = timezone(timedelta(hours=-5), name="EST")
         timestamp = datetime.now(est).strftime("%Y-%m-%d %H:%M:%S EST")
-        headers = ["구분", "총거래", "승률", "평균수익", "최대수익", "최대손실", "누적수익", timestamp]
+        headers = ["구분", "총거래", "승률", "평균수익", "최대수익", "최대손실", "누적수익",
+                   "SPY동기간평균", "SPY대비평균", "SPY이긴비율", timestamp]
+        spy_by_id = {id(t): _spy_return(t) for t in trades}
 
         rows = [headers]
 
         def _calc_stats(label: str, subset: list[dict]) -> list:
             if not subset:
-                return [label, 0, "—", "—", "—", "—", "—"]
+                return [label, 0, "—", "—", "—", "—", "—", "—", "—", "—"]
             returns = [t.get("return_pct", 0) for t in subset]
             wins = sum(1 for r in returns if r > 0)
             total = len(returns)
@@ -226,6 +260,15 @@ def sync_summary(trades: list[dict[str, Any]], worksheet: str = WORKSHEET_SUMMAR
             for r in returns:
                 cumulative *= (1 + r)
             cumulative -= 1.0
+            pairs = [(t.get("return_pct", 0), spy_by_id.get(id(t))) for t in subset]
+            pairs = [(r, b) for r, b in pairs if b is not None]
+            if pairs:
+                spy_avg = sum(b for _, b in pairs) / len(pairs)
+                diff_avg = sum(r - b for r, b in pairs) / len(pairs)
+                beat = sum(1 for r, b in pairs if r > b) / len(pairs)
+                spy_cols = [f"{spy_avg:+.1%}", f"{diff_avg * 100:+.1f}%p", f"{beat:.0%}"]
+            else:
+                spy_cols = ["—", "—", "—"]
             return [
                 label,
                 total,
@@ -234,6 +277,7 @@ def sync_summary(trades: list[dict[str, Any]], worksheet: str = WORKSHEET_SUMMAR
                 f"{max_ret:+.1%}",
                 f"{min_ret:+.1%}",
                 f"{cumulative:+.1%}",
+                *spy_cols,
             ]
 
         # 전체
