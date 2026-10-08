@@ -76,7 +76,7 @@ def market_regime(panel: pd.DataFrame) -> pd.Series:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--set", default="pit", choices=["pit", "nonpit"])
+    ap.add_argument("--set", default="pit", choices=["pit", "nonpit", "px10y"])
     ap.add_argument("--out", default="docs/quant_improvement/tier3")
     args = ap.parse_args()
 

@@ -37,14 +37,22 @@ FIRST_OOS = pd.Timestamp("2023-08-18")  # 워크포워드 최초 검증 시작
 TOP_K = 5
 PRIOR_TRIALS = 132  # 1단계 팩터 검정 수
 
-FIXED = {
-    # 이름: [(팩터, 부호)]
+FIXED_OLD = {
     "REV": [("10일고점괴리", -1), ("5일수익률", -1), ("obv_z20", -1)],
     "LIQ": [("최근20일평균거래대금", +1)],
     "VOL": [("ATR%", +1)],
     "REV+LIQ": [("10일고점괴리", -1), ("5일수익률", -1), ("obv_z20", -1), ("최근20일평균거래대금", +1)],
     "REV+LIQ+VOL": [("10일고점괴리", -1), ("5일수익률", -1), ("obv_z20", -1),
                     ("최근20일평균거래대금", +1), ("ATR%", +1)],
+}
+
+FIXED_PX10Y = {
+    "REV": [("gap_high_10", -1), ("ret_5d", -1)],
+    "LIQ": [("log_dollar_vol_20", +1)],
+    "VOL": [("atr_pct_14", +1)],
+    "REV+LIQ": [("gap_high_10", -1), ("ret_5d", -1), ("log_dollar_vol_20", +1)],
+    "REV+LIQ+VOL": [("gap_high_10", -1), ("ret_5d", -1),
+                    ("log_dollar_vol_20", +1), ("atr_pct_14", +1)],
 }
 
 
@@ -89,7 +97,7 @@ def evaluate(score: pd.Series, panel: pd.DataFrame, h: int, mask: pd.Series | No
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--set", default="pit", choices=["pit", "nonpit"])
+    ap.add_argument("--set", default="pit", choices=["pit", "nonpit", "px10y"])
     ap.add_argument("--out", default="docs/quant_improvement/tier3")
     args = ap.parse_args()
 
@@ -103,8 +111,9 @@ def main() -> None:
     rows = []
 
     # ── A) 고정 합성
+    fixed_dict = FIXED_PX10Y if args.set == "px10y" else FIXED_OLD
     n_trials = 0
-    for name, spec in FIXED.items():
+    for name, spec in fixed_dict.items():
         score = composite_score(ranks, spec)
         for h in HORIZONS:
             n_trials += 1
