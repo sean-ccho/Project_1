@@ -182,3 +182,50 @@
 2026-10-08 01:22,stage6,ab_stage6_fixed_base,2,BASE(섹터 수정),,기준,"PIT 2022-08~2025-09: 거래 200, Sharpe 0.83 (옛 0.35), CAGR 18.1%, MDD -27.9%, 총 +68.4% vs SPY +68.6% (SPY Sharpe 1.08), 알파 +4.8% t 0.44"
 2026-10-08 01:22,stage6,ab_stage6_fixed_base,2,R1 장중 손절,,운과 구분 안 됨,"ΔSharpe -0.34 [-1.00, +0.44], 구간 0/3, CAGR 8.2%, MDD -24.2%"
 2026-10-08 01:22,stage6,ab_stage6_fixed_base,2,H3 약세장 진입 중단,,운과 구분 안 됨,"ΔSharpe -0.05 [-0.66, +0.52], 구간 1/3, CAGR 13.6%, MDD -21.6%"
+2026-10-08 11:22,stage6,pt23_baseline,2,(등록),,등록,"6-3 PT-2·PT-3 사전 기준 백테스트 (PIT, 5y, max 1000, ~2025-09-30). 계획서 10-8: 일간 Sharpe < SPY 이면 재설계/중단"
+2026-10-08 11:22,stage6,ab_stage6_t2_10,1,(등록),,등록,"T2-10 (최대 10종목, 하루 3개) 새 BASE(섹터 수정) 대비 재측정. 채택 = ΔSharpe 95% 하한 > 0"
+2026-10-08 11:27,stage6,ab_stage6_t2_10,1,T2-10,,운과 구분 안 됨,"새 BASE 대비 ΔSharpe -0.32 [-1.02, +0.40], 구간 0/3. Sharpe 0.51, CAGR 6.5%, MDD -16.0%, 거래 525"
+2026-10-08 11:27,stage6,pt23_baseline,2,PT-2 v0,,SPY 미달,"2022-08~2025-09 PIT: 거래 233, Sharpe 0.22 vs SPY 1.09, 총 +6.9% vs SPY +68.6%, MDD -21.0%, 알파 -3.4% t -0.44 → 10-8 규칙상 재설계/중단"
+2026-10-08 11:27,stage6,pt23_baseline,2,PT-3 v0,,SPY 미달,"2022-08~2025-09 PIT: 거래 502, Sharpe -0.03 vs SPY 1.09, 총 -3.9%, MDD -19.2%, 알파 -7.8% t -1.27 → 10-8 규칙상 재설계/중단"
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,(등록),,등록,"SEC 10-K 시점 기준 재무 팩터 ['BM', 'EP', 'GPA', 'AG', 'ACC', 'ISS', 'COMP'] × h[21, 63], 월말 리밸런스, 상위 20% − 구성종목 평균. z=2.91"
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,BM|h21,0.13,탈락,
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,BM|h63,0.20,탈락,
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,EP|h21,0.71,탈락,
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,EP|h63,0.53,탈락,
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,GPA|h21,-0.45,탈락,
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,GPA|h63,-0.97,탈락,
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,AG|h21,-1.17,탈락,
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,AG|h63,-1.05,탈락,
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,ACC|h21,1.89,탈락,
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,ACC|h63,2.33,관찰,
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,ISS|h21,0.63,탈락,
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,ISS|h63,0.86,탈락,
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,COMP|h21,-0.11,탈락,
+2026-10-08 11:41,tier3b-fund,fundamental_px10y,14,COMP|h63,-0.01,탈락,
+2026-10-08 11:42,tier3b-fund,fundamental_px10y,14,(무효),,무효,커버리지 버그: 늦게 제출된 옛 회계연도를 최신으로 골라 구성종목 1/3 탈락. 같은 검정 목록을 fundamental_px10y_v2 로 재실행 (시도 수는 둘 다 셈)
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,(등록),,등록,"SEC 10-K 시점 기준 재무 팩터 ['BM', 'EP', 'GPA', 'AG', 'ACC', 'ISS', 'COMP'] × h[21, 63], 월말 리밸런스, 상위 20% − 구성종목 평균. z=2.91"
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,BM|h21,0.16,탈락,
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,BM|h63,0.25,탈락,
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,EP|h21,0.29,탈락,
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,EP|h63,0.13,탈락,
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,GPA|h21,-0.15,탈락,
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,GPA|h63,-0.31,탈락,
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,AG|h21,-0.54,탈락,
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,AG|h63,-0.33,탈락,
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,ACC|h21,1.90,탈락,
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,ACC|h63,2.50,관찰,
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,ISS|h21,0.63,탈락,
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,ISS|h63,0.43,탈락,
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,COMP|h21,0.27,탈락,
+2026-10-08 11:43,tier3b-fund,fundamental_px10y_v2,14,COMP|h63,0.49,탈락,
+2026-10-08 11:43,tier3b-3,pead_real_px10y,10,(등록),,등록,"SEC 8-K 2.02 실제 실적일, EAR 직전 365일 백분위 {상위20%, 상위−하위} × h[5, 10, 20, 40, 60], 진입 d0+2 시가. z=2.81"
+2026-10-08 11:43,tier3b-3,pead_real_px10y,10,top20|h5,0.03,탈락,
+2026-10-08 11:43,tier3b-3,pead_real_px10y,10,top20|h10,-0.17,탈락,
+2026-10-08 11:43,tier3b-3,pead_real_px10y,10,top20|h20,-0.38,탈락,
+2026-10-08 11:43,tier3b-3,pead_real_px10y,10,top20|h40,-1.08,탈락,
+2026-10-08 11:43,tier3b-3,pead_real_px10y,10,top20|h60,-0.03,탈락,
+2026-10-08 11:43,tier3b-3,pead_real_px10y,10,top-bottom|h5,-0.30,탈락,
+2026-10-08 11:43,tier3b-3,pead_real_px10y,10,top-bottom|h10,0.29,탈락,
+2026-10-08 11:43,tier3b-3,pead_real_px10y,10,top-bottom|h20,0.39,탈락,
+2026-10-08 11:43,tier3b-3,pead_real_px10y,10,top-bottom|h40,1.13,탈락,
+2026-10-08 11:43,tier3b-3,pead_real_px10y,10,top-bottom|h60,1.57,탈락,
