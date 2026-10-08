@@ -2,32 +2,52 @@
   "account": "pt2",
   "version": "pt2-v0",
   "initial_capital": 5000.0,
-  "cash": 2002.94,
+  "cash": 2006.26,
   "pending": [
     {
       "side": "SELL",
-      "ticker": "DIS",
-      "signal_date": "2026-10-06",
-      "signal_close": 104.02999877929688,
-      "reason": "추세이탈(50일선 아래 4일)"
+      "ticker": "MDT",
+      "signal_date": "2026-10-07",
+      "signal_close": 85.51000213623047,
+      "reason": "추세이탈(50일선 아래 7일)"
     },
     {
       "side": "BUY",
-      "ticker": "MDT",
-      "signal_date": "2026-10-06",
-      "signal_close": 87.08999633789062,
+      "ticker": "LLY",
+      "signal_date": "2026-10-07",
+      "signal_close": 1188.719970703125,
       "rank": 0,
-      "score": 0.4767,
-      "strategy": "골든크로스(월봉직후)",
-      "star_rating": "★★★★★ (7.0)",
+      "score": 0.6645,
+      "strategy": "골든크로스(일봉직후)",
+      "star_rating": "★★★★★ (7.5)",
       "sector": "Healthcare",
-      "atr": 2.0899987521282677,
+      "atr": 33.136476476321484,
       "setup": "golden_cross",
       "meta": {
         "gc_timeframes": [
+          "일봉"
+        ],
+        "gc_min_gap": 0.0002
+      }
+    },
+    {
+      "side": "BUY",
+      "ticker": "DIS",
+      "signal_date": "2026-10-07",
+      "signal_close": 104.75,
+      "rank": 1,
+      "score": 0.5325,
+      "strategy": "골든크로스(주봉직후, 월봉직후)",
+      "star_rating": "★★★★★ (5.5)",
+      "sector": "Communication Services",
+      "atr": 2.0901099323412873,
+      "setup": "golden_cross",
+      "meta": {
+        "gc_timeframes": [
+          "주봉",
           "월봉"
         ],
-        "gc_min_gap": 0.0223
+        "gc_min_gap": 0.0259
       }
     }
   ],
@@ -54,6 +74,12 @@
       "date": "2026-10-06",
       "equity": 4968.98,
       "cash": 2002.94,
+      "positions": 3
+    },
+    {
+      "date": "2026-10-07",
+      "equity": 4941.16,
+      "cash": 2006.26,
       "positions": 3
     }
   ]

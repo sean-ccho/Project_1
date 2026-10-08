@@ -9,10 +9,10 @@
     "ccs_score": 0.7186,
     "sector": "Healthcare",
     "setup": "pullback",
-    "highest_price": 144.06,
+    "highest_price": 144.15,
     "highest_close": 143.67,
-    "last_close": 141.94000244140625,
-    "bars_held": 1,
+    "last_close": 142.7899932861328,
+    "bars_held": 2,
     "signal_date": "2026-10-02",
     "signal_close": 144.3000030517578,
     "atr_at_signal": 3.3589065856712637,
@@ -20,7 +20,7 @@
     "stop_price": 138.6316,
     "target_price": 150.3878,
     "stop_kind": "손절",
-    "last_bar_date": "2026-10-06"
+    "last_bar_date": "2026-10-07"
   },
   {
     "ticker": "MA",
@@ -32,17 +32,17 @@
     "ccs_score": 0.5838,
     "sector": "Financial Services",
     "setup": "pullback",
-    "highest_price": 568.93,
-    "highest_close": 566.58,
-    "last_close": 566.5800170898438,
-    "bars_held": 0,
+    "highest_price": 573.71,
+    "highest_close": 570.06,
+    "last_close": 570.0599975585938,
+    "bars_held": 1,
     "signal_date": "2026-10-05",
     "signal_close": 564.5900268554688,
     "atr_at_signal": 9.670994554631445,
     "version": "pt3-v0",
-    "stop_price": 548.9935,
+    "stop_price": 563.5,
     "target_price": 582.842,
-    "stop_kind": "손절",
-    "last_bar_date": "2026-10-06"
+    "stop_kind": "본절",
+    "last_bar_date": "2026-10-07"
   }
 ]

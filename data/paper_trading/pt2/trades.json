@@ -1,1 +1,24 @@
-[]
+[
+  {
+    "ticker": "DIS",
+    "entry_date": "2026-10-06",
+    "exit_date": "2026-10-07",
+    "entry_price": 103.42,
+    "exit_price": 103.48,
+    "shares": 9.645431,
+    "return_pct": -0.0014,
+    "gross_return_pct": 0.0006,
+    "dollar_pnl": -1.42,
+    "holding_days": 1,
+    "holding_bars": 1,
+    "strategy": "골든크로스(주봉직후, 월봉직후)",
+    "setup": "golden_cross",
+    "star_rating": "★★★★★ (6.5)",
+    "ccs_score": 0.4918,
+    "sector": "Communication Services",
+    "exit_reason": "추세이탈(50일선 아래 4일)(-0.1%)",
+    "highest_price": 104.27,
+    "actual_max_upside_pct": 0.0082,
+    "version": "pt2-v0"
+  }
+]
