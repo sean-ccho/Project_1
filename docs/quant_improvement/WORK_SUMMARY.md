@@ -338,6 +338,7 @@ PYTHONPATH=.:src python scripts/optimize_optuna.py --account pt2 --evaluate-hold
 
 - [QUANT_IMPROVEMENT_PLAN.md](QUANT_IMPROVEMENT_PLAN.md): 근거·설계 전체 (10절 = 이번 작업)
 - [HANDOFF.md](HANDOFF.md): 새 컴퓨터에서 이어서 작업하는 **단일 인수인계 문서** (현재 상태·다음 할 일·데이터 파일)
+- [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md): Tier 3-B 신호 연구 구현 가이드 (단계·코드 골격·판정 기준)
 - [CLAUDE.md](../../CLAUDE.md): 커밋 메시지 규칙 (`type: 한국어 설명`)
 
 | 용어 | 뜻 |
@@ -370,3 +371,4 @@ PYTHONPATH=.:src python scripts/optimize_optuna.py --account pt2 --evaluate-hold
 | 2026-10-03 | Tier 3-3 합성 점수 검증: 시도 150건(보정 임계 |t|≈3.59). 고정 합성 최고 t≈2.2, 워크포워드 OOS t≈±1 이하 → 채택할 알파 없음(Baseline v4 없음). 새 피처·장기 표본 필요. [HANDOFF.md](HANDOFF.md) |
 | 2026-10-03 | 문서 정리: HANDOFF.md를 단일 인수인계 문서로 통합. 완료된 문서(옛 HANDOFF 이전 가이드, CODE_CHANGES_GUIDE, analyze_trades_stdlib.py, tier3/HANDOFF_TIER3.md) 삭제. 연구 데이터 번들(parquet) 정리 |
 | 2026-10-05 | 10년 표본(`px10y`) 데이터 패널 생성 및 팩터·합성 리서치 재실행. 장기 데이터 및 다양한 레짐에서도 팩터들이 다중검정 임계값(t≈3.59)을 넘지 못함 (OOS 실패, 노이즈로 확인). 개별 종목 알파 추구 중단 및 Baseline 대체 방향으로 [HANDOFF.md](HANDOFF.md) 요약 및 할 일 갱신. |
+| 2026-10-05 | (노트북 검토) 사용자 결정으로 신호 연구 2차 계획 [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md) 작성: 미검증 스크리너 출력·조건부 반전·PEAD·패널 ML, Optuna는 채택 후보 뒤. 백테스트 buy_signal 상시 False(섹터 ETF 누락)·실거래 섹터명 불일치 의심 발견 → 0-8·6단계 |

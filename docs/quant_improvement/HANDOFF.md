@@ -1,6 +1,6 @@
 # HANDOFF — 이 문서 하나로 이어서 진행
 
-> 갱신: 2026-10-03 · 리포 `sean-ccho/Project_1` · 이전 문서(zip 이전 가이드, Tier 3 인수인계)를 합친 **단일 인수인계 문서**.
+> 갱신: 2026-10-05 · 리포 `sean-ccho/Project_1` · 이전 문서(zip 이전 가이드, Tier 3 인수인계)를 합친 **단일 인수인계 문서**.
 > 새 컴퓨터의 Claude는 **이 문서만 읽고 시작한다.** 배경이 더 필요하면 9절의 문서를 본다.
 
 ---
@@ -13,7 +13,8 @@
   - 생존 편향을 빼면(PIT 유니버스) Sharpe 0.35, 알파 −4.3% (t=−0.45). 이전의 +147%는 편향이 만든 착시였다.
   - 종목 수를 늘리면(T2-10) Sharpe 1.09까지 오르지만 부트스트랩 95% 기준에서 "운과 구분 안 됨".
   - 10년 치 장기 데이터 패널(`px10y`) 생성 후 가격 기반 팩터들을 검증했으나, 단일 팩터 및 고정 합성/워크포워드(OOS) 합성 모두 다중검정 보정 임계를 넘지 못함 (과최적화/노이즈 확인).
-- **다음 단계(결정 필요)**: 개별 종목 알파 추구를 중단하고 쉬운 방법(지수·모멘텀 ETF 등)을 새로운 기준선 전략으로 채택할지, 현재 페이퍼 봇들을 어떻게 처리할지 사용자와 논의 (5절).
+- ⚠️ **백테스트-실거래 불일치 의심 (2026-10-05 노트북 검토)**: PT-1 백테스트에는 섹터 ETF가 없어 buy_signal이 항상 False로 보이고, 실거래도 섹터 이름(yfinance vs GICS)이 안 맞아 6개 섹터의 buy_signal이 꺼진다. 위 BASE 수치는 실거래와 다른 전략을 잰 것일 수 있다 → [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md) 0-8·6단계.
+- **다음 단계 (2026-10-05 사용자 결정): 종목 선택 연구 2차(Tier 3-B)** — 아직 검증 안 한 스크리너 출력(패턴·적합도·CCS), 조건부 반전, 실적 이벤트, 패널 ML. Optuna는 후보가 채택된 뒤에만. **구현 순서는 [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md)** (5절 요약).
 
 ---
 
@@ -64,6 +65,7 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 | Tier 3-1 연구 패널 | 날짜×종목 피처 + 5/10/20일 선행수익률 (t+1 시가 진입 → t+1+h 시가 청산) |
 | Tier 3-2 팩터 IC | 44팩터×3기간=132건. 기준(|t|≥2 & 연도 부호 일관≥67%) 통과 **1건** |
 | Tier 3-3 합성 점수 | 시도 150건, 보정 임계 |t|≈3.59. 통과 없음. **Baseline v4 없음** |
+| px10y 10년 패널 (`build_price_panel.py`) | 2016-01~2025-09, 571종목, 가격 피처 35개. 팩터 105건 + 합성 18건 재검증 → 통과 없음 (4절 하단) |
 
 실행 결과 원본: `output/hypothesis_ab.csv`(A/B 누적 기록, git에 커밋), `docs/quant_improvement/tier3/*`(팩터·합성 결과, git에 커밋).
 
@@ -88,19 +90,35 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 | 효과 크기 | Q5 초과수익이 5일 +0.1% 안팎 (거래비용 전) |
 
 **관찰 후보: LIQ(`최근20일평균거래대금`)** — 검증구간(2024-08~) 20일 IC +0.049, t=2.12, 적중률 66%. 하지만 학습구간(2022~2024-08)은 거의 0(t=0.37) → **2024~25 대형주 장세 한정 효과**일 가능성. 결과를 본 뒤 고른 팩터 + 1.1년 표본이라 채택 불가.
-- ⚠️ 이 후보를 홀드아웃(2025-10-01~)으로 확인하지 말 것: 홀드아웃은 최종 1회용이다. 더 긴 개발 구간(5절 2번)에서 재검증한다.
+- ⚠️ 이 후보를 홀드아웃(2025-10-01~)으로 확인하지 말 것: 홀드아웃은 최종 1회용이다.
+- px10y 재검증 결과(아래): `log_dollar_vol_20` 10일 t=+1.79 — 10년에서도 임계 미달. 관찰 후보에서 내린다.
+
+**px10y 10년 패널** (`panel_px10y.parquet`, `FACTOR_REPORT_px10y.md`·`COMPOSITE_REPORT_px10y.md`)
+
+- 108.3만 행 / 2450일 / 571종목 (2016-01-04 ~ 2025-09-30). 일봉 OHLCV에서 직접 계산한 가격·거래량 피처 35개(섹터중립 `_sn` 포함). 피처 캐시를 안 써서 수 분이면 다시 만든다.
+- 생존 편향: 가격이 있는 PIT 구성종목 비율이 2016년 79% → 2025년 97% (`tier3/px10y_coverage.csv`). 초기 연도일수록 상장폐지 종목이 빠져 있다. `_sn` 피처의 섹터는 현재 구성종목 기준(`data/universe/sector_map.csv`).
+- 팩터 105건(35×3): 최고 `vol_trend` 5일 t=−2.12, 게이트 통과 1건. 단기 반전(`ret_5d`·`ret_10d` 음)은 10년 중 9~10년 부호가 같지만 |t|≈1.1.
+- 합성 18건: 최고 REV+LIQ+VOL 5일 Q5 초과 t=1.95. 워크포워드 OOS(2023-08~) IC t = 5일 −0.39 / 10일 +0.02 / 20일 −0.86 → 무의미.
+- 참고: `COMPOSITE_REPORT_px10y.md`의 "1단계 132건"은 3년 패널 값(`PRIOR_TRIALS` 하드코딩)이다. px10y 실제 팩터 검정은 105건. 누적 시도 수는 0단계 TRIAL_LOG에서 다시 센다.
 
 ---
 
-## 5. 다음 할 일 (결정만 남음)
+## 5. 다음 할 일
 
-앞선 검증 과정(10년 치 데이터 패널 생성, 팩터/합성 재검증)에서 의미 있는 알파를 찾지 못하여, 다음 단계에 대한 최종 결정만 남아 있습니다.
+**[SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md) 순서대로 진행한다** (2026-10-05 사용자 결정: 지수 기준선으로 바꾸기 전에 스크리너 스타일 신호 연구를 한 번 더). 요약:
 
-1. **🛑 논의 및 결정: 개별 종목 알파 추구 중단 및 새로운 기준선 채택**
-   - 현재 방식(S&P 500 내 개별 종목 단기 트레이딩)의 알파 추구 중단을 수용할지 결정.
-   - S&P 500 지수 ETF나 모멘텀 ETF를 메인으로 단순 보유하는 전략을 새로운 Baseline으로 채택할지 논의.
-2. **🛑 결정: 3계좌 페이퍼 트레이딩 처리 방향**
-   - 현재 매일 자동 실행되는 PT-1, PT-2, PT-3 봇들을 어떻게 처리할지(실행 중단, 로직 변경, 관찰용 방치 등) 결정.
+0. 준비: px10y 코드 커밋 · 이 문서 3·4·6·7절 px10y 반영, 연구 공통 도구(NW t값 · 시도 기록 · 패널 포트폴리오 시뮬 · DSR), buy_signal 불일치 진단
+1. **스크리너 출력 이벤트 스터디** (패턴 · 전략구분 · 판단 · buy_signal · CCS) ← 최우선
+2. 조건부 반전 (5일 수익률 × 거래량 급증 · 갭)
+3. 실적 이벤트 (PEAD: 대리 이벤트 → SEC EDGAR 8-K Item 2.02)
+4. 패널 ML (LightGBM, 연 1회 재학습 워크포워드)
+5. (선택) 보유 기간 40·60일
+6. 백테스트 일괄 정비(섹터 버그 수정 · 후보 규칙 스위치) → BASE 재측정, 🛑 PT-2·3 사전 기준 백테스트, 후보 A/B
+7. Optuna — 6단계에서 `채택 후보`가 나왔을 때만 (워크포워드 + DSR)
+8. 홀드아웃 1회
+9. 🛑 PT-1 반영 · 페이퍼 봇 처리
+
+**중단 규칙**: 1~4단계에서 `후보`가 하나도 없으면 종목 선택 연구를 끝내고, 지수 기준선 채택과 페이퍼 봇 처리(PT-1·2·3 중단/관찰/변경)를 결정한다.
 
 ---
 
@@ -115,16 +133,18 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 | `run_hypothesis_ab.py` | A/B 백테스트 (BASE, T2-*, H1~H6), 결과를 `output/hypothesis_ab.csv`에 누적 |
 | `run_account_backtest.py`, `optimize_optuna.py`, `analyze_ccs_ic.py` | PT-2·3 백테스트, Optuna, CCS IC (아직 안 돌림) |
 | `build_research_panel.py` | **Tier 3-1** 패널 생성 → `data/research/panel_{pit,nonpit}.parquet` |
-| `factor_research.py` | **Tier 3-2** 팩터 IC·5분위·레짐 → `tier3/` |
-| `composite_research.py` | **Tier 3-3** 합성 점수 + 워크포워드 + 다중검정 → `tier3/` |
+| `build_price_panel.py` | 10년 가격 패널 생성 (yfinance, 2025-09-30에서 다운로드 종료) → `data/research/panel_px10y.parquet`, `data/cache/ohlcv_px10y.parquet`, `data/universe/sector_map.csv`, `tier3/px10y_coverage.csv` |
+| `factor_research.py` | **Tier 3-2** 팩터 IC·5분위·레짐 → `tier3/` (`--set pit|nonpit|px10y`) |
+| `composite_research.py` | **Tier 3-3** 합성 점수 + 워크포워드 + 다중검정 → `tier3/` (`--set pit|nonpit|px10y`) |
 
-**결과 (git에 있음)**: `docs/quant_improvement/tier3/` — `FACTOR_REPORT_{pit,nonpit}.md`, `COMPOSITE_REPORT_pit.md`, `factor_ic_*.csv`, `factor_quintile_*.csv`, `factor_regime_*.csv`, `composite_pit.csv` (합계 약 150KB). **PIT 파일이 기준**, nonpit은 생존 편향 비교용.
+**결과 (git에 있음)**: `docs/quant_improvement/tier3/` — `FACTOR_REPORT_{pit,nonpit,px10y}.md`, `COMPOSITE_REPORT_{pit,px10y}.md`, `factor_ic_*.csv`, `factor_quintile_*.csv`, `factor_regime_*.csv`, `composite_{pit,px10y}.csv`, `px10y_coverage.csv`. **PIT·px10y 파일이 기준**, nonpit은 생존 편향 비교용.
 
 **문서**
 
 | 문서 | 언제 보나 |
 |---|---|
 | 이 문서 | 항상 먼저 |
+| [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md) | Tier 3-B 구현 순서 · 코드 골격 · 판정 기준 (지금 할 일) |
 | [WORK_SUMMARY.md](WORK_SUMMARY.md) | 배경(1절), 만든 것(2절), 연구 명령어(4-8절), 성공·중단 기준(5절), 알려진 제약(6절), 진행 기록(9절) |
 | [QUANT_IMPROVEMENT_PLAN.md](QUANT_IMPROVEMENT_PLAN.md) | 설계 근거. Tier 3은 9-5절, 3계좌·CCS v2는 10절 |
 
@@ -148,10 +168,18 @@ shasum -a 256 -c data/research/SHA256SUMS.txt   # 모두 OK
 | 파일 | 크기 | 용도 |
 |---|---|---|
 | `data/research/panel_pit.parquet` | 164MB | **연구 패널 (PIT).** `factor_research.py`·`composite_research.py`의 입력. 이것만 있으면 지금까지 결과를 재현·확장할 수 있다 |
-| `data/cache/ohlcv_e7842ef0a144.parquet` | 27MB | PIT 유니버스 일봉 가격 (1255일 × 3625종목). 새 피처를 가격에서 다시 계산하거나 선행수익률을 바꿀 때 쓴다 |
+| `data/cache/ohlcv_e7842ef0a144.parquet` | 27MB | PIT 유니버스 일봉 가격 (1255일 × 3625종목, SPY 포함). 새 피처를 가격에서 다시 계산하거나 선행수익률을 바꿀 때 쓴다. ⚠️ **2021-10-04 ~ 2026-10-02라 홀드아웃이 들어 있다** → 읽을 때 반드시 `.loc[:"2025-09-30"]`로 자른다 |
 | `data/research/SHA256SUMS.txt` | | 체크섬 |
 
 그리고 `data/universe/sp500_membership.csv`(5.3MB)는 **git으로** 온다 (`git pull` 하면 있음).
+
+**px10y (2026-10-03 번들 이후 생성, 번들에 없음)** — 다른 컴퓨터에 보낼 때는 새 번들로 묶거나 `build_price_panel.py`로 다시 만든다 (수 분, yfinance 필요).
+
+| 파일 | 크기 | 용도 |
+|---|---|---|
+| `data/research/panel_px10y.parquet` | 179MB | 10년 가격 패널 (2016-01-04 ~ 2025-09-30, 571종목). SPY 행 없음 |
+| `data/cache/ohlcv_px10y.parquet` | 59MB | 10년 일봉 (2015-01-02 ~ 2025-09-30, 2702일). `build_price_panel.py`가 있으면 재사용. **SPY·섹터 ETF 없음** |
+| `data/universe/sector_map.csv` | 15KB | 현재 S&P 500 GICS 섹터 (위키피디아 + config.SECTOR_MAP). 지금은 git에 없음 |
 
 번들에 넣지 않은 것: `panel_nonpit.parquet`(생존 편향 비교용, 필요 없음), 피처 캐시 `data/cache/features/*`(패널에 이미 들어 있음, 합쳐 510MB), 나머지 ohlcv 캐시.
 
