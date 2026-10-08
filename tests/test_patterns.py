@@ -12,7 +12,7 @@ import pandas as pd
 from screener.patterns import (
     detect_triangle, detect_wedge, detect_double_bottom_top,
     detect_head_and_shoulders, detect_cup_with_handle,
-    detect_candlestick_patterns, detect_golden_cross,
+    detect_candlestick_patterns, detect_golden_cross, detect_chart_reversal,
 )
 
 
@@ -321,3 +321,58 @@ def test_golden_cross_imminent_filtered_by_close_below_short_ema():
     )
     # close가 EMA10 아래면 필터로 차단
     assert not r_with_filter.detected
+
+
+# ---------------------------------------------------------------------------
+# 차트 반전 확인 (Pine v8 8g-2)
+# ---------------------------------------------------------------------------
+
+def _downtrend_then(last_closes):
+    """250봉 하락 추세 뒤 last_closes를 붙인 OHLCV."""
+    base = np.linspace(150, 90, 250)
+    return make_df(np.concatenate([base, last_closes]))
+
+
+def test_chart_reversal_struct_break_in_downtrend():
+    # 하락 끝에서 직전 5봉 고점을 넘는 양봉 → 감지 (확정 하락추세 보너스 포함)
+    df = _downtrend_then([89.5, 89.0, 88.8, 88.6, 88.5, 92.0])
+    r = detect_chart_reversal(df)
+    assert r.detected and r.pattern_type == "chart_reversal"
+    assert r.confidence >= 0.65
+    assert r.breakout_level is not None and r.breakout_level < 92.0
+
+
+def test_chart_reversal_capitulation():
+    closes = [89.5, 89.0, 88.8, 88.6, 85.0, 86.0]
+    df = _downtrend_then(closes)
+    vol = df["Volume"].to_numpy().copy()
+    vol[-2] = 4_000_000.0  # 투매 음봉 (RVOL > 2.5)
+    df["Volume"] = vol
+    df.iloc[-1, df.columns.get_loc("High")] = 86.2  # 구조 돌파는 제외
+    r = detect_chart_reversal(df)
+    assert r.detected
+
+
+def test_chart_reversal_ignored_in_uptrend():
+    # 상승 추세의 신고가 돌파는 "반전"이 아님
+    df = make_df(np.linspace(80, 150, 260))
+    assert not detect_chart_reversal(df).detected
+
+
+def test_chart_reversal_no_trigger_in_downtrend():
+    # 하락 지속(양봉 반등 없음) → 미감지
+    df = make_df(np.linspace(150, 90, 260))
+    assert not detect_chart_reversal(df).detected
+
+
+def test_chart_reversal_in_weekly_and_monthly():
+    from screener.patterns import detect_weekly_patterns, detect_monthly_patterns
+    # 일봉 6년: 하락 후 마지막 주/월에 급반등 → 주봉·월봉 양쪽에서 차트반전 감지
+    n = 1500
+    close = np.linspace(200, 80, n)
+    close[-4:] = np.linspace(82, 100, 4)
+    df = make_df(close)
+    w = [name for name, _ in detect_weekly_patterns(df)]
+    m = [name for name, _ in detect_monthly_patterns(df)]
+    assert "chart_reversal" in w
+    assert "chart_reversal" in m

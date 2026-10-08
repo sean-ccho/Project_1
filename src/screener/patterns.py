@@ -12,9 +12,10 @@
 - 더블 탑 (Double Top)
 - 컵위드핸들 (Cup with Handle)
 
-[반전 패턴 — 2종]
+[반전 패턴 — 3종]
 - 헤드앤숄더 (Head and Shoulders)
 - 역헤드앤숄더 (Inverse Head and Shoulders)
+- 차트 반전 확인 (Chart Reversal) — Pine v8 8g-2 "반전확인" 포팅
 
 [캔들스틱 패턴 — 5종]
 - 도지 (Doji)
@@ -973,6 +974,129 @@ def detect_candlestick_patterns(df: pd.DataFrame) -> PatternResult:
     return PatternResult(False, "none", 0.0)
 
 
+def _crossed_over(a: pd.Series, b: pd.Series) -> bool:
+    """Pine ta.crossover(a, b) — 마지막 봉에서 a가 b를 상향 돌파했는지."""
+    if len(a) < 2 or len(b) < 2:
+        return False
+    a0, a1 = float(a.iloc[-1]), float(a.iloc[-2])
+    b0, b1 = float(b.iloc[-1]), float(b.iloc[-2])
+    if np.isnan([a0, a1, b0, b1]).any():
+        return False
+    return a0 > b0 and a1 <= b1
+
+
+def detect_chart_reversal(df: pd.DataFrame) -> PatternResult:
+    """차트 반전 확인 (Chart Reversal) 패턴을 감지한다.
+
+    Pine Script v8 "8g-2. 주추세 & 반전확인" 포팅. 마지막 봉에서 다음 중 하나라도
+    충족되면 반전으로 인정한다:
+      1. EMA20 회복 (close가 EMA20 상향 돌파)
+      2. EMA50 회복 (close가 EMA50 상향 돌파)
+      3. 단기 구조 돌파 (close > 직전 5봉 고점, 양봉)
+      4. 투매 후 반전 (1~2봉 전 Volume Climax + 양봉 + 전일 종가 상회)
+      5. 다이버전스 반전 (RSI 강세 다이버전스 + Stoch/MACD 상향 교차 또는 EMA20 회복)
+
+    Pine과 달리 패턴으로 쓰기 위해 "반전할 하락"이 있어야 한다:
+    확정 하락추세(EMA200 하락 + close/EMA50 < EMA200) 또는 단기 하락 추세
+    (get_trend_context == "downtrend")일 때만 감지한다. 상승 추세에서는
+    구조 돌파가 매일 발생하므로 제외.
+
+    Args:
+        df: OHLCV 일봉. 확정 하락추세 판정에는 221봉 이상 필요(부족하면 단기 추세만 사용).
+
+    Returns:
+        PatternResult("chart_reversal"), breakout_level = 직전 5봉 고점.
+    """
+    if len(df) < 35:
+        return PatternResult(False, "none", 0.0)
+
+    close = pd.Series(df["Close"].values.flatten(), dtype=float)
+    open_ = pd.Series(df["Open"].values.flatten(), dtype=float)
+    high = pd.Series(df["High"].values.flatten(), dtype=float)
+    low = pd.Series(df["Low"].values.flatten(), dtype=float)
+
+    ema20 = close.ewm(span=20, adjust=False).mean()
+    ema50 = close.ewm(span=50, adjust=False).mean()
+
+    c0 = float(close.iloc[-1])
+    bullish_bar = c0 > float(open_.iloc[-1])
+
+    # 주 추세: EMA200 20일 기울기 < -0.5% + close < EMA200 + EMA50 < EMA200
+    confirmed_downtrend = False
+    if len(close) >= 221:
+        ema200 = close.ewm(span=200, adjust=False).mean()
+        slope20 = (float(ema200.iloc[-1]) / float(ema200.iloc[-21]) - 1) * 100
+        confirmed_downtrend = (
+            slope20 < -0.5
+            and c0 < float(ema200.iloc[-1])
+            and float(ema50.iloc[-1]) < float(ema200.iloc[-1])
+        )
+
+    if not confirmed_downtrend and get_trend_context(df, lookback=PATTERN_TREND_LOOKBACK) != "downtrend":
+        return PatternResult(False, "none", 0.0)
+
+    triggers: List[str] = []
+
+    # 1·2. EMA20 / EMA50 회복
+    reclaim_ema20 = _crossed_over(close, ema20)
+    if reclaim_ema20:
+        triggers.append("reclaim_ema20")
+    if _crossed_over(close, ema50):
+        triggers.append("reclaim_ema50")
+
+    # 3. 단기 스윙 고점 돌파
+    prior_high5 = float(high.iloc[-6:-1].max())
+    if c0 > prior_high5 and bullish_bar:
+        triggers.append("short_struct_break")
+
+    # 4. 투매(Volume Climax: RVOL > 2.5 음봉) 이후 양봉 반전
+    vol_ma = _get_volume_ma(df, period=20)
+    if vol_ma is not None:
+        vol = pd.Series(df["Volume"].values.flatten(), dtype=float)
+        rvol = vol / pd.Series(vol_ma.values.flatten(), dtype=float)
+        is_climax = (rvol > 2.5) & (close < open_)
+        if (bool(is_climax.iloc[-2]) or bool(is_climax.iloc[-3])) and bullish_bar and c0 > float(close.iloc[-2]):
+            triggers.append("capitulation_reversal")
+
+    # 5. RSI 강세 다이버전스 + 모멘텀 전환
+    delta = close.diff()
+    avg_gain = delta.clip(lower=0).ewm(alpha=1 / 14, adjust=False).mean()
+    avg_loss = (-delta.clip(upper=0)).ewm(alpha=1 / 14, adjust=False).mean()
+    rsi = 100 - 100 / (1 + avg_gain / avg_loss.replace(0, np.nan))
+    rsi = rsi.fillna(100.0)
+    bull_div = (
+        float(low.iloc[-5:].min()) < float(low.iloc[-10:-5].min())
+        and float(rsi.iloc[-5:].min()) > float(rsi.iloc[-10:-5].min())
+        and float(rsi.iloc[-1]) < 50
+    )
+    if bull_div:
+        ll14 = low.rolling(14).min()
+        hh14 = high.rolling(14).max()
+        stoch_raw = 100 * (close - ll14) / (hh14 - ll14).replace(0, np.nan)
+        stoch_k = stoch_raw.rolling(3).mean()
+        stoch_d = stoch_k.rolling(3).mean()
+        stoch_cross_up = _crossed_over(stoch_k, stoch_d) and float(stoch_k.iloc[-1]) < 30
+
+        macd_line = close.ewm(span=12, adjust=False).mean() - close.ewm(span=26, adjust=False).mean()
+        signal_line = macd_line.ewm(span=9, adjust=False).mean()
+        macd_cross_up = _crossed_over(macd_line, signal_line)
+
+        if stoch_cross_up or macd_cross_up or reclaim_ema20:
+            triggers.append("divergence_reversal")
+
+    if not triggers:
+        return PatternResult(False, "none", 0.0)
+
+    # 신뢰도: 기본 0.55 + 추가 트리거당 0.1 + 확정 하락추세 반전 0.1 + 거래량 확인 0.05
+    confidence = 0.55 + 0.1 * (len(triggers) - 1)
+    if confirmed_downtrend:
+        confidence += 0.1
+    if vol_ma is not None and check_volume_surge(df, len(df) - 1, threshold=1.2):
+        confidence += 0.05
+
+    return PatternResult(True, "chart_reversal", min(confidence, 0.95), prior_high5)
+
+
 def detect_golden_cross(
     df: pd.DataFrame,
     short_period: int = 50,
@@ -1323,6 +1447,11 @@ def detect_monthly_patterns(df: pd.DataFrame) -> List[Tuple[str, float]]:
             if p in ("bullish_engulfing", "morning_star"):
                 patterns_found.append((p, candle.confidence))
 
+    # 7-1. 차트 반전 확인 (월봉) — EMA200은 데이터 부족으로 대부분 미계산 → 20개월 하락 판정만 적용
+    rev = detect_chart_reversal(monthly)
+    if rev.detected:
+        patterns_found.append((rev.pattern_type, rev.confidence))
+
     # 8. 월봉 정배열 (3단계) — EMA3/6/12 기반
     # 완전: Price > EMA3 > EMA6 > EMA12
     # 눌림목: EMA3 > EMA6 > EMA12, EMA3 >= Price > EMA6 (단기 눌림 허용)
@@ -1407,6 +1536,11 @@ def detect_weekly_patterns(df: pd.DataFrame) -> List[Tuple[str, float]]:
         for p in candle.pattern_type.split(","):
             if p in ("bullish_engulfing", "morning_star"):
                 patterns_found.append((p, candle.confidence))
+
+    # 7-1. 차트 반전 확인 (주봉) — EMA 20/50/200 그대로 사용 (TradingView 주봉 차트와 일치)
+    rev = detect_chart_reversal(weekly)
+    if rev.detected:
+        patterns_found.append((rev.pattern_type, rev.confidence))
 
     # 8. 주봉 정배열 (3단계) — EMA10/20/50 기반
     # 완전: Price > EMA10 > EMA20 > EMA50

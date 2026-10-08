@@ -60,7 +60,7 @@ from screener.config import (
 )
 from screener.alpha_model import compute_factor_scores, compute_factor_scores_from_indicators, compute_alpha_score, compute_ic_weights
 from screener.fundamentals import fetch_fundamental_snapshots
-from screener.patterns import detect_all_patterns, detect_weekly_patterns, detect_monthly_patterns, AllPatterns, get_weekly_data, get_monthly_data
+from screener.patterns import detect_all_patterns, detect_chart_reversal, detect_weekly_patterns, detect_monthly_patterns, AllPatterns, get_weekly_data, get_monthly_data
 
 
 def to_market(ticker: str) -> str:
@@ -564,6 +564,7 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         "morning_star": "모닝스타",
         "evening_star": "이브닝스타",
         "doji": "도지",
+        "chart_reversal": "차트반전",
     }
     
     if patterns.triangle != "none":
@@ -582,6 +583,10 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         # 캔들스틱은 콤마로 구분된 문자열일 수 있음
         for c in patterns.candlestick.split(","):
             d_patterns_list.append(c.strip())
+    # 차트 반전 확인: EMA200 주추세 판정에 긴 히스토리가 필요해 전체 데이터 전달
+    chart_reversal = detect_chart_reversal(p)
+    if chart_reversal.detected:
+        d_patterns_list.append(chart_reversal.pattern_type)
             
     # 한글로 변환하여 콤마로 연결
     daily_patterns_str = ", ".join([d_pattern_map.get(p, p) for p in d_patterns_list])
@@ -608,6 +613,7 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
             "weekly_uptrend_full": "정배열(완전)",
             "weekly_uptrend_pullback": "정배열(눌림목)",
             "weekly_uptrend_forming": "정배열(형성중)",
+            "chart_reversal": "차트반전",
         }
         weekly_patterns_str = ", ".join([pattern_map.get(name, name) for name, conf in w_patterns_list])
 
@@ -629,6 +635,7 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
             "monthly_uptrend_full": "정배열(완전)",
             "monthly_uptrend_pullback": "정배열(눌림목)",
             "monthly_uptrend_forming": "정배열(형성중)",
+            "chart_reversal": "차트반전",
         }
         monthly_patterns_str = ", ".join([pattern_map.get(name, name) for name, conf in m_patterns_list])
 
