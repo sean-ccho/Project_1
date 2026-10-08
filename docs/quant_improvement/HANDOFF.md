@@ -17,6 +17,7 @@
 - **Tier 3-B 결과 (2026-10-07): 1~4단계 후보 0건 → 중단 규칙 발동** (스크리너 출력 117 · 조건부 반전 18 · PEAD 대리 10 · 캔들 확인 18 · 패널 ML 1, 모두 기준 미달). 남은 결정은 5절.
 - **6단계 결과 (2026-10-08)**: 섹터 버그 수정 후 새 BASE = Sharpe 0.83 · CAGR 18.1% · MDD −27.9% · 총 +68.4% (같은 기간 SPY +68.6%, SPY Sharpe 1.08). 알파 t 0.44 → 여전히 SPY를 못 이김. R1 장중 손절(ΔSharpe −0.34)·H3 약세장 진입 중단(−0.05, MDD는 −21.6%로 개선) 모두 `운과 구분 안 됨` → 채택 없음.
 - **2026-10-08 추가 결과 — 종목 선택 연구 종료**: ① T2-10(10종목 분산)을 새 BASE로 재측정 → 오히려 나빠짐 (Sharpe 0.51, ΔSharpe −0.32, 운과 구분 안 됨). ② 🛑 6-3 PT-2·PT-3 사전 기준 (PIT 2022-08~2025-09): PT-2 Sharpe 0.22 · 총 +6.9%, PT-3 Sharpe −0.03 · 총 −3.9% vs SPY 1.09 · +68.6% → 계획서 10-8 규칙상 **재설계 또는 중단 (사용자 결정 필요)**. ③ SEC EDGAR 재무 팩터 14건(가치·수익성·자산증가·발생액·발행, `tier3/FUNDAMENTAL_REPORT_px10y.md`) 후보 0 · 관찰 1(발생액 63일 t 2.50 < z 2.91). ④ 실제 실적일 PEAD 10건(`tier3/PEAD_REPORT_px10y.md`) 전부 탈락. 누적 시도 503건. → 9단계(지수 기준선 · 봇 처리) 결정만 남음.
+- **2026-10-08 CCS 점검 (`tier3/EARNINGS_FILTER_CHECK.md`)**: 버그 2개 수정 — ① 어닝 회피 필터가 yfinance 1.x 키 변경으로 PT-1·2·3 모두에서 꺼져 있었음 (실거래 `fundamentals.py` 수정, 백테스트는 SEC 실적일 `earnings_calendar.py`, 기본 = 예정 발표만) ② 바닥반등 MACD 기준이 가격 단위(−0.5달러) → 주가 대비 −1%. 새 BASE Sharpe 1.14 (예정 발표만) / 1.02 (8-K 전부) / 0.98 (필터 끔) vs SPY 1.08 — 전부 운과 구분 안 됨. MACD 0.02점 수정만으로 0.83 → 0.98 이 될 만큼 백테스트 경로가 민감하다. A/B (`ab_ccs_fix`): R2 교체 오늘 점수 −0.45, H4b 교체 끄기 −0.05, H5 CCS v2 −0.47, H2 모멘텀만 +0.25 [−0.71, +1.15] — 채택 없음. PT-2 Sharpe 0.29 · PT-3 0.13 (어닝 수정 후에도 SPY 1.09 크게 미달). 워크플로 상태 push 를 pull --rebase 재시도로 수정.
 - **이후 완료 (로컬 커밋, push 전)**: 시트·메일 SPY 비교, ETN/VXX 등 비주식 제외, GOOG/GOOGL 같은 회사 중복 방지, 실거래 섹터명 GICS 매핑, 병행 계좌 PT-1S(S&P 500만), 지수 타이밍 비교(`tier3/BASELINE_COMPARE.md`, 채택 없음).
 - (이전) **다음 단계 (2026-10-05 사용자 결정): 종목 선택 연구 2차(Tier 3-B)** — 아직 검증 안 한 스크리너 출력(패턴·적합도·CCS), 조건부 반전, 실적 이벤트, 패널 ML. Optuna는 후보가 채택된 뒤에만. **구현 순서는 [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md)** (5절 요약).
 
@@ -65,6 +66,7 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 | PIT 유니버스 (`fetch_sp500_membership.py`) | S&P 500 과거 구성종목 CSV 확보 (`data/universe/sp500_membership.csv`) |
 | Baseline (`run_hypothesis_ab.py --only BASE`) | PIT: Sharpe 0.35 / 알파 −4.3% (t=−0.45). PIT 없음: Sharpe 0.81 / 알파 +4.0% → **생존 편향 확인** |
 | 새 BASE (2026-10-08, 섹터 버그 수정 후, PIT) | Sharpe 0.83 / CAGR 18.1% / MDD −27.9% / 알파 +4.8% (t=0.44). SPY Sharpe 1.08. R1·H3 채택 없음 |
+| 새 BASE (2026-10-08 오후, 어닝 필터·MACD 단위 수정 후) | Sharpe 1.14 (실적일 예정 발표만, 기본) · 1.02 (8-K 전부) / CAGR 25.4% / MDD −21.9% / 알파 t 1.07. SPY 1.08 — 운과 구분 안 됨. R2·H4b·H5·H2 채택 없음 |
 | Tier 2 종목 수 (T2-5·10·20) | T2-10 Sharpe 1.09, MDD −11%. 그러나 "운과 구분 안 됨" → **채택 안 함** |
 | H1~H6 미세조정 | **건너뜀.** [WORK_SUMMARY.md](WORK_SUMMARY.md) 4-8절 규칙: 알파 t<1이면 미세조정보다 알파 재설계가 먼저 |
 | Tier 3-1 연구 패널 | 날짜×종목 피처 + 5/10/20일 선행수익률 (t+1 시가 진입 → t+1+h 시가 청산) |

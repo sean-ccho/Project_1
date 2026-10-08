@@ -48,11 +48,11 @@ class EarningsCalendar:
 
     @classmethod
     def load(cls, path: Path | str = DEFAULT_PATH, mode: str | None = None) -> "EarningsCalendar":
-        """mode: all(기본) | scheduled(예정 발표만 근사 — 미래 정보 점검용) | off(필터 끔).
+        """mode: scheduled(기본, 예정 발표만 — 실거래처럼 미리 알 수 있던 일정) | all(8-K 전부, 예정 외 경고까지 미리 아는 셈) | off(필터 끔).
 
         환경변수 BACKTEST_EARNINGS_CAL 로도 고른다 (진단용, 해시 대상 파일이 아니라 피처 캐시를 그대로 쓴다).
         """
-        mode = (mode or os.environ.get("BACKTEST_EARNINGS_CAL", "all")).lower()
+        mode = (mode or os.environ.get("BACKTEST_EARNINGS_CAL", "scheduled")).lower()
         p = Path(path)
         if mode == "off":
             print("[백테스트] 실적일 달력 꺼짐 (BACKTEST_EARNINGS_CAL=off)")
