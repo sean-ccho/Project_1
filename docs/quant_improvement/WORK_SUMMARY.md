@@ -372,3 +372,4 @@ PYTHONPATH=.:src python scripts/optimize_optuna.py --account pt2 --evaluate-hold
 | 2026-10-03 | 문서 정리: HANDOFF.md를 단일 인수인계 문서로 통합. 완료된 문서(옛 HANDOFF 이전 가이드, CODE_CHANGES_GUIDE, analyze_trades_stdlib.py, tier3/HANDOFF_TIER3.md) 삭제. 연구 데이터 번들(parquet) 정리 |
 | 2026-10-05 | 10년 표본(`px10y`) 데이터 패널 생성 및 팩터·합성 리서치 재실행. 장기 데이터 및 다양한 레짐에서도 팩터들이 다중검정 임계값(t≈3.59)을 넘지 못함 (OOS 실패, 노이즈로 확인). 개별 종목 알파 추구 중단 및 Baseline 대체 방향으로 [HANDOFF.md](HANDOFF.md) 요약 및 할 일 갱신. |
 | 2026-10-05 | (노트북 검토) 사용자 결정으로 신호 연구 2차 계획 [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md) 작성: 미검증 스크리너 출력·조건부 반전·PEAD·패널 ML, Optuna는 채택 후보 뒤. 백테스트 buy_signal 상시 False(섹터 ETF 누락)·실거래 섹터명 불일치 의심 발견 → 0-8·6단계 |
+| 2026-10-07 | Tier 3-B 0단계 완료: `research_utils.py`(NW t·Bonferroni·시도 기록·개발 구간 로드), `TRIAL_LOG.csv`(누적 294건), `signal_portfolio_sim.py`, `deflated_sharpe`, factor/composite에 `t_nw`·세트별 파라미터. px10y 연 1회 재학습 합성(OOS 2019~) 통과 0. 0-8 진단: 백테스트 buy_signal 2025-09 전부 0(필터 전 13~20)·실거래 섹터명 불일치 확정 → 6단계 수정 |

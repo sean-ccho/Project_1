@@ -13,7 +13,7 @@
   - 생존 편향을 빼면(PIT 유니버스) Sharpe 0.35, 알파 −4.3% (t=−0.45). 이전의 +147%는 편향이 만든 착시였다.
   - 종목 수를 늘리면(T2-10) Sharpe 1.09까지 오르지만 부트스트랩 95% 기준에서 "운과 구분 안 됨".
   - 10년 치 장기 데이터 패널(`px10y`) 생성 후 가격 기반 팩터들을 검증했으나, 단일 팩터 및 고정 합성/워크포워드(OOS) 합성 모두 다중검정 보정 임계를 넘지 못함 (과최적화/노이즈 확인).
-- ⚠️ **백테스트-실거래 불일치 의심 (2026-10-05 노트북 검토)**: PT-1 백테스트에는 섹터 ETF가 없어 buy_signal이 항상 False로 보이고, 실거래도 섹터 이름(yfinance vs GICS)이 안 맞아 6개 섹터의 buy_signal이 꺼진다. 위 BASE 수치는 실거래와 다른 전략을 잰 것일 수 있다 → [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md) 0-8·6단계.
+- ⚠️ **백테스트-실거래 불일치 확정 (2026-10-07 0-8 진단)**: PT-1 백테스트에는 섹터 ETF가 없어 buy_signal이 항상 False다 (2025-09 스냅샷 5개 모두 0건, 섹터 필터 전 조건 충족은 13~20건). 실거래도 섹터 이름(yfinance vs GICS)이 안 맞아 6개 섹터의 buy_signal이 꺼진다 (2026-10-06 S&P 500: 현재 0건 → 이름 매핑 시 5건, 전부 Technology). 위 BASE 수치는 실거래와 다른 전략을 잰 것이다 → 수정은 [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md) 6단계.
 - **다음 단계 (2026-10-05 사용자 결정): 종목 선택 연구 2차(Tier 3-B)** — 아직 검증 안 한 스크리너 출력(패턴·적합도·CCS), 조건부 반전, 실적 이벤트, 패널 ML. Optuna는 후보가 채택된 뒤에만. **구현 순서는 [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md)** (5절 요약).
 
 ---
@@ -99,6 +99,7 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 - 생존 편향: 가격이 있는 PIT 구성종목 비율이 2016년 79% → 2025년 97% (`tier3/px10y_coverage.csv`). 초기 연도일수록 상장폐지 종목이 빠져 있다. `_sn` 피처의 섹터는 현재 구성종목 기준(`data/universe/sector_map.csv`).
 - 팩터 105건(35×3): 최고 `vol_trend` 5일 t=−2.12, 게이트 통과 1건. 단기 반전(`ret_5d`·`ret_10d` 음)은 10년 중 9~10년 부호가 같지만 |t|≈1.1.
 - 합성 18건: 최고 REV+LIQ+VOL 5일 Q5 초과 t=1.95. 워크포워드 OOS(2023-08~) IC t = 5일 −0.39 / 10일 +0.02 / 20일 −0.86 → 무의미.
+- 2026-10-07 재실행(0-5, 매년 1월 재학습 · OOS 2019~ · split 2021-01, 시도 18건 추가): 최고 REV+LIQ 5일 전체 t_nw=2.57(검증 2021~ 1.62). 워크포워드 OOS t_nw = 5일 0.30 / 10일 1.16 / 20일 0.74 → 통과 없음. 리포트 파일은 이 재실행 결과로 바뀌었다.
 - 참고: `COMPOSITE_REPORT_px10y.md`의 "1단계 132건"은 3년 패널 값(`PRIOR_TRIALS` 하드코딩)이다. px10y 실제 팩터 검정은 105건. 누적 시도 수는 0단계 TRIAL_LOG에서 다시 센다.
 
 ---
@@ -107,7 +108,7 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 
 **[SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md) 순서대로 진행한다** (2026-10-05 사용자 결정: 지수 기준선으로 바꾸기 전에 스크리너 스타일 신호 연구를 한 번 더). 요약:
 
-0. 준비: px10y 코드 커밋 · 이 문서 3·4·6·7절 px10y 반영, 연구 공통 도구(NW t값 · 시도 기록 · 패널 포트폴리오 시뮬 · DSR), buy_signal 불일치 진단
+0. ~~준비~~ **완료 (2026-10-07)**: px10y 커밋, 공통 도구(`research_utils.py` · `TRIAL_LOG.csv` 누적 294건 · `signal_portfolio_sim.py` · `deflated_sharpe`), buy_signal 불일치 확정. ⚠️ `ohlcv_e7842ef0a144`·`ohlcv_b372c6f47e0f` 캐시는 홀드아웃까지 들어 있다 → 반드시 `research_utils.load_ohlcv`로 읽는다
 1. **스크리너 출력 이벤트 스터디** (패턴 · 전략구분 · 판단 · buy_signal · CCS) ← 최우선
 2. 조건부 반전 (5일 수익률 × 거래량 급증 · 갭)
 3. 실적 이벤트 (PEAD: 대리 이벤트 → SEC EDGAR 8-K Item 2.02)
