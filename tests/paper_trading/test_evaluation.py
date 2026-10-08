@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from paper_trading.evaluation import (
     alpha_beta,
     cagr,
+    deflated_sharpe,
     fold_wins,
     max_drawdown,
     paired_bootstrap,
@@ -94,3 +95,11 @@ def test_fold_wins_counts_each_period():
     a = [0.01, 0.0] * 30 + [0.0, 0.0] * 30 + [0.01, 0.0] * 30
     b = [0.0, 0.0] * 90
     assert fold_wins(a, b, 3) == 2
+
+
+def test_deflated_sharpe_penalizes_many_trials():
+    rng = random.Random(0)
+    one = deflated_sharpe(0.1, [0.1, 0.1], n_obs=756)  # 분산 0 → PSR(0) ≈ 0.997
+    many = deflated_sharpe(0.1, [rng.gauss(0.0, 0.05) for _ in range(200)], n_obs=756)
+    assert 0.0 <= many < one <= 1.0
+    assert math.isnan(deflated_sharpe(0.1, [0.1], n_obs=756))

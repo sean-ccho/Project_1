@@ -3,15 +3,18 @@
 - sharpe / cagr / max_drawdown: 일간 수익률 리스트 기준
 - alpha_beta: 일간 수익률을 팩터(시장·모멘텀)에 회귀 → 쉬운 방법으로 설명 안 되는 연 알파
 - paired_bootstrap: 같은 날짜의 두 전략을 날짜 블록 단위로 같이 재표본 → Sharpe 차이가 운인지
+- deflated_sharpe: 여러 번 시도한 뒤 고른 Sharpe가 운으로 기대되는 최고치보다 클 확률 (DSR)
 """
 
 from __future__ import annotations
 
 import math
 import random
+from statistics import NormalDist
 from typing import Sequence
 
 TRADING_DAYS = 252
+_EULER_GAMMA = 0.5772156649015329
 
 
 def sharpe(returns: Sequence[float], periods: int = TRADING_DAYS) -> float:
@@ -166,3 +169,22 @@ def verdict(
     if stats["ΔSharpe_상한"] < 0:
         return "기각"
     return "운과 구분 안 됨"
+
+
+def deflated_sharpe(sr: float, sr_trials: Sequence[float], n_obs: int,
+                    skew: float = 0.0, kurt: float = 3.0) -> float:
+    """Deflated Sharpe Ratio (Bailey & López de Prado 2014). sr·sr_trials 는 기간당(일간) Sharpe.
+
+    시도 N개의 Sharpe 분산으로 "운으로 기대되는 최고 Sharpe" SR0 를 구하고, sr 이 그보다 클 확률을 낸다.
+    시도가 2개 미만이거나 관측이 3개 미만이면 nan.
+    """
+    n = len(sr_trials)
+    if n < 2 or n_obs < 3:
+        return float("nan")
+    mean = sum(sr_trials) / n
+    var = sum((s - mean) ** 2 for s in sr_trials) / (n - 1)
+    nd = NormalDist()
+    sr0 = math.sqrt(var) * ((1 - _EULER_GAMMA) * nd.inv_cdf(1 - 1 / n)
+                            + _EULER_GAMMA * nd.inv_cdf(1 - 1 / (n * math.e)))
+    denom = math.sqrt(max(1e-12, 1 - skew * sr + (kurt - 1) / 4 * sr ** 2))
+    return nd.cdf((sr - sr0) * math.sqrt(n_obs - 1) / denom)

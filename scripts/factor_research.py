@@ -5,6 +5,7 @@
 방법:
   - 날짜별 Spearman IC(팩터, 선행수익률) → 평균 IC, t-stat, hit-rate
   - t-stat은 선행수익률 겹침(autocorrelation) 때문에 **h일 간격 비중첩 샘플**로 계산
+    + 전체 일별 IC의 Newey-West t (`t_nw`, lag=h-1) — Tier 3-B 판정 기준. 정렬은 비중첩 t 그대로
   - 연도별 평균 IC 부호 일관성 (전체 평균 부호와 같은 연도 비율)
   - 5분위 수익률 (Q5-Q1 스프레드, 비중첩 t-stat)
   - 레짐(bull/neutral/bear)별 IC — 레짐은 패널 종목 동일가중 지수의 50/200일 이동평균으로 판정
@@ -26,6 +27,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import numpy as np
 import pandas as pd
+
+from research_utils import nw_tstat
 
 HORIZONS = (5, 10, 20)
 # 스케일이 종목마다 달라 횡단면 비교가 무의미한 원시 수준값 제외
@@ -113,7 +116,7 @@ def main() -> None:
             ic_rows.append({
                 "factor": f, "horizon": h, "n_dates": len(ic),
                 "mean_ic": ic.mean(), "ic_std": ic.std(),
-                "t_nonoverlap": tstat(ic_ns), "t_naive": tstat(ic),
+                "t_nonoverlap": tstat(ic_ns), "t_nw": nw_tstat(ic, lag=h - 1), "t_naive": tstat(ic),
                 "hit_rate": float((np.sign(ic) == sign).mean()),
                 "year_sign_consistency": float((np.sign(yr) == sign).mean()),
                 "yearly_ic": ";".join(f"{y}:{v:+.3f}" for y, v in yr.items()),
@@ -173,11 +176,11 @@ def main() -> None:
     for h in HORIZONS:
         s = ic_df[ic_df.horizon == h].sort_values("t_nonoverlap", key=abs, ascending=False)
         lines += [f"## 상위 팩터 (|t| 순) — {h}일", "",
-                  "| 팩터 | 평균IC | t(비중첩) | 연도부호일관 | 연도별 IC |",
-                  "|---|---|---|---|---|"]
+                  "| 팩터 | 평균IC | t(비중첩) | t(NW) | 연도부호일관 | 연도별 IC |",
+                  "|---|---|---|---|---|---|"]
         for _, r in s.head(15).iterrows():
             lines.append(
-                f"| {r.factor} | {r.mean_ic:+.4f} | {r.t_nonoverlap:+.2f} | "
+                f"| {r.factor} | {r.mean_ic:+.4f} | {r.t_nonoverlap:+.2f} | {r.t_nw:+.2f} | "
                 f"{r.year_sign_consistency:.0%} | {r.yearly_ic} |")
         lines.append("")
     (out_dir / f"FACTOR_REPORT_{args.set}.md").write_text("\n".join(lines), encoding="utf-8")

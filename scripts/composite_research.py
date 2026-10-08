@@ -4,13 +4,15 @@
 두 종류:
   A) 가설 기반 고정 합성 (REV 반전 / LIQ 유동성 / VOL 변동성 및 조합)
      - 1단계 팩터 리서치 방향에서 착안했으므로 전체기간 결과는 낙관 편향 가능
-       → 학습구간(~2024-08)/검증구간(2024-08~) 분리 결과를 같이 본다
+       → 학습구간/검증구간 분리(SET_PARAMS의 split) 결과를 같이 본다
   B) 워크포워드 데이터기반 합성
      - 학습창(과거 전부)에서 |t|가 큰 팩터 top-K를 부호와 함께 뽑아 동일가중 순위합
-     - 검증은 그 이후 구간(OOS)에서만. 연 1회 재학습, 최초 학습창 1년
+     - 검증은 그 이후 구간(OOS)에서만. 재학습 시점은 SET_PARAMS의 refits
+       (pit: 2023-08·2024-08 / px10y: 2019~2025 매년 1월 → OOS 2019~, 4단계 ML과 같은 구간)
 
-다중검정: 1단계 132건 + 여기서 시도한 합성 수를 합쳐 Bonferroni 임계 |t|를 출력.
-t-stat은 h일 간격 비중첩 샘플. 선행수익률은 t+1 시가 진입 → t+1+h 시가 청산.
+다중검정: 세트별 1단계 팩터 검정 수(prior_trials) + 여기서 시도한 합성 수를 합쳐 Bonferroni 임계 |t|를 출력.
+t-stat은 h일 간격 비중첩 샘플 + 일별 IC의 Newey-West t(`t_nw`, lag=h-1).
+선행수익률은 t+1 시가 진입 → t+1+h 시가 청산.
 
 사용법: PYTHONPATH=.:src .venv/bin/python scripts/composite_research.py --set pit
 산출: docs/quant_improvement/tier3/composite_{set}.csv, COMPOSITE_REPORT_{set}.md
@@ -31,11 +33,15 @@ import pandas as pd
 from scipy.stats import norm
 
 from factor_research import EXCLUDE, HORIZONS, ic_by_date, tstat
+from research_utils import nw_tstat
 
-SPLIT = pd.Timestamp("2024-08-16")  # 학습/검증 경계 (고정 합성용)
-FIRST_OOS = pd.Timestamp("2023-08-18")  # 워크포워드 최초 검증 시작
 TOP_K = 5
-PRIOR_TRIALS = 132  # 1단계 팩터 검정 수
+# split: 고정 합성 학습/검증 경계 · refits: 워크포워드 재학습 시점(첫 값 = OOS 시작) · prior_trials: 1단계 팩터 검정 수
+SET_PARAMS: dict[str, dict] = {
+    "pit": {"split": "2024-08-16", "refits": ["2023-08-18", "2024-08-16"], "prior_trials": 132},
+    "nonpit": {"split": "2024-08-16", "refits": ["2023-08-18", "2024-08-16"], "prior_trials": 132},
+    "px10y": {"split": "2021-01-01", "refits": [f"{y}-01-01" for y in range(2019, 2026)], "prior_trials": 105},
+}
 
 FIXED_OLD = {
     "REV": [("10일고점괴리", -1), ("5일수익률", -1), ("obv_z20", -1)],
@@ -87,6 +93,7 @@ def evaluate(score: pd.Series, panel: pd.DataFrame, h: int, mask: pd.Series | No
     ns = lambda s: s[s.index.isin(steps)]
     return {
         "n_dates": len(ic), "mean_ic": ic.mean(), "t_nonoverlap": tstat(ic_ns),
+        "t_nw": nw_tstat(ic, lag=h - 1),
         "hit_rate": float((np.sign(ic) == np.sign(ic.mean())).mean()),
         "yearly_ic": ";".join(f"{y}:{v:+.3f}" for y, v in yr.items()),
         "Q5_minus_Q1": sp.mean(), "spread_t": tstat(ns(sp)),
@@ -100,6 +107,11 @@ def main() -> None:
     ap.add_argument("--set", default="pit", choices=["pit", "nonpit", "px10y"])
     ap.add_argument("--out", default="docs/quant_improvement/tier3")
     args = ap.parse_args()
+    params = SET_PARAMS[args.set]
+    split = pd.Timestamp(params["split"])
+    refit_dates = [pd.Timestamp(d) for d in params["refits"]]
+    first_oos = refit_dates[0]
+    prior_trials = int(params["prior_trials"])
 
     panel = pd.read_parquet(ROOT / "data/research" / f"panel_{args.set}.parquet")
     panel = panel.sort_values(["date", "티커"]).reset_index(drop=True)
@@ -117,14 +129,13 @@ def main() -> None:
         score = composite_score(ranks, spec)
         for h in HORIZONS:
             n_trials += 1
-            for seg, mask in (("full", None), ("train<2024-08", panel["date"] < SPLIT),
-                              ("test>=2024-08", panel["date"] >= SPLIT)):
+            for seg, mask in (("full", None), (f"train<{split:%Y-%m}", panel["date"] < split),
+                              (f"test>={split:%Y-%m}", panel["date"] >= split)):
                 r = evaluate(score, panel, h, mask, all_dates)
                 if r:
                     rows.append({"kind": "fixed", "name": name, "horizon": h, "segment": seg, **r})
 
     # ── B) 워크포워드 합성
-    refit_dates = [FIRST_OOS, pd.Timestamp("2024-08-16")]
     bounds = refit_dates + [panel["date"].max() + pd.Timedelta(days=1)]
     wf_info = []
     for h in HORIZONS:
@@ -155,24 +166,24 @@ def main() -> None:
             seg = (panel["date"] >= a) & (panel["date"] < b)
             sc = composite_score(ranks, spec)
             score[seg] = sc[seg]
-        r = evaluate(score, panel, h, panel["date"] >= FIRST_OOS, all_dates)
+        r = evaluate(score, panel, h, panel["date"] >= first_oos, all_dates)
         if r:
             rows.append({"kind": "walkforward", "name": f"WF_top{TOP_K}", "horizon": h,
-                         "segment": f"oos>={FIRST_OOS.date()}", **r})
+                         "segment": f"oos>={first_oos.date()}", **r})
 
     res = pd.DataFrame(rows)
     out_dir = ROOT / args.out
     res.to_csv(out_dir / f"composite_{args.set}.csv", index=False)
 
-    total = PRIOR_TRIALS + n_trials
+    total = prior_trials + n_trials
     z_bonf = norm.isf(0.05 / total / 2)
     lines = [f"# Tier 3-3 합성 점수 검증 ({args.set})", "",
-             f"- 시도 횟수: 1단계 팩터 {PRIOR_TRIALS}건 + 합성 {n_trials}건 = **{total}건**",
+             f"- 시도 횟수: 1단계 팩터 {prior_trials}건 + 합성 {n_trials}건 = **{total}건**",
              f"- Bonferroni 보정 임계 |t| ≈ **{z_bonf:.2f}** (5% 유의수준, 양측)",
-             "- t는 비중첩 샘플. 합성 A는 1단계 결과에서 방향을 착안 → 'full'은 낙관적, **test 구간이 핵심**",
+             "- t는 비중첩 샘플, t_nw는 일별 IC의 Newey-West(lag=h-1). 합성 A는 1단계 결과에서 방향을 착안 → 'full'은 낙관적, **test 구간이 핵심**",
              "- 합성 B(워크포워드)는 학습창 데이터만 사용 → OOS 결과가 비교적 정직", "",
              "## 워크포워드가 고른 팩터", ""] + [f"- {x}" for x in wf_info] + [""]
-    cols = ["name", "horizon", "segment", "n_dates", "mean_ic", "t_nonoverlap", "hit_rate",
+    cols = ["name", "horizon", "segment", "n_dates", "mean_ic", "t_nonoverlap", "t_nw", "hit_rate",
             "Q5_minus_Q1", "spread_t", "Q5_excess_vs_EW", "Q5_excess_t", "yearly_ic"]
     for h in HORIZONS:
         lines += [f"## {h}일", "", "| " + " | ".join(cols[:-1]) + " | yearly_ic |",
@@ -180,7 +191,7 @@ def main() -> None:
         for _, r in res[res.horizon == h].iterrows():
             lines.append("| " + " | ".join(
                 f"{r[c]:+.4f}" if c in ("mean_ic", "Q5_minus_Q1", "Q5_excess_vs_EW")
-                else f"{r[c]:+.2f}" if c in ("t_nonoverlap", "spread_t", "Q5_excess_t")
+                else f"{r[c]:+.2f}" if c in ("t_nonoverlap", "t_nw", "spread_t", "Q5_excess_t")
                 else f"{r[c]:.0%}" if c == "hit_rate" else str(r[c]) for c in cols) + " |")
         lines.append("")
     (out_dir / f"COMPOSITE_REPORT_{args.set}.md").write_text("\n".join(lines), encoding="utf-8")
