@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -64,19 +65,37 @@ def _to_datetime(value) -> Optional[pd.Timestamp]:
     return None
 
 
-def _extract_earnings_date(info: Dict) -> tuple[str, float]:
-    raw = info.get("earningsDate") or info.get("nextEarningsDate")
-    timestamp = None
-    if isinstance(raw, (list, tuple)) and raw:
-        timestamp = _to_datetime(raw[0])
-    else:
-        timestamp = _to_datetime(raw)
+_MARKET_TZ = ZoneInfo("America/New_York")
+# yfinance 1.x 는 실적일을 epoch 초(earningsTimestamp*)로 준다. 옛 키(earningsDate)는 예전 버전 호환용
+_EARNINGS_KEYS = ("earningsTimestampStart", "earningsTimestamp", "earningsDate", "nextEarningsDate")
 
-    if not timestamp:
+
+def _to_market_date(value) -> Optional[date]:
+    """yfinance 실적일 값(epoch 초 · 날짜 문자열 · 리스트) → 미국 동부 날짜. 해석 못 하면 None."""
+    if isinstance(value, (list, tuple)):
+        value = value[0] if value else None
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float, np.integer, np.floating)):
+        if not np.isfinite(value) or value <= 0:
+            return None
+        return pd.Timestamp(float(value), unit="s", tz="UTC").tz_convert(_MARKET_TZ).date()
+    ts = _to_datetime(value)
+    return ts.date() if ts is not None else None
+
+
+def _extract_earnings_date(info: Dict, today: Optional[date] = None) -> tuple[str, float]:
+    """다음 실적 발표일과 남은 달력일 (미국 동부 날짜 기준).
+
+    후보 키 중 오늘 이후 날짜의 가장 이른 값을 쓴다. 이미 지난 날짜뿐이면 ('', nan) — 다음 일정 미정.
+    실행 시각(20:45 ET = 다음날 00:45 UTC)에 UTC 날짜를 쓰면 하루가 밀리므로 ET 날짜로 센다.
+    """
+    today = today or datetime.now(_MARKET_TZ).date()
+    upcoming = [d for d in (_to_market_date(info.get(k)) for k in _EARNINGS_KEYS) if d is not None and d >= today]
+    if not upcoming:
         return "", float("nan")
-
-    days_to = (timestamp.date() - datetime.utcnow().date()).days
-    return timestamp.strftime("%Y-%m-%d"), float(days_to)
+    nxt = min(upcoming)
+    return nxt.strftime("%Y-%m-%d"), float((nxt - today).days)
 
 
 def fetch_fundamental_snapshots(tickers: List[str], use_cache: bool = False) -> pd.DataFrame:
