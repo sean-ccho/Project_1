@@ -49,3 +49,6 @@ data/research/
 
 # 백테스트 실행 로그 (재생성 가능)
 output/logs/
+
+# 백테스트 실행 결과 폴더 (로컬 보관, 커밋 안 함)
+output/runs/
