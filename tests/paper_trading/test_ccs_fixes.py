@@ -84,3 +84,23 @@ def test_earnings_calendar_days_to_next_and_annotate(tmp_path):
     # 파일이 없으면 그대로 (기존 동작)
     empty = EarningsCalendar.load(tmp_path / "none.parquet")
     assert empty.annotate(ranked, pd.Timestamp("2024-01-30")) is ranked
+
+
+def test_scheduled_only_drops_preannouncement_cluster():
+    from paper_trading.earnings_calendar import scheduled_only
+    dates = pd.DataFrame({"티커": ["AAA"] * 4,
+                          "accepted_et": pd.to_datetime(["2024-01-08 08:00",   # 실적 경고 (정규 발표 3주 전)
+                                                         "2024-01-30 16:05",   # 정규
+                                                         "2024-04-30 16:05",   # 정규
+                                                         "2024-07-30 16:05"])})
+    kept = scheduled_only(dates)["accepted_et"].dt.strftime("%m-%d").tolist()
+    assert kept == ["01-30", "04-30", "07-30"]
+
+
+def test_calendar_mode_off_and_env(monkeypatch, tmp_path):
+    path = tmp_path / "e.parquet"
+    pd.DataFrame({"티커": ["AAA"], "accepted_et": pd.to_datetime(["2024-01-30 16:05"])}).to_parquet(path)
+    assert len(EarningsCalendar.load(path)) == 1
+    assert len(EarningsCalendar.load(path, mode="off")) == 0
+    monkeypatch.setenv("BACKTEST_EARNINGS_CAL", "off")
+    assert len(EarningsCalendar.load(path)) == 0

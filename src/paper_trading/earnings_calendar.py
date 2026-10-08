@@ -11,12 +11,28 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 DEFAULT_PATH = Path("data/research/sec_earnings_dates.parquet")
+
+
+CLUSTER_DAYS = 45
+
+
+def scheduled_only(dates: pd.DataFrame, cluster_days: int = CLUSTER_DAYS) -> pd.DataFrame:
+    """예정 실적 발표만 남기는 근사: 같은 회사 발표가 cluster_days 안에 몰리면 마지막 것만 남긴다.
+
+    예정 외 발표(실적 경고·잠정치)는 보통 정규 발표 몇 주 전에 나온다. 그건 미리 알 수 없어서
+    백테스트 필터에 쓰면 미래 정보가 된다. 정규 발표는 약 91일 간격이라 거의 지워지지 않는다.
+    """
+    d = dates.assign(day=pd.to_datetime(dates["accepted_et"]).dt.normalize()).sort_values(["티커", "day"])
+    nxt = d.groupby("티커")["day"].shift(-1)
+    keep = nxt.isna() | ((nxt - d["day"]).dt.days > cluster_days)
+    return d.loc[keep, ["티커", "accepted_et"]].reset_index(drop=True)
 
 
 class EarningsCalendar:
@@ -31,13 +47,24 @@ class EarningsCalendar:
             self._by_ticker[str(ticker)] = np.sort(g["day"].to_numpy(dtype="datetime64[D]"))
 
     @classmethod
-    def load(cls, path: Path | str = DEFAULT_PATH) -> "EarningsCalendar":
+    def load(cls, path: Path | str = DEFAULT_PATH, mode: str | None = None) -> "EarningsCalendar":
+        """mode: all(기본) | scheduled(예정 발표만 근사 — 미래 정보 점검용) | off(필터 끔).
+
+        환경변수 BACKTEST_EARNINGS_CAL 로도 고른다 (진단용, 해시 대상 파일이 아니라 피처 캐시를 그대로 쓴다).
+        """
+        mode = (mode or os.environ.get("BACKTEST_EARNINGS_CAL", "all")).lower()
         p = Path(path)
+        if mode == "off":
+            print("[백테스트] 실적일 달력 꺼짐 (BACKTEST_EARNINGS_CAL=off)")
+            return cls(None)
         if not p.exists():
             print(f"[백테스트] 실적일 파일 없음 ({p}) → 어닝 회피 필터 미적용 (기존 동작)")
             return cls(None)
-        cal = cls(pd.read_parquet(p, columns=["티커", "accepted_et"]))
-        print(f"[백테스트] 실적일 로드: {len(cal)}개 종목 ({p})")
+        dates = pd.read_parquet(p, columns=["티커", "accepted_et"])
+        if mode == "scheduled":
+            dates = scheduled_only(dates)
+        cal = cls(dates)
+        print(f"[백테스트] 실적일 로드: {len(cal)}개 종목, {len(dates):,}건 (mode={mode}, {p})")
         return cal
 
     def __len__(self) -> int:
