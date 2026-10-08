@@ -37,7 +37,8 @@ from paper_trading.universe import Membership, load_membership
 from research_utils import COST_PER_SIDE, TIER3_DIR, load_ohlcv
 
 MEMBERSHIP_CSV = ROOT / "data" / "universe" / "sp500_membership.csv"
-BENCH_OHLCV = ROOT / "data" / "cache" / "ohlcv_e7842ef0a144.parquet"  # SPY가 없는 OHLCV일 때 대체 (≤ DEV_END로 자름)
+# SPY가 없는 OHLCV일 때 대체 (≤ DEV_END로 자름). etf_ohlcv(2015~, signal_event_study.py가 생성)를 먼저 쓴다
+BENCH_OHLCV = [ROOT / "data" / "research" / "etf_ohlcv.parquet", ROOT / "data" / "cache" / "ohlcv_e7842ef0a144.parquet"]
 
 
 def open_to_open(ohlcv: pd.DataFrame) -> pd.DataFrame:
@@ -80,7 +81,8 @@ def spy_open_to_open(r_oo: pd.DataFrame) -> pd.Series:
     """SPY 시가→시가. 입력 OHLCV에 없으면 BENCH_OHLCV에서 가져온다 (구간이 모자라면 NaN)."""
     if "SPY" in r_oo.columns:
         return r_oo["SPY"]
-    bench = open_to_open(load_ohlcv(BENCH_OHLCV))
+    path = next(p for p in BENCH_OHLCV if p.exists())
+    bench = open_to_open(load_ohlcv(path))
     return bench["SPY"].reindex(r_oo.index)
 
 
