@@ -55,6 +55,44 @@ def _safe_float(val: Any, default: float = 0.0) -> float:
         return default
 
 
+# ── 같은 회사(이중상장·클래스주) 판별 ─────────────────────────
+# 회사명이 스냅샷에 없을 때를 위한 알려진 클래스주 묶음 (티커 → 대표 티커)
+_SHARE_CLASS_GROUPS: dict[str, str] = {
+    "GOOG": "GOOGL", "GOOGL": "GOOGL", "FOX": "FOXA", "FOXA": "FOXA", "NWS": "NWSA", "NWSA": "NWSA",
+    "UA": "UAA", "UAA": "UAA", "LBRDA": "LBRDK", "LBRDK": "LBRDK", "LBTYA": "LBTYK", "LBTYB": "LBTYK",
+    "LBTYK": "LBTYK", "BATRA": "BATRK", "BATRK": "BATRK", "FWONA": "FWONK", "FWONK": "FWONK",
+    "LILA": "LILAK", "LILAK": "LILAK", "Z": "ZG", "ZG": "ZG", "RUSHA": "RUSHB", "RUSHB": "RUSHB",
+    "CWEN": "CWEN", "BRK-A": "BRK-B", "BRK-B": "BRK-B", "BF-A": "BF-B", "BF-B": "BF-B",
+    "HEI": "HEI", "HEI-A": "HEI", "LEN": "LEN", "LEN-B": "LEN", "GEF": "GEF", "GEF-B": "GEF",
+}
+_NAME_NOISE = {
+    "inc", "corp", "corporation", "co", "company", "ltd", "limited", "plc", "sa", "nv", "ag", "the",
+    "class", "a", "b", "c", "common", "stock", "shares", "ordinary", "capital", "holding", "holdings",
+}
+
+
+def _issuer_key(name: Any) -> str:
+    """회사명 → 비교용 키 ("Alphabet Inc. - Class C Capital Stock" → "alphabet"). 없으면 ""."""
+    if name is None or (isinstance(name, float) and np.isnan(name)):
+        return ""
+    text = str(name).split(" - ")[0].split("(")[0].lower()
+    words = [w for w in "".join(ch if ch.isalnum() else " " for ch in text).split() if w not in _NAME_NOISE]
+    return " ".join(words)
+
+
+def _same_issuer_mask(df: pd.DataFrame, full: pd.DataFrame, held: set[str]) -> pd.Series:
+    """보유 종목과 같은 회사(클래스주·같은 회사명)인 행 = True."""
+    tick = df.get("티커", pd.Series("", index=df.index)).astype(str)
+    held_groups = {_SHARE_CLASS_GROUPS[t] for t in held if t in _SHARE_CLASS_GROUPS}
+    same = tick.map(lambda t: _SHARE_CLASS_GROUPS.get(t) in held_groups if t in _SHARE_CLASS_GROUPS else False)
+    if "회사" in full.columns and "티커" in full.columns:
+        names = full[full["티커"].astype(str).isin(held)]["회사"].map(_issuer_key)
+        held_keys = {k for k in names if k}
+        if held_keys:
+            same |= df["회사"].map(_issuer_key).isin(held_keys) if "회사" in df.columns else False
+    return same & ~tick.isin(held)
+
+
 # ── Phase 1: Hard Filters ────────────────────────────────────
 
 
@@ -65,6 +103,7 @@ def _apply_hard_filters(
 ) -> tuple[pd.DataFrame, dict[str, int]]:
     """7개 hard filter 적용. (통과 df, 필터별 탈락 수 dict) 반환."""
     rejections: dict[str, int] = {}
+    full_df = df  # 같은 회사 판별용 (보유 종목 행이 앞 필터에서 빠져도 회사명을 찾는다)
     total = len(df)
     effective_rsi_max = rsi_max if rsi_max is not None else CANDIDATE_RSI_MAX
 
@@ -133,11 +172,14 @@ def _apply_hard_filters(
     rejections["어닝_임박"] = int((~mask).sum())
     df = df[mask]
 
-    # 6. 보유 중복 + 벤치마크(SPY) 제외
+    # 6. 보유 중복 + 벤치마크(SPY) 제외 + 같은 회사 다른 클래스주 (GOOG 보유 중 GOOGL 등)
     held_tickers = {p["ticker"] for p in current_holdings} | {"SPY"}
     mask = ~df.get("티커", pd.Series("", index=df.index)).isin(held_tickers)
     rejections["보유_중복"] = int((~mask).sum())
     df = df[mask]
+    same = _same_issuer_mask(df, full_df, held_tickers - {"SPY"})
+    rejections["같은회사_중복"] = int(same.sum())
+    df = df[~same]
 
     # 7. 모멘텀 전략 ADX 최소 필터 (ADX < 20이면 추세 약함 → 모멘텀 진입 차단)
     strategy_col2 = df.get("전략구분", pd.Series("", index=df.index)).astype(str)
@@ -633,13 +675,19 @@ def select_top_candidates(
             sector_counts[p["sector"]] = sector_counts.get(p["sector"], 0) + 1
 
     picks: list[dict[str, Any]] = []
+    picked_issuers: set[str] = set()
     for s in [best_score] + [x for x in scores if x is not best_score]:
         if len(picks) >= max(1, k):
             break
         sector = s["sector"]
         if picks and sector and sector_counts.get(sector, 0) >= CANDIDATE_MAX_SAME_SECTOR:
             continue
-        picks.append(_candidate_from_score(s, filtered.loc[s["idx"]]))
+        row = filtered.loc[s["idx"]]
+        issuer = _SHARE_CLASS_GROUPS.get(str(s["ticker"])) or _issuer_key(row.get("회사")) or str(s["ticker"])
+        if issuer in picked_issuers:  # 같은 날 같은 회사 두 클래스 동시 선정 방지 (백테스트 k>1)
+            continue
+        picked_issuers.add(issuer)
+        picks.append(_candidate_from_score(s, row))
         if sector:
             sector_counts[sector] = sector_counts.get(sector, 0) + 1
 
