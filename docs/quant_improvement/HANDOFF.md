@@ -112,6 +112,7 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 1. ~~스크리너 출력 이벤트 스터디~~ **완료 (2026-10-07): family 117건 전부 탈락** (후보·관찰·역신호 0, 최고 t_nw +1.77). `tier3/EVENT_STUDY_pit.md`. 패널 `섹터`는 78%가 Unknown이라 `sector_map.csv`로 채워 썼다(남은 Unknown 2.9%) — 6단계 수정 때도 같은 문제가 백테스트에 있다
 2. ~~조건부 반전~~ **완료 (2026-10-07): 18건 → 관찰 1 · 탈락 17, 후보 0** (`tier3/CONDITIONAL_REPORT_px10y.md`). 관찰 A2 20일(거래량 급증 반전 t_nw +2.44)은 최근 연도 약화 · 비용 후 +0.05%라 채택 안 함
 3. 실적 이벤트 (PEAD) — **3-1 대리 이벤트 완료 (2026-10-07): 10건 전부 탈락** (`tier3/PEAD_PROXY_REPORT_px10y.md`, 상승 후 지속 없음). 3-2 SEC EDGAR 수집은 보류 (사용자 결정 대기, User-Agent에 이메일 필요)
+3+. (추가, 사용자 질문) 반전 캔들 **다음날 확인 버전 — 18건 전부 탈락** (`tier3/PATTERN_CONFIRM_REPORT_px10y.md`). 확인을 기다리면 오히려 나빠짐
 4. 패널 ML (LightGBM, 연 1회 재학습 워크포워드)
 5. (선택) 보유 기간 40·60일
 6. 백테스트 일괄 정비(섹터 버그 수정 · 후보 규칙 스위치) → BASE 재측정, 🛑 PT-2·3 사전 기준 백테스트, 후보 A/B
@@ -141,6 +142,7 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 | `signal_portfolio_sim.py` | 신호 → 겹치는 h일 보유 포트폴리오, SPY·PIT 동일가중 대비 ΔSharpe → `tier3/PORTFOLIO_SIM_*.md` |
 | `conditional_research.py` | **Tier 3-B 2단계** 5일 수익률 × 거래량 급증·갭 조건부 반전 (px10y) → `tier3/CONDITIONAL_*` |
 | `pead_research.py` | **Tier 3-B 3단계** `--proxy`: 대리 실적 이벤트(갭+거래량) 후 h일 초과수익 → `tier3/PEAD_PROXY_*` |
+| `pattern_confirm_research.py` | 반전 캔들(강세잉걸핑·모닝스타·하락추세 도지) 확인 vs 미확인 (px10y) → `tier3/PATTERN_CONFIRM_*` |
 | `signal_event_study.py` | **Tier 3-B 1단계** `--build`(신호 재계산) → `--count`(family 등록) → `--analyze` → `tier3/EVENT_*` |
 
 **결과 (git에 있음)**: `docs/quant_improvement/tier3/` — `FACTOR_REPORT_{pit,nonpit,px10y}.md`, `COMPOSITE_REPORT_{pit,px10y}.md`, `factor_ic_*.csv`, `factor_quintile_*.csv`, `factor_regime_*.csv`, `composite_{pit,px10y}.csv`, `px10y_coverage.csv`. **PIT·px10y 파일이 기준**, nonpit은 생존 편향 비교용.
