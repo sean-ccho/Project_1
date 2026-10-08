@@ -13,6 +13,31 @@ from screener.config import (
     SECTOR_STRENGTH_THRESHOLD,
 )
 
+# yfinance 섹터명 → GICS 섹터명 (SECTOR_ETFS 키). 펀더멘털을 켜면 `섹터`가 yfinance 이름으로 바뀌어
+# 강한 섹터(GICS 이름)와 비교가 안 맞던 문제(Technology·Healthcare 등 6개 섹터 buy_signal 상시 차단) 수정용.
+SECTOR_ALIASES: Dict[str, str] = {
+    "Technology": "Information Technology",
+    "Healthcare": "Health Care",
+    "Financial Services": "Financials",
+    "Consumer Cyclical": "Consumer Discretionary",
+    "Consumer Defensive": "Consumer Staples",
+    "Basic Materials": "Materials",
+}
+
+
+def to_gics(sector: object) -> str:
+    """섹터명을 GICS 이름으로 (모르는 값·결측은 그대로 / 'Unknown')."""
+    if sector is None or (isinstance(sector, float) and np.isnan(sector)) or str(sector).strip() in ("", "nan"):
+        return "Unknown"
+    s = str(sector).strip()
+    return SECTOR_ALIASES.get(s, s)
+
+
+def is_strong_or_unknown(sector: object, strong_sectors: Set[str]) -> bool:
+    """실거래 규칙: 강한 섹터(GICS 이름 비교)이거나 섹터를 모르면 True."""
+    g = to_gics(sector)
+    return g == "Unknown" or g in strong_sectors
+
 
 def compute_sector_strength(
     etf_data: Dict[str, pd.DataFrame],

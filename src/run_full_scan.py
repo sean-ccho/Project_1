@@ -51,7 +51,7 @@ from screener.features import compute_all_features
 from screener.processing import apply_neutralization, liquidity_filter
 from screener.signals import attach_signals_and_sort
 from analytics.extremes import score_extremes_for_snapshot
-from screener.sector_rotation import get_strong_sectors
+from screener.sector_rotation import get_strong_sectors, is_strong_or_unknown
 
 
 # ---------------------------------------------------------------------------
@@ -252,11 +252,11 @@ def build_full_scan_dataframe(
                     f"{strong_sectors if strong_sectors else '없음'}"
                 )
                 neutral["in_strong_sector"] = neutral["섹터"].apply(
-                    lambda s: s in strong_sectors or s == "Unknown"
+                    lambda s: is_strong_or_unknown(s, strong_sectors)
                 )
                 neutral["섹터강도"] = neutral["섹터"].apply(
                     lambda s: "✅ 강함"
-                    if (s in strong_sectors or s == "Unknown")
+                    if (is_strong_or_unknown(s, strong_sectors))
                     else "❌ 약함"
                 )
 
