@@ -45,13 +45,24 @@ _NON_EQUITY_NAME_RE = re.compile(
     r"|Acquisition Corp|Acquisition Co\b",
     re.IGNORECASE,
 )
+_NON_EQUITY_EXCEPT_PREFERRED_RE = re.compile(
+    r"\bETNs?\b|Exchange[- ]Traded Notes?|\bNotes? due\b|Debentures|\bFund\b|Acquisition Corp|Acquisition Co\b",
+    re.IGNORECASE,
+)
 
 
 def _drop_non_equity(df: pd.DataFrame) -> pd.DataFrame:
-    """'Security Name'으로 ETN·채권·펀드·우선주·SPAC 제거."""
+    """'Security Name'으로 ETN·채권·펀드·우선주·SPAC 제거.
+
+    'Preferred'는 회사 이름일 수 있어(Preferred Bank - Common Stock) 보통주라고 적힌 경우는 남긴다.
+    """
     if "Security Name" not in df.columns:
         return df
-    return df[~df["Security Name"].astype(str).str.contains(_NON_EQUITY_NAME_RE)]
+    name = df["Security Name"].astype(str)
+    is_common = name.str.contains(r"Common Stock|Common Shares", case=False)
+    drop = name.str.contains(_NON_EQUITY_EXCEPT_PREFERRED_RE) | (
+        name.str.contains("Preferred", case=False) & ~is_common)
+    return df[~drop]
 
 
 # 나스닥 관례: 5글자 이상 + W/U/R로 끝나는 티커 → 워런트/유닛/권리

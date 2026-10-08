@@ -20,6 +20,8 @@ NASDAQ = """Symbol|Security Name|Market Category|Test Issue|Financial Status|Rou
 GOOG|Alphabet Inc. - Class C Capital Stock|Q|N|N|100|N|N
 AIIA|AI Infrastructure Acquisition Corp. Class A Ordinary Shares|G|N|N|100|N|N
 FNGD|MicroSectors FANG  Index -3X Inverse Leveraged ETNs due January 8, 2038|G|N|N|100|N|N
+PFBC|Preferred Bank - Common Stock|Q|N|N|100|N|N
+XPFD|Example Corp - 6.5% Series A Preferred Stock|G|N|N|100|N|N
 File Creation Time: 1|||||||
 """
 
@@ -29,4 +31,5 @@ def test_other_listed_drops_non_equity():
 
 
 def test_nasdaq_listed_drops_spac_and_etn():
-    assert _parse_nasdaq_listed(NASDAQ)["ticker"].tolist() == ["GOOG"]
+    # PFBC 는 이름에 Preferred 가 있지만 보통주 → 남긴다. 진짜 우선주는 뺀다
+    assert _parse_nasdaq_listed(NASDAQ)["ticker"].tolist() == ["GOOG", "PFBC"]
