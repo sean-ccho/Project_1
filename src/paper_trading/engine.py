@@ -15,6 +15,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from paper_trading.candidate_selector import select_best_candidate
@@ -122,6 +123,34 @@ def check_sell_conditions(
         return True, f"장기보유({days}일,{ret:+.1%})"
 
     return False, ""
+
+
+def intraday_stop_exit(
+    pos: dict[str, Any],
+    day_open: float,
+    day_low: float,
+) -> tuple[float, str] | None:
+    """장중 손절 (PT1_STOP_INTRADAY): 그날 저가가 손절선·트레일링선을 건드리면 그 가격에 체결.
+
+    체결가 = min(시가, 선) — 갭 하락으로 시가가 이미 선 아래면 시가에 체결된다.
+    트레일링선은 전일까지의 고점(highest_price) 기준. 걸리지 않으면 None.
+    """
+    if not (np.isfinite(day_open) and np.isfinite(day_low)) or day_open <= 0:
+        return None
+    entry = float(pos["entry_price"])
+    highest = float(pos.get("highest_price", entry))
+    p = _resolve_exit_params(pos.get("strategy", ""))
+    stop = entry * (1 - p["stop_loss"])
+    level, kind = stop, "손절"
+    if highest > entry * (1 + p.get("trail_activate_pct", 0.0)):
+        trail = highest * (1 - (pos.get("trailing_stop_override") or p["trailing_stop"]))
+        if trail > level:
+            level, kind = trail, "트레일링"
+    if day_low > level:
+        return None
+    fill = min(day_open, level)
+    ret = fill / entry - 1
+    return fill, f"{kind}(장중,{ret:+.1%})"
 
 
 # ── Hold-Winners Re-Evaluation ──────────────────────────────

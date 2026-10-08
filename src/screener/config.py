@@ -810,6 +810,7 @@ CANDIDATE_MAX_SAME_SECTOR = 2
 CANDIDATE_ALLOWED_STRATEGIES: list[str] | None = None  # H2: None=전부, ["모멘텀"]=바닥반등 중단
 CANDIDATE_BEAR_BLOCK_NEW = False       # H3: 약세장(SPY < EMA200)이면 신규 진입 중단
 PT1_REPLACE_ENABLED = True             # H4: False면 교체 안 함
+PT1_STOP_INTRADAY = False              # 손절·트레일링을 장중 저가로 판정, min(시가, 선)에 체결 (False = 종가 판정)
 CCS_REPLACE_MARGIN = 0.10              # H4: 새 후보 CCS가 최약 보유 종목보다 이만큼 높아야 교체 (기존 0.05)
 # H6: CCS alpha 서브스코어의 5팩터 가중치. "기본" = 모멘텀·기타 (모멘텀/추세 과대평가 → 거래량·평균회귀 비중 강화)
 CANDIDATE_ALPHA_WEIGHTS: dict[str, dict[str, float]] = {

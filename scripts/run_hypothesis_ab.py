@@ -46,6 +46,7 @@ VARIANTS: dict[str, tuple[str, dict[str, Any]]] = {
     "H4a": ("교체 마진 0.10 → 0.20", {"CCS_REPLACE_MARGIN": 0.20}),
     "H4b": ("교체 끄기", {"PT1_REPLACE_ENABLED": False}),
     "H5": ("CCS v2", {"CCS_VERSION": "v2"}),
+    "R1": ("장중 손절: 저가가 손절·트레일링선을 건드리면 min(시가, 선)에 체결", {"PT1_STOP_INTRADAY": True}),
     "H6": ("바닥반등 알파: 변동성·평균회귀 비중 축소", {
         "CANDIDATE_ALPHA_WEIGHTS": {"바닥반등": {"mom": 0.25, "trend": 0.25, "vol": 0.20, "volat": 0.10, "mr": 0.20}},
     }),

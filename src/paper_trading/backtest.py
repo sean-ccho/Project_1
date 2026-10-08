@@ -32,6 +32,7 @@ from screener import config as _cfg
 from screener.config import (
     BACKTEST_COST_PER_SIDE,
     BACKTEST_FUNDAMENTALS_PIT_SAFE,
+    SECTOR_ETFS,
     TICKERS,
 )
 from paper_trading.candidate_selector import select_top_candidates
@@ -41,6 +42,7 @@ from paper_trading.engine import (
     _should_defer_sell,
     check_sell_conditions,
     current_ccs,
+    intraday_stop_exit,
     should_replace,
 )
 from paper_trading.portfolio import get_worst_position
@@ -477,6 +479,7 @@ def run_paper_trading_backtest(
 
     closes = raw.xs("Close", level=1, axis=1)
     opens = raw.xs("Open", level=1, axis=1)
+    lows = raw.xs("Low", level=1, axis=1)
     dates = closes.index.tolist()
 
     if len(dates) <= min_history_days + 5:
@@ -527,6 +530,16 @@ def run_paper_trading_backtest(
         prefetched_fundamentals = prefetched_fundamentals[keep]
 
     price_map = _prepare_price_map(raw)
+    # 섹터 강도 계산용 섹터 ETF 일봉 — 따로 받아 price_map에만 넣는다 (tickers·OHLCV 해시는 그대로)
+    # 예전엔 ETF가 없어 강한 섹터 = ∅ → buy_signal 상시 False (실거래와 다른 전략을 쟀다)
+    etf_tickers = [t for t in SECTOR_ETFS.values() if t not in price_map]
+    if etf_tickers:
+        try:
+            etf_raw = fetch_ohlcv(etf_tickers, period=period, force_download=no_cache)
+            if not etf_raw.empty:
+                price_map.update(_prepare_price_map(etf_raw))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"[BtPaper] 섹터 ETF 다운로드 실패 — 섹터 필터 없이 진행: {exc}")
     ranked_cache: dict[pd.Timestamp, pd.DataFrame] = {}
     ic_weights_cache: dict = {}  # IC 가중치 캐시 (20거래일마다 재계산)
 
@@ -557,6 +570,20 @@ def run_paper_trading_backtest(
         next_date_ts = dates[idx + 1]
         today_str = str(date_ts.date())
         next_str = str(next_date_ts.date())
+
+        # ── 0. 장중 손절 (PT1_STOP_INTRADAY): 오늘 저가가 손절/트레일링선을 건드리면 그 가격에 오늘 청산 ──
+        if _cfg.PT1_STOP_INTRADAY:
+            for pos in list(positions):
+                if pos.ticker not in lows.columns or pos.entry_date > today_str:
+                    continue
+                hit = intraday_stop_exit(pos.to_dict(), float(opens.at[date_ts, pos.ticker]),
+                                         float(lows.at[date_ts, pos.ticker]))
+                if hit is None:
+                    continue
+                fill, reason = hit
+                _, proceeds = _close_position(positions, trades, pos.ticker, fill, today_str, reason)
+                if use_capital:
+                    cash += proceeds
 
         # ── 1. 현재가로 highest_price 업데이트 ──────────────────
         for pos in positions:

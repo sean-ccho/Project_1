@@ -45,7 +45,7 @@ from data.fetch import fetch_ohlcv
 from screener.features import compute_features_snapshot
 from screener.processing import apply_neutralization, liquidity_filter
 from screener.signals import attach_signals_and_sort
-from screener.sector_rotation import get_strong_sectors
+from screener.sector_rotation import fill_unknown_sectors, get_strong_sectors, mark_strong_sectors
 from screener.config import SECTOR_ROTATION_ENABLED
 from screener.cache import (
     cache_meta_valid,
@@ -128,7 +128,10 @@ def _compute_ranked_snapshot(
         return cache[cutoff]
 
     snapshot: dict[str, pd.DataFrame] = {}
+    sector_etfs = set(SECTOR_ETFS.values())
     for ticker, frame in price_map.items():
+        if ticker in sector_etfs:  # 섹터 강도 계산용일 뿐 후보가 아니다
+            continue
         history = frame.loc[:cutoff]
         if history.empty:
             continue
@@ -201,6 +204,9 @@ def _compute_ranked_snapshot(
         cache[cutoff] = pd.DataFrame()
         return cache[cutoff]
 
+    if "섹터" in liquid.columns and "티커" in liquid.columns:
+        liquid = liquid.copy()
+        liquid["섹터"] = fill_unknown_sectors(liquid["섹터"], liquid["티커"])
     neutral = apply_neutralization(liquid)
 
     # 섹터 로테이션 필터링 (메인 워크플로우와 동일하게)
@@ -211,7 +217,7 @@ def _compute_ranked_snapshot(
 
         if not spy_data.empty:
             strong_sectors = get_strong_sectors(etf_data, spy_data)
-            neutral["in_strong_sector"] = neutral["섹터"].isin(strong_sectors)
+            neutral["in_strong_sector"] = mark_strong_sectors(neutral["섹터"], strong_sectors)
         else:
             neutral["in_strong_sector"] = True
     else:

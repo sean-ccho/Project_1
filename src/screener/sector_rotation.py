@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Dict, List, Set
 
 import numpy as np
@@ -31,6 +32,39 @@ def to_gics(sector: object) -> str:
         return "Unknown"
     s = str(sector).strip()
     return SECTOR_ALIASES.get(s, s)
+
+
+_SECTOR_CSV = Path(__file__).resolve().parents[2] / "data" / "universe" / "sector_map.csv"
+_SECTOR_CSV_MAP: Dict[str, str] | None = None
+
+
+def _sector_csv_map() -> Dict[str, str]:
+    """data/universe/sector_map.csv (현재 S&P 500 GICS 섹터). 없으면 빈 dict."""
+    global _SECTOR_CSV_MAP
+    if _SECTOR_CSV_MAP is None:
+        try:
+            df = pd.read_csv(_SECTOR_CSV)
+            _SECTOR_CSV_MAP = dict(zip(df["ticker"].astype(str), df["sector"].astype(str)))
+        except (OSError, KeyError, ValueError):
+            _SECTOR_CSV_MAP = {}
+    return _SECTOR_CSV_MAP
+
+
+def fill_unknown_sectors(sectors: pd.Series, tickers: pd.Series) -> pd.Series:
+    """Unknown·결측 섹터를 sector_map.csv(GICS)로 채우고 GICS 이름으로 통일한다.
+
+    펀더멘털 없는 백테스트는 config.SECTOR_MAP 에 없는 종목이 전부 Unknown(S&P 500의 ~78%)이라
+    "Unknown은 통과" 규칙 때문에 섹터 필터가 사실상 꺼져 실거래와 달랐다.
+    """
+    smap = _sector_csv_map()
+    g = sectors.map(to_gics)
+    fill = tickers.astype(str).map(smap)
+    return g.where(g != "Unknown", fill).fillna("Unknown").map(to_gics)
+
+
+def mark_strong_sectors(sectors: pd.Series, strong_sectors: Set[str]) -> pd.Series:
+    """섹터 열 → 강한 섹터 여부 (실거래 규칙: Unknown 은 통과)."""
+    return sectors.map(lambda s: is_strong_or_unknown(s, strong_sectors))
 
 
 def is_strong_or_unknown(sector: object, strong_sectors: Set[str]) -> bool:

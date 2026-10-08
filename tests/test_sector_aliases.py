@@ -25,3 +25,14 @@ def test_is_strong_or_unknown():
     assert is_strong_or_unknown("Information Technology", strong)
     assert is_strong_or_unknown("Unknown", strong)
     assert not is_strong_or_unknown("Healthcare", strong)
+
+
+def test_fill_unknown_sectors_and_mark_strong():
+    import pandas as pd
+    from screener.sector_rotation import fill_unknown_sectors, mark_strong_sectors
+
+    sectors = pd.Series(["Unknown", "Technology", None, "Unknown"])
+    tickers = pd.Series(["AAPL", "MSFT", "JPM", "ZZZZ_DELISTED"])
+    filled = fill_unknown_sectors(sectors, tickers)
+    assert filled.tolist() == ["Information Technology", "Information Technology", "Financials", "Unknown"]
+    assert mark_strong_sectors(filled, {"Financials"}).tolist() == [False, False, True, True]
