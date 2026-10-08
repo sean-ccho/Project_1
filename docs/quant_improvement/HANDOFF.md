@@ -109,7 +109,7 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 **[SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md) 순서대로 진행한다** (2026-10-05 사용자 결정: 지수 기준선으로 바꾸기 전에 스크리너 스타일 신호 연구를 한 번 더). 요약:
 
 0. ~~준비~~ **완료 (2026-10-07)**: px10y 커밋, 공통 도구(`research_utils.py` · `TRIAL_LOG.csv` 누적 294건 · `signal_portfolio_sim.py` · `deflated_sharpe`), buy_signal 불일치 확정. ⚠️ `ohlcv_e7842ef0a144`·`ohlcv_b372c6f47e0f` 캐시는 홀드아웃까지 들어 있다 → 반드시 `research_utils.load_ohlcv`로 읽는다
-1. **스크리너 출력 이벤트 스터디** (패턴 · 전략구분 · 판단 · buy_signal · CCS) ← 최우선
+1. ~~스크리너 출력 이벤트 스터디~~ **완료 (2026-10-07): family 117건 전부 탈락** (후보·관찰·역신호 0, 최고 t_nw +1.77). `tier3/EVENT_STUDY_pit.md`. 패널 `섹터`는 78%가 Unknown이라 `sector_map.csv`로 채워 썼다(남은 Unknown 2.9%) — 6단계 수정 때도 같은 문제가 백테스트에 있다
 2. 조건부 반전 (5일 수익률 × 거래량 급증 · 갭)
 3. 실적 이벤트 (PEAD: 대리 이벤트 → SEC EDGAR 8-K Item 2.02)
 4. 패널 ML (LightGBM, 연 1회 재학습 워크포워드)
@@ -137,6 +137,9 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 | `build_price_panel.py` | 10년 가격 패널 생성 (yfinance, 2025-09-30에서 다운로드 종료) → `data/research/panel_px10y.parquet`, `data/cache/ohlcv_px10y.parquet`, `data/universe/sector_map.csv`, `tier3/px10y_coverage.csv` |
 | `factor_research.py` | **Tier 3-2** 팩터 IC·5분위·레짐 → `tier3/` (`--set pit|nonpit|px10y`) |
 | `composite_research.py` | **Tier 3-3** 합성 점수 + 워크포워드 + 다중검정 → `tier3/` (`--set pit|nonpit|px10y`) |
+| `research_utils.py` | Tier 3-B 공통: 개발 구간 로드(`load_panel`·`load_ohlcv`), NW t, Bonferroni, `TRIAL_LOG.csv` 기록 |
+| `signal_portfolio_sim.py` | 신호 → 겹치는 h일 보유 포트폴리오, SPY·PIT 동일가중 대비 ΔSharpe → `tier3/PORTFOLIO_SIM_*.md` |
+| `signal_event_study.py` | **Tier 3-B 1단계** `--build`(신호 재계산) → `--count`(family 등록) → `--analyze` → `tier3/EVENT_*` |
 
 **결과 (git에 있음)**: `docs/quant_improvement/tier3/` — `FACTOR_REPORT_{pit,nonpit,px10y}.md`, `COMPOSITE_REPORT_{pit,px10y}.md`, `factor_ic_*.csv`, `factor_quintile_*.csv`, `factor_regime_*.csv`, `composite_{pit,px10y}.csv`, `px10y_coverage.csv`. **PIT·px10y 파일이 기준**, nonpit은 생존 편향 비교용.
 
