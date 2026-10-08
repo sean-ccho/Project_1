@@ -25,3 +25,11 @@ def test_same_issuer_by_name_and_by_class_map():
     # 회사명이 없어도 클래스주 묶음으로 잡는다 (NWS 보유 → NWSA 제외)
     same2 = _same_issuer_mask(df, full, {"NWS"})
     assert same2.tolist() == [False, False, True, False]
+
+
+def test_arrow_string_columns_and_empty():
+    full = pd.DataFrame({"티커": pd.Series(["GOOGL", "MSFT"], dtype="string[pyarrow]"),
+                         "회사": pd.Series(["Alphabet Inc.", None], dtype="string[pyarrow]")})
+    out = _same_issuer_mask(full, full, {"AAPL"})  # 겹치는 회사 없음 (백테스트에서 터지던 경우)
+    assert out.dtype == bool and out.tolist() == [False, False]
+    assert _same_issuer_mask(full.iloc[:0], full, {"GOOG"}).tolist() == []

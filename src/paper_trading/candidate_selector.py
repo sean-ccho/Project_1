@@ -82,15 +82,15 @@ def _issuer_key(name: Any) -> str:
 
 def _same_issuer_mask(df: pd.DataFrame, full: pd.DataFrame, held: set[str]) -> pd.Series:
     """보유 종목과 같은 회사(클래스주·같은 회사명)인 행 = True."""
-    tick = df.get("티커", pd.Series("", index=df.index)).astype(str)
+    ticks = [str(t) for t in df.get("티커", pd.Series("", index=df.index))]
     held_groups = {_SHARE_CLASS_GROUPS[t] for t in held if t in _SHARE_CLASS_GROUPS}
-    same = tick.map(lambda t: _SHARE_CLASS_GROUPS.get(t) in held_groups if t in _SHARE_CLASS_GROUPS else False)
-    if "회사" in full.columns and "티커" in full.columns:
-        names = full[full["티커"].astype(str).isin(held)]["회사"].map(_issuer_key)
-        held_keys = {k for k in names if k}
+    same = np.array([_SHARE_CLASS_GROUPS.get(t, "") in held_groups for t in ticks], dtype=bool)
+    if "회사" in full.columns and "티커" in full.columns and "회사" in df.columns:
+        held_keys = {_issuer_key(n) for t, n in zip(full["티커"], full["회사"]) if str(t) in held} - {""}
         if held_keys:
-            same |= df["회사"].map(_issuer_key).isin(held_keys) if "회사" in df.columns else False
-    return same & ~tick.isin(held)
+            same |= np.array([_issuer_key(n) in held_keys for n in df["회사"]], dtype=bool)
+    same &= ~np.array([t in held for t in ticks], dtype=bool)
+    return pd.Series(same, index=df.index, dtype=bool)
 
 
 # ── Phase 1: Hard Filters ────────────────────────────────────
