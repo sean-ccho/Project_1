@@ -1,0 +1,511 @@
+ticker,sector,source
+A,Health Care,wikipedia
+AAPL,Information Technology,wikipedia
+ABBV,Health Care,wikipedia
+ABNB,Consumer Discretionary,wikipedia
+ABT,Health Care,wikipedia
+ACGL,Financials,wikipedia
+ACN,Information Technology,wikipedia
+ADBE,Information Technology,wikipedia
+ADI,Information Technology,wikipedia
+ADM,Consumer Staples,wikipedia
+ADP,Industrials,wikipedia
+ADSK,Information Technology,wikipedia
+AEE,Utilities,wikipedia
+AEP,Utilities,wikipedia
+AES,Utilities,wikipedia
+AFL,Financials,wikipedia
+AIG,Financials,wikipedia
+AIZ,Financials,wikipedia
+AJG,Financials,wikipedia
+AKAM,Information Technology,wikipedia
+ALB,Materials,wikipedia
+ALGN,Health Care,wikipedia
+ALL,Financials,wikipedia
+ALLE,Industrials,wikipedia
+AMAT,Information Technology,wikipedia
+AMCR,Materials,wikipedia
+AMD,Information Technology,wikipedia
+AME,Industrials,wikipedia
+AMGN,Health Care,wikipedia
+AMP,Financials,wikipedia
+AMT,Real Estate,wikipedia
+AMZN,Consumer Discretionary,wikipedia
+ANET,Information Technology,wikipedia
+AON,Financials,wikipedia
+AOS,Industrials,wikipedia
+APA,Energy,wikipedia
+APD,Materials,wikipedia
+APH,Information Technology,wikipedia
+APO,Financials,wikipedia
+APP,Communication Services,wikipedia
+APTV,Consumer Discretionary,wikipedia
+ARE,Real Estate,wikipedia
+ARES,Financials,wikipedia
+ATO,Utilities,wikipedia
+AVGO,Information Technology,wikipedia
+AVY,Materials,wikipedia
+AWK,Utilities,wikipedia
+AXON,Industrials,wikipedia
+AXP,Financials,wikipedia
+AZO,Consumer Discretionary,wikipedia
+BA,Industrials,wikipedia
+BAC,Financials,wikipedia
+BALL,Materials,wikipedia
+BAX,Health Care,wikipedia
+BBY,Consumer Discretionary,wikipedia
+BDX,Health Care,wikipedia
+BE,Industrials,wikipedia
+BEN,Financials,wikipedia
+BF-B,Consumer Staples,wikipedia
+BG,Consumer Staples,wikipedia
+BIIB,Health Care,wikipedia
+BKNG,Consumer Discretionary,wikipedia
+BKR,Energy,wikipedia
+BLK,Financials,wikipedia
+BMO-TO,Financials,config
+BMY,Health Care,wikipedia
+BNS-TO,Financials,config
+BNY,Financials,wikipedia
+BR,Industrials,wikipedia
+BRK-B,Financials,wikipedia
+BRO,Financials,wikipedia
+BSX,Health Care,wikipedia
+BX,Financials,wikipedia
+BXP,Real Estate,wikipedia
+C,Financials,wikipedia
+CAH,Health Care,wikipedia
+CARR,Industrials,wikipedia
+CASY,Consumer Staples,wikipedia
+CAT,Industrials,wikipedia
+CB,Financials,wikipedia
+CBOE,Financials,wikipedia
+CBRE,Real Estate,wikipedia
+CCI,Real Estate,wikipedia
+CCL,Consumer Discretionary,wikipedia
+CDNS,Information Technology,wikipedia
+CDW,Information Technology,wikipedia
+CEG,Utilities,wikipedia
+CF,Materials,wikipedia
+CFG,Financials,wikipedia
+CHD,Consumer Staples,wikipedia
+CHRW,Industrials,wikipedia
+CHTR,Communication Services,wikipedia
+CI,Health Care,wikipedia
+CIEN,Information Technology,wikipedia
+CINF,Financials,wikipedia
+CL,Consumer Staples,wikipedia
+CLX,Consumer Staples,wikipedia
+CMCSA,Communication Services,wikipedia
+CME,Financials,wikipedia
+CMG,Consumer Discretionary,wikipedia
+CMI,Industrials,wikipedia
+CMS,Utilities,wikipedia
+CNC,Health Care,wikipedia
+CNP,Utilities,wikipedia
+CNQ-TO,Energy,config
+COF,Financials,wikipedia
+COHR,Information Technology,wikipedia
+COIN,Financials,wikipedia
+COO,Health Care,wikipedia
+COP,Energy,wikipedia
+COR,Health Care,wikipedia
+COST,Consumer Staples,wikipedia
+CPAY,Financials,wikipedia
+CPRT,Industrials,wikipedia
+CPT,Real Estate,wikipedia
+CRH,Materials,wikipedia
+CRL,Health Care,wikipedia
+CRM,Information Technology,wikipedia
+CRWD,Information Technology,wikipedia
+CSCO,Information Technology,wikipedia
+CSGP,Real Estate,wikipedia
+CSX,Industrials,wikipedia
+CTAS,Industrials,wikipedia
+CTSH,Information Technology,wikipedia
+CTVA,Materials,wikipedia
+CVNA,Consumer Discretionary,wikipedia
+CVS,Health Care,wikipedia
+CVX,Energy,wikipedia
+D,Utilities,wikipedia
+DAL,Industrials,wikipedia
+DASH,Consumer Discretionary,wikipedia
+DD,Industrials,wikipedia
+DDOG,Information Technology,wikipedia
+DE,Industrials,wikipedia
+DECK,Consumer Discretionary,wikipedia
+DELL,Information Technology,wikipedia
+DG,Consumer Staples,wikipedia
+DGX,Health Care,wikipedia
+DHI,Consumer Discretionary,wikipedia
+DHR,Health Care,wikipedia
+DIS,Communication Services,wikipedia
+DLR,Real Estate,wikipedia
+DLTR,Consumer Staples,wikipedia
+DOC,Real Estate,wikipedia
+DOV,Industrials,wikipedia
+DOW,Materials,wikipedia
+DPZ,Consumer Discretionary,wikipedia
+DRI,Consumer Discretionary,wikipedia
+DTE,Utilities,wikipedia
+DUK,Utilities,wikipedia
+DVA,Health Care,wikipedia
+DVN,Energy,wikipedia
+DXCM,Health Care,wikipedia
+EBAY,Consumer Discretionary,wikipedia
+ECHO,Communication Services,wikipedia
+ECL,Materials,wikipedia
+ED,Utilities,wikipedia
+EFX,Industrials,wikipedia
+EG,Financials,wikipedia
+EIX,Utilities,wikipedia
+EL,Consumer Staples,wikipedia
+ELV,Health Care,wikipedia
+EME,Industrials,wikipedia
+EMR,Industrials,wikipedia
+ENB-TO,Energy,config
+EOG,Energy,wikipedia
+EQIX,Real Estate,wikipedia
+EQT,Energy,wikipedia
+ERIE,Financials,wikipedia
+ES,Utilities,wikipedia
+ESS,Real Estate,wikipedia
+ETN,Industrials,wikipedia
+ETR,Utilities,wikipedia
+EVRG,Utilities,wikipedia
+EW,Health Care,wikipedia
+EXC,Utilities,wikipedia
+EXE,Energy,wikipedia
+EXPD,Industrials,wikipedia
+EXPE,Consumer Discretionary,wikipedia
+EXR,Real Estate,wikipedia
+F,Consumer Discretionary,wikipedia
+FANG,Energy,wikipedia
+FAST,Industrials,wikipedia
+FCX,Materials,wikipedia
+FDS,Financials,wikipedia
+FDX,Industrials,wikipedia
+FDXF,Industrials,wikipedia
+FE,Utilities,wikipedia
+FERG,Industrials,wikipedia
+FFIV,Information Technology,wikipedia
+FICO,Information Technology,wikipedia
+FIS,Financials,wikipedia
+FISV,Financials,wikipedia
+FITB,Financials,wikipedia
+FIX,Industrials,wikipedia
+FLEX,Information Technology,wikipedia
+FOX,Communication Services,wikipedia
+FOXA,Communication Services,wikipedia
+FRT,Real Estate,wikipedia
+FSLR,Information Technology,wikipedia
+FTNT,Information Technology,wikipedia
+FTV,Industrials,wikipedia
+GD,Industrials,wikipedia
+GDDY,Information Technology,wikipedia
+GE,Industrials,wikipedia
+GEHC,Health Care,wikipedia
+GEN,Information Technology,wikipedia
+GEV,Industrials,wikipedia
+GILD,Health Care,wikipedia
+GIS,Consumer Staples,wikipedia
+GL,Financials,wikipedia
+GLW,Information Technology,wikipedia
+GM,Consumer Discretionary,wikipedia
+GNRC,Industrials,wikipedia
+GOOG,Communication Services,wikipedia
+GOOGL,Communication Services,wikipedia
+GPC,Consumer Discretionary,wikipedia
+GPN,Financials,wikipedia
+GRMN,Consumer Discretionary,wikipedia
+GS,Financials,wikipedia
+GWW,Industrials,wikipedia
+HAL,Energy,wikipedia
+HAS,Consumer Discretionary,wikipedia
+HBAN,Financials,wikipedia
+HCA,Health Care,wikipedia
+HD,Consumer Discretionary,wikipedia
+HIG,Financials,wikipedia
+HII,Industrials,wikipedia
+HLT,Consumer Discretionary,wikipedia
+HON,Industrials,wikipedia
+HONA,Industrials,wikipedia
+HOOD,Financials,wikipedia
+HPE,Information Technology,wikipedia
+HPQ,Information Technology,wikipedia
+HRL,Consumer Staples,wikipedia
+HSIC,Health Care,wikipedia
+HST,Real Estate,wikipedia
+HSY,Consumer Staples,wikipedia
+HUBB,Industrials,wikipedia
+HUM,Health Care,wikipedia
+HWM,Industrials,wikipedia
+IBKR,Financials,wikipedia
+IBM,Information Technology,wikipedia
+ICE,Financials,wikipedia
+IDXX,Health Care,wikipedia
+IEX,Industrials,wikipedia
+IFF,Materials,wikipedia
+ILMN,Health Care,wikipedia
+INCY,Health Care,wikipedia
+INTC,Information Technology,wikipedia
+INTU,Information Technology,wikipedia
+INVH,Real Estate,wikipedia
+IP,Materials,wikipedia
+IQV,Health Care,wikipedia
+IR,Industrials,wikipedia
+IRM,Real Estate,wikipedia
+ISRG,Health Care,wikipedia
+IT,Information Technology,wikipedia
+ITW,Industrials,wikipedia
+IVZ,Financials,wikipedia
+J,Industrials,wikipedia
+JBHT,Industrials,wikipedia
+JBL,Information Technology,wikipedia
+JCI,Industrials,wikipedia
+JKHY,Financials,wikipedia
+JNJ,Health Care,wikipedia
+JPM,Financials,wikipedia
+KDP,Consumer Staples,wikipedia
+KEY,Financials,wikipedia
+KEYS,Information Technology,wikipedia
+KHC,Consumer Staples,wikipedia
+KIM,Real Estate,wikipedia
+KKR,Financials,wikipedia
+KLAC,Information Technology,wikipedia
+KMB,Consumer Staples,wikipedia
+KMI,Energy,wikipedia
+KO,Consumer Staples,wikipedia
+KR,Consumer Staples,wikipedia
+KVUE,Consumer Staples,wikipedia
+L,Financials,wikipedia
+LDOS,Industrials,wikipedia
+LEN,Consumer Discretionary,wikipedia
+LH,Health Care,wikipedia
+LHX,Industrials,wikipedia
+LII,Industrials,wikipedia
+LIN,Materials,wikipedia
+LITE,Information Technology,wikipedia
+LLY,Health Care,wikipedia
+LMT,Industrials,wikipedia
+LNT,Utilities,wikipedia
+LOW,Consumer Discretionary,wikipedia
+LRCX,Information Technology,wikipedia
+LULU,Consumer Discretionary,wikipedia
+LUV,Industrials,wikipedia
+LVS,Consumer Discretionary,wikipedia
+LYB,Materials,wikipedia
+LYV,Communication Services,wikipedia
+MA,Financials,wikipedia
+MAA,Real Estate,wikipedia
+MAR,Consumer Discretionary,wikipedia
+MAS,Industrials,wikipedia
+MCD,Consumer Discretionary,wikipedia
+MCHP,Information Technology,wikipedia
+MCK,Health Care,wikipedia
+MCO,Financials,wikipedia
+MDLZ,Consumer Staples,wikipedia
+MDT,Health Care,wikipedia
+MET,Financials,wikipedia
+META,Communication Services,wikipedia
+MGM,Consumer Discretionary,wikipedia
+MKC,Consumer Staples,wikipedia
+MLM,Materials,wikipedia
+MMM,Industrials,wikipedia
+MNST,Consumer Staples,wikipedia
+MO,Consumer Staples,wikipedia
+MOS,Materials,wikipedia
+MPC,Energy,wikipedia
+MPWR,Information Technology,wikipedia
+MRK,Health Care,wikipedia
+MRNA,Health Care,wikipedia
+MRSH,Financials,wikipedia
+MRVL,Information Technology,wikipedia
+MS,Financials,wikipedia
+MSCI,Financials,wikipedia
+MSFT,Information Technology,wikipedia
+MSI,Information Technology,wikipedia
+MTB,Financials,wikipedia
+MTD,Health Care,wikipedia
+MU,Information Technology,wikipedia
+NCLH,Consumer Discretionary,wikipedia
+NDAQ,Financials,wikipedia
+NDSN,Industrials,wikipedia
+NEE,Utilities,wikipedia
+NEM,Materials,wikipedia
+NFLX,Communication Services,wikipedia
+NI,Utilities,wikipedia
+NKE,Consumer Discretionary,wikipedia
+NOC,Industrials,wikipedia
+NOW,Information Technology,wikipedia
+NRG,Utilities,wikipedia
+NSC,Industrials,wikipedia
+NTAP,Information Technology,wikipedia
+NTR-TO,Materials,config
+NTRS,Financials,wikipedia
+NUE,Materials,wikipedia
+NVDA,Information Technology,wikipedia
+NVR,Consumer Discretionary,wikipedia
+NWS,Communication Services,wikipedia
+NWSA,Communication Services,wikipedia
+NXPI,Information Technology,wikipedia
+O,Real Estate,wikipedia
+ODFL,Industrials,wikipedia
+OKE,Energy,wikipedia
+OMC,Communication Services,wikipedia
+ON,Information Technology,wikipedia
+ORCL,Information Technology,wikipedia
+ORLY,Consumer Discretionary,wikipedia
+OTIS,Industrials,wikipedia
+OXY,Energy,wikipedia
+P,Information Technology,wikipedia
+PANW,Information Technology,wikipedia
+PAYX,Industrials,wikipedia
+PCAR,Industrials,wikipedia
+PCG,Utilities,wikipedia
+PEG,Utilities,wikipedia
+PEP,Consumer Staples,wikipedia
+PFE,Health Care,wikipedia
+PFG,Financials,wikipedia
+PG,Consumer Staples,wikipedia
+PGR,Financials,wikipedia
+PH,Industrials,wikipedia
+PHM,Consumer Discretionary,wikipedia
+PKG,Materials,wikipedia
+PLD,Real Estate,wikipedia
+PLTR,Information Technology,wikipedia
+PM,Consumer Staples,wikipedia
+PNC,Financials,wikipedia
+PNR,Industrials,wikipedia
+PNW,Utilities,wikipedia
+PODD,Health Care,wikipedia
+PPG,Materials,wikipedia
+PPL,Utilities,wikipedia
+PRU,Financials,wikipedia
+PSA,Real Estate,wikipedia
+PSKY,Communication Services,wikipedia
+PSX,Energy,wikipedia
+PTC,Information Technology,wikipedia
+PWR,Industrials,wikipedia
+PYPL,Financials,wikipedia
+Q,Information Technology,wikipedia
+QCOM,Information Technology,wikipedia
+RCL,Consumer Discretionary,wikipedia
+RDDT,Communication Services,wikipedia
+REG,Real Estate,wikipedia
+REGN,Health Care,wikipedia
+RF,Financials,wikipedia
+RJF,Financials,wikipedia
+RL,Consumer Discretionary,wikipedia
+RMD,Health Care,wikipedia
+ROK,Industrials,wikipedia
+ROL,Industrials,wikipedia
+ROP,Information Technology,wikipedia
+ROST,Consumer Discretionary,wikipedia
+RSG,Industrials,wikipedia
+RTX,Industrials,wikipedia
+RVTY,Health Care,wikipedia
+SBAC,Real Estate,wikipedia
+SBUX,Consumer Discretionary,wikipedia
+SCHW,Financials,wikipedia
+SHOP-TO,Information Technology,config
+SHW,Materials,wikipedia
+SJM,Consumer Staples,wikipedia
+SLB,Energy,wikipedia
+SMCI,Information Technology,wikipedia
+SNA,Industrials,wikipedia
+SNDK,Information Technology,wikipedia
+SNPS,Information Technology,wikipedia
+SO,Utilities,wikipedia
+SOLV,Health Care,wikipedia
+SPG,Real Estate,wikipedia
+SPGI,Financials,wikipedia
+SRE,Utilities,wikipedia
+STE,Health Care,wikipedia
+STLD,Materials,wikipedia
+STT,Financials,wikipedia
+STX,Information Technology,wikipedia
+STZ,Consumer Staples,wikipedia
+SU-TO,Energy,config
+SW,Materials,wikipedia
+SWK,Industrials,wikipedia
+SWKS,Information Technology,wikipedia
+SYF,Financials,wikipedia
+SYK,Health Care,wikipedia
+SYY,Consumer Staples,wikipedia
+T,Communication Services,wikipedia
+TDG,Industrials,wikipedia
+TDY,Information Technology,wikipedia
+TECH,Health Care,wikipedia
+TEL,Information Technology,wikipedia
+TER,Information Technology,wikipedia
+TFC,Financials,wikipedia
+TGT,Consumer Staples,wikipedia
+TJX,Consumer Discretionary,wikipedia
+TKO,Communication Services,wikipedia
+TMO,Health Care,wikipedia
+TMUS,Communication Services,wikipedia
+TPL,Energy,wikipedia
+TPR,Consumer Discretionary,wikipedia
+TRGP,Energy,wikipedia
+TRMB,Information Technology,wikipedia
+TROW,Financials,wikipedia
+TRV,Financials,wikipedia
+TSCO,Consumer Discretionary,wikipedia
+TSLA,Consumer Discretionary,wikipedia
+TSN,Consumer Staples,wikipedia
+TT,Industrials,wikipedia
+TTWO,Communication Services,wikipedia
+TXN,Information Technology,wikipedia
+TXT,Industrials,wikipedia
+TYL,Information Technology,wikipedia
+UAL,Industrials,wikipedia
+UBER,Industrials,wikipedia
+UDR,Real Estate,wikipedia
+UHS,Health Care,wikipedia
+ULTA,Consumer Discretionary,wikipedia
+UNH,Health Care,wikipedia
+UNP,Industrials,wikipedia
+UPS,Industrials,wikipedia
+URI,Industrials,wikipedia
+USB,Financials,wikipedia
+V,Financials,wikipedia
+VEEV,Health Care,wikipedia
+VICI,Real Estate,wikipedia
+VLO,Energy,wikipedia
+VLTO,Industrials,wikipedia
+VMC,Materials,wikipedia
+VMRK,Real Estate,wikipedia
+VRSK,Industrials,wikipedia
+VRSN,Information Technology,wikipedia
+VRT,Industrials,wikipedia
+VRTX,Health Care,wikipedia
+VST,Utilities,wikipedia
+VTR,Real Estate,wikipedia
+VTRS,Health Care,wikipedia
+VZ,Communication Services,wikipedia
+WAB,Industrials,wikipedia
+WAT,Health Care,wikipedia
+WBD,Communication Services,wikipedia
+WDAY,Information Technology,wikipedia
+WDC,Information Technology,wikipedia
+WEC,Utilities,wikipedia
+WELL,Real Estate,wikipedia
+WFC,Financials,wikipedia
+WM,Industrials,wikipedia
+WMB,Energy,wikipedia
+WMT,Consumer Staples,wikipedia
+WRB,Financials,wikipedia
+WSM,Consumer Discretionary,wikipedia
+WST,Health Care,wikipedia
+WTW,Financials,wikipedia
+WY,Real Estate,wikipedia
+WYNN,Consumer Discretionary,wikipedia
+XEL,Utilities,wikipedia
+XOM,Energy,wikipedia
+XYL,Industrials,wikipedia
+XYZ,Financials,wikipedia
+YUM,Consumer Discretionary,wikipedia
+ZBH,Health Care,wikipedia
+ZBRA,Information Technology,wikipedia
+ZTS,Health Care,wikipedia
