@@ -46,3 +46,6 @@ project_1_handoff*/
 
 # Tier 3 연구 패널 (용량 큼, scripts/build_research_panel.py로 재생성 가능)
 data/research/
+
+# 백테스트 실행 로그 (재생성 가능)
+output/logs/

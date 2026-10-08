@@ -11,6 +11,7 @@ parquet 스냅샷으로 저장한 뒤, 합쳐서 단 한 번 paper trading을 �
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import sys
 import tempfile
@@ -30,6 +31,10 @@ _NASDAQ_SNAPSHOT = _SNAPSHOT_DIR / "nasdaq_ranked.parquet"
 
 # 스크리너가 쓴 마지막 일봉 날짜 (main.py / run_full_scan.py에서 기록)
 BAR_DATE_COL = "_bar_date"
+
+# PT-1 후보 유니버스: "all" = S&P 500 + 나스닥/NYSE 전체 스캔 (기존), "sp500" = S&P 500 스냅샷만.
+# 연구·백테스트로 검증한 범위는 S&P 500뿐이다. 환경변수 PT1_UNIVERSE 로 바꿀 수 있다.
+PT1_UNIVERSE = os.environ.get("PT1_UNIVERSE", "all")
 
 
 def snapshot_bar_date(df: pd.DataFrame | None) -> str | None:
@@ -94,17 +99,24 @@ def save_ranked_snapshot(df: pd.DataFrame, source: str) -> bool:
 # ── 로드 & 합치기 ─────────────────────────────────────────────
 
 
-def load_and_merge_snapshots() -> pd.DataFrame | None:
+def load_and_merge_snapshots(universe: str | None = None) -> pd.DataFrame | None:
     """SP500 + NASDAQ ranked_df 스냅샷을 로드하고 합침.
 
     규칙:
     - 같은 티커가 두 풀에 있으면 바닥반등_적합도 + 모멘텀_적합도 합산이 높은 쪽 유지
     - 어느 한 파일만 있어도 동작
     - 둘 다 없으면 None 반환
+    - universe="sp500"(또는 PT1_UNIVERSE)이면 NASDAQ/NYSE 스냅샷은 읽지 않는다
     """
+    universe = (universe or PT1_UNIVERSE).lower()
+    sources = [(_SP500_SNAPSHOT, "SP500")]
+    if universe != "sp500":
+        sources.append((_NASDAQ_SNAPSHOT, "NASDAQ"))
+    else:
+        print("[Unified PT] PT1_UNIVERSE=sp500 — S&P 500 스냅샷만 사용")
     dfs: list[pd.DataFrame] = []
 
-    for path, label in [(_SP500_SNAPSHOT, "SP500"), (_NASDAQ_SNAPSHOT, "NASDAQ")]:
+    for path, label in sources:
         if path.exists():
             try:
                 df = pd.read_parquet(path, engine="pyarrow")

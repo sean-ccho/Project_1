@@ -37,3 +37,11 @@ def test_all_intraday_snapshots_have_no_trading_date(tmp_path, monkeypatch):
     _write(tmp_path, monkeypatch, _snapshot(["AAA"], ""), _snapshot(["BBB"], ""))
     merged = runner.load_and_merge_snapshots()
     assert runner.snapshot_bar_date(merged) is None
+
+
+def test_pt1_universe_sp500_skips_nasdaq(tmp_path, monkeypatch):
+    _write(tmp_path, monkeypatch, _snapshot(["AAA"], "2026-09-29"), _snapshot(["BBB"], "2026-09-29"))
+    assert sorted(runner.load_and_merge_snapshots(universe="all")["티커"]) == ["AAA", "BBB"]
+    assert list(runner.load_and_merge_snapshots(universe="sp500")["티커"]) == ["AAA"]
+    monkeypatch.setattr(runner, "PT1_UNIVERSE", "sp500")
+    assert list(runner.load_and_merge_snapshots()["티커"]) == ["AAA"]

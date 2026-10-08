@@ -500,7 +500,7 @@ def run_account_daily(key: str, *, dry_run: bool = False, as_of: str | None = No
         print(f"{tag} config에서 비활성화됨 — 건너뜀")
         return None
 
-    merged = load_and_merge_snapshots()
+    merged = load_and_merge_snapshots(universe="all")  # PT1_UNIVERSE는 PT-1 전용
     if merged is None or merged.empty:
         print(f"{tag} 랭킹 스냅샷이 없어 건너뜀")
         return None
