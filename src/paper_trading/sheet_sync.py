@@ -433,18 +433,20 @@ def sync_all(
     positions: list[dict[str, Any]],
     trades: list[dict[str, Any]],
     prices: dict[str, float],
+    tabs: dict[str, str] | None = None,
 ) -> None:
-    """engine.run_daily_trading() 결과를 구글 시트 3탭에 동기화."""
+    """engine.run_daily_trading() 결과를 구글 시트 3탭에 동기화. tabs = {"log","positions","summary"} 탭 이름 (없으면 PT-1 기본)."""
+    tabs = tabs or {"log": WORKSHEET_LOG, "positions": WORKSHEET_POSITIONS, "summary": WORKSHEET_SUMMARY}
     # 거래로그: 매도 기록
     for sell in result.get("sells", []):
-        sync_trade_log(sell, action="SELL")
+        sync_trade_log(sell, action="SELL", worksheet=tabs["log"])
 
     # 거래로그: 매수 기록
     for buy in result.get("buys", []):
-        sync_trade_log(buy, action="BUY")
+        sync_trade_log(buy, action="BUY", worksheet=tabs["log"])
 
     # 포지션현황
-    sync_positions(positions, prices)
+    sync_positions(positions, prices, worksheet=tabs["positions"])
 
     # 성과요약
-    sync_summary(trades)
+    sync_summary(trades, worksheet=tabs["summary"])

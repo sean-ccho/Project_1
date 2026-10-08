@@ -45,3 +45,10 @@ def test_pt1_universe_sp500_skips_nasdaq(tmp_path, monkeypatch):
     assert list(runner.load_and_merge_snapshots(universe="sp500")["티커"]) == ["AAA"]
     monkeypatch.setattr(runner, "PT1_UNIVERSE", "sp500")
     assert list(runner.load_and_merge_snapshots()["티커"]) == ["AAA"]
+
+
+def test_pt1s_account_config():
+    acct = runner.PT1_ACCOUNTS["pt1s"]
+    assert acct["universe"] == "sp500" and acct["subdir"] == "pt1s" and not acct["email"]
+    assert set(acct["tabs"]) == {"log", "positions", "summary"}
+    assert runner.PT1_ACCOUNTS["pt1"]["tabs"] is None  # PT-1은 기존 탭 그대로

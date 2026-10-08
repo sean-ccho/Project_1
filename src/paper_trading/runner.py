@@ -36,6 +36,14 @@ BAR_DATE_COL = "_bar_date"
 # 연구·백테스트로 검증한 범위는 S&P 500뿐이다. 환경변수 PT1_UNIVERSE 로 바꿀 수 있다.
 PT1_UNIVERSE = os.environ.get("PT1_UNIVERSE", "all")
 
+# PT-1 규칙 계좌들. pt1s = PT-1과 같은 규칙, 후보만 S&P 500 (소형주가 값을 하는지 실거래로 비교하는 병행 계좌)
+PT1_ACCOUNTS: dict[str, dict[str, Any]] = {
+    "pt1": {"label": "PT-1", "subdir": "", "universe": None, "email": True,
+            "tabs": None},  # None = config 기본 탭 (페이퍼_거래로그 등)
+    "pt1s": {"label": "PT-1S (S&P 500만)", "subdir": "pt1s", "universe": "sp500", "email": False,
+             "tabs": {"log": "페이퍼S_거래로그", "positions": "페이퍼S_포지션현황", "summary": "페이퍼S_성과요약"}},
+}
+
 
 def snapshot_bar_date(df: pd.DataFrame | None) -> str | None:
     """스냅샷의 일봉 날짜(YYYY-MM-DD). 컬럼이 없으면 None."""
@@ -186,15 +194,17 @@ def load_and_merge_snapshots(universe: str | None = None) -> pd.DataFrame | None
 # ── 통합 실행 ─────────────────────────────────────────────────
 
 
-def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None) -> None:
-    """통합 paper trading 실행 진입점 (PT-1).
+def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None, account: str = "pt1") -> None:
+    """통합 paper trading 실행 진입점 (PT-1 규칙 계좌: pt1, pt1s).
 
     GitHub Actions: main.py → run_full_scan.py → run_paper_trading.py 순으로 실행.
 
     Args:
         dry_run: True면 임시 폴더에서만 매매하고 시트·이메일·상태 기록을 하지 않는다.
         as_of: 거래일(YYYY-MM-DD) 강제 지정. 없으면 스냅샷의 일봉 날짜를 쓴다.
+        account: PT1_ACCOUNTS 키. pt1s는 S&P 500 후보만, 별도 폴더·시트 탭, 메일 없음.
     """
+    acct = PT1_ACCOUNTS[account]
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
@@ -202,10 +212,10 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None) -
     )
 
     print("=" * 60)
-    print("[Unified Paper Trading] SP500 + NASDAQ/NYSE 통합 실행 시작" + (" (DRY-RUN)" if dry_run else ""))
+    print(f"[Unified Paper Trading] {acct['label']} 실행 시작" + (" (DRY-RUN)" if dry_run else ""))
     print("=" * 60)
 
-    merged_df = load_and_merge_snapshots()
+    merged_df = load_and_merge_snapshots(acct["universe"])
     if merged_df is None or merged_df.empty:
         print("[Unified PT] merged ranked_df가 없어 paper trading을 건너뜁니다.")
         return
@@ -213,7 +223,7 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None) -
     from paper_trading.market_date import check_run_guard, mark_processed, market_today
     from screener.config import PAPER_TRADING_DATA_DIR
 
-    data_dir = Path(PAPER_TRADING_DATA_DIR)
+    data_dir = Path(PAPER_TRADING_DATA_DIR) / acct["subdir"] if acct["subdir"] else Path(PAPER_TRADING_DATA_DIR)
     bar_date = as_of or snapshot_bar_date(merged_df)
     report_only = False  # True면 매매·상태 기록·시트 동기화 없이 현재 보유 현황 리포트만 발송
     if dry_run:
@@ -246,12 +256,12 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None) -
     if report_only:
         pt_result = {
             "date": bar_date or str(market_today()), "sells": [], "buys": [],
-            "skipped": "신규일봉없음", "holdings": len(load_positions()),
+            "skipped": "신규일봉없음", "holdings": len(load_positions(data_dir)),
         }
     else:
         pt_result = run_daily_trading(merged_df, data_dir=work_dir, today=bar_date)
         if not dry_run:
-            mark_processed(data_dir, bar_date, account="pt1")
+            mark_processed(data_dir, bar_date, account=account)
 
     sells: list[dict[str, Any]] = pt_result.get("sells", [])
     buys: list[dict[str, Any]] = pt_result.get("buys", [])
@@ -284,20 +294,24 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None) -
         return
 
     # ── 구글 시트 동기화 ──
-    positions = load_positions()
-    trades = load_trades()
+    positions = load_positions(data_dir)
+    trades = load_trades(data_dir)
     held_tickers = [p["ticker"] for p in positions]
     prices = fetch_latest_prices(held_tickers) if held_tickers else {}
     if not report_only:
-        sync_all(pt_result, positions, trades, prices)
+        sync_all(pt_result, positions, trades, prices, tabs=acct["tabs"])
         print("[Unified PT] 구글 시트 동기화 완료")
+
+    if not acct["email"]:
+        print(f"[Unified PT] {acct['label']}: 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)")
+        return
 
     # ── PDF 리포트 생성 ──
     pdf_bytes = None
     if pt_result.get("buys") or pt_result.get("sells"):
         try:
             from paper_trading.report_generator import generate_trading_report
-            trades = load_trades()
+            trades = load_trades(data_dir)
             pdf_bytes = generate_trading_report(
                 result=pt_result,
                 positions=positions,
