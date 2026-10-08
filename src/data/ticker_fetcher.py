@@ -37,6 +37,23 @@ _NON_COMMON_RE = re.compile(
     r"|\.R$"          # 권리 (NYSE 형식)
 )
 
+# 종목명으로 거르는 비주식 상품 — FTP의 ETF 플래그가 N 이어도 주식이 아닌 것들
+#   ETN (VXX 등 변동성·레버리지 노트), 채권형(Notes due·Debentures), 폐쇄형 펀드(Fund),
+#   우선주 예탁증서(Preferred), SPAC(Acquisition Corp — 현금 껍데기)
+_NON_EQUITY_NAME_RE = re.compile(
+    r"\bETNs?\b|Exchange[- ]Traded Notes?|\bNotes? due\b|Debentures|\bFund\b|Preferred"
+    r"|Acquisition Corp|Acquisition Co\b",
+    re.IGNORECASE,
+)
+
+
+def _drop_non_equity(df: pd.DataFrame) -> pd.DataFrame:
+    """'Security Name'으로 ETN·채권·펀드·우선주·SPAC 제거."""
+    if "Security Name" not in df.columns:
+        return df
+    return df[~df["Security Name"].astype(str).str.contains(_NON_EQUITY_NAME_RE)]
+
+
 # 나스닥 관례: 5글자 이상 + W/U/R로 끝나는 티커 → 워런트/유닛/권리
 # 예: CGCTW(워런트), CCIXU(유닛), AIIAR(권리)
 # 단, 정상 4글자 이하 티커가 W/U/R로 끝나는 건 유지 (예: SNOW, ROKU)
@@ -76,6 +93,7 @@ def _parse_nasdaq_listed(raw: str) -> pd.DataFrame:
     # Test Issue 제거
     if "Test Issue" in df.columns:
         df = df[df["Test Issue"] != "Y"]
+    df = _drop_non_equity(df)
     return df[["Symbol"]].rename(columns={"Symbol": "ticker"})
 
 
@@ -91,6 +109,7 @@ def _parse_other_listed(raw: str) -> pd.DataFrame:
     # Test Issue 제거
     if "Test Issue" in df.columns:
         df = df[df["Test Issue"] != "Y"]
+    df = _drop_non_equity(df)
     # ACT Symbol을 ticker로 사용
     col = "ACT Symbol" if "ACT Symbol" in df.columns else "Symbol"
     return df[[col]].rename(columns={col: "ticker"})
