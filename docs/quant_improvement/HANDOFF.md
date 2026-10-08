@@ -14,7 +14,8 @@
   - 종목 수를 늘리면(T2-10) Sharpe 1.09까지 오르지만 부트스트랩 95% 기준에서 "운과 구분 안 됨".
   - 10년 치 장기 데이터 패널(`px10y`) 생성 후 가격 기반 팩터들을 검증했으나, 단일 팩터 및 고정 합성/워크포워드(OOS) 합성 모두 다중검정 보정 임계를 넘지 못함 (과최적화/노이즈 확인).
 - ⚠️ **백테스트-실거래 불일치 확정 (2026-10-07 0-8 진단)**: PT-1 백테스트에는 섹터 ETF가 없어 buy_signal이 항상 False다 (2025-09 스냅샷 5개 모두 0건, 섹터 필터 전 조건 충족은 13~20건). 실거래도 섹터 이름(yfinance vs GICS)이 안 맞아 6개 섹터의 buy_signal이 꺼진다 (2026-10-06 S&P 500: 현재 0건 → 이름 매핑 시 5건, 전부 Technology). 위 BASE 수치는 실거래와 다른 전략을 잰 것이다 → 수정은 [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md) 6단계.
-- **다음 단계 (2026-10-05 사용자 결정): 종목 선택 연구 2차(Tier 3-B)** — 아직 검증 안 한 스크리너 출력(패턴·적합도·CCS), 조건부 반전, 실적 이벤트, 패널 ML. Optuna는 후보가 채택된 뒤에만. **구현 순서는 [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md)** (5절 요약).
+- **Tier 3-B 결과 (2026-10-07): 1~4단계 후보 0건 → 중단 규칙 발동** (스크리너 출력 117 · 조건부 반전 18 · PEAD 대리 10 · 캔들 확인 18 · 패널 ML 1, 모두 기준 미달). 남은 결정은 5절.
+- (이전) **다음 단계 (2026-10-05 사용자 결정): 종목 선택 연구 2차(Tier 3-B)** — 아직 검증 안 한 스크리너 출력(패턴·적합도·CCS), 조건부 반전, 실적 이벤트, 패널 ML. Optuna는 후보가 채택된 뒤에만. **구현 순서는 [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md)** (5절 요약).
 
 ---
 
@@ -113,7 +114,9 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 2. ~~조건부 반전~~ **완료 (2026-10-07): 18건 → 관찰 1 · 탈락 17, 후보 0** (`tier3/CONDITIONAL_REPORT_px10y.md`). 관찰 A2 20일(거래량 급증 반전 t_nw +2.44)은 최근 연도 약화 · 비용 후 +0.05%라 채택 안 함
 3. 실적 이벤트 (PEAD) — **3-1 대리 이벤트 완료 (2026-10-07): 10건 전부 탈락** (`tier3/PEAD_PROXY_REPORT_px10y.md`, 상승 후 지속 없음). 3-2 SEC EDGAR 수집은 보류 (사용자 결정 대기, User-Agent에 이메일 필요)
 3+. (추가, 사용자 질문) 반전 캔들 **다음날 확인 버전 — 18건 전부 탈락** (`tier3/PATTERN_CONFIRM_REPORT_px10y.md`). 확인을 기다리면 오히려 나빠짐
-4. 패널 ML (LightGBM, 연 1회 재학습 워크포워드)
+4. ~~패널 ML~~ **완료 (2026-10-07): 탈락** (OOS IC t_nw 1.86, 시뮬 ΔSharpe −0.37, 고베타 쏠림). `tier3/ML_REPORT_px10y.md`
+
+> **2026-10-07 중단 규칙 발동: 1~4단계(+캔들 확인 추가) 후보 0건, 누적 시도 458건.** 종목 선택 연구를 끝낸다. 남은 일: 6단계 중 버그 수정·BASE 재측정·🛑 PT-2·3 사전 기준만, 그 다음 9단계(지수 기준선 채택 · 페이퍼 봇 처리) — 사용자 결정 필요. 5단계(보유 기간)·7단계(Optuna)는 하지 않는다
 5. (선택) 보유 기간 40·60일
 6. 백테스트 일괄 정비(섹터 버그 수정 · 후보 규칙 스위치) → BASE 재측정, 🛑 PT-2·3 사전 기준 백테스트, 후보 A/B
 7. Optuna — 6단계에서 `채택 후보`가 나왔을 때만 (워크포워드 + DSR)
@@ -143,6 +146,7 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 | `conditional_research.py` | **Tier 3-B 2단계** 5일 수익률 × 거래량 급증·갭 조건부 반전 (px10y) → `tier3/CONDITIONAL_*` |
 | `pead_research.py` | **Tier 3-B 3단계** `--proxy`: 대리 실적 이벤트(갭+거래량) 후 h일 초과수익 → `tier3/PEAD_PROXY_*` |
 | `pattern_confirm_research.py` | 반전 캔들(강세잉걸핑·모닝스타·하락추세 도지) 확인 vs 미확인 (px10y) → `tier3/PATTERN_CONFIRM_*` |
+| `panel_ml.py` | **Tier 3-B 4단계** LightGBM 워크포워드 (px10y), `--shuffle-check` 대조 → `tier3/ML_*`, `PORTFOLIO_SIM_ml_*` |
 | `signal_event_study.py` | **Tier 3-B 1단계** `--build`(신호 재계산) → `--count`(family 등록) → `--analyze` → `tier3/EVENT_*` |
 
 **결과 (git에 있음)**: `docs/quant_improvement/tier3/` — `FACTOR_REPORT_{pit,nonpit,px10y}.md`, `COMPOSITE_REPORT_{pit,px10y}.md`, `factor_ic_*.csv`, `factor_quintile_*.csv`, `factor_regime_*.csv`, `composite_{pit,px10y}.csv`, `px10y_coverage.csv`. **PIT·px10y 파일이 기준**, nonpit은 생존 편향 비교용.
