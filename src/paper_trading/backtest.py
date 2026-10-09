@@ -37,6 +37,7 @@ from screener.config import (
 )
 from paper_trading.candidate_selector import select_top_candidates
 from paper_trading.earnings_calendar import EarningsCalendar
+from paper_trading.structure import bear_liquidate, slot_allocation
 from paper_trading.engine import (
     _activate_tight_trail,
     _get_row_for_ticker,
@@ -126,6 +127,15 @@ def _pit_universe_tickers(membership: Any, period: str) -> list[str]:
     universe = sorted(membership.union_between(str(start), str(today)))
     random.Random(42).shuffle(universe)
     return universe
+
+
+def _equity_now(positions: list["BtPosition"], closes: pd.DataFrame, date_ts: pd.Timestamp, cash: float) -> float:
+    """현금 + 보유 종목 오늘 종가 평가액 (종가가 없으면 매수가)."""
+    value = cash
+    for p in positions:
+        px = float(closes.at[date_ts, p.ticker]) if p.ticker in closes.columns else float("nan")
+        value += p.shares * (px if not np.isnan(px) and px > 0 else p.entry_price)
+    return value
 
 
 def _next_open(opens: pd.DataFrame, next_date_ts: pd.Timestamp, ticker: str) -> float | None:
@@ -709,6 +719,19 @@ def run_paper_trading_backtest(
         max_positions = int(_cfg.PAPER_TRADING_MAX_POSITIONS)
         effective_max = max_positions if bt_regime != "bear" else max(1, max_positions - 1)
 
+        # 약세장 보유 정리 (PT1_BEAR_MODE=liquidate): 다음날 시가에 전부 매도
+        if bt_regime == "bear" and bear_liquidate() and positions:
+            for pos in list(positions):
+                exit_price = _next_open(opens, next_date_ts, pos.ticker)
+                if exit_price is None and pos.ticker in closes.columns:
+                    cur = float(closes.at[date_ts, pos.ticker])
+                    exit_price = cur if not np.isnan(cur) and cur > 0 else None
+                if exit_price is None:
+                    continue
+                _, proceeds = _close_position(positions, trades, pos.ticker, exit_price, next_str, "약세장정리")
+                if use_capital:
+                    cash += proceeds
+
         # ── 4. 매수/교체 판단 ───────────────────────────────────
         if len(positions) < effective_max:
             # 빈 슬롯 → 신규 매수 (하루 최대 PAPER_TRADING_MAX_DAILY_BUY개)
@@ -721,7 +744,8 @@ def run_paper_trading_backtest(
                     continue
                 if use_capital:
                     empty_slots = effective_max - len(positions)
-                    allocation = cash / max(1, empty_slots)
+                    allocation = slot_allocation(cash, _equity_now(positions, closes, date_ts, cash), effective_max,
+                                                 empty_slots, ranked_df, cand_ticker)
                     shares = allocation / (entry_price * (1 + BACKTEST_COST_PER_SIDE))
                     cash -= allocation
                 else:
@@ -757,7 +781,8 @@ def run_paper_trading_backtest(
                 _, proceeds = _close_position(positions, trades, worst_ticker, worst_price, next_str, f"교체→{cand_ticker}")
                 if use_capital:
                     cash += proceeds
-                    allocation = cash / max(1, effective_max - len(positions))
+                    allocation = slot_allocation(cash, _equity_now(positions, closes, date_ts, cash), effective_max,
+                                                 effective_max - len(positions), ranked_df, cand_ticker)
                     shares = allocation / (entry_price * (1 + BACKTEST_COST_PER_SIDE))
                     cash -= allocation
                 else:

@@ -7,12 +7,14 @@ from contextlib import contextmanager
 from typing import Any, Iterator
 
 from screener import config as cfg
+from paper_trading import structure as _structure  # noqa: F401  실험 스위치 기본값을 config 에 붙인다
 
 # 실행 중에 cfg.X로 읽히거나 dict라서 in-place 변경이 반영되는 이름만 허용한다.
 # (from config import X 로 묶인 스칼라는 덮어써도 반영되지 않아 실험 결과가 조용히 틀린다)
 RUNTIME_OVERRIDABLE = frozenset({
     "CCS_VERSION", "CCS_V2_WEIGHTS", "CCS_V2_MIN",
     "CCS_REPLACE_MARGIN", "PT1_REPLACE_ENABLED", "PT1_STOP_INTRADAY", "PT1_REPLACE_TODAY_CCS",
+    "PT1_BEAR_MODE", "PT1_SIZING",
     "CANDIDATE_ALLOWED_STRATEGIES", "CANDIDATE_BEAR_BLOCK_NEW", "CANDIDATE_ALPHA_WEIGHTS",
     "EXIT_PARAMS", "EXIT_PARAMS_DEFAULT", "PAPER_TRADING_MAX_POSITIONS",
     "PAPER_TRADING_MAX_DAILY_BUY", "BACKTEST_PIT_UNIVERSE",
