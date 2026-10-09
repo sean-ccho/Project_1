@@ -157,7 +157,7 @@ MOMENTUM_MIN_GAIN_20D = 0.15         # 최근 20일 최소 수익률 (15%)
 
 
 # TradingView 차트 캡처 설정
-CHARTS_ENABLED = False  # 차트 캡처 기능 on/off
+CHARTS_ENABLED = True  # 차트 캡처 기능 on/off
 CHARTS_TIMEFRAMES = ["1H", "4H", "Daily", "Weekly", "Monthly"]  # 캡처할 타임프레임 목록
 CHARTS_MIN_SCORE = 0.0  # 차트 캡처 최소 매수적합도 (0.0 = 모든 종목)
 CHARTS_OUTPUT_DIR = "charts/screenshots_sp500"          # SP500 차트 저장 디렉토리
