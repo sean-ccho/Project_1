@@ -11,7 +11,8 @@ PT-1 BASE 백테스트를 그대로 돌리되, 그날 CCS 문턱을 넘은 후�
 한계: 시장 경로는 2022-08~2025-09 하나뿐 — 선택의 운만 재고, 그 기간이 좋았던 운은 못 잰다.
 
 사용법: PYTHONPATH=.:src python scripts/ccs_placebo.py [--seeds 20]
-산출: tier3/CCS_PLACEBO.md, tier3/ccs_placebo.csv
+        10년: ... ccs_placebo.py --period 13y --start 2016-01-04 --end 2026-10-07 --tag 10y --family ccs_placebo_10y
+산출: tier3/CCS_PLACEBO{_tag}.md, tier3/ccs_placebo{_tag}.csv
 """
 
 from __future__ import annotations
@@ -37,6 +38,7 @@ FAMILY = "ccs_placebo"
 ORIGINAL = cs.select_top_candidates
 RUN_KW = dict(period="5y", max_tickers=1000, rebalance_every=1, initial_capital=5000.0,
               end_date="2025-09-30", save_run=False, pit_universe=True)
+EQUITY: dict[str, pd.Series] = {}  # 실제 CCS 실행의 자본곡선 (연도별 표용)
 
 
 def random_selector(seed: int):
@@ -61,30 +63,60 @@ def run(label: str, seed: int | None, overrides: dict) -> dict:
     bt.select_top_candidates = ORIGINAL if seed is None else random_selector(seed)
     try:
         with config_overrides(overrides):
-            s = bt.run_paper_trading_backtest(**RUN_KW)["summary"]
+            r = bt.run_paper_trading_backtest(**RUN_KW)
     finally:
         bt.select_top_candidates = ORIGINAL
+    s = r["summary"]
+    eq = r["equity_curve"].dropna() if r.get("equity_curve") is not None else pd.Series(dtype=float)
+    if seed is None:
+        EQUITY[label] = eq
+    total = float(eq.iloc[-1] / eq.iloc[0] - 1) if len(eq) > 1 else float("nan")  # 일별 평가액 기준 (기간종료 청산 결측과 무관)
     row = {"set": label, "seed": seed, "Sharpe": s.get("Sharpe_일간"), "CAGR": s.get("CAGR"), "MDD": s.get("MDD"),
-           "총수익": s.get("총수익률_자본기준"), "거래": s.get("총거래수"), "승률": s.get("승률")}
+           "총수익": total, "거래": s.get("총거래수"), "승률": s.get("승률"),
+           "SPY_Sharpe": s.get("기준_SPY_Sharpe"), "알파_연": s.get("알파_연"), "알파_t": s.get("알파_t")}
     print(f"[placebo] {label} seed={seed} → Sharpe {row['Sharpe']} · 총 {row['총수익']:+.1%} · MDD {row['MDD']:.1%}", flush=True)
     return row
 
 
-def _registered() -> bool:
+def _registered(family: str) -> bool:
     if not TRIAL_LOG.exists():
         return False
     log = pd.read_csv(TRIAL_LOG, encoding="utf-8-sig")
-    return bool(((log["family"] == FAMILY) & (log["판정"] == "등록")).any())
+    return bool(((log["family"] == family) & (log["판정"] == "등록")).any())
+
+
+def _yearly_table(spy: pd.Series | None) -> list[str]:
+    """실제 CCS 실행들의 연도별 수익 (일별 평가액 기준) + SPY."""
+    cols = dict(EQUITY)
+    if spy is not None and not spy.empty:
+        cols["SPY"] = spy
+    if not cols:
+        return []
+    yr = pd.DataFrame({k: v.groupby(v.index.year).apply(lambda x: x.iloc[-1] / x.iloc[0] - 1) for k, v in cols.items()})
+    out = ["", "## 연도별 수익 (실제 CCS, 연초~연말 평가액)", "", "| 연도 | " + " | ".join(yr.columns) + " |",
+           "|---" * (len(yr.columns) + 1) + "|"]
+    out += [f"| {y} | " + " | ".join(f"{v:+.1%}" for v in row) + " |" for y, row in yr.iterrows()]
+    return out
 
 
 def main() -> None:
+    global FAMILY
     ap = argparse.ArgumentParser()
     ap.add_argument("--seeds", type=int, default=20)
+    ap.add_argument("--period", default="5y")
+    ap.add_argument("--start", default=None)
+    ap.add_argument("--end", default="2025-09-30")
+    ap.add_argument("--tag", default="", help="산출 파일 이름 꼬리 (예: 10y)")
+    ap.add_argument("--family", default=FAMILY)
     args = ap.parse_args()
-    if not _registered():
+    FAMILY = args.family
+    RUN_KW.update(period=args.period, start_date=args.start, end_date=args.end or None)
+    suffix = f"_{args.tag}" if args.tag else ""
+    span = f"{args.start or '(기간 시작)'} ~ {args.end or '(최근)'}"
+    if not _registered(FAMILY):
         log_trials("stage6", FAMILY, 2, [{"test_id": "(등록)", "판정": "등록",
-                    "메모": f"CCS 순위 vs 문턱 통과 후보 중 무작위 선택 ({args.seeds}씨앗). T1 CCS Sharpe > 무작위 95백분위, "
-                            "T2 모멘텀만·무작위 중앙값 > 전체·무작위 중앙값"}])
+                    "메모": f"[{span}, period={args.period}] CCS 순위 vs 문턱 통과 후보 중 무작위 선택 ({args.seeds}씨앗). "
+                            "T1 CCS Sharpe > 무작위 95백분위, T2 모멘텀만·무작위가 전체·무작위보다 높을 확률 ≥ 80%"}])
     mom = {"CANDIDATE_ALLOWED_STRATEGIES": ["모멘텀"]}
     rows = [run("CCS(실제)", None, {}), run("모멘텀만 CCS(실제)", None, mom)]
     for seed in range(args.seeds):
@@ -92,7 +124,7 @@ def main() -> None:
     for seed in range(args.seeds):
         rows.append(run("모멘텀만 무작위", seed, mom))
     df = pd.DataFrame(rows)
-    df.to_csv(TIER3_DIR / "ccs_placebo.csv", index=False)
+    df.to_csv(TIER3_DIR / f"ccs_placebo{suffix}.csv", index=False)
 
     rnd, rnd_m = df[df["set"] == "무작위"], df[df["set"] == "모멘텀만 무작위"]
     ccs = float(df.loc[df["set"] == "CCS(실제)", "Sharpe"].iloc[0])
@@ -112,7 +144,18 @@ def main() -> None:
         q = g["Sharpe"].quantile([0.05, 0.5, 0.95])
         return (f"Sharpe 중앙 {q[0.5]:.2f} (5~95%: {q[0.05]:.2f} ~ {q[0.95]:.2f}) · 총수익 중앙 {g['총수익'].median():+.0%} · "
                 f"MDD 중앙 {g['MDD'].median():.1%}")
-    lines = ["# 플라시보 테스트: CCS 순위 vs 무작위 선택 (PT-1 백테스트, PIT 2022-08 ~ 2025-09)", "",
+    spy_eq = None
+    try:  # SPY 자본곡선 (같은 기간, 시가→시가가 아니라 종가 기준 — 연도별 비교용)
+        from data.fetch import fetch_ohlcv
+        eq0 = next(iter(EQUITY.values()))
+        px = fetch_ohlcv(["SPY"], period=args.period)["SPY"]["Close"].dropna()
+        spy_eq = px.loc[eq0.index.min():eq0.index.max()]
+    except Exception as e:  # 표만 빠진다
+        print(f"[placebo] SPY 연도별 생략: {e}")
+    base_row = df[df["set"] == "CCS(실제)"].iloc[0]
+    lines = [f"# 플라시보 테스트: CCS 순위 vs 무작위 선택 (PT-1 백테스트, PIT {span})", "",
+             f"- 실제 CCS: Sharpe {base_row['Sharpe']:.2f} vs SPY {base_row['SPY_Sharpe']} · 알파 {base_row['알파_연']:+.1%}/년 (t={base_row['알파_t']}) · "
+             f"CAGR {base_row['CAGR']:+.1%} · MDD {base_row['MDD']:.1%}",
              "- 같은 하드 필터·섹터 제한·CCS 문턱을 통과한 후보 중 1등 대신 무작위 1개를 고른다. 교체 판단은 그 종목의 실제 CCS",
              f"- 씨앗 {args.seeds}개씩. 시장 경로는 하나뿐이라 '선택의 운'만 잰다 · 누적 시도 {total_trials()}건", "",
              "| 묶음 | 결과 |", "|---|---|",
@@ -125,8 +168,9 @@ def main() -> None:
              "## 씨앗별", "", "| 묶음 | 씨앗 | Sharpe | CAGR | MDD | 총수익 | 거래 |", "|---|---|---|---|---|---|---|"]
     lines += [f"| {r.set} | {'' if pd.isna(r.seed) else int(r.seed)} | {r.Sharpe:.2f} | {r.CAGR:+.1%} | {r.MDD:.1%} | {r.총수익:+.1%} | {r.거래} |"
               for r in df.itertuples()]
-    (TIER3_DIR / "CCS_PLACEBO.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print("\n".join(lines[:14]))
+    lines += _yearly_table(spy_eq)
+    (TIER3_DIR / f"CCS_PLACEBO{suffix}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print("\n".join(lines[:15]))
 
 
 if __name__ == "__main__":

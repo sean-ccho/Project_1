@@ -55,6 +55,17 @@ def _translate_text(payload: str) -> str:
     return payload
 
 
+_YF_PERIODS = {"1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"}
+
+
+def _yf_range(period: str) -> dict[str, str]:
+    """yfinance 기간 인자. yfinance 는 "10y" 까지만 받으므로 "13y" 같은 값은 시작 날짜로 바꾼다."""
+    if period in _YF_PERIODS or not (period.endswith("y") and period[:-1].isdigit()):
+        return {"period": period}
+    start = datetime.now() - timedelta(days=int(round(365.25 * int(period[:-1]))))
+    return {"start": start.strftime("%Y-%m-%d")}
+
+
 def _download_ohlcv_batch(
     tickers: List[str],
     period: str,
@@ -70,7 +81,7 @@ def _download_ohlcv_batch(
         try:
             data = yf.download(
                 tickers,
-                period=period,
+                **_yf_range(period),
                 interval="1d",
                 auto_adjust=True,
                 threads=True,

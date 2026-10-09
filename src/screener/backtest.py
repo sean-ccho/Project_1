@@ -102,6 +102,11 @@ class Position:
             self.highest_price = self.entry_price
 
 
+# 실거래 스크리너(main.py)는 최근 5년치(fetch_ohlcv period="5y")로 피처를 계산한다. 백테스트도 날짜마다
+# 그 시점 기준 최근 5년만 쓴다 — 10년 이상 백테스트에서 이력이 길어지며 피처가 실거래와 달라지는 것을 막는다
+FEATURE_HISTORY_YEARS = 5
+
+
 def _prepare_price_map(raw: pd.DataFrame) -> dict[str, pd.DataFrame]:
     """티커별로 OHLCV 데이터를 분리."""
     return {ticker: raw[ticker].dropna(how="all") for ticker in raw.columns.levels[0]}
@@ -129,10 +134,11 @@ def _compute_ranked_snapshot(
 
     snapshot: dict[str, pd.DataFrame] = {}
     sector_etfs = set(SECTOR_ETFS.values())
+    window_start = cutoff - pd.DateOffset(years=FEATURE_HISTORY_YEARS)
     for ticker, frame in price_map.items():
         if ticker in sector_etfs:  # 섹터 강도 계산용일 뿐 후보가 아니다
             continue
-        history = frame.loc[:cutoff]
+        history = frame.loc[window_start:cutoff]
         if history.empty:
             continue
         snapshot[ticker] = history
