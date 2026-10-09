@@ -129,12 +129,28 @@ def _pit_universe_tickers(membership: Any, period: str) -> list[str]:
     return universe
 
 
+def _close_on_or_before(closes: pd.DataFrame, date_ts: pd.Timestamp, ticker: str) -> float:
+    """평가용 종가: 그날 종가, 비어 있으면 그 전 마지막 종가 (없으면 nan).
+
+    거래정지·상장폐지로 종가가 빈 날 보유 종목을 0원으로 치면 자본곡선에 가짜 하락이 생기고,
+    기간 마지막 날 종가가 비면 기간종료 정리에서 빠져 최종 자본에서 사라진다.
+    """
+    if ticker not in closes.columns:
+        return float("nan")
+    px = float(closes.at[date_ts, ticker])
+    if np.isnan(px) or px <= 0:
+        prev = closes.loc[:date_ts, ticker]
+        prev = prev[prev > 0]
+        px = float(prev.iloc[-1]) if not prev.empty else float("nan")
+    return px
+
+
 def _equity_now(positions: list["BtPosition"], closes: pd.DataFrame, date_ts: pd.Timestamp, cash: float) -> float:
-    """현금 + 보유 종목 오늘 종가 평가액 (종가가 없으면 매수가)."""
+    """현금 + 보유 종목 평가액 (마지막 종가, 그것도 없으면 매수가)."""
     value = cash
     for p in positions:
-        px = float(closes.at[date_ts, p.ticker]) if p.ticker in closes.columns else float("nan")
-        value += p.shares * (px if not np.isnan(px) and px > 0 else p.entry_price)
+        px = _close_on_or_before(closes, date_ts, p.ticker)
+        value += p.shares * (px if not np.isnan(px) else p.entry_price)
     return value
 
 
@@ -807,12 +823,11 @@ def run_paper_trading_backtest(
     final_date_ts = dates[last_idx]
     final_str = str(final_date_ts.date())
     for pos in list(positions):
-        if pos.ticker in closes.columns:
-            exit_price = float(closes.at[final_date_ts, pos.ticker])
-            if not np.isnan(exit_price) and exit_price > 0:
-                _, proceeds = _close_position(positions, trades, pos.ticker, exit_price, final_str, "기간종료")
-                if use_capital:
-                    cash += proceeds
+        exit_price = _close_on_or_before(closes, final_date_ts, pos.ticker)
+        if not np.isnan(exit_price):
+            _, proceeds = _close_position(positions, trades, pos.ticker, exit_price, final_str, "기간종료")
+            if use_capital:
+                cash += proceeds
 
     # ── 청산 후 가격 변동 추가 (손절 회복 / 익절 잔여수익 진단) ──────
     date_to_idx: dict[str, int] = {str(d.date()): i for i, d in enumerate(dates)}
@@ -1036,12 +1051,8 @@ def _record_equity(
     use_capital=False: 평균 수익률 비율 기준
     """
     if use_capital:
-        market_value = sum(
-            pos.shares * float(closes.at[date_ts, pos.ticker])
-            for pos in positions
-            if pos.ticker in closes.columns
-            and not np.isnan(float(closes.at[date_ts, pos.ticker]))
-        )
+        prices = [_close_on_or_before(closes, date_ts, pos.ticker) for pos in positions]
+        market_value = sum(pos.shares * px for pos, px in zip(positions, prices) if not np.isnan(px))
         equity_points.append((today_str, cash + market_value))
         return
 
@@ -1051,10 +1062,9 @@ def _record_equity(
         return
     returns = []
     for pos in positions:
-        if pos.ticker in closes.columns:
-            cur = float(closes.at[date_ts, pos.ticker])
-            if not np.isnan(cur) and pos.entry_price > 0:
-                returns.append(cur / pos.entry_price)
+        cur = _close_on_or_before(closes, date_ts, pos.ticker)
+        if not np.isnan(cur) and pos.entry_price > 0:
+            returns.append(cur / pos.entry_price)
     if returns:
         equity_points.append((today_str, float(np.mean(returns))))
     else:

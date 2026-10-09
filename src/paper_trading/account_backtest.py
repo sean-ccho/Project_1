@@ -168,9 +168,10 @@ def run_account_backtest(
     last = str(sim[-1][1].date())
     closing: dict[str, Any] = {"sells": []}
     for pos in list(state.positions):
-        bar = series[pos["ticker"]].on(last) if pos["ticker"] in series else None
-        if bar:
-            _close_position(state, profile, pos["ticker"], float(bar["close"]), last, "기간종료", series, closing)
+        # 마지막 날 일봉이 없으면(거래정지·상장폐지) 그 전 마지막 종가 — 빠뜨리면 최종 현금에서 사라진다
+        bars = series[pos["ticker"]].upto(last, 1) if pos["ticker"] in series else []
+        if bars:
+            _close_position(state, profile, pos["ticker"], float(bars[-1]["close"]), last, "기간종료", series, closing)
 
     equity_curve = pd.Series(
         {pd.Timestamp(h["date"]): h["equity"] for h in state.equity_history}, name="equity_curve"
