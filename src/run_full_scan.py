@@ -47,7 +47,7 @@ from screener.exporter import (
     prepare_export_dataframe,
     send_email_notification,
 )
-from screener.features import compute_all_features
+from screener.fundamentals_guard import compute_all_features_guarded
 from screener.processing import apply_neutralization, liquidity_filter
 from screener.signals import attach_signals_and_sort
 from analytics.extremes import score_extremes_for_snapshot
@@ -218,7 +218,9 @@ def build_full_scan_dataframe(
         print(f"[{context_label}] {bar_date} 일봉은 장중 데이터 → 페이퍼 트레이딩 대상 아님")
         bar_date = ""
 
-    features = compute_all_features(df)
+    # 종목 정보(get_info)가 요청 제한으로 대량 실패하면 쉬었다가 다시 받고, 끝내 못 받은 종목은 전날 스냅샷 값을 쓴다
+    # (2026-10-09 NASDAQ/NYSE 전량 실패 사고)
+    features = compute_all_features_guarded(df, f"[{context_label}]")
     if features.empty:
         print(f"[{context_label}] 조건을 만족하는 종목이 없습니다.")
         return None
