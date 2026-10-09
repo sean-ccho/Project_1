@@ -1,0 +1,24 @@
+============================================================
+[Unified Paper Trading] PT-1S (S&P 500만) 실행 시작
+============================================================
+[Unified PT] PT1_UNIVERSE=sp500 — S&P 500 스냅샷만 사용
+2026-10-09 08:02:09,319 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 128개 종목
+[Unified PT] SP500 snapshot 로드: 128개 종목
+[Unified PT] 거래일(일봉 날짜): 2026-10-08
+[Unified PT] 골든크로스임박 종목: 32개
+2026-10-09 08:02:09,613 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 22 | 4.0~5.0: 8 | 5.0~5.5: 17 | 5.5~6.0: 9 | 6.0+: 72
+2026-10-09 08:02:09,631 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=11/128 | Selected: CSCO (CCS=0.7454)
+2026-10-09 08:02:09,634 [INFO] paper_trading.engine — [PaperTrading] BUY CSCO @ 114.89 (CCS=0.7454, RSI=59, upside P50=+4% P75=+8%)
+[Unified PT] 매도=0 매수=1 보유=1종목
+[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 56, '바닥반등_52주과열': 2, '판단등급_미달': 50, '과열_차단': 1, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 0, '같은회사_중복': 0, '모멘텀_ADX부족': 7, '바닥_RSI데드존': 1, '섹터_집중': 0, '_통과': 11, '_전체': 128}
+[Unified PT] Top5 후보:
+  MPWR   CCS=0.7496 전략=📈 모멘텀 섹터=Technology
+  CSCO   CCS=0.7454 전략=📈 모멘텀 섹터=Technology
+  SMCI   CCS=0.7127 전략=📈 모멘텀 섹터=Technology
+  PLTR   CCS=0.6701 전략=📈 모멘텀 섹터=Technology
+  MRVL   CCS=0.6382 전략=📈 모멘텀 섹터=Technology
+2026-10-09 08:02:10,998 [ERROR] paper_trading.sheet_sync — [SheetSync] 거래로그 append 실패: list index out of range
+2026-10-09 08:02:12,574 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 1개 종목
+2026-10-09 08:02:13,881 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 0건 거래
+[Unified PT] 구글 시트 동기화 완료
+[Unified PT] PT-1S (S&P 500만): 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)
