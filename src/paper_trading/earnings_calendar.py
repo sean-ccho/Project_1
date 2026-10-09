@@ -53,7 +53,7 @@ class EarningsCalendar:
         환경변수 BACKTEST_EARNINGS_CAL 로도 고른다 (진단용, 해시 대상 파일이 아니라 피처 캐시를 그대로 쓴다).
         """
         mode = (mode or os.environ.get("BACKTEST_EARNINGS_CAL", "scheduled")).lower()
-        p = Path(path)
+        p = Path(os.environ.get("BACKTEST_EARNINGS_PATH") or path)  # 홀드아웃 확인 때만 다른 파일
         if mode == "off":
             print("[백테스트] 실적일 달력 꺼짐 (BACKTEST_EARNINGS_CAL=off)")
             return cls(None)

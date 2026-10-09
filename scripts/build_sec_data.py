@@ -8,7 +8,8 @@
    → 그 회계연도를 처음 알 수 있던 날 = 항목 중 가장 이른 filed. 그보다 45일 넘게 늦게 처음 나온 항목은 비운다.
 3) 발행주식수 : dei:EntityCommonStockSharesOutstanding (10-K·10-Q 표지). 기준일(end)·filed.
 
-사용법: PYTHONPATH=.:src python scripts/build_sec_data.py
+사용법: PYTHONPATH=.:src python scripts/build_sec_data.py            (연구용, ≤ 2025-09-30)
+        PYTHONPATH=.:src python scripts/build_sec_data.py --holdout  (홀드아웃 1회 확인용 실적일만, 전체 기간)
 산출 (git 제외): data/research/sec_earnings_dates.parquet, sec_fund_annual.parquet, sec_shares.parquet
           커버리지 (git): tier3/sec_coverage.csv
 """
@@ -157,7 +158,28 @@ def shares(cik: int) -> pd.DataFrame:
     return df
 
 
+def build_holdout_earnings() -> None:
+    """홀드아웃 1회 확인용 실적일 (DEV_END 이후 포함) → sec_earnings_dates_holdout.parquet.
+
+    연구용 파일(sec_earnings_dates.parquet, ≤ DEV_END)은 건드리지 않는다. 백테스트는 BACKTEST_EARNINGS_PATH 로 이 파일을 쓴다.
+    반응 거래일(event_date)은 평일 달력으로 근사한다 (백테스트 필터는 접수일 accepted_et 만 쓴다).
+    """
+    m = pd.read_csv(SEC_DIR / "ticker_cik.csv").dropna(subset=["cik"])
+    m["cik"] = m["cik"].astype(int)
+    sessions = pd.bdate_range("2014-01-01", pd.Timestamp.today().normalize() + pd.Timedelta(days=120))
+    ev = []
+    for cik in sorted(m["cik"].unique()):
+        ev += earnings_dates(cik, sessions)
+    ev = pd.DataFrame(ev).merge(m[["티커", "cik"]], on="cik")
+    out = RESEARCH_DIR / "sec_earnings_dates_holdout.parquet"
+    ev.to_parquet(out, index=False)
+    print(f"[build] 홀드아웃용 실적일 {len(ev):,}건 · 마지막 {ev['accepted_et'].max()} → {out}")
+
+
 def main() -> None:
+    if "--holdout" in sys.argv:
+        build_holdout_earnings()
+        return
     m = pd.read_csv(SEC_DIR / "ticker_cik.csv").dropna(subset=["cik"])
     m["cik"] = m["cik"].astype(int)
     sessions = load_ohlcv(OHLCV_PX10Y).index
