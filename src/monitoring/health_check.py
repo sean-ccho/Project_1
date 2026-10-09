@@ -96,7 +96,7 @@ def run_health_check(
     ok, msg = _check_json_valid(trades_path)
     checks.append({"name": "trades.json 파싱", "ok": ok, "message": msg})
 
-    # 2b. PT-2/PT-3 계좌 (data/paper_trading/pt*/)
+    # 2b. 다른 계좌 폴더 (data/paper_trading/pt*/ — pt1s, pt_spy)
     if data_path.exists():
         for account_dir in sorted(p for p in data_path.iterdir() if p.is_dir() and p.name.startswith("pt")):
             for name in ("positions.json", "trades.json", "account.json"):

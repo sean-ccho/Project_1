@@ -26,7 +26,7 @@ from screener.config import (
 
 WORKSHEET_BACKTEST = "백테스트_결과"
 
-_SPY_CLOSE = None  # 실행당 한 번만 받는다 (3개 계좌가 공유)
+_SPY_CLOSE = None  # 실행당 한 번만 받는다 (계좌들이 공유)
 
 
 def _spy_close():
@@ -292,10 +292,6 @@ def sync_summary(trades: list[dict[str, Any]], worksheet: str = WORKSHEET_SUMMAR
                 key = "바닥반등"
             elif "모멘텀" in s:
                 key = "모멘텀"
-            elif "골든크로스" in s:
-                key = "골든크로스"
-            elif s.startswith("단타-"):
-                key = s
             else:
                 key = "기타"
             strategy_groups.setdefault(key, []).append(t)

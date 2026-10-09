@@ -1,4 +1,4 @@
-"""PT-2/PT-3 공통 계좌 엔진.
+"""계좌 엔진 (PT-SPY) — 가상 자본으로 주식 수·현금·평가액을 기록한다.
 
 한 일봉(bar_date)을 처리하는 순서 (process_bar):
   1) 전날 예약한 주문을 오늘 시가로 체결 (매도 먼저, 갭 상한을 넘은 매수는 취소)
@@ -8,7 +8,7 @@
   4) 평가액(현금 + 종가 평가) 기록
   5) 그날 스냅샷이 있으면 신규 후보를 골라 다음날 시가 매수 예약
 
-핵심 로직은 pandas 없이 동작한다 (실거래와 백테스트가 같은 process_bar를 호출).
+핵심 로직은 pandas 없이 동작한다 (실거래와 테스트가 같은 process_bar를 호출).
 pandas가 필요한 부분(일봉 다운로드·스냅샷 로드)은 함수 안에서 import 한다.
 """
 
@@ -468,27 +468,8 @@ def _sync_sheets(profile: Any, state: AccountState, result: dict[str, Any]) -> N
         print(f"[{profile.name}] 구글 시트 동기화 실패 (계속 진행): {exc}")
 
 
-def _send_report_only(profile: Any, bar_date: str | None) -> None:
-    """신규 일봉이 없는 날(주말·휴장·재실행): 매매·상태 변경 없이 현재 계좌 일일 리포트만 발송한다."""
-    tag = f"[{profile.name}]"
-    if not profile.params.get("email", True):
-        return
-    try:
-        from paper_trading.account_email import send_account_email
-
-        state = load_account(profile)
-        result = {
-            "date": bar_date or "-", "buys": [], "sells": [], "cancelled": [],
-            "orders": list(state.pending), "candidates": [], "debug": {},
-            "equity": state.equity, "cash": round(state.cash, 2), "holdings": len(state.positions),
-        }
-        send_account_email(profile, result, state)
-    except Exception as exc:
-        print(f"{tag} 일일 리포트(매매 없음) 발송 실패 (무시): {exc}")
-
-
 def run_account_daily(key: str, *, dry_run: bool = False, as_of: str | None = None) -> dict[str, Any] | None:
-    """PT-2/PT-3/PT-SPY 하루 실행 (GitHub Actions에서 run_paper_trading.py --account로 호출)."""
+    """계좌(PT-SPY) 하루 실행 (GitHub Actions에서 run_paper_trading.py --account로 호출). 시트에만 기록한다."""
     from paper_trading.accounts import get_profile
     from paper_trading.market_date import check_run_guard, load_state, mark_processed, market_today
     from paper_trading.runner import load_and_merge_snapshots, snapshot_bar_date
@@ -513,7 +494,6 @@ def run_account_daily(key: str, *, dry_run: bool = False, as_of: str | None = No
         ok, reason = check_run_guard(bar_date, profile.data_dir)
         if not ok:
             print(f"{tag} 건너뜀: {reason}")
-            _send_report_only(profile, bar_date)
             return None
 
     rows = merged.to_dict("records")
@@ -546,12 +526,4 @@ def run_account_daily(key: str, *, dry_run: bool = False, as_of: str | None = No
     save_account(profile, state)
     mark_processed(profile.data_dir, bar_date, account=key, version=profile.version)
     _sync_sheets(profile, state, result)
-    if not profile.params.get("email", True):
-        return result  # 시트에만 기록하는 계좌 (PT-SPY)
-    try:
-        from paper_trading.account_email import send_account_email
-
-        send_account_email(profile, result, state)
-    except Exception as exc:
-        print(f"{tag} 이메일 발송 실패: {exc}")
     return result

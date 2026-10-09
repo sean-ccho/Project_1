@@ -10,8 +10,6 @@ GitHub Actions 실행 순서:
 로컬 실행:
   PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py                 # PT-1 (기존)
   PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt1s  # PT-1S (PT-1 규칙, S&P 500만)
-  PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt2   # PT-2 골든크로스 스윙
-  PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt3   # PT-3 일봉 단타 (2026-10-09 워크플로에서 중단)
   PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt_spy  # PT-SPY SPY 보유 기준선
   ... --dry-run [--as-of 2026-09-29]   # 저장·시트·이메일 없이 결과만 출력
 """
@@ -29,9 +27,8 @@ if str(_src_dir) not in sys.path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="페이퍼 트레이딩 실행")
-    parser.add_argument("--account", choices=["pt1", "pt1s", "pt2", "pt3", "pt_spy", "all"], default="pt1",
-                        help="pt1=기존, pt1s=PT-1 규칙·S&P 500만, pt2=골든크로스 스윙, pt3=일봉 단타, "
-                             "pt_spy=SPY 보유 기준선, all=운영 중 계좌 전부(pt1·pt1s·pt_spy)")
+    parser.add_argument("--account", choices=["pt1", "pt1s", "pt_spy", "all"], default="pt1",
+                        help="pt1=기존, pt1s=PT-1 규칙·S&P 500만, pt_spy=SPY 보유 기준선, all=전부(pt1·pt1s·pt_spy)")
     parser.add_argument("--dry-run", action="store_true", help="파일 저장·시트·이메일 없이 결과만 출력")
     parser.add_argument("--as-of", default=None, help="거래일 강제 지정 (YYYY-MM-DD)")
     args = parser.parse_args()

@@ -14,9 +14,9 @@ def _series(closes: list[float]) -> dict[str, BarSeries]:
                               for d, c in zip(days, closes)])}
 
 
-def test_profile_has_no_email_and_own_tabs():
+def test_profile_has_own_tabs():
     p = get_profile("pt_spy")
-    assert p.enabled and p.params["email"] is False and p.params["max_positions"] == 1
+    assert p.enabled and p.params["max_positions"] == 1
     assert p.worksheets["log"] == "페이퍼SPY_거래로그"
 
 

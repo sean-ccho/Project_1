@@ -1,7 +1,7 @@
-"""페이퍼 트레이딩 계좌 정의 (PT-2, PT-3, PT-SPY).
+"""페이퍼 트레이딩 계좌 정의 (account_engine 으로 도는 계좌: PT-SPY).
 
-PT-1(기존)은 engine.run_daily_trading을 그대로 쓰고, PT-2/PT-3는 account_engine을 쓴다.
-params는 config의 dict 객체를 그대로 참조한다 (Optuna in-place 수정이 바로 반영됨).
+PT-1·PT-1S 는 engine.run_daily_trading 을 그대로 쓰고, PT-SPY 는 account_engine 을 쓴다.
+(PT-2 골든크로스 스윙·PT-3 일봉 단타는 2026-10-09 모두 제거)
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-ACCOUNT_KEYS = ("pt2", "pt3", "pt_spy")
+ACCOUNT_KEYS = ("pt_spy",)
 
 
 @dataclass
@@ -42,23 +42,7 @@ class AccountProfile:
 
 
 def get_profile(key: str) -> AccountProfile:
-    """계좌 키(pt2/pt3)로 프로필을 만든다."""
-    from screener import config as cfg
-
-    if key == "pt2":
-        from paper_trading import pt2_golden_cross
-
-        return AccountProfile(
-            "pt2", "PT-2 골든크로스 스윙", cfg.PT2_PARAMS, cfg.PT2_WORKSHEETS,
-            cfg.PT2_ENABLED, pt2_golden_cross,
-        )
-    if key == "pt3":
-        from paper_trading import pt3_short_term
-
-        return AccountProfile(
-            "pt3", "PT-3 일봉 단타", cfg.PT3_PARAMS, cfg.PT3_WORKSHEETS,
-            cfg.PT3_ENABLED, pt3_short_term,
-        )
+    """계좌 키로 프로필을 만든다."""
     if key == "pt_spy":
         from paper_trading import pt_spy
 

@@ -26,9 +26,9 @@ def test_scalar_and_nested_dict_are_restored():
 
 
 def test_new_nested_key_is_removed_after():
-    with config_overrides({"PT2_PARAMS": {"_tmp_key": 1}}):
-        assert cfg.PT2_PARAMS["_tmp_key"] == 1
-    assert "_tmp_key" not in cfg.PT2_PARAMS
+    with config_overrides({"CCS_V2_WEIGHTS": {"_tmp_key": 1}}):
+        assert cfg.CCS_V2_WEIGHTS["_tmp_key"] == 1
+    assert "_tmp_key" not in cfg.CCS_V2_WEIGHTS
 
 
 def test_restored_even_on_exception():

@@ -1,7 +1,6 @@
 """일봉 OHLC 리스트로 계산하는 기술지표 (pandas 없이 동작).
 
-PT-2/PT-3 청산 판단에 쓴다. 실거래(account_engine)와 백테스트(account_backtest)가
-같은 함수를 써서 청산 결과가 일치한다.
+계좌 엔진(account_engine)이 보유 종목의 장 마감 지표를 계산할 때 쓴다.
 EMA는 ta 라이브러리와 같은 방식(adjust=False), ATR·RSI·ADX는 Wilder 평활.
 """
 

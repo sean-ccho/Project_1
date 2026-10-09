@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""계좌별 Optuna 파라미터 탐색 (Tier 4).
+"""PT-1 Optuna 파라미터 탐색 (Tier 4).
 
 원칙 (계획서 5절·10절):
   - 마지막 N개월은 홀드아웃으로 봉인하고, 최적화는 그 전 구간만 쓴다.
@@ -10,8 +10,8 @@
 
 사용법:
   pip install -r requirements-research.txt
-  PYTHONPATH=.:src python scripts/optimize_optuna.py --account pt2 --trials 100
-  PYTHONPATH=.:src python scripts/optimize_optuna.py --account pt2 --evaluate-holdout
+  PYTHONPATH=.:src python scripts/optimize_optuna.py --account pt1 --trials 100
+  PYTHONPATH=.:src python scripts/optimize_optuna.py --account pt1 --evaluate-holdout
   optuna-dashboard sqlite:///output/optuna.db
 """
 
@@ -40,31 +40,6 @@ MDD_LIMIT = 0.30
 # ── 탐색 공간 ────────────────────────────────────────────────
 
 
-def suggest_pt2(trial: optuna.Trial) -> dict[str, Any]:
-    return {
-        "entry_types": ["crossed", "imminent"] if trial.suggest_categorical("include_imminent", [False, True]) else ["crossed"],
-        "stop_atr_mult": trial.suggest_float("stop_atr_mult", 1.5, 3.0, step=0.25),
-        "trail_activate_pct": trial.suggest_float("trail_activate_pct", 0.03, 0.10, step=0.01),
-        "trail_atr_mult": trial.suggest_float("trail_atr_mult", 2.0, 4.0, step=0.25),
-        "trail_atr_mult_after_hold": trial.suggest_float("trail_atr_mult_after_hold", 1.5, 3.5, step=0.25),
-        "hold_days": trial.suggest_int("hold_days", 20, 45, step=5),
-        "below_ema50_days": trial.suggest_int("below_ema50_days", 1, 4),
-        "max_positions": trial.suggest_int("max_positions", 3, 10),
-    }
-
-
-def suggest_pt3(trial: optuna.Trial) -> dict[str, Any]:
-    return {
-        "stop_atr_mult": trial.suggest_float("stop_atr_mult", 1.0, 2.5, step=0.25),
-        "target_atr_mult": trial.suggest_float("target_atr_mult", 1.0, 3.5, step=0.25),
-        "breakeven_atr_mult": trial.suggest_float("breakeven_atr_mult", 0.5, 2.0, step=0.25),
-        "max_hold_bars": trial.suggest_int("max_hold_bars", 3, 10),
-        "pullback_exit_rsi": trial.suggest_float("pullback_exit_rsi", 55.0, 70.0, step=2.5),
-        "breakout_volume_min": trial.suggest_float("breakout_volume_min", 1.2, 2.5, step=0.1),
-        "max_gap_up": trial.suggest_float("max_gap_up", 0.01, 0.05, step=0.01),
-    }
-
-
 def suggest_pt1(trial: optuna.Trial) -> dict[str, Any]:
     """PT-1: 1차는 청산 핵심 4개 × 전략 2개 + CCS 버전 + 교체 on/off (CCS 가중치는 2차로 분리).
 
@@ -89,26 +64,16 @@ def suggest_pt1(trial: optuna.Trial) -> dict[str, Any]:
 
 
 def run_window(account: str, params: dict[str, Any], start: str, end: str, args: argparse.Namespace) -> dict[str, Any]:
-    """한 구간 백테스트 → summary. PT-1은 config를 잠시 바꿨다가 원복한다."""
-    if account == "pt1":
-        from paper_trading.backtest import run_paper_trading_backtest
-        from paper_trading.config_override import config_overrides
+    """한 구간 PT-1 백테스트 → summary. config를 잠시 바꿨다가 원복한다."""
+    from paper_trading.backtest import run_paper_trading_backtest
+    from paper_trading.config_override import config_overrides
 
-        with config_overrides(params):
-            r = run_paper_trading_backtest(
-                period=args.period, max_tickers=args.max_tickers, rebalance_every=1,
-                initial_capital=5000.0, start_date=start, end_date=end, save_run=False,
-                pit_universe=args.pit_universe,
-            )
-        return r["summary"]
-
-    from paper_trading.account_backtest import run_account_backtest
-
-    r = run_account_backtest(
-        account, period=args.period, max_tickers=args.max_tickers,
-        start_date=start, end_date=end, params_override=params, save_run=False,
-        pit_universe=args.pit_universe,
-    )
+    with config_overrides(params):
+        r = run_paper_trading_backtest(
+            period=args.period, max_tickers=args.max_tickers, rebalance_every=1,
+            initial_capital=5000.0, start_date=start, end_date=end, save_run=False,
+            pit_universe=args.pit_universe,
+        )
     return r["summary"]
 
 
@@ -132,12 +97,12 @@ def make_windows(args: argparse.Namespace) -> tuple[list[tuple[str, str]], tuple
     return folds, (str(hold[0].date()), str(hold[-1].date()))
 
 
-SUGGEST = {"pt1": suggest_pt1, "pt2": suggest_pt2, "pt3": suggest_pt3}
+SUGGEST = {"pt1": suggest_pt1}
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="계좌별 Optuna 탐색")
-    p.add_argument("--account", choices=["pt1", "pt2", "pt3"], required=True)
+    p = argparse.ArgumentParser(description="PT-1 Optuna 탐색")
+    p.add_argument("--account", choices=["pt1"], default="pt1")
     p.add_argument("--trials", type=int, default=50)
     p.add_argument("--period", default="5y")
     p.add_argument("--max-tickers", type=int, default=100)
