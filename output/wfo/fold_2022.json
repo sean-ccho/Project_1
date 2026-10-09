@@ -1,0 +1,1168 @@
+{
+ "year": 2022,
+ "train": [
+  "2016-01-04",
+  "2021-12-31"
+ ],
+ "n_trials": 60,
+ "best_params": {
+  "max_positions": 3,
+  "bear_mode": "liquidate",
+  "sizing": "inv_vol",
+  "stop_loss": 0.15,
+  "trailing_stop": 0.11000000000000001,
+  "trail_activate_pct": 0.03,
+  "max_holding_days": 35,
+  "allow_bottom": false
+ },
+ "best_value": 1.49,
+ "best_attrs": {
+  "Sharpe_일간": 1.49,
+  "CAGR": 0.2241,
+  "MDD": -0.1728,
+  "총거래수": 245
+ },
+ "trials": [
+  {
+   "number": 0,
+   "state": "COMPLETE",
+   "value": 1.1,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.12000000000000001,
+    "trailing_stop": 0.11000000000000001,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 35,
+    "allow_bottom": true
+   },
+   "Sharpe_일간": 1.1,
+   "CAGR": 0.143,
+   "MDD": -0.217,
+   "총거래수": 403
+  },
+  {
+   "number": 1,
+   "state": "COMPLETE",
+   "value": 0.93,
+   "params": {
+    "max_positions": 10,
+    "bear_mode": "block",
+    "sizing": "inv_vol",
+    "stop_loss": 0.05,
+    "trailing_stop": 0.08,
+    "trail_activate_pct": 0.05,
+    "max_holding_days": 20,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.93,
+   "CAGR": 0.0936,
+   "MDD": -0.171,
+   "총거래수": 863
+  },
+  {
+   "number": 2,
+   "state": "COMPLETE",
+   "value": 0.54,
+   "params": {
+    "max_positions": 7,
+    "bear_mode": "none",
+    "sizing": "equal",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.04,
+    "trail_activate_pct": 0.0,
+    "max_holding_days": 20,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.54,
+   "CAGR": 0.0715,
+   "MDD": -0.2956,
+   "총거래수": 729
+  },
+  {
+   "number": 3,
+   "state": "COMPLETE",
+   "value": 0.40099999999999997,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "none",
+    "sizing": "inv_vol",
+    "stop_loss": 0.07,
+    "trailing_stop": 0.06,
+    "trail_activate_pct": 0.05,
+    "max_holding_days": 10,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.46,
+   "CAGR": 0.0564,
+   "MDD": -0.3295,
+   "총거래수": 682
+  },
+  {
+   "number": 4,
+   "state": "COMPLETE",
+   "value": 0.7,
+   "params": {
+    "max_positions": 7,
+    "bear_mode": "liquidate",
+    "sizing": "equal",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.08,
+    "trail_activate_pct": 0.05,
+    "max_holding_days": 20,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.7,
+   "CAGR": 0.0941,
+   "MDD": -0.2382,
+   "총거래수": 643
+  },
+  {
+   "number": 5,
+   "state": "COMPLETE",
+   "value": 1.06,
+   "params": {
+    "max_positions": 10,
+    "bear_mode": "liquidate",
+    "sizing": "equal",
+    "stop_loss": 0.05,
+    "trailing_stop": 0.11000000000000001,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 40,
+    "allow_bottom": true
+   },
+   "Sharpe_일간": 1.06,
+   "CAGR": 0.1306,
+   "MDD": -0.1536,
+   "총거래수": 815
+  },
+  {
+   "number": 6,
+   "state": "COMPLETE",
+   "value": 0.91,
+   "params": {
+    "max_positions": 7,
+    "bear_mode": "block",
+    "sizing": "inv_vol",
+    "stop_loss": 0.05,
+    "trailing_stop": 0.08,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 35,
+    "allow_bottom": true
+   },
+   "Sharpe_일간": 0.91,
+   "CAGR": 0.1086,
+   "MDD": -0.2078,
+   "총거래수": 614
+  },
+  {
+   "number": 7,
+   "state": "COMPLETE",
+   "value": 1.04,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "none",
+    "sizing": "inv_vol",
+    "stop_loss": 0.09,
+    "trailing_stop": 0.06,
+    "trail_activate_pct": 0.01,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.04,
+   "CAGR": 0.164,
+   "MDD": -0.2026,
+   "총거래수": 274
+  },
+  {
+   "number": 8,
+   "state": "COMPLETE",
+   "value": 1.17,
+   "params": {
+    "max_positions": 7,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.060000000000000005,
+    "trailing_stop": 0.12,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 30,
+    "allow_bottom": true
+   },
+   "Sharpe_일간": 1.17,
+   "CAGR": 0.1412,
+   "MDD": -0.177,
+   "총거래수": 633
+  },
+  {
+   "number": 9,
+   "state": "COMPLETE",
+   "value": 0.52,
+   "params": {
+    "max_positions": 7,
+    "bear_mode": "none",
+    "sizing": "inv_vol",
+    "stop_loss": 0.1,
+    "trailing_stop": 0.06,
+    "trail_activate_pct": 0.0,
+    "max_holding_days": 10,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.52,
+   "CAGR": 0.0583,
+   "MDD": -0.2835,
+   "총거래수": 854
+  },
+  {
+   "number": 10,
+   "state": "COMPLETE",
+   "value": 1.34,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "block",
+    "sizing": "equal",
+    "stop_loss": 0.14,
+    "trailing_stop": 0.06,
+    "trail_activate_pct": 0.02,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.34,
+   "CAGR": 0.2196,
+   "MDD": -0.1708,
+   "총거래수": 390
+  },
+  {
+   "number": 11,
+   "state": "COMPLETE",
+   "value": 1.25,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.13,
+    "trailing_stop": 0.06,
+    "trail_activate_pct": 0.02,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.25,
+   "CAGR": 0.1859,
+   "MDD": -0.1559,
+   "총거래수": 255
+  },
+  {
+   "number": 12,
+   "state": "COMPLETE",
+   "value": 0.64,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "block",
+    "sizing": "inv_vol",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.12,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 25,
+    "allow_bottom": true
+   },
+   "Sharpe_일간": 0.64,
+   "CAGR": 0.0899,
+   "MDD": -0.1806,
+   "총거래수": 285
+  },
+  {
+   "number": 13,
+   "state": "COMPLETE",
+   "value": 0.92,
+   "params": {
+    "max_positions": 10,
+    "bear_mode": "block",
+    "sizing": "equal",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.08,
+    "trail_activate_pct": 0.01,
+    "max_holding_days": 40,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.92,
+   "CAGR": 0.1242,
+   "MDD": -0.2375,
+   "총거래수": 645
+  },
+  {
+   "number": 14,
+   "state": "COMPLETE",
+   "value": 0.3729999999999999,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "none",
+    "sizing": "inv_vol",
+    "stop_loss": 0.05,
+    "trailing_stop": 0.12,
+    "trail_activate_pct": 0.01,
+    "max_holding_days": 35,
+    "allow_bottom": true
+   },
+   "Sharpe_일간": 0.58,
+   "CAGR": 0.0877,
+   "MDD": -0.4035,
+   "총거래수": 495
+  },
+  {
+   "number": 15,
+   "state": "COMPLETE",
+   "value": 1.11,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "equal",
+    "stop_loss": 0.11,
+    "trailing_stop": 0.08,
+    "trail_activate_pct": 0.02,
+    "max_holding_days": 30,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.11,
+   "CAGR": 0.1863,
+   "MDD": -0.2092,
+   "총거래수": 267
+  },
+  {
+   "number": 16,
+   "state": "COMPLETE",
+   "value": 0.98,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "block",
+    "sizing": "equal",
+    "stop_loss": 0.12000000000000001,
+    "trailing_stop": 0.06,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 25,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.98,
+   "CAGR": 0.1539,
+   "MDD": -0.2065,
+   "총거래수": 443
+  },
+  {
+   "number": 17,
+   "state": "COMPLETE",
+   "value": 1.07,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "block",
+    "sizing": "inv_vol",
+    "stop_loss": 0.13,
+    "trailing_stop": 0.07,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 40,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.07,
+   "CAGR": 0.148,
+   "MDD": -0.2018,
+   "총거래수": 360
+  },
+  {
+   "number": 18,
+   "state": "COMPLETE",
+   "value": 1.25,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.14,
+    "trailing_stop": 0.05,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.25,
+   "CAGR": 0.1829,
+   "MDD": -0.1891,
+   "총거래수": 255
+  },
+  {
+   "number": 19,
+   "state": "COMPLETE",
+   "value": 0.84,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "liquidate",
+    "sizing": "equal",
+    "stop_loss": 0.14,
+    "trailing_stop": 0.06,
+    "trail_activate_pct": 0.01,
+    "max_holding_days": 25,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.84,
+   "CAGR": 0.1244,
+   "MDD": -0.2507,
+   "총거래수": 479
+  },
+  {
+   "number": 20,
+   "state": "COMPLETE",
+   "value": 1.2,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "block",
+    "sizing": "equal",
+    "stop_loss": 0.12000000000000001,
+    "trailing_stop": 0.05,
+    "trail_activate_pct": 0.01,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.2,
+   "CAGR": 0.1869,
+   "MDD": -0.1909,
+   "총거래수": 413
+  },
+  {
+   "number": 21,
+   "state": "COMPLETE",
+   "value": 1.05,
+   "params": {
+    "max_positions": 7,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.13,
+    "trailing_stop": 0.04,
+    "trail_activate_pct": 0.02,
+    "max_holding_days": 30,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.05,
+   "CAGR": 0.1249,
+   "MDD": -0.1764,
+   "총거래수": 585
+  },
+  {
+   "number": 22,
+   "state": "COMPLETE",
+   "value": 1.28,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.08,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 30,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.28,
+   "CAGR": 0.1863,
+   "MDD": -0.1782,
+   "총거래수": 259
+  },
+  {
+   "number": 23,
+   "state": "COMPLETE",
+   "value": 1.49,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.11000000000000001,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.49,
+   "CAGR": 0.2241,
+   "MDD": -0.1728,
+   "총거래수": 245
+  },
+  {
+   "number": 24,
+   "state": "COMPLETE",
+   "value": 0.69,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.1,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 25,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.69,
+   "CAGR": 0.093,
+   "MDD": -0.189,
+   "총거래수": 277
+  },
+  {
+   "number": 25,
+   "state": "COMPLETE",
+   "value": 1.14,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "block",
+    "sizing": "equal",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.05,
+    "trail_activate_pct": 0.02,
+    "max_holding_days": 30,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.14,
+   "CAGR": 0.1783,
+   "MDD": -0.2379,
+   "총거래수": 406
+  },
+  {
+   "number": 26,
+   "state": "COMPLETE",
+   "value": 0.96,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "block",
+    "sizing": "inv_vol",
+    "stop_loss": 0.14,
+    "trailing_stop": 0.09,
+    "trail_activate_pct": 0.02,
+    "max_holding_days": 30,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.96,
+   "CAGR": 0.1462,
+   "MDD": -0.2236,
+   "총거래수": 249
+  },
+  {
+   "number": 27,
+   "state": "COMPLETE",
+   "value": 0.8,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.12,
+    "trail_activate_pct": 0.01,
+    "max_holding_days": 40,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.8,
+   "CAGR": 0.1129,
+   "MDD": -0.2017,
+   "총거래수": 225
+  },
+  {
+   "number": 28,
+   "state": "COMPLETE",
+   "value": 1.27,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "equal",
+    "stop_loss": 0.14,
+    "trailing_stop": 0.11000000000000001,
+    "trail_activate_pct": 0.02,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.27,
+   "CAGR": 0.2167,
+   "MDD": -0.2129,
+   "총거래수": 243
+  },
+  {
+   "number": 29,
+   "state": "COMPLETE",
+   "value": 1.12,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.12000000000000001,
+    "trailing_stop": 0.09,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 30,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.12,
+   "CAGR": 0.1644,
+   "MDD": -0.1856,
+   "총거래수": 259
+  },
+  {
+   "number": 30,
+   "state": "COMPLETE",
+   "value": 0.45,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.14,
+    "trailing_stop": 0.12,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 40,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.45,
+   "CAGR": 0.0584,
+   "MDD": -0.2209,
+   "총거래수": 214
+  },
+  {
+   "number": 31,
+   "state": "COMPLETE",
+   "value": 1.47,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.14,
+    "trailing_stop": 0.1,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.47,
+   "CAGR": 0.2213,
+   "MDD": -0.1728,
+   "총거래수": 243
+  },
+  {
+   "number": 32,
+   "state": "COMPLETE",
+   "value": 1.43,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.07,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.43,
+   "CAGR": 0.2138,
+   "MDD": -0.1728,
+   "총거래수": 250
+  },
+  {
+   "number": 33,
+   "state": "COMPLETE",
+   "value": 1.16,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "equal",
+    "stop_loss": 0.13,
+    "trailing_stop": 0.08,
+    "trail_activate_pct": 0.05,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.16,
+   "CAGR": 0.2052,
+   "MDD": -0.2027,
+   "총거래수": 241
+  },
+  {
+   "number": 34,
+   "state": "COMPLETE",
+   "value": 0.97,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "block",
+    "sizing": "equal",
+    "stop_loss": 0.14,
+    "trailing_stop": 0.07,
+    "trail_activate_pct": 0.02,
+    "max_holding_days": 40,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.97,
+   "CAGR": 0.1487,
+   "MDD": -0.2256,
+   "총거래수": 360
+  },
+  {
+   "number": 35,
+   "state": "COMPLETE",
+   "value": 0.83,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.09,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 40,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.83,
+   "CAGR": 0.1178,
+   "MDD": -0.1967,
+   "총거래수": 223
+  },
+  {
+   "number": 36,
+   "state": "COMPLETE",
+   "value": 0.96,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.12000000000000001,
+    "trailing_stop": 0.12,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 40,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.96,
+   "CAGR": 0.139,
+   "MDD": -0.1952,
+   "총거래수": 232
+  },
+  {
+   "number": 37,
+   "state": "COMPLETE",
+   "value": 1.31,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.13,
+    "trailing_stop": 0.07,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 30,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.31,
+   "CAGR": 0.1892,
+   "MDD": -0.1856,
+   "총거래수": 263
+  },
+  {
+   "number": 38,
+   "state": "COMPLETE",
+   "value": 1.33,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.1,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 30,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.33,
+   "CAGR": 0.1969,
+   "MDD": -0.1782,
+   "총거래수": 256
+  },
+  {
+   "number": 39,
+   "state": "COMPLETE",
+   "value": 1.08,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.13,
+    "trailing_stop": 0.12,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 30,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.08,
+   "CAGR": 0.1418,
+   "MDD": -0.1991,
+   "총거래수": 401
+  },
+  {
+   "number": 40,
+   "state": "COMPLETE",
+   "value": 0.97,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "block",
+    "sizing": "equal",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.05,
+    "trail_activate_pct": 0.02,
+    "max_holding_days": 40,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.97,
+   "CAGR": 0.1485,
+   "MDD": -0.2166,
+   "총거래수": 373
+  },
+  {
+   "number": 41,
+   "state": "COMPLETE",
+   "value": 0.91,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.04,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 40,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.91,
+   "CAGR": 0.1244,
+   "MDD": -0.1998,
+   "총거래수": 231
+  },
+  {
+   "number": 42,
+   "state": "COMPLETE",
+   "value": 1.33,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.12000000000000001,
+    "trailing_stop": 0.1,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.33,
+   "CAGR": 0.1959,
+   "MDD": -0.1662,
+   "총거래수": 243
+  },
+  {
+   "number": 43,
+   "state": "COMPLETE",
+   "value": 1.34,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "block",
+    "sizing": "equal",
+    "stop_loss": 0.14,
+    "trailing_stop": 0.06,
+    "trail_activate_pct": 0.02,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.34,
+   "CAGR": 0.2196,
+   "MDD": -0.1708,
+   "총거래수": 390
+  },
+  {
+   "number": 44,
+   "state": "COMPLETE",
+   "value": 1.2,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "block",
+    "sizing": "equal",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.06,
+    "trail_activate_pct": 0.01,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.2,
+   "CAGR": 0.1855,
+   "MDD": -0.1704,
+   "총거래수": 394
+  },
+  {
+   "number": 45,
+   "state": "COMPLETE",
+   "value": 1.03,
+   "params": {
+    "max_positions": 5,
+    "bear_mode": "block",
+    "sizing": "equal",
+    "stop_loss": 0.13,
+    "trailing_stop": 0.07,
+    "trail_activate_pct": 0.01,
+    "max_holding_days": 40,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.03,
+   "CAGR": 0.1605,
+   "MDD": -0.216,
+   "총거래수": 381
+  },
+  {
+   "number": 46,
+   "state": "COMPLETE",
+   "value": 1.48,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.14,
+    "trailing_stop": 0.11000000000000001,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.48,
+   "CAGR": 0.2216,
+   "MDD": -0.1728,
+   "총거래수": 241
+  },
+  {
+   "number": 47,
+   "state": "COMPLETE",
+   "value": 1.21,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.13,
+    "trailing_stop": 0.09,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 30,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.21,
+   "CAGR": 0.1781,
+   "MDD": -0.1856,
+   "총거래수": 263
+  },
+  {
+   "number": 48,
+   "state": "COMPLETE",
+   "value": 1.24,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.13,
+    "trailing_stop": 0.12,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.24,
+   "CAGR": 0.1845,
+   "MDD": -0.1662,
+   "총거래수": 244
+  },
+  {
+   "number": 49,
+   "state": "COMPLETE",
+   "value": 0.76,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.14,
+    "trailing_stop": 0.1,
+    "trail_activate_pct": 0.02,
+    "max_holding_days": 40,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 0.76,
+   "CAGR": 0.1066,
+   "MDD": -0.2125,
+   "총거래수": 228
+  },
+  {
+   "number": 50,
+   "state": "COMPLETE",
+   "value": 1.4,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "equal",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.11000000000000001,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.4,
+   "CAGR": 0.2538,
+   "MDD": -0.2129,
+   "총거래수": 245
+  },
+  {
+   "number": 51,
+   "state": "COMPLETE",
+   "value": 1.4,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "equal",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.11000000000000001,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.4,
+   "CAGR": 0.2538,
+   "MDD": -0.2129,
+   "총거래수": 245
+  },
+  {
+   "number": 52,
+   "state": "COMPLETE",
+   "value": 1.38,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "equal",
+    "stop_loss": 0.14,
+    "trailing_stop": 0.11000000000000001,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.38,
+   "CAGR": 0.239,
+   "MDD": -0.2129,
+   "총거래수": 241
+  },
+  {
+   "number": 53,
+   "state": "COMPLETE",
+   "value": 1.37,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.13,
+    "trailing_stop": 0.11000000000000001,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 30,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.37,
+   "CAGR": 0.2031,
+   "MDD": -0.1856,
+   "총거래수": 262
+  },
+  {
+   "number": 54,
+   "state": "COMPLETE",
+   "value": 1.33,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "equal",
+    "stop_loss": 0.14,
+    "trailing_stop": 0.1,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.33,
+   "CAGR": 0.2308,
+   "MDD": -0.2129,
+   "총거래수": 243
+  },
+  {
+   "number": 55,
+   "state": "COMPLETE",
+   "value": 1.24,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "equal",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.1,
+    "trail_activate_pct": 0.05,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.24,
+   "CAGR": 0.2249,
+   "MDD": -0.2129,
+   "총거래수": 242
+  },
+  {
+   "number": 56,
+   "state": "COMPLETE",
+   "value": 1.3,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "none",
+    "sizing": "equal",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.11000000000000001,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 30,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.3,
+   "CAGR": 0.2437,
+   "MDD": -0.2492,
+   "총거래수": 251
+  },
+  {
+   "number": 57,
+   "state": "COMPLETE",
+   "value": 1.34,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "equal",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.11000000000000001,
+    "trail_activate_pct": 0.03,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.34,
+   "CAGR": 0.2412,
+   "MDD": -0.2129,
+   "총거래수": 245
+  },
+  {
+   "number": 58,
+   "state": "COMPLETE",
+   "value": 1.43,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.15,
+    "trailing_stop": 0.07,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.43,
+   "CAGR": 0.2138,
+   "MDD": -0.1728,
+   "총거래수": 250
+  },
+  {
+   "number": 59,
+   "state": "COMPLETE",
+   "value": 1.36,
+   "params": {
+    "max_positions": 3,
+    "bear_mode": "liquidate",
+    "sizing": "inv_vol",
+    "stop_loss": 0.14,
+    "trailing_stop": 0.06,
+    "trail_activate_pct": 0.04,
+    "max_holding_days": 35,
+    "allow_bottom": false
+   },
+   "Sharpe_일간": 1.36,
+   "CAGR": 0.2028,
+   "MDD": -0.1728,
+   "총거래수": 246
+  }
+ ],
+ "finished": "2026-10-09T07:38:21"
+}
