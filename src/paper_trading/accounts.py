@@ -1,4 +1,4 @@
-"""페이퍼 트레이딩 계좌 정의 (PT-2, PT-3).
+"""페이퍼 트레이딩 계좌 정의 (PT-2, PT-3, PT-SPY).
 
 PT-1(기존)은 engine.run_daily_trading을 그대로 쓰고, PT-2/PT-3는 account_engine을 쓴다.
 params는 config의 dict 객체를 그대로 참조한다 (Optuna in-place 수정이 바로 반영됨).
@@ -11,7 +11,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-ACCOUNT_KEYS = ("pt2", "pt3")
+ACCOUNT_KEYS = ("pt2", "pt3", "pt_spy")
 
 
 @dataclass
@@ -59,4 +59,8 @@ def get_profile(key: str) -> AccountProfile:
             "pt3", "PT-3 일봉 단타", cfg.PT3_PARAMS, cfg.PT3_WORKSHEETS,
             cfg.PT3_ENABLED, pt3_short_term,
         )
+    if key == "pt_spy":
+        from paper_trading import pt_spy
+
+        return AccountProfile("pt_spy", "PT-SPY 지수 보유", pt_spy.PARAMS, pt_spy.WORKSHEETS, True, pt_spy)
     raise ValueError(f"알 수 없는 계좌: {key} (가능: {', '.join(ACCOUNT_KEYS)})")

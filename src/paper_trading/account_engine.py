@@ -471,6 +471,8 @@ def _sync_sheets(profile: Any, state: AccountState, result: dict[str, Any]) -> N
 def _send_report_only(profile: Any, bar_date: str | None) -> None:
     """신규 일봉이 없는 날(주말·휴장·재실행): 매매·상태 변경 없이 현재 계좌 일일 리포트만 발송한다."""
     tag = f"[{profile.name}]"
+    if not profile.params.get("email", True):
+        return
     try:
         from paper_trading.account_email import send_account_email
 
@@ -486,7 +488,7 @@ def _send_report_only(profile: Any, bar_date: str | None) -> None:
 
 
 def run_account_daily(key: str, *, dry_run: bool = False, as_of: str | None = None) -> dict[str, Any] | None:
-    """PT-2/PT-3 하루 실행 (GitHub Actions에서 run_paper_trading.py --account로 호출)."""
+    """PT-2/PT-3/PT-SPY 하루 실행 (GitHub Actions에서 run_paper_trading.py --account로 호출)."""
     from paper_trading.accounts import get_profile
     from paper_trading.market_date import check_run_guard, load_state, mark_processed, market_today
     from paper_trading.runner import load_and_merge_snapshots, snapshot_bar_date
@@ -544,6 +546,8 @@ def run_account_daily(key: str, *, dry_run: bool = False, as_of: str | None = No
     save_account(profile, state)
     mark_processed(profile.data_dir, bar_date, account=key, version=profile.version)
     _sync_sheets(profile, state, result)
+    if not profile.params.get("email", True):
+        return result  # 시트에만 기록하는 계좌 (PT-SPY)
     try:
         from paper_trading.account_email import send_account_email
 

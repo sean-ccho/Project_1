@@ -168,25 +168,17 @@ jobs:
           mkdir -p logs/$LOG_DATE
           PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt1s | tee logs/$LOG_DATE/paper_trading_pt1s.log
 
-      - name: Run PT-2 golden cross swing
-        if: always()
-        env:
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-        run: |
-          set -o pipefail
-          mkdir -p logs/$LOG_DATE
-          PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt2 | tee logs/$LOG_DATE/paper_trading_pt2.log
+      # PT-2·PT-3 는 2026-10-09 중단 (10년 백테스트에서 SPY 에 크게 미달, docs/quant_improvement/HANDOFF.md)
+      # 코드·상태 파일·시트 탭은 기록으로 남는다. 다시 돌리려면 run_paper_trading.py --account pt2|pt3
 
-      - name: Run PT-3 daily short-term
+      - name: Run PT-SPY (SPY buy & hold benchmark)
         if: always()
         env:
-          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
         run: |
           set -o pipefail
           mkdir -p logs/$LOG_DATE
-          PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt3 | tee logs/$LOG_DATE/paper_trading_pt3.log
+          PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt_spy | tee logs/$LOG_DATE/paper_trading_pt_spy.log
 
       - name: Run 내계좌 portfolio report
         if: always()
@@ -259,7 +251,7 @@ jobs:
                   data/paper_trading/nasdaq_ranked.parquet
           git add data/paper_trading/state.json 2>/dev/null || true
           # 계좌 폴더별로 따로 add — 한 계좌 폴더가 없어도 다른 계좌 상태는 커밋되게
-          for d in pt1s pt2 pt3; do
+          for d in pt1s pt2 pt3 pt_spy; do
             if ls data/paper_trading/$d/*.json >/dev/null 2>&1; then git add data/paper_trading/$d/*.json; fi
           done
           git diff --cached --quiet && echo "No changes to commit" && exit 0
