@@ -1,25 +1,60 @@
 # HANDOFF — 이 문서 하나로 이어서 진행
 
-> 갱신: 2026-10-05 · 리포 `sean-ccho/Project_1` · 이전 문서(zip 이전 가이드, Tier 3 인수인계)를 합친 **단일 인수인계 문서**.
+> 갱신: 2026-10-09 (연구 단계 마무리) · 리포 `sean-ccho/Project_1` · 이전 문서(zip 이전 가이드, Tier 3 인수인계)를 합친 **단일 인수인계 문서**.
 > 새 컴퓨터의 Claude는 **이 문서만 읽고 시작한다.** 배경이 더 필요하면 9절의 문서를 본다.
 
 ---
 
-## 0. 30초 요약
+## 0. 30초 요약 (2026-10-09 마무리)
 
-- 3계좌 페이퍼 트레이딩(PT-1·2·3)은 **이미 main에 머지됐고 GitHub Actions로 매일 돈다.** 이전 작업은 끝났다.
-- 지금 하는 일은 **백테스트 연구(Tier 3 알파 검증)** 이다.
-- **결론(2026-10-05): 현재 전략에는 통계적으로 의미 있는 알파가 없다.**
-  - 생존 편향을 빼면(PIT 유니버스) Sharpe 0.35, 알파 −4.3% (t=−0.45). 이전의 +147%는 편향이 만든 착시였다.
-  - 종목 수를 늘리면(T2-10) Sharpe 1.09까지 오르지만 부트스트랩 95% 기준에서 "운과 구분 안 됨".
-  - 10년 치 장기 데이터 패널(`px10y`) 생성 후 가격 기반 팩터들을 검증했으나, 단일 팩터 및 고정 합성/워크포워드(OOS) 합성 모두 다중검정 보정 임계를 넘지 못함 (과최적화/노이즈 확인).
-- ⚠️ **백테스트-실거래 불일치 확정 (2026-10-07 0-8 진단)**: PT-1 백테스트에는 섹터 ETF가 없어 buy_signal이 항상 False다 (2025-09 스냅샷 5개 모두 0건, 섹터 필터 전 조건 충족은 13~20건). 실거래도 섹터 이름(yfinance vs GICS)이 안 맞아 6개 섹터의 buy_signal이 꺼진다 (2026-10-06 S&P 500: 현재 0건 → 이름 매핑 시 5건, 전부 Technology). 위 BASE 수치는 실거래와 다른 전략을 잰 것이다 → 수정은 [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md) 6단계.
-- **Tier 3-B 결과 (2026-10-07): 1~4단계 후보 0건 → 중단 규칙 발동** (스크리너 출력 117 · 조건부 반전 18 · PEAD 대리 10 · 캔들 확인 18 · 패널 ML 1, 모두 기준 미달). 남은 결정은 5절.
-- **6단계 결과 (2026-10-08)**: 섹터 버그 수정 후 새 BASE = Sharpe 0.83 · CAGR 18.1% · MDD −27.9% · 총 +68.4% (같은 기간 SPY +68.6%, SPY Sharpe 1.08). 알파 t 0.44 → 여전히 SPY를 못 이김. R1 장중 손절(ΔSharpe −0.34)·H3 약세장 진입 중단(−0.05, MDD는 −21.6%로 개선) 모두 `운과 구분 안 됨` → 채택 없음.
-- **2026-10-08 추가 결과 — 종목 선택 연구 종료**: ① T2-10(10종목 분산)을 새 BASE로 재측정 → 오히려 나빠짐 (Sharpe 0.51, ΔSharpe −0.32, 운과 구분 안 됨). ② 🛑 6-3 PT-2·PT-3 사전 기준 (PIT 2022-08~2025-09): PT-2 Sharpe 0.22 · 총 +6.9%, PT-3 Sharpe −0.03 · 총 −3.9% vs SPY 1.09 · +68.6% → 계획서 10-8 규칙상 **재설계 또는 중단 (사용자 결정 필요)**. ③ SEC EDGAR 재무 팩터 14건(가치·수익성·자산증가·발생액·발행, `tier3/FUNDAMENTAL_REPORT_px10y.md`) 후보 0 · 관찰 1(발생액 63일 t 2.50 < z 2.91). ④ 실제 실적일 PEAD 10건(`tier3/PEAD_REPORT_px10y.md`) 전부 탈락. 누적 시도 503건. → 9단계(지수 기준선 · 봇 처리) 결정만 남음.
-- **2026-10-08 CCS 점검 (`tier3/EARNINGS_FILTER_CHECK.md`)**: 버그 2개 수정 — ① 어닝 회피 필터가 yfinance 1.x 키 변경으로 PT-1·2·3 모두에서 꺼져 있었음 (실거래 `fundamentals.py` 수정, 백테스트는 SEC 실적일 `earnings_calendar.py`, 기본 = 예정 발표만) ② 바닥반등 MACD 기준이 가격 단위(−0.5달러) → 주가 대비 −1%. 새 BASE Sharpe 1.14 (예정 발표만) / 1.02 (8-K 전부) / 0.98 (필터 끔) vs SPY 1.08 — 전부 운과 구분 안 됨. MACD 0.02점 수정만으로 0.83 → 0.98 이 될 만큼 백테스트 경로가 민감하다. A/B (`ab_ccs_fix`): R2 교체 오늘 점수 −0.45, H4b 교체 끄기 −0.05, H5 CCS v2 −0.47, H2 모멘텀만 +0.25 [−0.71, +1.15] — 채택 없음. PT-2 Sharpe 0.29 · PT-3 0.13 (어닝 수정 후에도 SPY 1.09 크게 미달). 워크플로 상태 push 를 pull --rebase 재시도로 수정.
-- **이후 완료 (로컬 커밋, push 전)**: 시트·메일 SPY 비교, ETN/VXX 등 비주식 제외, GOOG/GOOGL 같은 회사 중복 방지, 실거래 섹터명 GICS 매핑, 병행 계좌 PT-1S(S&P 500만), 지수 타이밍 비교(`tier3/BASELINE_COMPARE.md`, 채택 없음).
-- (이전) **다음 단계 (2026-10-05 사용자 결정): 종목 선택 연구 2차(Tier 3-B)** — 아직 검증 안 한 스크리너 출력(패턴·적합도·CCS), 조건부 반전, 실적 이벤트, 패널 ML. Optuna는 후보가 채택된 뒤에만. **구현 순서는 [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md)** (5절 요약).
+- **연구 결론: 지금 전략(스크리너 + CCS)으로 SPY를 이긴다는 근거가 없다. 종목 선택·구조 연구는 끝났다** (누적 시도 932건, `tier3/TRIAL_LOG.csv`).
+  - 3년 백테스트(PIT, 버그 수정 후): Sharpe 1.14 vs SPY 1.08 — 운과 구분 안 됨
+  - 10년(2016-01 ~ 2026-10): CCS Sharpe 0.70 · CAGR 14.2% · MDD −43.6% vs SPY 0.89 · 15.2% · −33.7%. CCS 1등 대신 무작위로 골라도 비슷하다 (`tier3/CCS_PLACEBO_10y.md`)
+  - 홀드아웃 1회(2025-10-01 ~ 2026-10-07, **이미 사용함**): 모멘텀만 Sharpe 0.91 vs SPY 1.32 → 불통과
+  - 구조 워크포워드(종목 수·손절·약세장·비중 등 8개): 표본 외 Sharpe 0.05 vs 현재 0.58 vs SPY 0.85 → 불통과 (`tier3/WFO_STRUCTURE_10y.md`)
+  - 실전 PT-1을 $5,000로 환산하면 2026-04-02 이후 +14.6% vs 같은 날 SPY +20.9% (MDD −13.4% vs −4.5%)
+- **실전 계좌 (2026-10-09 이후)**: PT-1(기존) · PT-1S(PT-1 규칙, 후보 S&P 500만) · PT-SPY(SPY $5,000 보유, 시트만). PT-2·PT-3은 삭제. PT-1·PT-1S는 $5,000 계좌로도 보여 준다 (메일 섹션 · `페이퍼_계좌`·`페이퍼S_계좌` 탭)
+- **PT-1 매매 규칙·수치는 한 달 동안 바꾸지 않았다.** 바뀐 것은 버그 수정·안전장치·표시뿐 (0-1절)
+- 다음: 실전 세 계좌를 3~6개월 나란히 지켜본다. 남은 확인·결정은 5절
+
+## 0-1. 실전 페이퍼 트레이딩 — 바뀐 것 총정리 (2026-09-28 ~ 10-09)
+
+git 기록은 2026-09-28부터 있다 (그날 히스토리 정리). 상태: ✅ push 됨(실전 반영) · ⏳ 로컬 커밋(push 전) · 📝 커밋 전(2026-10-09 마무리 시점)
+
+**계좌**
+
+| 날짜 | 변경 | 상태 |
+|---|---|---|
+| 10-01 | PT-2 골든크로스 스윙 · PT-3 일봉 단타 추가 ($5,000씩, 계좌별 메일·시트 탭) | 10-09 삭제 |
+| 10-07 | PT-1S 추가 — PT-1 규칙 그대로, 후보만 S&P 500 (메일 없음, `페이퍼S_*` 탭) | ✅ |
+| 10-09 | PT-SPY 추가 — SPY를 $5,000로 사서 계속 보유 (`페이퍼SPY_*` 탭만) · PT-2·PT-3 실행 중단 | ✅ |
+| 10-09 | PT-2·PT-3 완전 삭제 (코드·설정·상태 파일·테스트). 시트 탭 6개(`페이퍼2_*`·`페이퍼3_*`)는 사용자가 직접 삭제 | 📝 |
+| 10-09 | PT-1 $5,000 계좌 — PT-1 실제 거래를 가상 자본으로 다시 계산 (빈 자리마다 현금 균등 배분, 편도 0.1%). 메일 섹션 + `페이퍼_계좌`·`페이퍼S_계좌` 탭, 매매와 무관 (`pt1_account.py`) | 📝 |
+
+**PT-1 버그 수정·안전장치 (매매 규칙·수치는 그대로)**
+
+| 날짜 | 문제 → 수정 | 상태 |
+|---|---|---|
+| 10-01 | 주말·휴일·push 때도 매매하고 날짜를 UTC로 써서 묵은 데이터로 체결 (49건 중 6건) → 거래일 = 스냅샷 일봉 날짜, 같은 일봉은 한 번만 (F) · 최신 일봉 스냅샷만 사용 (K) · 장중 미완성 일봉이면 건너뜀 (L) · 헬스체크 날짜 (J) | ✅ |
+| 10-01 | 실험 스위치 추가 (CCS v2, H1~H6 등) — 전부 꺼짐, 실전 영향 없음. 이후 R2·구조 실험 스위치도 같은 방식 | ✅ |
+| 10-07 | ETN·채권·폐쇄형펀드·우선주·SPAC 이 후보에 섞임 (VXX 매수) → 제외 (10-08 보통주 Preferred Bank 오인 수정) | ✅ |
+| 10-07 | 같은 회사 다른 클래스주 중복 매수 (GOOG+GOOGL) → 방지 | ✅ |
+| 10-07 | 섹터 이름 불일치(yfinance vs GICS)로 6개 섹터의 매수 신호가 꺼져 있음 → 이름 매핑 | ✅ |
+| 10-08 | 어닝 회피 필터가 yfinance 1.x 키 변경으로 꺼져 있음 → 복구 (실적일 epoch 초 → 미국 동부 날짜) | ✅ |
+| 10-08 | 바닥반등 MACD 가점 기준이 달러 단위(−0.5달러) → 주가 대비 −1% (CCS 최대 0.02 차이) | ✅ |
+| 10-09 | Yahoo 요청 제한으로 NASDAQ/NYSE 종목 정보 885건 전량 실패 (섹터 Unknown·실적일·재무 없음) → 대량 실패면 쉬었다 다시 받기, 끝내 실패하면 전날 스냅샷 값 (`fundamentals_guard.py`) | ⏳ |
+| 10-09 | S&P 500 목록이 낡음 (현재 구성종목 29개 빠짐, 없어진 25개 남음) → 위키백과 기준 갱신 | ⏳ |
+| 10-09 | S&P 500 목록 매달 1일 자동 갱신 + 바뀐 종목 메일 (20개 넘게 바뀌면 반영 보류·확인 메일, `update-sp500.yml`) | 📝 |
+
+**메일·시트·자동 실행**
+
+| 날짜 | 변경 | 상태 |
+|---|---|---|
+| 09-30 ~ 10-01 | 차트 스크린샷을 orphan 브랜치로 (저장소 용량) · 메일 수신자는 본인만 | ✅ |
+| 10-04 | 새 일봉이 없는 날(주말·휴장)에도 일일 리포트 메일 (매매 없음) | ✅ |
+| 10-07 | 시트 거래로그·성과요약에 같은 기간 SPY 수익률·SPY대비 열, PT-1 메일에 "SPY 대비 누적 성과" 표 | ✅ |
+| 10-07 | 스크리너 패턴 "차트반전" 추가 (표시만, 점수에 안 들어감) | ✅ |
+| 10-08 | 봇 상태 push 가 실행 중 들어온 push 에 거부됨 → pull --rebase 후 3회 재시도 | ✅ |
 
 ---
 
@@ -32,7 +67,7 @@ pip install -r requirements.txt pytest
 PYTHONPATH=.:src pytest tests -q
 ```
 
-- 기대 결과: **168 통과, 2 실패.** 실패 2건(`tests/test_portfolio_report.py::test_rsi_cell_colors`, `test_vol_cell`)은 리포트 코드가 "N/A" 대신 "—"를 출력해서 생기는 **기존 문제**이고 이번 연구와 무관하다. 고치지 않아도 된다.
+- 기대 결과: **223 통과, 2 실패** (2026-10-09 마무리 기준). 실패 2건(`tests/test_portfolio_report.py::test_rsi_cell_colors`, `test_vol_cell`)은 리포트 코드가 "N/A" 대신 "—"를 출력해서 생기는 **기존 문제**이고 이번 연구와 무관하다. 고치지 않아도 된다.
 - 데이터 파일(parquet)은 git에 없다 → **7절**에서 가져온다.
 - 모든 명령은 저장소 루트에서, 앞에 `PYTHONPATH=.:src`를 붙여 실행한다.
 
@@ -48,8 +83,9 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 
 - 커밋 메시지는 `type: 한국어 설명` ([CLAUDE.md](../../CLAUDE.md)). **끝에 `[skip ci]`** 를 붙인다. push만으로 실거래 페이퍼 매매·이메일·시트가 돌 수 있다.
 - 🛑 = 사용자 확인 후 진행: push, main 머지, 사용자 파일 삭제, 기본 config 값 변경, 되돌리기 어려운 작업.
+- **커밋도 허락 후에** — 변경은 커밋하지 않은 채 Source Control 에 먼저 보여 주고 허락받는다 ([CLAUDE.md](../../CLAUDE.md) 2절). push 는 따로 묻는다 (= 실전 반영).
 - `data/paper_trading/`의 실거래 상태(positions·trades·state)는 수정·커밋하지 않는다. 봇만 커밋한다.
-- **홀드아웃(2025-10-01 이후)은 최종 후보를 확정한 뒤 딱 한 번만 본다.** 개발 구간 실행에는 모두 `--end 2025-09-30`을 붙인다. (지금 연구 패널도 2025-09-29까지다.)
+- **홀드아웃(2025-10-01 ~ 2026-10-07)은 2026-10-08에 한 번 썼다.** 다시 규칙 조정·재시험에 쓰지 않는다. 새 아이디어는 그 뒤 실전(페이퍼) 기록으로 검증한다.
 - 채택 기준: 판정이 `채택 후보`(ΔSharpe 95% 구간이 0 초과)인 것만. `운과 구분 안 됨`은 Sharpe가 올라도 채택하지 않는다. 한 번에 하나씩 바꾼다.
 - 팩터·합성 검정은 **시도 횟수를 기록**하고 다중검정 보정(Bonferroni)을 적용한다. 결과를 본 뒤 고른 팩터의 전체기간 성과는 낙관적이므로 검증 구간·워크포워드를 같이 본다.
 - 백테스트 결과물(`output/runs/` 등)은 커밋하지 않는다. 단 **`output/hypothesis_ab.csv`(A/B 실험 기록표)는 커밋한다** — 시도 횟수 기록이라 다중검정 보정에 필요하다. 연구 결과 요약은 `docs/quant_improvement/tier3/`에 둔다.
@@ -73,6 +109,11 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 | Tier 3-2 팩터 IC | 44팩터×3기간=132건. 기준(|t|≥2 & 연도 부호 일관≥67%) 통과 **1건** |
 | Tier 3-3 합성 점수 | 시도 150건, 보정 임계 |t|≈3.59. 통과 없음. **Baseline v4 없음** |
 | px10y 10년 패널 (`build_price_panel.py`) | 2016-01~2025-09, 571종목, 가격 피처 35개. 팩터 105건 + 합성 18건 재검증 → 통과 없음 (4절 하단) |
+| Tier 3-B 신호 연구 (2026-10-07~08) | 스크리너 출력 117 · 조건부 반전 18 · PEAD(대리·실제) 20 · 캔들 확인 18 · SEC 재무 14 · 패널 ML 1 → 후보 0 |
+| CCS 플라시보 3년 (2026-10-08) | 실제 CCS = 문턱 통과 후보 중 무작위 선택 분포의 75백분위 → 운과 구분 안 됨 (`tier3/CCS_PLACEBO.md`) |
+| 홀드아웃 1회 (2026-10-08, 사전 등록) | 모멘텀만(H2) Sharpe 0.91 vs SPY 1.32 → 불통과. BASE 0.76 |
+| CCS 플라시보 10년 (2026-10-09, 2016-01~2026-10) | CCS 0.70 · CAGR 14.2% · MDD −43.6% vs SPY 0.89 · 15.2% · −33.7%. 무작위 중앙 0.61, 40개 중 SPY 넘은 것 0 (`tier3/CCS_PLACEBO_10y.md`) |
+| 구조 워크포워드 (2026-10-09) | 종목 수·약세장 처리·비중·손절·트레일링·보유일·바닥반등 on/off, 폴드당 Optuna 60회. 표본 외 2020~2026-10 Sharpe 0.05 vs 현재 0.58 vs SPY 0.85 → 불통과, DSR 0.01 (`tier3/WFO_STRUCTURE_10y.md`) |
 
 실행 결과 원본: `output/hypothesis_ab.csv`(A/B 누적 기록, git에 커밋), `docs/quant_improvement/tier3/*`(팩터·합성 결과, git에 커밋).
 
@@ -111,26 +152,19 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 
 ---
 
-## 5. 다음 할 일
+## 5. 다음 할 일 (2026-10-09 마무리 시점)
 
-**[SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md) 순서대로 진행한다** (2026-10-05 사용자 결정: 지수 기준선으로 바꾸기 전에 스크리너 스타일 신호 연구를 한 번 더). 요약:
+**연구는 끝났다.** 종목 선택(팩터·합성·스크리너 신호·반전·PEAD·재무·ML)과 구조(종목 수·손절·약세장·비중) 모두 SPY를 이기는 근거가 없었다. 같은 데이터로 규칙을 더 만지면 과적합이다 (CLAUDE.md 4절).
 
-0. ~~준비~~ **완료 (2026-10-07)**: px10y 커밋, 공통 도구(`research_utils.py` · `TRIAL_LOG.csv` 누적 294건 · `signal_portfolio_sim.py` · `deflated_sharpe`), buy_signal 불일치 확정. ⚠️ `ohlcv_e7842ef0a144`·`ohlcv_b372c6f47e0f` 캐시는 홀드아웃까지 들어 있다 → 반드시 `research_utils.load_ohlcv`로 읽는다
-1. ~~스크리너 출력 이벤트 스터디~~ **완료 (2026-10-07): family 117건 전부 탈락** (후보·관찰·역신호 0, 최고 t_nw +1.77). `tier3/EVENT_STUDY_pit.md`. 패널 `섹터`는 78%가 Unknown이라 `sector_map.csv`로 채워 썼다(남은 Unknown 2.9%) — 6단계 수정 때도 같은 문제가 백테스트에 있다
-2. ~~조건부 반전~~ **완료 (2026-10-07): 18건 → 관찰 1 · 탈락 17, 후보 0** (`tier3/CONDITIONAL_REPORT_px10y.md`). 관찰 A2 20일(거래량 급증 반전 t_nw +2.44)은 최근 연도 약화 · 비용 후 +0.05%라 채택 안 함
-3. 실적 이벤트 (PEAD) — **3-1 대리 이벤트 완료 (2026-10-07): 10건 전부 탈락** (`tier3/PEAD_PROXY_REPORT_px10y.md`, 상승 후 지속 없음). **3-2·3-3 실제 실적일 완료 (2026-10-08): 10건 전부 탈락** (`fetch_sec_data.py` → `build_sec_data.py` → `pead_research.py --real`, User-Agent는 환경변수 `SEC_USER_AGENT`)
-3++. (추가, 2026-10-08) SEC 재무 팩터 14건 (`fundamental_research.py`, 시가총액용 비조정 종가 `fetch_raw_prices.py`) — 후보 0 · 관찰 1
-3+. (추가, 사용자 질문) 반전 캔들 **다음날 확인 버전 — 18건 전부 탈락** (`tier3/PATTERN_CONFIRM_REPORT_px10y.md`). 확인을 기다리면 오히려 나빠짐
-4. ~~패널 ML~~ **완료 (2026-10-07): 탈락** (OOS IC t_nw 1.86, 시뮬 ΔSharpe −0.37, 고베타 쏠림). `tier3/ML_REPORT_px10y.md`
+1. **실전 비교 관찰 (3~6개월)**: PT-1 vs PT-1S vs PT-SPY. PT-1 메일의 "SPY 대비 누적 성과"·"$5,000 계좌" 표와 시트 탭으로 본다.
+   - 전체 유니버스(NASDAQ/NYSE 소형주 포함)가 값을 하는지는 PT-1 vs PT-1S로 판단한다 (각 30건 이상 쌓인 뒤). 상장폐지 종목까지 든 데이터가 생기기 전에는 전체 유니버스 백테스트를 하지 않는다 (yfinance 생존 편향).
+2. **그 뒤 결정**: SPY(지수) 중심으로 바꿀지, PT-1을 계속 둘지. 새 전략 아이디어는 새 데이터가 있을 때만 시험한다.
+3. **2026-10-09 마무리 때 남은 확인**
+   - 사용자: Source Control 검토 → 커밋 허락 → push (매일 실행 ~02:30 ET 전에, 실행 중에는 push 금지) · 구글 시트 `페이퍼2_*`·`페이퍼3_*` 탭 6개 삭제
+   - push 뒤 첫 실행 확인: 실적일이 채워졌는지(`days_to_next_earnings`), NASDAQ 섹터 Unknown 이 없는지, PT-SPY 첫 매수, `페이퍼_계좌`·`페이퍼S_계좌` 탭 생성
+4. **알려진 작은 문제**: `test_portfolio_report.py` 2건 실패 (리포트가 "N/A" 대신 "—", 기존 문제) · 보유 중 액면분할이 있으면 백테스트·$5,000 계좌 평가가 틀릴 수 있음 · ETF를 후보에 넣을지 점검 (`docs/TO_DO.md`)
 
-> **2026-10-07 중단 규칙 발동: 1~4단계(+캔들 확인 추가) 후보 0건, 누적 시도 458건.** 종목 선택 연구를 끝낸다. 남은 일: 6단계 중 버그 수정·BASE 재측정·🛑 PT-2·3 사전 기준만, 그 다음 9단계(지수 기준선 채택 · 페이퍼 봇 처리) — 사용자 결정 필요. 5단계(보유 기간)·7단계(Optuna)는 하지 않는다
-5. (선택) 보유 기간 40·60일
-6. 백테스트 일괄 정비 — 6-1 수정·6-2 BASE 재측정 **완료 (2026-10-08)**, R1·H3 채택 없음. 6-3 PT-2·3 사전 기준 **완료 (2026-10-08): 둘 다 SPY 크게 미달** → 🛑 재설계/중단 결정 대기
-7. Optuna — 6단계에서 `채택 후보`가 나왔을 때만 (워크포워드 + DSR)
-8. 홀드아웃 1회
-9. 🛑 PT-1 반영 · 페이퍼 봇 처리
-
-**중단 규칙**: 1~4단계에서 `후보`가 하나도 없으면 종목 선택 연구를 끝내고, 지수 기준선 채택과 페이퍼 봇 처리(PT-1·2·3 중단/관찰/변경)를 결정한다.
+완료된 연구 순서 (참고, [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md)): 0 준비 → 1 스크리너 출력 → 2 조건부 반전 → 3 PEAD·SEC 재무 → 4 패널 ML → 6 백테스트 정비·BASE 재측정 → CCS 플라시보(3년·10년) → 8 홀드아웃 1회 → 구조 워크포워드. 결과는 3·4절과 `tier3/`.
 
 ---
 
@@ -143,7 +177,7 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 | `verify_backtest_integrity.py` | Tier 0: 캐시·재현성 검사 |
 | `fetch_sp500_membership.py` | PIT 구성종목 CSV 다운로드 |
 | `run_hypothesis_ab.py` | A/B 백테스트 (BASE, T2-*, H1~H6), 결과를 `output/hypothesis_ab.csv`에 누적 |
-| `run_account_backtest.py`, `optimize_optuna.py`, `analyze_ccs_ic.py` | PT-2·3 백테스트, Optuna, CCS IC (아직 안 돌림) |
+| `optimize_optuna.py`, `analyze_ccs_ic.py` | PT-1 Optuna (구간 나눠 평가), CCS IC |
 | `build_research_panel.py` | **Tier 3-1** 패널 생성 → `data/research/panel_{pit,nonpit}.parquet` |
 | `build_price_panel.py` | 10년 가격 패널 생성 (yfinance, 2025-09-30에서 다운로드 종료) → `data/research/panel_px10y.parquet`, `data/cache/ohlcv_px10y.parquet`, `data/universe/sector_map.csv`, `tier3/px10y_coverage.csv` |
 | `factor_research.py` | **Tier 3-2** 팩터 IC·5분위·레짐 → `tier3/` (`--set pit|nonpit|px10y`) |
@@ -151,19 +185,27 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 | `research_utils.py` | Tier 3-B 공통: 개발 구간 로드(`load_panel`·`load_ohlcv`), NW t, Bonferroni, `TRIAL_LOG.csv` 기록 |
 | `signal_portfolio_sim.py` | 신호 → 겹치는 h일 보유 포트폴리오, SPY·PIT 동일가중 대비 ΔSharpe → `tier3/PORTFOLIO_SIM_*.md` |
 | `conditional_research.py` | **Tier 3-B 2단계** 5일 수익률 × 거래량 급증·갭 조건부 반전 (px10y) → `tier3/CONDITIONAL_*` |
-| `pead_research.py` | **Tier 3-B 3단계** `--proxy`: 대리 실적 이벤트(갭+거래량) 후 h일 초과수익 → `tier3/PEAD_PROXY_*` |
+| `pead_research.py` | **Tier 3-B 3단계** `--proxy`: 대리 실적 이벤트(갭+거래량) 후 h일 초과수익 → `tier3/PEAD_PROXY_*` · `--real`: SEC 실제 실적일 → `tier3/PEAD_REPORT_px10y.md` |
+| `fetch_sec_data.py` → `build_sec_data.py` | SEC EDGAR 실적일(8-K 2.02)·연간 재무 수집·정리 (User-Agent 는 환경변수 `SEC_USER_AGENT`, `--holdout` 이면 홀드아웃까지 든 실적일 파일) |
+| `fundamental_research.py`, `fetch_raw_prices.py` | SEC 재무 팩터 14건 (시가총액용 비조정 종가) → `tier3/FUNDAMENTAL_REPORT_px10y.md` |
+| `earnings_filter_check.py` | 백테스트 어닝 필터의 기여와 미래 정보 몫 진단 → `tier3/EARNINGS_FILTER_CHECK.md` |
+| `ccs_placebo.py` | CCS 1등 vs 문턱 통과 후보 중 무작위 선택 (`--period 13y --start 2016-01-04 --tag 10y` 로 10년) → `tier3/CCS_PLACEBO*.md` |
+| `wfo_structure.py` | PT-1 구조 워크포워드 (`--register` → `--fold YYYY` → `--evaluate`) → `tier3/WFO_STRUCTURE_10y.md`, `output/wfo/` |
+| `warm_feature_cache.py` | 긴 백테스트의 피처 캐시를 날짜 구간별로 나눠 병렬 예열 |
+| `update_sp500_tickers.py` | S&P 500 목록을 위키백과로 갱신 (`--dry-run`). 매달 1일 GitHub Actions `update-sp500.yml` 이 `--notify` 로 실행 |
+| `watch_backtest.sh` | 터미널에서 백테스트 진행 상황 보기 |
 | `pattern_confirm_research.py` | 반전 캔들(강세잉걸핑·모닝스타·하락추세 도지) 확인 vs 미확인 (px10y) → `tier3/PATTERN_CONFIRM_*` |
 | `panel_ml.py` | **Tier 3-B 4단계** LightGBM 워크포워드 (px10y), `--shuffle-check` 대조 → `tier3/ML_*`, `PORTFOLIO_SIM_ml_*` |
 | `signal_event_study.py` | **Tier 3-B 1단계** `--build`(신호 재계산) → `--count`(family 등록) → `--analyze` → `tier3/EVENT_*` |
 
-**결과 (git에 있음)**: `docs/quant_improvement/tier3/` — `FACTOR_REPORT_{pit,nonpit,px10y}.md`, `COMPOSITE_REPORT_{pit,px10y}.md`, `factor_ic_*.csv`, `factor_quintile_*.csv`, `factor_regime_*.csv`, `composite_{pit,px10y}.csv`, `px10y_coverage.csv`. **PIT·px10y 파일이 기준**, nonpit은 생존 편향 비교용.
+**결과 (git에 있음)**: `docs/quant_improvement/tier3/` — `FACTOR_REPORT_{pit,nonpit,px10y}.md`, `COMPOSITE_REPORT_{pit,px10y}.md`, `factor_ic_*.csv`, `factor_quintile_*.csv`, `factor_regime_*.csv`, `composite_{pit,px10y}.csv`, `px10y_coverage.csv`. **PIT·px10y 파일이 기준**, nonpit은 생존 편향 비교용. 2026-10-07 이후: `TRIAL_LOG.csv`(모든 시도 기록, 932건), `EVENT_STUDY_pit.md`, `CONDITIONAL_REPORT_px10y.md`, `PEAD_*`, `PATTERN_CONFIRM_*`, `ML_REPORT_px10y.md`, `FUNDAMENTAL_REPORT_px10y.md`, `BASELINE_COMPARE.md`, `EARNINGS_FILTER_CHECK.md`, `CCS_PLACEBO.md`·`CCS_PLACEBO_10y.md`, `WFO_STRUCTURE_10y.md`.
 
 **문서**
 
 | 문서 | 언제 보나 |
 |---|---|
 | 이 문서 | 항상 먼저 |
-| [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md) | Tier 3-B 구현 순서 · 코드 골격 · 판정 기준 (지금 할 일) |
+| [SIGNAL_RESEARCH_PLAN.md](SIGNAL_RESEARCH_PLAN.md) | Tier 3-B 구현 순서 · 코드 골격 · 판정 기준 (완료) |
 | [WORK_SUMMARY.md](WORK_SUMMARY.md) | 배경(1절), 만든 것(2절), 연구 명령어(4-8절), 성공·중단 기준(5절), 알려진 제약(6절), 진행 기록(9절) |
 | [QUANT_IMPROVEMENT_PLAN.md](QUANT_IMPROVEMENT_PLAN.md) | 설계 근거. Tier 3은 9-5절, 3계좌·CCS v2는 10절 |
 
@@ -199,6 +241,14 @@ shasum -a 256 -c data/research/SHA256SUMS.txt   # 모두 OK
 | `data/research/panel_px10y.parquet` | 179MB | 10년 가격 패널 (2016-01-04 ~ 2025-09-30, 571종목). SPY 행 없음 |
 | `data/cache/ohlcv_px10y.parquet` | 59MB | 10년 일봉 (2015-01-02 ~ 2025-09-30, 2702일). `build_price_panel.py`가 있으면 재사용. **SPY·섹터 ETF 없음** |
 | `data/universe/sector_map.csv` | 15KB | 현재 S&P 500 GICS 섹터 (위키피디아 + config.SECTOR_MAP). 지금은 git에 없음 |
+
+**SEC·10년 백테스트 (2026-10-08~09 생성, 번들·git에 없음)**
+
+| 파일 | 크기 | 용도 |
+|---|---|---|
+| `data/research/sec_earnings_dates.parquet`, `sec_earnings_dates_holdout.parquet` | 작음 | 백테스트 어닝 필터용 실제 실적일 (`build_sec_data.py`, 뒤 파일은 홀드아웃까지 포함) |
+| `data/cache/features/99214d6ca3fe_v1/` | 879MB | 10년(13y, PIT) 피처 캐시. 2026-10-09 config 변경(PT-2·3 설정 삭제, 차트 캡처 켬)으로 코드 해시가 바뀌어 옛 키 `81491a04da3e` 에서 이름만 옮김 (피처 계산과 무관한 설정이라 내용 같음) |
+| `data/cache/ohlcv_f57d11b41e4f.parquet` | 79MB | 10년 PIT 일봉 (2013-10 ~ 2026-10). 받은 지 24시간이 지나면 다시 받는다 |
 
 번들에 넣지 않은 것: `panel_nonpit.parquet`(생존 편향 비교용, 필요 없음), 피처 캐시 `data/cache/features/*`(패널에 이미 들어 있음, 합쳐 510MB), 나머지 ohlcv 캐시.
 
