@@ -39,9 +39,11 @@ PT1_UNIVERSE = os.environ.get("PT1_UNIVERSE", "all")
 # PT-1 규칙 계좌들. pt1s = PT-1과 같은 규칙, 후보만 S&P 500 (소형주가 값을 하는지 실거래로 비교하는 병행 계좌)
 PT1_ACCOUNTS: dict[str, dict[str, Any]] = {
     "pt1": {"label": "PT-1", "subdir": "", "universe": None, "email": True,
-            "tabs": None},  # None = config 기본 탭 (페이퍼_거래로그 등)
+            "tabs": None,  # None = config 기본 탭 (페이퍼_거래로그 등)
+            "dollar_tab": "페이퍼_계좌"},  # $5,000 계좌 (pt1_account)
     "pt1s": {"label": "PT-1S (S&P 500만)", "subdir": "pt1s", "universe": "sp500", "email": False,
-             "tabs": {"log": "페이퍼S_거래로그", "positions": "페이퍼S_포지션현황", "summary": "페이퍼S_성과요약"}},
+             "tabs": {"log": "페이퍼S_거래로그", "positions": "페이퍼S_포지션현황", "summary": "페이퍼S_성과요약"},
+             "dollar_tab": "페이퍼S_계좌"},
 }
 
 
@@ -302,6 +304,24 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None, a
         sync_all(pt_result, positions, trades, prices, tabs=acct["tabs"])
         print("[Unified PT] 구글 시트 동기화 완료")
 
+    # ── $5,000 계좌: 같은 거래를 가상 자본으로 다시 계산 (매매와 무관, 표시만) ──
+    dollar_html = ""
+    try:
+        from paper_trading.pt1_account import build_accounts, section_html, sync_sheet
+
+        books = {acct["label"]: (trades, positions)}
+        if acct["email"]:  # PT-1 메일에는 PT-1S 계좌도 함께 보여 준다
+            other = PT1_ACCOUNTS["pt1s"]
+            other_dir = Path(PAPER_TRADING_DATA_DIR) / other["subdir"]
+            books[other["label"]] = (load_trades(other_dir), load_positions(other_dir))
+        dollars = build_accounts(books)
+        if not report_only:
+            sync_sheet(dollars[acct["label"]], acct["label"], acct["dollar_tab"])
+            print(f"[Unified PT] $5,000 계좌 탭 '{acct['dollar_tab']}' 동기화 완료")
+        dollar_html = section_html(list(dollars.items()))
+    except Exception as exc:  # noqa: BLE001 — 매매·메일은 계속
+        print(f"[Unified PT] $5,000 계좌 계산 실패 (무시): {exc}")
+
     if not acct["email"]:
         print(f"[Unified PT] {acct['label']}: 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)")
         return
@@ -450,7 +470,7 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None, a
 
     send_paper_trading_email(
         pt_result, positions, pdf_attachment=pdf_bytes, prices=prices,
-        golden_cross=golden_cross,
+        golden_cross=golden_cross, extra_html=dollar_html,
     )
     print("=" * 60)
     print("[Unified Paper Trading] 완료")

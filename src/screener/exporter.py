@@ -733,8 +733,9 @@ def send_paper_trading_email(
     pdf_attachment: bytes | None = None,
     prices: dict[str, float] | None = None,
     golden_cross: list[dict] | None = None,
+    extra_html: str = "",
 ) -> bool:
-    """페이퍼 트레이딩 매수/매도 결과를 이메일로 발송한다."""
+    """페이퍼 트레이딩 매수/매도 결과를 이메일로 발송한다. extra_html 은 SPY 비교 표 바로 아래에 넣는다 ($5,000 계좌)."""
     if not EMAIL_ENABLED:
         return False
 
@@ -1414,6 +1415,7 @@ def send_paper_trading_email(
     body = f"""
 <h2 style='font-family:sans-serif'>📈 페이퍼 트레이딩 일일 보고 — {date_str}</h2>
 {spy_html}
+{extra_html}
 {sell_html}
 {buy_html}
 {defer_html}
