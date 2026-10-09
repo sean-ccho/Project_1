@@ -1,0 +1,58 @@
+name: Update S&P 500 list
+
+on:
+  schedule:
+    - cron: '0 14 1 * *'  # 매달 1일 14:00 UTC (오전 10시 ET) — 매일 실행(새벽 2시 반~4시 ET)과 겹치지 않게
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pandas requests lxml
+
+      # 위키백과 목록과 비교해 바뀌었으면 sp500_tickers.py·변경 기록을 고치고 메일로 알린다
+      # 변경이 너무 많으면(표 훼손 의심) 고치지 않고 확인 메일만 보낸다
+      - name: Update S&P 500 list
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        run: python scripts/update_sp500_tickers.py --notify
+
+      - name: Commit & push
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/sp500_tickers.py
+          if [ -f data/universe/sp500_changes.csv ]; then git add data/universe/sp500_changes.csv; fi
+          git diff --cached --quiet && echo "변경 없음" && exit 0
+          git commit -m "chore: S&P 500 목록 월간 갱신 ($(TZ='America/Toronto' date +%Y-%m-%d)) [skip ci]"
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            echo "push 실패 (시도 $i/3) — 5초 뒤 다시"
+            sleep 5
+          done
+          exit 1
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        run: |
+          python -c "
+          import sys; sys.path.insert(0, 'scripts')
+          from update_sp500_tickers import send_email
+          send_email('⚠️ S&P 500 목록 월간 갱신 실패', 'GitHub Actions 로그를 확인하세요:\nhttps://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}')
+          "
