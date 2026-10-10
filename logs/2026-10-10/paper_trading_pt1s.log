@@ -1,0 +1,23 @@
+============================================================
+[Unified Paper Trading] PT-1S (S&P 500만) 실행 시작
+============================================================
+[Unified PT] PT1_UNIVERSE=sp500 — S&P 500 스냅샷만 사용
+2026-10-10 09:36:13,526 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+[Unified PT] 거래일(일봉 날짜): 2026-10-09
+[Unified PT] 골든크로스임박 종목: 32개
+2026-10-10 09:36:14,003 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 21 | 4.0~5.0: 12 | 5.0~5.5: 12 | 5.5~6.0: 12 | 6.0+: 73
+2026-10-10 09:36:14,019 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=3/130 | Selected: MPWR (CCS=0.6850)
+2026-10-10 09:36:14,022 [INFO] paper_trading.engine — [PaperTrading] BUY MPWR @ 1386.29 (CCS=0.6850, RSI=55, upside P50=+4% P75=+8%)
+[Unified PT] 매도=0 매수=1 보유=2종목
+[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 57, '바닥반등_52주과열': 3, '판단등급_미달': 56, '과열_차단': 2, '유동성_부족': 0, '어닝_임박': 1, '보유_중복': 0, '같은회사_중복': 0, '모멘텀_ADX부족': 7, '바닥_RSI데드존': 1, '섹터_집중': 0, '_통과': 3, '_전체': 130}
+[Unified PT] Top5 후보:
+  MPWR   CCS=0.6850 전략=📈 모멘텀 섹터=Technology
+  ABT    CCS=0.5392 전략=📉 바닥반등 섹터=Healthcare
+  SCHW   CCS=0.5086 전략=📉 바닥반등 섹터=Financial Services
+2026-10-10 09:36:15,124 [ERROR] paper_trading.sheet_sync — [SheetSync] 거래로그 append 실패: list index out of range
+2026-10-10 09:36:16,538 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 2개 종목
+2026-10-10 09:36:17,860 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 0건 거래
+[Unified PT] 구글 시트 동기화 완료
+[Unified PT] $5,000 계좌 탭 '페이퍼S_계좌' 동기화 완료
+[Unified PT] PT-1S (S&P 500만): 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)

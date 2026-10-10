@@ -1,0 +1,30 @@
+{
+  "account": "pt_spy",
+  "version": "pt-spy-v1",
+  "initial_capital": 5000.0,
+  "cash": 5000.0,
+  "pending": [
+    {
+      "side": "BUY",
+      "ticker": "SPY",
+      "signal_date": "2026-10-09",
+      "signal_close": 778.5700073242188,
+      "rank": 0,
+      "score": 1.0,
+      "strategy": "SPY 보유",
+      "star_rating": "",
+      "sector": "",
+      "atr": 0.0,
+      "setup": "index",
+      "meta": {}
+    }
+  ],
+  "equity_history": [
+    {
+      "date": "2026-10-09",
+      "equity": 5000.0,
+      "cash": 5000.0,
+      "positions": 0
+    }
+  ]
+}
