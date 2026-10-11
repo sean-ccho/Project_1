@@ -205,6 +205,31 @@ jobs:
               exit(1)
           "
 
+      # 상태 커밋은 스크린샷 push 보다 먼저 — 스크린샷 스텝의 'git checkout -f main' 이 커밋 안 된 변경
+      # (로그·스냅샷·positions/trades/state)을 지운다 (2026-10-09 차트 캡처를 다시 켠 시험 실행에서 확인)
+      - name: Commit & push logs and paper trading state
+        if: always()
+        run: |
+          git add logs/$LOG_DATE/
+          git add data/paper_trading/positions.json \
+                  data/paper_trading/trades.json \
+                  data/paper_trading/sp500_ranked.parquet \
+                  data/paper_trading/nasdaq_ranked.parquet
+          git add data/paper_trading/state.json 2>/dev/null || true
+          # 계좌 폴더별로 따로 add — 한 계좌 폴더가 없어도 다른 계좌 상태는 커밋되게
+          for d in pt1s pt_spy; do
+            if ls data/paper_trading/$d/*.json >/dev/null 2>&1; then git add data/paper_trading/$d/*.json; fi
+          done
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: update logs and paper trading state ($LOG_DATE) [skip ci]"
+          # 실행 중에 main 에 다른 push 가 들어오면 그냥 push 는 거부된다 → 받아서 rebase 후 재시도
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            echo "push 실패 (시도 $i/3) — 5초 뒤 다시"
+            sleep 5
+          done
+          exit 1
+
       - name: Push chart screenshots (orphan branch — no history accumulation)
         if: always()
         run: |
@@ -237,29 +262,6 @@ jobs:
           else
             echo "⏭️  NASDAQ 스크린샷 없음, 건너뜀"
           fi
-
-      - name: Commit & push logs and paper trading state
-        if: always()
-        run: |
-          git add logs/$LOG_DATE/
-          git add data/paper_trading/positions.json \
-                  data/paper_trading/trades.json \
-                  data/paper_trading/sp500_ranked.parquet \
-                  data/paper_trading/nasdaq_ranked.parquet
-          git add data/paper_trading/state.json 2>/dev/null || true
-          # 계좌 폴더별로 따로 add — 한 계좌 폴더가 없어도 다른 계좌 상태는 커밋되게
-          for d in pt1s pt_spy; do
-            if ls data/paper_trading/$d/*.json >/dev/null 2>&1; then git add data/paper_trading/$d/*.json; fi
-          done
-          git diff --cached --quiet && echo "No changes to commit" && exit 0
-          git commit -m "chore: update logs and paper trading state ($LOG_DATE) [skip ci]"
-          # 실행 중에 main 에 다른 push 가 들어오면 그냥 push 는 거부된다 → 받아서 rebase 후 재시도
-          for i in 1 2 3; do
-            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
-            echo "push 실패 (시도 $i/3) — 5초 뒤 다시"
-            sleep 5
-          done
-          exit 1
 
       - name: Notify on failure
         if: failure()
