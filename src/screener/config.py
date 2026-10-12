@@ -157,7 +157,7 @@ MOMENTUM_MIN_GAIN_20D = 0.15         # 최근 20일 최소 수익률 (15%)
 
 
 # TradingView 차트 캡처 설정
-CHARTS_ENABLED = True  # 차트 캡처 기능 on/off
+CHARTS_ENABLED =  False  # 차트 캡처 기능 on/off
 CHARTS_TIMEFRAMES = ["1H", "4H", "Daily", "Weekly", "Monthly"]  # 캡처할 타임프레임 목록
 CHARTS_MIN_SCORE = 0.0  # 차트 캡처 최소 매수적합도 (0.0 = 모든 종목)
 CHARTS_OUTPUT_DIR = "charts/screenshots_sp500"          # SP500 차트 저장 디렉토리
@@ -871,11 +871,6 @@ HOLD_WINNERS_VOLUME_Z_MIN = 1.0
 HOLD_WINNERS_BB_PBAND_MAX = 0.95
 HOLD_WINNERS_MIN_CHECKS = 5            # 5개 조건 전부 통과해야 defer (all() 동등). 04-15 HW v1 원형
 HOLD_WINNERS_DEFER_FREEZE_DAYS = 0    # freeze 비활성 (defer 후에도 시간익절/목표가 즉시 재체크)
-
-# 상승 예측 모델 (경험적 분포)
-UPSIDE_MODEL_MIN_SAMPLES = 10          # 버킷 최소 샘플 (미달 시 strategy 레벨 폴백)
-UPSIDE_MODEL_CCS_BUCKETS = [0.40, 0.45, 0.50, 0.55]  # 버킷 경계
-UPSIDE_MODEL_CACHE_PATH = "data/paper_trading/upside_distribution.json"
 
 # 고RSI 매수 플래그 (리포트 표시용)
 HIGH_RSI_FLAG_THRESHOLD = 70.0
