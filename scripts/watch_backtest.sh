@@ -10,7 +10,7 @@ echo "로그: $LOG  (Ctrl+C로 보기만 종료)"
 while true; do
   STAGE=$(grep -a "^=====" "$LOG" | tail -1)
   LAST=$(tr '\r' '\n' < "$LOG" | grep -a "%\]" | tail -1)
-  if pgrep -f "run_hypothesis_ab|warm_feature_cache|ccs_placebo|earnings_filter_check|validate_upside" >/dev/null; then STATE="실행 중"; else STATE="종료됨"; fi
+  if pgrep -f "run_hypothesis_ab|warm_feature_cache|ccs_placebo|earnings_filter_check|validate_upside|fetch_insider_data|pt1_baseline_equity|idea_batch_research" >/dev/null; then STATE="실행 중"; else STATE="종료됨"; fi
   echo "$(date +%H:%M:%S) [$STATE] ${STAGE#===== } |${LAST}"
   if [ "$STATE" = "종료됨" ]; then
     echo; tr '\r' '\n' < "$LOG" | grep -av "^Warning\|%\]" | tail -40; break
