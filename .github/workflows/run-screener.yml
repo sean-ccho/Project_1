@@ -30,15 +30,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install tenacity  # retry 라이브러리
+          pip install pytest    # 유닛 테스트 (빠져 있던 동안 테스트 스텝이 'pytest: command not found' 로 그냥 넘어갔다)
 
       - name: Install Playwright browsers
         run: |
           playwright install chromium
           playwright install-deps chromium
 
+      # 실패해도 파이프라인은 계속 — 대신 실행 요약 화면에 경고로 띄운다 (requirements 가 '>=' 라 매번 최신 라이브러리가 깔린다)
       - name: Run unit tests
         run: |
-          PYTHONPATH=.:src pytest tests/ -v --tb=short || echo "⚠️ Tests failed (non-blocking)"
+          PYTHONPATH=.:src pytest tests/ -q --tb=short \
+            || echo "::warning title=유닛 테스트 실패::실패한 테스트가 있습니다 (파이프라인은 계속 진행). 'Run unit tests' 스텝 로그를 보세요."
 
       - name: Restore Google service account credentials
         env:

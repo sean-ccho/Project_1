@@ -493,7 +493,7 @@ def update_sheet_with_indicators(
         cell_range = f"{_col_letter(start_col)}{row_num}:{_col_letter(end_col)}{row_num}"
 
         try:
-            ws.update(cell_range, [analysis_values], value_input_option="USER_ENTERED")
+            ws.update([analysis_values], cell_range, value_input_option="USER_ENTERED")
 
             # RSI 셀 색상 적용 (Daily RSI 기준)
             daily_rsi = tf_data.get("Daily", {}).get("rsi")

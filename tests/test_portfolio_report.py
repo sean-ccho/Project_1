@@ -80,10 +80,10 @@ def test_rsi_cell_colors():
     from screener.portfolio_report import _rsi_cell
     assert "c0392b" in _rsi_cell(75.0)   # 과매수 → 빨강
     assert "1e8449" in _rsi_cell(25.0)   # 과매도 → 초록
-    assert "N/A" in _rsi_cell(None)
+    assert "—" in _rsi_cell(None)        # 값 없음 → 회색 대시
 
 
 def test_vol_cell():
     from screener.portfolio_report import _vol_cell
     assert "🔥" in _vol_cell(2.5)     # 급증
-    assert "N/A" in _vol_cell(None)
+    assert "—" in _vol_cell(None)
