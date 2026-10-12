@@ -91,6 +91,7 @@ PYTHONPATH=.:src python scripts/factor_research.py --set pit    # 팩터 IC 리�
 - 백테스트 결과물(`output/runs/` 등)은 커밋하지 않는다. 단 **`output/hypothesis_ab.csv`(A/B 실험 기록표)는 커밋한다** — 시도 횟수 기록이라 다중검정 보정에 필요하다. 연구 결과 요약은 `docs/quant_improvement/tier3/`에 둔다.
 - 작업이 끝나면 [WORK_SUMMARY.md](WORK_SUMMARY.md) **9절에 한 줄** 남기고, 이 문서의 0절·5절을 갱신한다.
 - 문서와 실제 상태가 다르면 추측하지 말고 묻는다.
+- **10년(13y) 백테스트를 돌리기 전에 피처 캐시 이름부터 맞춘다** (7절 표 아래). 먼저 확인만 돌리고, 지난번 캐시 이후 바뀐 게 피처 계산과 상관없는 것뿐이면 `--apply` 로 이름을 바꾼 뒤 백테스트를 돌린다. 피처 계산(지표·패턴·점수 로직)이 바뀌었으면 이름을 바꾸지 말고 새로 계산한다 (수 시간 걸리니 백그라운드로 돌린다).
 
 ---
 
@@ -247,8 +248,17 @@ shasum -a 256 -c data/research/SHA256SUMS.txt   # 모두 OK
 | 파일 | 크기 | 용도 |
 |---|---|---|
 | `data/research/sec_earnings_dates.parquet`, `sec_earnings_dates_holdout.parquet` | 작음 | 백테스트 어닝 필터용 실제 실적일 (`build_sec_data.py`, 뒤 파일은 홀드아웃까지 포함) |
-| `data/cache/features/99214d6ca3fe_v1/` | 879MB | 10년(13y, PIT) 피처 캐시. 2026-10-09 config 변경(PT-2·3 설정 삭제, 차트 캡처 켬)으로 코드 해시가 바뀌어 옛 키 `81491a04da3e` 에서 이름만 옮김 (피처 계산과 무관한 설정이라 내용 같음) |
+| `data/cache/features/<키>_v1/` | 879MB | 10년(13y, PIT) 피처 캐시. 2026-10-11 기준 디스크 이름 `92295258a96f`, 지금 코드의 키 `4fc9fd085b13` — 백테스트 전에 아래 스크립트로 맞춘다. 이름 이력: `81491a04da3e` → `99214d6ca3fe` → `008a34a88b34` → `92295258a96f` (모두 피처와 무관한 config 변경, 내용 같음) |
 | `data/cache/ohlcv_f57d11b41e4f.parquet` | 79MB | 10년 PIT 일봉 (2013-10 ~ 2026-10). 받은 지 24시간이 지나면 다시 받는다 |
+
+**피처 캐시 이름 맞추기.** 캐시 키는 피처 계산 코드(`paper_trading/backtest.py` 의 `_HASHED_SOURCES`, config.py 포함)의 지문이라, 피처와 상관없는 줄을 고쳐도 키가 바뀌어 백테스트가 캐시를 못 찾고 처음부터 계산한다. config.py 의 `CHARTS_` 줄은 2026-10-11 부터 지문에서 빠져서 차트 캡처를 켜고 꺼도 괜찮다.
+
+```bash
+PYTHONPATH=.:src .venv/bin/python scripts/rename_feature_cache.py          # 확인만: 지금 키·바꿀 캐시를 보여 준다
+PYTHONPATH=.:src .venv/bin/python scripts/rename_feature_cache.py --apply  # 이름만 바꾼다 (폴더·meta.json·ic_weights)
+```
+
+"이미 맞는 이름의 캐시가 있습니다" 가 나오면 할 일 없음. 피처 계산을 실제로 바꿨으면 `--apply` 하지 말 것 (옛 계산 결과를 새 코드 결과처럼 쓰게 된다). 기간이 13y 가 아니면 `--period` 로 지정.
 
 번들에 넣지 않은 것: `panel_nonpit.parquet`(생존 편향 비교용, 필요 없음), 피처 캐시 `data/cache/features/*`(패널에 이미 들어 있음, 합쳐 510MB), 나머지 ohlcv 캐시.
 
@@ -278,6 +288,7 @@ PYTHONPATH=.:src python scripts/run_hypothesis_ab.py --only BASE --period 5y --m
 | `sp500_membership.csv 없음` | `--pit-universe`인데 CSV 없음 | `git pull` 또는 `scripts/fetch_sp500_membership.py` |
 | `git pull`이 divergent로 거부 | 2026-09-30 히스토리 재작성(`filter-repo`) 이전 클론 | 로컬 전용 작업 백업 후 새로 clone |
 | 표의 판정이 `데이터 부족` | 구간이 40거래일보다 짧음 | 기간을 늘린다 |
+| 10년 백테스트가 "Feature 캐시 감지" 없이 몇 시간짜리 계산을 시작 | 피처와 무관한 코드 수정으로 캐시 키가 바뀜 | 멈추고 7절 `rename_feature_cache.py` (확인 → `--apply`) |
 | 그 밖의 운영 문제 (실행 건너뜀, 헬스체크 등) | | [WORK_SUMMARY.md](WORK_SUMMARY.md) 7절 |
 
 주의할 점
