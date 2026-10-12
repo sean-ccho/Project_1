@@ -78,6 +78,17 @@ _HASHED_SOURCES = (
 )
 _SECRET_MARKERS = ("PASSWORD", "SECRET", "TOKEN", "CREDENTIAL", "EMAIL", "SPREADSHEET", "DRIVE", "GITHUB", "KEY")
 _SNAPSHOT_SKIP = {"TICKERS", "SECTOR_MAP", "COMPANY_NAME_MAP"}
+# config.py 에서 피처 계산과 상관없는 설정 줄 — 지문에서 뺀다 (차트 캡처를 켜고 끌 때마다 10년 캐시를 못 찾던 문제)
+_UNHASHED_CONFIG_PREFIXES = ("CHARTS_",)
+
+
+def _hashed_bytes(rel: str, raw: bytes) -> bytes:
+    """지문에 넣을 파일 내용. config.py 는 _UNHASHED_CONFIG_PREFIXES 로 시작하는 줄을 뺀다."""
+    if rel != "screener/config.py":
+        return raw
+    lines = raw.split(b"\n")
+    skip = tuple(p.encode() for p in _UNHASHED_CONFIG_PREFIXES)
+    return b"\n".join(line for line in lines if not line.startswith(skip))
 
 
 def _code_hash() -> str:
@@ -87,7 +98,7 @@ def _code_hash() -> str:
     for rel in _HASHED_SOURCES:
         p = src_root / rel
         if p.exists():
-            h.update(p.read_bytes())
+            h.update(_hashed_bytes(rel, p.read_bytes()))
     return h.hexdigest()[:8]
 
 
