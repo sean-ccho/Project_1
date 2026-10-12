@@ -81,14 +81,6 @@ def add_position(
     ccs_score: float,
     sector: str = "",
     entry_rsi: float = 0.0,
-    predicted_upside_p25: float = 0.0,
-    predicted_upside_p50: float = 0.0,
-    predicted_upside_p75: float = 0.0,
-    predicted_upside_p90: float = 0.0,
-    upside_sample_size: int = 0,
-    upside_days_to_peak: float = 0.0,
-    upside_level: str = "",
-    upside_bucket_key: str = "",
 ) -> dict[str, Any]:
     """매수 포지션 추가. 새 포지션 dict를 반환."""
     pos = {
@@ -107,15 +99,6 @@ def add_position(
         "defer_debug": None,
         # 매수 시점 스냅샷
         "entry_rsi": entry_rsi,
-        # 상승 예측 분포
-        "predicted_upside_p25": predicted_upside_p25,
-        "predicted_upside_p50": predicted_upside_p50,
-        "predicted_upside_p75": predicted_upside_p75,
-        "predicted_upside_p90": predicted_upside_p90,
-        "upside_sample_size": upside_sample_size,
-        "upside_days_to_peak": upside_days_to_peak,
-        "upside_level": upside_level,
-        "upside_bucket_key": upside_bucket_key,
     }
     positions.append(pos)
     return pos
@@ -149,14 +132,12 @@ def close_position(
     exit_dt = datetime.strptime(str(exit_date), "%Y-%m-%d") if isinstance(exit_date, str) else exit_date
     holding_days = (exit_dt - entry_dt).days
 
-    # 예측 vs 실제 비교 (ML 학습 데이터용)
+    # 보유 중 최고 상승 (종가 기준, 기록용)
     highest_price = pos.get("highest_price", entry_price)
     actual_max_upside_pct = (
         round((highest_price - entry_price) / entry_price, 4)
         if entry_price > 0 else 0.0
     )
-    p50_pred = pos.get("predicted_upside_p50", 0.0)
-    p75_pred = pos.get("predicted_upside_p75", 0.0)
 
     trade = {
         "ticker": ticker,
@@ -175,21 +156,7 @@ def close_position(
         # Hold-Winners 분석용
         "defer_count": pos.get("defer_count", 0),
         "entry_rsi": pos.get("entry_rsi", 0.0),
-        "predicted_upside_p50": p50_pred,
-        "predicted_upside_p75": p75_pred,
-        "upside_sample_size": pos.get("upside_sample_size", 0),
-        # 예측 검증 (ML 학습 데이터)
         "actual_max_upside_pct": actual_max_upside_pct,
-        "upside_level": pos.get("upside_level", ""),
-        "upside_bucket_key": pos.get("upside_bucket_key", ""),
-        "hit_p50": (
-            1 if p50_pred > 0 and actual_max_upside_pct >= p50_pred else
-            -1 if p50_pred > 0 else 0
-        ),
-        "hit_p75": (
-            1 if p75_pred > 0 and actual_max_upside_pct >= p75_pred else
-            -1 if p75_pred > 0 else 0
-        ),
     }
     trades.append(trade)
     return trade

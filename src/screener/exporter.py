@@ -28,8 +28,6 @@ except ImportError:  # pragma: no cover - optional path
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
 
 from screener.config import (
     EXPORT_COLUMNS,
@@ -450,157 +448,8 @@ def send_email_notification(df: pd.DataFrame, subject_prefix: str = "[Stock Sign
         return False
 
 
-def _build_market_analysis_column(item: dict) -> str:
-    """단일 종목의 시장 분석 컬럼 내용(헤더 박스 없음)을 생성한다.
-
-    내용이 전혀 없으면 빈 문자열을 반환한다.
-    """
-    ma = item.get("market_analysis")
-    if not ma:
-        return ""
-
-    ticker = item.get("ticker", "")
-    analyst = ma.get("analyst") or {}
-    tech = ma.get("tech") or {}
-    news_html_raw = ma.get("news_html", "")
-    insider_text = ma.get("insider", "") or ""
-
-    parts: list[str] = []
-
-    if analyst:
-        rec = analyst.get("recommendation", "N/A")
-        target = analyst.get("target_mean")
-        upside = analyst.get("upside_pct")
-        num = analyst.get("num_analysts", 0)
-        rec_color = {"Buy": "#27ae60", "Sell": "#e74c3c", "Hold": "#e67e22"}.get(rec, "#888")
-        analyst_bits = [f"<b style='color:{rec_color}'>{rec}</b>" + (f" ({num}명)" if num else "")]
-        if target:
-            analyst_bits.append(f"목표가 <b>${target:,.2f}</b>")
-        if upside is not None:
-            if upside >= 0:
-                analyst_bits.append(f"<span style='color:#27ae60;font-weight:bold'>↑{upside:.1%}</span>")
-            else:
-                analyst_bits.append(f"<span style='color:#e74c3c;font-weight:bold'>↓{abs(upside):.1%}</span>")
-        parts.append("<div style='color:#666;font-size:12px;margin-top:4px'>🏛️ 애널리스트</div>")
-        parts.append(f"<div style='font-size:12px;padding-bottom:4px'>{' · '.join(analyst_bits)}</div>")
-
-    if tech:
-        tech_bits: list[str] = []
-        if "rsi" in tech:
-            tech_bits.append(f"RSI <b>{tech['rsi']:.0f}</b>")
-        if "adx" in tech:
-            tech_bits.append(f"ADX <b>{tech['adx']:.0f}</b>")
-        if "bb_pband" in tech:
-            tech_bits.append(f"BB <b>{tech['bb_pband']:.2f}</b>")
-        if "vol_z" in tech:
-            tech_bits.append(f"Vol Z <b>{tech['vol_z']:.1f}</b>")
-        if "pos_52w" in tech:
-            tech_bits.append(f"52주 <b>{tech['pos_52w']:.0%}</b>")
-        if tech_bits:
-            parts.append("<div style='color:#666;font-size:12px;margin-top:4px'>📈 기술적 지표</div>")
-            parts.append(f"<div style='font-size:12px;padding-bottom:4px'>{' · '.join(tech_bits)}</div>")
-
-    if insider_text and insider_text != "—":
-        parts.append("<div style='color:#666;font-size:12px;margin-top:4px'>👥 내부자(90일)</div>")
-        parts.append(f"<div style='font-size:12px;padding-bottom:4px'>{insider_text}</div>")
-
-    if news_html_raw and news_html_raw not in ("뉴스 조회 실패", "최근 2일 뉴스 없음"):
-        import re as _re
-        if news_html_raw.startswith("="):
-            hyperlinks = _re.findall(r'HYPERLINK\("([^"]*)",\s*"([^"]*)"\)', news_html_raw)
-            if hyperlinks:
-                bullets = "<br>".join(
-                    f'• <a href="{url}" style="color:#2980b9">{txt}</a>'
-                    for url, txt in hyperlinks
-                )
-            else:
-                plain = _re.sub(r'=?HYPERLINK\("[^"]*",\s*"([^"]*)"\)', r"\1", news_html_raw)
-                lines = [ln.strip() for ln in plain.split("\n") if ln.strip()]
-                bullets = "<br>".join(f"• {ln}" for ln in lines)
-        else:
-            lines = [ln.strip() for ln in news_html_raw.split("\n") if ln.strip()]
-            bullets = "<br>".join(f"• {ln}" for ln in lines) if lines else news_html_raw
-        parts.append("<div style='color:#666;font-size:12px;margin-top:6px'>📰 뉴스</div>")
-        parts.append(f"<div style='font-size:12px;line-height:1.5'>{bullets}</div>")
-
-    if not parts:
-        return ""
-
-    warnings: list[str] = []
-    if analyst:
-        upside = analyst.get("upside_pct")
-        target = analyst.get("target_mean")
-        current = analyst.get("current_price")
-        if upside is not None and upside < -0.05 and target and current:
-            warnings.append(
-                f"⚠️ 목표가 ${target:,.2f} &lt; 현재가 ${current:,.2f} ({abs(upside):.1%} 낮음)"
-            )
-    rsi_val = tech.get("rsi")
-    if rsi_val and rsi_val > 70:
-        warnings.append(f"⚠️ RSI {rsi_val:.0f} 과매수")
-    bb_val = tech.get("bb_pband")
-    if bb_val and bb_val > 0.80:
-        warnings.append(f"⚠️ BB {bb_val:.2f} 상단 근접")
-    if warnings:
-        color = "#fdecea" if any("목표가" in w for w in warnings) else "#fff8e1"
-        border = "#e74c3c" if any("목표가" in w for w in warnings) else "#f39c12"
-        parts.append(
-            f"<div style='background:{color};border-left:3px solid {border};"
-            f"padding:6px;margin-top:8px;font-size:11px;border-radius:0 3px 3px 0'>"
-            + "<br>".join(warnings)
-            + "</div>"
-        )
-
-    header = (
-        f"<div style='font-weight:bold;color:#2c3e50;margin-bottom:6px;font-size:13px'>{ticker}</div>"
-    )
-    return header + "".join(parts)
-
-
-def _build_market_analysis_card(items: list[dict]) -> str:
-    """여러 종목의 시장 분석을 단일 카드(가로 컬럼)로 렌더링한다.
-
-    빈 분석은 자동으로 제외되며, 표시할 컬럼이 하나도 없으면 빈 문자열을 반환한다.
-    """
-    columns: list[str] = []
-    for item in items or []:
-        col_html = _build_market_analysis_column(item)
-        if col_html:
-            columns.append(col_html)
-
-    if not columns:
-        return ""
-
-    n = len(columns)
-    col_width = 100 / n
-    cells: list[str] = []
-    for i, col in enumerate(columns):
-        is_last = i == n - 1
-        is_first = i == 0
-        border = "" if is_last else ";border-right:1px solid #c5d9e8"
-        padding = "padding:0" if is_first else "padding:0 0 0 4px"
-        cells.append(
-            f"<td style='width:{col_width:.4f}%;vertical-align:top;{padding}{border}'>"
-            f"{col}"
-            f"</td>"
-        )
-
-    return (
-        f"<div style='background:#eaf2f8;border-left:4px solid #3498db;"
-        f"padding:14px;margin:8px 0;font-size:13px;border-radius:0 4px 4px 0'>"
-        f"<b style='font-size:14px'>📊 시장 분석</b>"
-        f"<table style='width:100%;border-collapse:separate;border-spacing:12px 0;"
-        f"table-layout:fixed;margin-top:10px'>"
-        f"<tr style='vertical-align:top'>"
-        + "".join(cells)
-        + "</tr></table></div>"
-    )
-
-
 def _build_chart_images_html(
     ticker: str,
-    p75_pct: float = 0,
-    p75_price: float = 0,
     color_theme: str = "holdings",
 ) -> str:
     """종목 차트 이미지 3개(Daily/Weekly/Monthly)를 가로로 배치한 HTML 생성.
@@ -659,42 +508,22 @@ def _build_chart_images_html(
         bg = "#faf5ff"
         border = "#e0d4f0"
         icon = "🔍"
-        badge_bg = "#8e44ad"
         title_color = "#8e44ad"
     elif color_theme == "buys":
         bg = "#f0faf0"
         border = "#c8e6c9"
         icon = "🟢"
-        badge_bg = "#27ae60"
         title_color = "#27ae60"
     elif color_theme == "golden":
         bg = "#fffdf5"
         border = "#f0e6c0"
         icon = "⚡"
-        badge_bg = "#b8860b"
         title_color = "#b8860b"
     else:  # holdings
         bg = "#f8fffe"
         border = "#e0e0e0"
         icon = "📈"
-        badge_bg = "#27ae60"
         title_color = "#2c3e50"
-
-    # P75 뱃지
-    if p75_pct and p75_price:
-        badge = (
-            f"<span style='margin-left:8px;background:{badge_bg};color:#fff;"
-            f"padding:2px 8px;border-radius:12px;font-size:11px'>"
-            f"P75: {p75_pct:+.1%} → ${p75_price:,.2f} ⭐</span>"
-        )
-    elif p75_pct:
-        badge = (
-            f"<span style='margin-left:8px;background:{badge_bg};color:#fff;"
-            f"padding:2px 8px;border-radius:12px;font-size:11px'>"
-            f"P75: {p75_pct:+.1%} ⭐</span>"
-        )
-    else:
-        badge = ""
 
     # 이미지 셀 생성
     cells = ""
@@ -721,7 +550,7 @@ def _build_chart_images_html(
         f"padding:10px;margin:12px 0'>"
         f"<div style='margin-bottom:6px'>"
         f"<span style='font-size:15px;font-weight:bold;color:{title_color}'>{icon} {ticker}</span>"
-        f"{badge}</div>"
+        f"</div>"
         f"<table style='width:100%;border:none;border-collapse:collapse'>"
         f"<tr>{cells}</tr></table></div>"
     )
@@ -730,7 +559,6 @@ def _build_chart_images_html(
 def send_paper_trading_email(
     result: dict,
     positions: list[dict],
-    pdf_attachment: bytes | None = None,
     prices: dict[str, float] | None = None,
     golden_cross: list[dict] | None = None,
     extra_html: str = "",
@@ -855,7 +683,7 @@ def send_paper_trading_email(
 """.format(n=len(sells))
         for t in sells:
             ret = t.get("return_pct", 0)
-            insider_str = t.get("insider") or t.get("market_analysis", {}).get("insider", "—")
+            insider_str = t.get("insider") or "—"
             sell_html += (
                 f"<tr style='text-align:center'>"
                 f"<td><b>{t.get('ticker','')}</b></td>"
@@ -900,7 +728,7 @@ def send_paper_trading_email(
             )
         buy_html += "</table>\n"
 
-        # 각 매수 종목별 상세 박스 (고RSI 근거 + 상승 분포)
+        # 각 매수 종목별 상세 박스 (고RSI 근거)
         for t in buys:
             ticker = t.get("ticker", "")
             detail_parts: list[str] = []
@@ -913,50 +741,13 @@ def send_paper_trading_email(
                     f"{t['high_rsi_rationale']}"
                     f"</div>"
                 )
-            if t.get("upside_n", 0) >= 10:
-                entry_price = t.get("entry_price", 0)
-                p25 = t.get("upside_p25", 0)
-                p50 = t.get("upside_p50", 0)
-                p75 = t.get("upside_p75", 0)
-                p90 = t.get("upside_p90", 0)
-                price_p25 = t.get("upside_price_p25", 0)
-                price_p50 = t.get("upside_price_p50", 0)
-                price_p75 = t.get("upside_price_p75", 0)
-                price_p90 = t.get("upside_price_p90", 0)
-                days = t.get("upside_days_to_peak", 0)
-                n = t.get("upside_n", 0)
-                detail_parts.append(
-                    f"<div style='background:#e8f5e9;border-left:4px solid #27ae60;"
-                    f"padding:10px;margin:6px 0;font-size:13px'>"
-                    f"<b>📊 {ticker} 예상 상승 분포 (유사 거래 {n}건 기반)</b><br>"
-                    f"매수가 ${entry_price:.2f} 기준 예상 목표가:<br>"
-                    f"&nbsp;&nbsp;보수적 (P25): <b>{p25:+.1%}</b> → ${price_p25:.2f}<br>"
-                    f"&nbsp;&nbsp;중간값 (P50): <b>{p50:+.1%}</b> → ${price_p50:.2f}<br>"
-                    f"&nbsp;&nbsp;낙관 (P75): <b>{p75:+.1%}</b> → ${price_p75:.2f} ⭐<br>"
-                    f"&nbsp;&nbsp;홈런 (P90): <b>{p90:+.1%}</b> → ${price_p90:.2f}<br>"
-                    f"평균 최고점 도달: {days:.0f}일차"
-                    f"</div>"
-                )
-            elif 0 < t.get("upside_n", 0) < 10:
-                detail_parts.append(
-                    f"<div style='background:#f5f5f5;border-left:4px solid #95a5a6;"
-                    f"padding:8px;margin:6px 0;font-size:12px;color:#666'>"
-                    f"⚠️ {ticker} 예상 분포 샘플 부족 (N={t.get('upside_n')})"
-                    f"</div>"
-                )
             if detail_parts:
                 buy_html += "".join(detail_parts)
             # 차트 이미지 (매수 종목)
-            buy_p75 = t.get("upside_p75", 0)
-            buy_entry = t.get("entry_price", 0)
-            buy_p75_price = buy_entry * (1 + buy_p75) if buy_entry and buy_p75 else 0
-            buy_html += _build_chart_images_html(
-                ticker, p75_pct=buy_p75, p75_price=buy_p75_price, color_theme="buys"
-            )
-        buy_html += _build_market_analysis_card(buys)
+            buy_html += _build_chart_images_html(ticker, color_theme="buys")
         buy_html += "<br>"
 
-    # ── 현재 보유 현황 (현재가/수익률/재평가 뱃지 + upside 목표가 포함) ──
+    # ── 현재 보유 현황 (현재가/수익률/재평가 뱃지/Trail Stop) ──
     holdings_html = ""
     if positions:
         from datetime import date
@@ -965,7 +756,7 @@ def send_paper_trading_email(
 <table border='1' cellpadding='4' style='border-collapse:collapse;font-size:14px'>
 <tr style='background:#ebf5fb;text-align:center'>
   <th>종목</th><th>섹터/지수</th><th>[시총]</th><th>[헬스체크]</th><th>매수일</th><th>매수가</th><th>현재가</th>
-  <th>수익률</th><th>보유일</th><th>전략</th><th>Target</th><th>Next Target</th><th>Trail Stop</th><th>거래량</th><th>내부자(90일)</th>
+  <th>수익률</th><th>보유일</th><th>전략</th><th>Trail Stop</th><th>거래량</th><th>내부자(90일)</th>
 </tr>
 """.format(n=len(positions))
         from paper_trading.engine import _resolve_exit_params
@@ -1023,19 +814,6 @@ def send_paper_trading_email(
                 )
             else:
                 status = ""
-            # 매수 당시 저장된 upside 예측값 표시
-            p50 = p.get("predicted_upside_p50", 0)
-            p75 = p.get("predicted_upside_p75", 0)
-            if entry_price and p50:
-                p50_price = entry_price * (1 + p50)
-                p50_str = f"<b>{p50:+.1%}</b> → {_price(p50_price)}"
-            else:
-                p50_str = "-"
-            if entry_price and p75:
-                p75_price = entry_price * (1 + p75)
-                p75_str = f"<b>{p75:+.1%}</b> → {_price(p75_price)}"
-            else:
-                p75_str = "-"
             # Trail Stop: 엔진 청산 로직(check_sell_conditions)과 동일하게 계산 — 표시 전용.
             # 고점이 매수가를 넘은 적 있으면 트레일링, 아니면 하드손절이 실제 보호선.
             exit_p = _resolve_exit_params(p.get("strategy", ""))
@@ -1055,7 +833,7 @@ def send_paper_trading_email(
             else:
                 trail_str = "-"
             vol_str = _vol_cell(p.get("vol_ratio"), p.get("vol_ma20"))
-            insider_str = p.get("market_analysis", {}).get("insider") or p.get("insider", "—")
+            insider_str = p.get("insider") or "—"
             holdings_html += (
                 f"<tr style='text-align:center'>"
                 f"<td><b>{ticker}</b></td>"
@@ -1068,8 +846,6 @@ def send_paper_trading_email(
                 f"<td>{ret_str}</td>"
                 f"<td>{days}일</td>"
                 f"<td>{p.get('strategy','')}</td>"
-                f"<td>{p50_str}</td>"
-                f"<td>{p75_str}</td>"
                 f"<td>{trail_str}</td>"
                 f"<td>{vol_str}</td>"
                 f"<td style='font-size:12px'>{insider_str}</td>"
@@ -1077,14 +853,7 @@ def send_paper_trading_email(
             )
         holdings_html += "</table>\n"
         for p in positions:
-            ticker = p.get("ticker", "")
-            entry_price = p.get("entry_price", 0)
-            p75_val = p.get("predicted_upside_p75", 0)
-            p75_price_val = entry_price * (1 + p75_val) if entry_price and p75_val else 0
-            holdings_html += _build_chart_images_html(
-                ticker, p75_pct=p75_val, p75_price=p75_price_val, color_theme="holdings"
-            )
-        holdings_html += _build_market_analysis_card(positions)
+            holdings_html += _build_chart_images_html(p.get("ticker", ""), color_theme="holdings")
         holdings_html += "<br>"
 
     # ── 재평가 체크 라인 생성 (P1: 통과/실패 모두 표시) ──
@@ -1167,26 +936,13 @@ def send_paper_trading_email(
             + "".join(skip_blocks) + "<br>"
         )
 
-    # ── 후보 테이블 (upside 예측 포함) ──
+    # ── 후보 테이블 ──
     candidates_html = ""
     if top5:
-        # 후보별 upside 예측
-        try:
-            from paper_trading.upside_model import predict_upside as _predict_upside
-            top5_upside = {}
-            for c in top5:
-                try:
-                    up = _predict_upside(c.get("strategy", ""), c.get("ccs", 0.0), c.get("star", ""))
-                    top5_upside[c.get("ticker", "")] = up
-                except Exception:
-                    top5_upside[c.get("ticker", "")] = {"n": 0}
-        except Exception:
-            top5_upside = {}
-
         _cand_header = (
             "<table border='1' cellpadding='4' style='border-collapse:collapse;font-size:14px'>\n"
             "<tr style='background:#f5eef8;text-align:center'>\n"
-            "  <th>종목</th><th>섹터/지수</th><th>[시총]</th><th>[헬스체크]</th><th>전략</th><th>별점</th><th>CCS점수</th><th>거래량</th><th>Target</th><th>Next Target</th><th>내부자(90일)</th>\n"
+            "  <th>종목</th><th>섹터/지수</th><th>[시총]</th><th>[헬스체크]</th><th>전략</th><th>별점</th><th>CCS점수</th><th>거래량</th><th>내부자(90일)</th>\n"
             "</tr>\n"
         )
         candidates_html = f"<h3 style='color:#8e44ad'>🔍 오늘의 후보 ({len(top5)}종목)</h3>\n"
@@ -1194,26 +950,7 @@ def send_paper_trading_email(
 
         for c in top5:
             ticker_c = c.get("ticker", "")
-            up = top5_upside.get(ticker_c, {})
-            p50_c = up.get("p50", 0)
-            p75_c = up.get("p75", 0)
-            n_c = up.get("n", 0)
-            cur_price = c.get("current_price") or 0
-            if n_c >= 5 and p50_c:
-                if cur_price:
-                    p50_c_str = f"<b>{p50_c:+.1%}</b> → {_price(cur_price * (1 + p50_c))}"
-                else:
-                    p50_c_str = f"<b>{p50_c:+.1%}</b>"
-            else:
-                p50_c_str = "-"
-            if n_c >= 5 and p75_c:
-                if cur_price:
-                    p75_c_str = f"<b>{p75_c:+.1%}</b> → {_price(cur_price * (1 + p75_c))}"
-                else:
-                    p75_c_str = f"<b>{p75_c:+.1%}</b>"
-            else:
-                p75_c_str = "-"
-            insider_c = c.get("market_analysis", {}).get("insider") or c.get("insider", "—")
+            insider_c = c.get("insider") or "—"
 
             row_html = (
                 f"<tr style='text-align:center'>"
@@ -1225,107 +962,16 @@ def send_paper_trading_email(
                 f"<td>{c.get('star','')}</td>"
                 f"<td>{c.get('ccs', 0):.4f}</td>"
                 f"<td>{_vol_cell(c.get('vol_ratio'), c.get('vol_ma20'))}</td>"
-                f"<td>{p50_c_str}</td>"
-                f"<td>{p75_c_str}</td>"
                 f"<td style='font-size:12px'>{insider_c}</td>"
                 f"</tr>\n"
             )
             candidates_html += row_html
 
         candidates_html += "</table>\n"
-        
+
         for c in top5:
-            ticker_c = c.get("ticker", "")
-            up = top5_upside.get(ticker_c, {})
-            cand_p75 = up.get("p75", 0)
-            candidates_html += _build_chart_images_html(
-                ticker_c, p75_pct=cand_p75, color_theme="candidates"
-            )
-        candidates_html += _build_market_analysis_card(top5)
+            candidates_html += _build_chart_images_html(c.get("ticker", ""), color_theme="candidates")
         candidates_html += "<br>"
-
-    # ── 예측 정확도 섹션 (백테스트 검증 + 실전 검증) ──
-    accuracy_html = ""
-    try:
-        # --- 백테스트 교차검증 결과 ---
-        bt_html = ""
-        _bt_path = Path(__file__).resolve().parents[2] / "data" / "paper_trading" / "backtest_validation.json"
-        if _bt_path.exists():
-            import json as _json
-            bt_data = _json.loads(_bt_path.read_text(encoding="utf-8"))
-            bt_s = bt_data.get("summary", {})
-            bt_n = bt_s.get("n_trades", 0)
-            if bt_n >= 3:
-                bt_html = f"""
-<h3 style='color:#555'>📐 예측 정확도 — 백테스트 검증 ({bt_n}건, LOO 교차검증)</h3>
-<table border='1' style='border-collapse:collapse;width:60%;font-size:14px'>
-<tr style='background:#f0f0f0;text-align:center'>
-  <th>지표</th><th>결과</th>
-</tr>
-<tr style='text-align:center'><td>P50 달성률</td><td><b>{bt_s.get('p50_hits',0)}/{bt_n} ({bt_s.get('p50_hit_rate',0):.0%})</b></td></tr>
-<tr style='text-align:center'><td>P75 달성률</td><td><b>{bt_s.get('p75_hits',0)}/{bt_n} ({bt_s.get('p75_hit_rate',0):.0%})</b></td></tr>
-<tr style='text-align:center'><td>평균 예측 (P50)</td><td>{bt_s.get('avg_predicted_p50',0):+.1%}</td></tr>
-<tr style='text-align:center'><td>평균 실제 최대 상승</td><td>{bt_s.get('avg_actual_max_upside',0):+.1%}</td></tr>
-</table>
-<div style='color:#999;font-size:11px;margin-top:4px'>* 각 거래를 제외한 나머지로 분포 재계산 후 예측 (in-sample bias 제거)</div>
-<br>
-"""
-
-        # --- 실전 페이퍼 트레이딩 검증 ---
-        paper_html = ""
-        from paper_trading.portfolio import load_trades as _load_trades
-        closed_trades = _load_trades()
-        validated = [
-            t for t in closed_trades
-            if t.get("predicted_upside_p50", 0) > 0 and t.get("hit_p50", 0) != 0
-        ]
-        n_v = len(validated)
-        if n_v >= 3:
-            p50_hits = sum(1 for t in validated if t.get("hit_p50") == 1)
-            p75_hits = sum(1 for t in validated if t.get("hit_p75") == 1)
-            avg_pred = sum(t.get("predicted_upside_p50", 0) for t in validated) / n_v
-            avg_actual = sum(t.get("actual_max_upside_pct", 0) for t in validated) / n_v
-            paper_html = f"""
-<h3 style='color:#2980b9'>📐 예측 정확도 — 실전 페이퍼 ({n_v}건)</h3>
-<table border='1' style='border-collapse:collapse;width:60%;font-size:14px'>
-<tr style='background:#ebf5fb;text-align:center'>
-  <th>지표</th><th>결과</th>
-</tr>
-<tr style='text-align:center'><td>P50 달성률</td><td><b>{p50_hits}/{n_v} ({p50_hits/n_v:.0%})</b></td></tr>
-<tr style='text-align:center'><td>P75 달성률</td><td><b>{p75_hits}/{n_v} ({p75_hits/n_v:.0%})</b></td></tr>
-<tr style='text-align:center'><td>평균 예측 (P50)</td><td>{avg_pred:+.1%}</td></tr>
-<tr style='text-align:center'><td>평균 실제 최대 상승</td><td>{avg_actual:+.1%}</td></tr>
-</table><br>
-"""
-
-        # --- ML 마일스톤 알림 (실전 기준) ---
-        milestone_html = ""
-        _ML_MILESTONES = {30: "통계 분석 가능", 100: "ML 학습 시작 가능", 300: "안정적 ML 모델 구축 가능"}
-        for threshold, desc in _ML_MILESTONES.items():
-            if n_v >= threshold and (n_v - 1) < threshold:
-                milestone_html = (
-                    f"<div style='background:#e8f5e9;border:2px solid #27ae60;"
-                    f"padding:12px;margin:8px 0;font-size:14px;border-radius:6px'>"
-                    f"🎯 <b>ML 마일스톤 달성: 실전 {n_v}건 — {desc}</b>"
-                    f"</div>"
-                )
-                break
-        if not milestone_html:
-            next_target = next((t for t in sorted(_ML_MILESTONES) if n_v < t), None)
-            if next_target:
-                remaining = next_target - n_v
-                milestone_html = (
-                    f"<div style='background:#f5f5f5;padding:8px;margin:6px 0;"
-                    f"font-size:12px;color:#666;border-radius:4px'>"
-                    f"📊 실전 ML 데이터 수집 중: {n_v}/{next_target}건 "
-                    f"({_ML_MILESTONES[next_target]}, 약 {remaining}건 남음)"
-                    f"</div>"
-                )
-
-        if bt_html or paper_html:
-            accuracy_html = bt_html + paper_html + milestone_html
-    except Exception:
-        pass
 
     # ── 골든크로스 임박 섹션 (테이블 + 차트만, 뉴스 없음) ──
     # 정렬은 runner._extract_golden_cross_imminent()에서 다중 TF/일봉/conf 순으로 처리됨.
@@ -1353,7 +999,7 @@ def send_paper_trading_email(
                 tfs = ", ".join(g.get("timeframes", []))
             # 다중 TF confirm은 ★ 표시 (2개 이상 타임프레임 임박)
             star_prefix = "★ " if g.get("tf_count", 0) >= 2 else ""
-            insider_g = g.get("insider") or g.get("market_analysis", {}).get("insider", "—")
+            insider_g = g.get("insider") or "—"
             ccs_g = g.get("ccs")
             ccs_str = f"{ccs_g:.4f}" if isinstance(ccs_g, (int, float)) else "-"
             row_bg = "background:#fff8dc;" if g.get("tf_count", 0) >= 2 else ""
@@ -1422,7 +1068,6 @@ def send_paper_trading_email(
 {defer_skip_html}
 {holdings_html}
 {candidates_html}
-{accuracy_html}
 {golden_cross_html}
 <p style='color:#999;font-size:12px'>본 메일은 시스템에 의해 자동으로 발송되었습니다.</p>
 """
@@ -1436,24 +1081,13 @@ def send_paper_trading_email(
         msg["Subject"] = subject
         msg.attach(MIMEText(body, "html"))
 
-        if pdf_attachment:
-            part = MIMEBase("application", "pdf")
-            part.set_payload(pdf_attachment)
-            encoders.encode_base64(part)
-            part.add_header(
-                "Content-Disposition",
-                f'attachment; filename="trading_report_{date_str}.pdf"',
-            )
-            msg.attach(part)
-
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(EMAIL_SENDER, EMAIL_PASSWORD)
             server.send_message(msg)
 
-        pdf_note = " (PDF 첨부)" if pdf_attachment else ""
         print(
-            f"[Email] 페이퍼 트레이딩 알림 발송 완료{pdf_note} "
+            f"[Email] 페이퍼 트레이딩 알림 발송 완료 "
             f"(매도 {len(sells)}건, 매수 {len(buys)}건, 재평가 {len(defers)}건, 재평가실패 {len(defers_skipped)}건, 후보 {len(top5)}건) "
             f"→ {recipients_str}"
         )

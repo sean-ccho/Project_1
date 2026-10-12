@@ -10,9 +10,6 @@ scipy>=1.10
 gspread>=6.0
 google-auth>=2.0
 google-auth-oauthlib>=1.0
-# PDF report generation
-fpdf2>=2.7
-matplotlib>=3.7
 # Optional for TradingView chart screenshots
 playwright>=1.40
 google-api-python-client>=2.0

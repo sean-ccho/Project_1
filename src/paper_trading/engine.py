@@ -430,50 +430,18 @@ def run_daily_trading(
         return result
 
     # ── 4. 매수/교체 판단 ──
-    # 매수 전에 upside 예측 + RSI/근거 조회
+    # 매수 전에 RSI/근거 조회 (메일의 고RSI 근거 박스용)
     cand_row = _get_row_for_ticker(ranked_df, candidate["ticker"])
     entry_rsi = _safe_num(cand_row, "RSI", 0.0)
     high_rsi_flag = entry_rsi > HIGH_RSI_FLAG_THRESHOLD
     high_rsi_rationale = _build_high_rsi_rationale(cand_row) if high_rsi_flag else ""
 
-    try:
-        from paper_trading.upside_model import predict_upside
-        upside = predict_upside(
-            candidate["strategy"], candidate["ccs_score"], candidate["star_rating"],
-        )
-    except Exception as exc:
-        logger.warning(f"[PaperTrading] upside predict failed: {exc}")
-        upside = {"n": 0}
-
     entry_price = candidate["entry_price"]
-    upside_payload = {
+    buy_detail = {
         "entry_rsi": entry_rsi,
         "high_rsi_flag": high_rsi_flag,
         "high_rsi_rationale": high_rsi_rationale,
-        "upside_p25": upside.get("p25", 0.0),
-        "upside_p50": upside.get("p50", 0.0),
-        "upside_p75": upside.get("p75", 0.0),
-        "upside_p90": upside.get("p90", 0.0),
-        "upside_price_p25": entry_price * (1 + upside.get("p25", 0.0)),
-        "upside_price_p50": entry_price * (1 + upside.get("p50", 0.0)),
-        "upside_price_p75": entry_price * (1 + upside.get("p75", 0.0)),
-        "upside_price_p90": entry_price * (1 + upside.get("p90", 0.0)),
-        "upside_n": upside.get("n", 0),
-        "upside_days_to_peak": upside.get("mean_days_to_peak", 0.0),
-        "upside_level": upside.get("level", ""),
     }
-
-    position_upside_kwargs = dict(
-        entry_rsi=entry_rsi,
-        predicted_upside_p25=upside.get("p25", 0.0),
-        predicted_upside_p50=upside.get("p50", 0.0),
-        predicted_upside_p75=upside.get("p75", 0.0),
-        predicted_upside_p90=upside.get("p90", 0.0),
-        upside_sample_size=upside.get("n", 0),
-        upside_days_to_peak=upside.get("mean_days_to_peak", 0.0),
-        upside_level=upside.get("level", ""),
-        upside_bucket_key=upside.get("bucket_key", ""),
-    )
 
     if len(positions) < effective_max_positions:
         # 빈 슬롯 있음 → 바로 매수
@@ -486,7 +454,7 @@ def run_daily_trading(
             star_rating=candidate["star_rating"],
             ccs_score=candidate["ccs_score"],
             sector=candidate["sector"],
-            **position_upside_kwargs,
+            entry_rsi=entry_rsi,
         )
         buy_entry = {
             "ticker": candidate["ticker"],
@@ -499,13 +467,12 @@ def run_daily_trading(
             "reason": "신규매수",
             "vol_ratio": candidate.get("vol_ratio", 0),
             "vol_ma20": candidate.get("vol_ma20", 0),
-            **upside_payload,
+            **buy_detail,
         }
         result["buys"].append(buy_entry)
         logger.info(
             f"[PaperTrading] BUY {candidate['ticker']} @ {entry_price:.2f} "
-            f"(CCS={candidate['ccs_score']:.4f}, RSI={entry_rsi:.0f}, "
-            f"upside P50={upside.get('p50', 0)*100:+.0f}% P75={upside.get('p75', 0)*100:+.0f}%)"
+            f"(CCS={candidate['ccs_score']:.4f}, RSI={entry_rsi:.0f})"
         )
     elif len(positions) >= effective_max_positions:
         # 풀슬롯 → 교체 검토
@@ -533,7 +500,7 @@ def run_daily_trading(
                 star_rating=candidate["star_rating"],
                 ccs_score=candidate["ccs_score"],
                 sector=candidate["sector"],
-                **position_upside_kwargs,
+                entry_rsi=entry_rsi,
             )
             buy_entry = {
                 "ticker": candidate["ticker"],
@@ -546,7 +513,7 @@ def run_daily_trading(
                 "reason": f"교체({worst_ticker}→{candidate['ticker']})",
                 "vol_ratio": candidate.get("vol_ratio", 0),
                 "vol_ma20": candidate.get("vol_ma20", 0),
-                **upside_payload,
+                **buy_detail,
             }
             result["buys"].append(buy_entry)
             logger.info(

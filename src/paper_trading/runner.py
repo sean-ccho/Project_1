@@ -326,131 +326,37 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None, a
         print(f"[Unified PT] {acct['label']}: 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)")
         return
 
-    # ── PDF 리포트 생성 ──
-    pdf_bytes = None
-    if pt_result.get("buys") or pt_result.get("sells"):
-        try:
-            from paper_trading.report_generator import generate_trading_report
-            trades = load_trades(data_dir)
-            pdf_bytes = generate_trading_report(
-                result=pt_result,
-                positions=positions,
-                merged_df=merged_df,
-                prices=prices,
-                trades=trades,
-            )
-            if pdf_bytes:
-                print(f"[Unified PT] PDF 리포트 생성 완료 ({len(pdf_bytes):,} bytes)")
-            else:
-                print("[Unified PT] PDF 리포트 생성 실패 — 이메일은 계속 발송")
-        except Exception as exc:
-            print(f"[Unified PT] PDF 생성 오류 (이메일은 계속 발송): {exc}")
-
     # ── 이메일 알림 ──
     # 재평가중 포지션도 있으므로 prices 전달 (현재가 컬럼 + 수익률 계산용)
     all_held_tickers = [p["ticker"] for p in positions]
     if all_held_tickers:
         prices = fetch_latest_prices(all_held_tickers)
 
-    # ── 시장 분석 데이터 enrichment (후보 / 매수 / 보유) ──
+    # ── 내부자 거래 90일 요약 (openinsider, 표시용) — 후보 / 매수 / 매도 / 보유 / 골든크로스 ──
+    top5 = pt_result.get("selection_debug", {}).get("top5", [])
+    shown = top5 + buys + sells + golden_cross + positions
     try:
-        from data.fetch import fetch_analyst_data, fetch_latest_news as _fetch_news
+        from screener.insider import fetch_insider_snapshots
 
-        top5 = pt_result.get("selection_debug", {}).get("top5", [])
-        buys = pt_result.get("buys", [])
-
-        # 분석 대상 티커 수집 (후보 + 매수 + 보유 + 매도 + 골든크로스임박)
-        analysis_tickers: list[str] = []
-        for item in top5 + buys + sells + golden_cross:
-            t = item.get("ticker", "")
-            if t and t not in analysis_tickers:
-                analysis_tickers.append(t)
-        for p in positions:
-            t = p.get("ticker", "")
-            if t and t not in analysis_tickers:
-                analysis_tickers.append(t)
-
-        if analysis_tickers:
-            print(f"[시장분석] {len(analysis_tickers)}개 종목 데이터 수집 중...")
-            analyst_data = fetch_analyst_data(analysis_tickers)
-            news_data = _fetch_news(analysis_tickers, max_items=3)
-
-            # 내부자 거래 90일 요약 (openinsider, 표시용)
-            insider_map: dict[str, str] = {}
-            try:
-                from screener.insider import fetch_insider_snapshots
-
-                insider_df = fetch_insider_snapshots(analysis_tickers)
-                if not insider_df.empty:
-                    insider_map = {
-                        str(r["티커"]).upper().strip(): r["내부자(90일)"]
-                        for _, r in insider_df.iterrows()
-                    }
-            except Exception as _exc:
-                print(f"[시장분석] 내부자 정보 조회 실패 (무시): {_exc}")
-
-            # 기술적 지표 룩업 (merged_df에서 추출)
-            tech_cols = {
-                "rsi": ["RSI", "rsi"],
-                "adx": ["ADX", "adx"],
-                "bb_pband": ["bb_pband", "bollinger_pband", "BB_pband"],
-                "vol_z": ["vol_z_20", "volume_z", "vol_z"],
-                "pos_52w": ["pos_52w", "position_52w", "52w_pos"],
-            }
-
-            def _get_tech(ticker: str) -> dict:
-                tech: dict = {}
-                if merged_df is None or ticker not in merged_df.columns.get_level_values(0):
-                    return tech
-                try:
-                    row = merged_df[ticker].iloc[-1]
-                    for key, candidates in tech_cols.items():
-                        for col in candidates:
-                            if col in row.index and pd.notna(row[col]):
-                                tech[key] = float(row[col])
-                                break
-                except Exception:
-                    pass
-                return tech
-
-            # 각 dict에 market_analysis 키 주입
-            def _enrich(item: dict) -> None:
-                ticker = item.get("ticker", "")
-                item["market_analysis"] = {
-                    "analyst": analyst_data.get(ticker),
-                    "tech": _get_tech(ticker),
-                    "news_html": news_data.get(ticker, ""),
-                    "insider": insider_map.get(str(ticker).upper().strip(), "—"),
+        insider_tickers = list(dict.fromkeys(i.get("ticker", "") for i in shown if i.get("ticker")))
+        insider_map: dict[str, str] = {}
+        if insider_tickers:
+            insider_df = fetch_insider_snapshots(insider_tickers)
+            if not insider_df.empty:
+                insider_map = {
+                    str(r["티커"]).upper().strip(): r["내부자(90일)"]
+                    for _, r in insider_df.iterrows()
                 }
-
-            # 표시용 insider 한 줄 요약만 필요한 항목 (매도/골든크로스)
-            def _attach_insider_only(item: dict) -> None:
-                ticker = item.get("ticker", "")
-                item["insider"] = insider_map.get(str(ticker).upper().strip(), "—")
-
-            # 골든크로스 티커의 CCS: candidate selector가 계산한 점수 dict에서 lookup
-            all_scores = pt_result.get("selection_debug", {}).get("all_scores", {})
-
-            for item in top5:
-                _enrich(item)
-            for item in buys:
-                _enrich(item)
-            for p in positions:
-                _enrich(p)
-            for s in sells:
-                _attach_insider_only(s)
-            for g in golden_cross:
-                _attach_insider_only(g)
-                score = all_scores.get(g.get("ticker", ""))
-                g["ccs"] = score["ccs"] if score else None
-
-            if "selection_debug" in pt_result:
-                pt_result["selection_debug"]["top5"] = top5
-            pt_result["buys"] = buys
-            pt_result["sells"] = sells
-            print("[시장분석] enrichment 완료")
+        for item in shown:
+            item["insider"] = insider_map.get(str(item.get("ticker", "")).upper().strip(), "—")
     except Exception as exc:
-        print(f"[시장분석] 데이터 수집 실패 (이메일은 계속 발송): {exc}")
+        print(f"[내부자] 조회 실패 (이메일은 계속 발송): {exc}")
+
+    # 골든크로스 티커의 CCS: candidate selector가 계산한 점수 dict에서 lookup
+    all_scores = pt_result.get("selection_debug", {}).get("all_scores", {})
+    for g in golden_cross:
+        score = all_scores.get(g.get("ticker", ""))
+        g["ccs"] = score["ccs"] if score else None
 
     # ── 보유 종목 거래량 배수 주입 (merged_df 평면 snapshot에서; 후보/매수와 동일 출처) ──
     # merged_df는 티커가 행(row)인 평면 DataFrame이므로 "티커" 컬럼으로 필터한다.
@@ -469,7 +375,7 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None, a
                 p["vol_ma20"] = _vol_float(r.get("volume_ma20"))
 
     send_paper_trading_email(
-        pt_result, positions, pdf_attachment=pdf_bytes, prices=prices,
+        pt_result, positions, prices=prices,
         golden_cross=golden_cross, extra_html=dollar_html,
     )
     print("=" * 60)
