@@ -33,32 +33,46 @@ def _record(ticker: str, ok: bool = True) -> dict:
 
 
 class FakeYahoo:
-    """blocked_calls 번째 호출까지는 전부 실패하고 그 뒤로는 받히는 가짜 fetch."""
+    """fail_calls 에 든 번째 호출(1부터, 대형주 확인 포함)은 전부 실패하고 나머지는 받히는 가짜 fetch."""
 
-    def __init__(self, blocked_calls: int):
-        self.blocked_calls = blocked_calls
+    def __init__(self, fail_calls):
+        self.fail_calls = set(fail_calls)
         self.calls: list[list[str]] = []
 
     def __call__(self, tickers):
         self.calls.append(list(tickers))
-        ok = len(self.calls) > self.blocked_calls
+        ok = len(self.calls) not in self.fail_calls
         return pd.DataFrame([_record(t, ok) for t in tickers])
 
 
-def test_retry_waits_probes_then_refetches_only_failed(capsys):
-    yahoo = FakeYahoo(blocked_calls=2)
+TICKERS = [f"T{i}" for i in range(120)]
+
+
+def test_stops_at_first_blocked_chunk_and_resumes_after_wait(capsys):
+    # 처음부터 막힘: 첫 묶음(50) 실패 → 대형주 확인 실패 → 60초 뒤 확인(아직) → 120초 뒤 확인(풀림) → 이어서 받기
+    yahoo = FakeYahoo(fail_calls={1, 2, 3})
     slept: list[float] = []
-    tickers = [f"T{i}" for i in range(10)]
-    fund = fetch_with_retry(tickers, "[테스트]", fetch=yahoo, sleep=slept.append)
-    # 60초 쉬고 확인(아직 막힘) → 300초 쉬고 확인(풀림) → 실패한 10개만 다시
-    assert slept == [60, 300]
-    assert [len(c) for c in yahoo.calls] == [10, 3, 3, 10]
-    assert failed_tickers(fund) == [] and sorted(fund["티커"]) == sorted(tickers)
+    fund = fetch_with_retry(TICKERS, "[테스트]", fetch=yahoo, sleep=slept.append)
+    assert slept == [60, 120]
+    assert [len(c) for c in yahoo.calls] == [50, 3, 3, 3, 50, 50, 20]  # 막힌 동안엔 대형주 3개만 요청
+    assert yahoo.calls[1] == ["AAPL", "MSFT", "JPM"]
+    assert fund["티커"].tolist() == TICKERS and failed_tickers(fund) == []
     out = capsys.readouterr().out
-    assert "10/10개 실패" in out and "아직 막혀 있음" in out and "10/10개 성공" in out
+    assert "120/120개 남음, 60초" in out and "아직 막혀 있음" in out and "풀림" in out
+    assert "다시 받기 완료: 120/120개 받음" in out
 
 
-def test_no_retry_when_failures_are_normal():
+def test_block_in_the_middle_keeps_chunks_already_received():
+    # 둘째 묶음에서 막힘 → 첫 묶음은 그대로 두고 둘째 묶음부터 이어서
+    yahoo = FakeYahoo(fail_calls={2, 3})
+    slept: list[float] = []
+    fund = fetch_with_retry(TICKERS, fetch=yahoo, sleep=slept.append)
+    assert slept == [60]
+    assert [len(c) for c in yahoo.calls] == [50, 50, 3, 3, 50, 20]
+    assert fund["티커"].tolist() == TICKERS and failed_tickers(fund) == []
+
+
+def test_no_wait_when_failures_are_normal():
     calls: list[list[str]] = []
 
     def fetch(tickers):
@@ -66,17 +80,38 @@ def test_no_retry_when_failures_are_normal():
         return pd.DataFrame([_record(t, ok=t != "T0") for t in tickers])
 
     slept: list[float] = []
-    fund = fetch_with_retry([f"T{i}" for i in range(10)], fetch=fetch, sleep=slept.append)
-    assert slept == [] and len(calls) == 1 and failed_tickers(fund) == ["T0"]
+    fund = fetch_with_retry(TICKERS, fetch=fetch, sleep=slept.append)
+    assert slept == [] and [len(c) for c in calls] == [50, 50, 20]  # 대형주 확인도 안 한다
+    expected = pd.DataFrame([_record(t, ok=t != "T0") for t in TICKERS])
+    pd.testing.assert_frame_equal(fund, expected)  # 묶음으로 받아도 한 번에 받은 표와 같다
+    assert failed_tickers(fund) == ["T0"]
 
 
-def test_gives_up_after_waits(capsys):
-    yahoo = FakeYahoo(blocked_calls=99)
+def test_mostly_empty_chunk_is_kept_when_yahoo_answers():
+    # 정보가 원래 없는 종목만 모인 묶음 — 대형주는 받히니 막힌 게 아니다. 쉬지 않고 그대로 쓴다
+    calls: list[list[str]] = []
+
+    def fetch(tickers):
+        calls.append(list(tickers))
+        return pd.DataFrame([_record(t, ok=not t.startswith("X")) for t in tickers])
+
     slept: list[float] = []
-    fund = fetch_with_retry(["A", "B"], fetch=yahoo, sleep=slept.append)
-    assert slept == [60, 300] and [len(c) for c in yahoo.calls] == [2, 2, 2]
-    assert failed_tickers(fund) == ["A", "B"]
-    assert "끝내 못 받음" in capsys.readouterr().out
+    fund = fetch_with_retry(["X1", "X2", "X3"], fetch=fetch, sleep=slept.append)
+    assert slept == [] and [len(c) for c in calls] == [3, 3]
+    assert failed_tickers(fund) == ["X1", "X2", "X3"]
+
+
+def test_gives_up_after_waits_without_hammering(capsys):
+    yahoo = FakeYahoo(fail_calls=range(1, 100))
+    slept: list[float] = []
+    fund = fetch_with_retry(TICKERS, "[테스트]", fetch=yahoo, sleep=slept.append)
+    assert slept == [60, 120, 300, 600]
+    assert [len(c) for c in yahoo.calls] == [50, 3, 3, 3, 3, 3]  # 남은 70개는 요청하지 않는다
+    # 못 받은 종목도 fetch 가 실패에 돌려주는 모양 그대로 한 행씩 (전날 스냅샷 보충이 이 행을 채운다)
+    assert fund["티커"].tolist() == TICKERS and failed_tickers(fund) == TICKERS
+    assert list(fund.columns) == list(_record("A").keys())
+    assert (fund["next_earnings_date"] == "").all() and fund["days_to_next_earnings"].isna().all()
+    assert "120/120개는 끝내 못 받음" in capsys.readouterr().out
 
 
 def _write_snapshots(tmp_path: Path) -> Path:

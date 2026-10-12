@@ -5,7 +5,10 @@
 그러면 섹터가 "Unknown"으로 원래 섹터까지 덮어쓰고, 예정 실적일이 비어 어닝 회피 필터를 그냥 통과하고,
 CCS 펀더멘탈 가점(ROE·부채비율·기관·공매도, 최대 0.4)을 잃는다.
 
-1) 실패가 평소(0~2%)보다 크게 많으면 쉬었다가 몇 종목으로 먼저 확인하고, 풀렸으면 실패한 종목만 다시 받는다.
+1) 50개씩 받다가 한 묶음이 거의 다 실패하고 대형주 확인도 실패하면 막힌 것으로 보고 바로 멈춘다. 쉬었다가
+   대형주로 먼저 확인하고, 풀렸으면 남은 종목을 이어서 받는다.
+   2026-10-09·10-11 실행 모두 막힌 채로 880여 건을 끝까지 요청했다 (종목마다 쿠키·crumb 재발급까지 4번쯤, 3~6분).
+   10-09 는 6분 넘게 계속 요청하는 동안 안 풀렸고, 10-11 은 멈추고 6분 쉬니 풀렸다.
 2) 그래도 못 받은 종목은 전날 스냅샷(sp500_ranked·nasdaq_ranked)의 재무 값·섹터를 쓴다 (재무는 분기마다 바뀌고
    섹터는 거의 안 바뀐다). 예정 실적일이 빈 종목은 전날 값 중 오늘 이후인 것만 쓴다.
 
@@ -22,6 +25,7 @@ from pathlib import Path
 from typing import Callable, Optional, Sequence
 from zoneinfo import ZoneInfo
 
+import numpy as np
 import pandas as pd
 
 from screener.features import compute_features_snapshot
@@ -29,9 +33,10 @@ from screener.fundamentals import fetch_fundamental_snapshots
 
 SNAPSHOT_DIR = Path("data/paper_trading")
 SNAPSHOT_FILES = ("sp500_ranked.parquet", "nasdaq_ranked.parquet")
-MASS_FAIL_RATIO = 0.2    # 실패 비율이 이보다 크면 요청 제한으로 본다 (평소 0~2%)
-RETRY_WAITS = (60, 300)  # 다시 받기 전 쉬는 초 (최대 6분)
-PROBE_SIZE = 3           # 쉰 뒤 이만큼 먼저 받아 보고, 하나라도 받히면 실패 종목 전부를 다시 받는다
+CHUNK_SIZE = 50                   # 이만큼씩 받으며 막혔는지 본다
+BLOCK_RATIO = 0.8                 # 한 묶음에서 이 비율 넘게 실패하면 막혔는지 대형주로 확인 (평소 실패 0~2%)
+RETRY_WAITS = (60, 120, 300, 600)  # 막혔을 때 다시 확인하기 전 쉬는 초 (누적 최대 약 18분)
+PROBE_TICKERS = ("AAPL", "MSFT", "JPM")  # 막혔는지 확인용 — 평소 정보가 늘 받히는 대형주. 하나라도 받히면 풀린 것
 
 Fetch = Callable[[list[str]], pd.DataFrame]
 
@@ -44,6 +49,23 @@ def failed_tickers(fund: pd.DataFrame) -> list[str]:
     return fund.loc[empty, "티커"].astype(str).tolist()
 
 
+def _is_blocked(fetch: Fetch) -> bool:
+    """대형주 확인용 종목이 하나도 안 받히면 True."""
+    probe = fetch(list(PROBE_TICKERS))
+    return probe.empty or len(failed_tickers(probe)) == len(probe)
+
+
+def _empty_rows(tickers: list[str], like: pd.DataFrame) -> pd.DataFrame:
+    """요청하지 못한 종목의 빈 정보 행 — fetch 가 실패한 종목에 돌려주는 모양과 같다 (섹터 Unknown, 실적일 "", 나머지 NaN)."""
+    rows = pd.DataFrame({col: [np.nan] * len(tickers) for col in like.columns})
+    rows["티커"] = tickers
+    if "fund_sector" in rows.columns:
+        rows["fund_sector"] = "Unknown"
+    if "next_earnings_date" in rows.columns:
+        rows["next_earnings_date"] = ""
+    return rows
+
+
 def fetch_with_retry(
     tickers: Sequence[str],
     label: str = "",
@@ -51,29 +73,43 @@ def fetch_with_retry(
     fetch: Optional[Fetch] = None,
     waits: Sequence[float] = RETRY_WAITS,
     sleep: Callable[[float], None] = time.sleep,
+    chunk_size: int = CHUNK_SIZE,
 ) -> pd.DataFrame:
-    """fetch_fundamental_snapshots 와 같은 표. 대량 실패면 쉬었다가 실패한 종목만 다시 받아 바꿔 끼운다."""
+    """fetch_fundamental_snapshots 와 같은 표. 묶음으로 받다가 막히면 멈추고, 쉬었다 풀리면 남은 종목을 이어서 받는다."""
     fetch = fetch or fetch_fundamental_snapshots
     tickers = list(tickers)
-    fund = fetch(tickers)
-    for wait in waits:
-        failed = failed_tickers(fund)
-        if len(failed) <= MASS_FAIL_RATIO * len(tickers):
-            return fund
-        print(f"{label} ⚠️ 종목 정보 {len(failed)}/{len(tickers)}개 실패 (Yahoo 요청 제한 추정) — {wait:.0f}초 쉬고 다시 받기")
-        sleep(wait)
-        probe = fetch(failed[:PROBE_SIZE])
-        if probe.empty or len(failed_tickers(probe)) == len(probe):
-            print(f"{label} 아직 막혀 있음")
+    todo = tickers
+    frames: list[pd.DataFrame] = []
+    waits_left = iter(waits)
+    blocked_chunk: Optional[pd.DataFrame] = None  # 막혔을 때 받은 묶음 (빈 정보라 쓰지 않고 같은 묶음부터 다시)
+    was_blocked = False
+    while todo:
+        if blocked_chunk is not None:
+            wait = next(waits_left, None)
+            if wait is None:
+                break
+            print(f"{label} ⚠️ 종목 정보 막힘 (Yahoo 요청 제한 추정) — {len(todo)}/{len(tickers)}개 남음, {wait:.0f}초 쉬고 확인")
+            sleep(wait)
+            if _is_blocked(fetch):
+                print(f"{label} 아직 막혀 있음")
+                continue
+            print(f"{label} 풀림 — 남은 {len(todo)}개 이어서 받기")
+            blocked_chunk = None
+        chunk = todo[:chunk_size]
+        got = fetch(chunk)
+        if len(failed_tickers(got)) > BLOCK_RATIO * len(chunk) and _is_blocked(fetch):
+            blocked_chunk, was_blocked = got, True
             continue
-        again = fetch(failed)
-        ok = again[~again["티커"].isin(failed_tickers(again))]
-        if not ok.empty:
-            fund = pd.concat([fund[~fund["티커"].isin(ok["티커"])], ok], ignore_index=True)
-        print(f"{label} 다시 받기: {len(ok)}/{len(failed)}개 성공")
-    failed = failed_tickers(fund)
-    if len(failed) > MASS_FAIL_RATIO * len(tickers):
-        print(f"{label} ⚠️ 종목 정보 {len(failed)}/{len(tickers)}개는 끝내 못 받음 — 전날 스냅샷 값으로 대체")
+        frames.append(got)
+        todo = todo[chunk_size:]
+
+    if todo:
+        frames.append(_empty_rows(todo, blocked_chunk))
+    fund = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+    if todo:
+        print(f"{label} ⚠️ 종목 정보 {len(todo)}/{len(tickers)}개는 끝내 못 받음 — 전날 스냅샷 값으로 대체")
+    elif was_blocked:
+        print(f"{label} 다시 받기 완료: {len(tickers) - len(failed_tickers(fund))}/{len(tickers)}개 받음")
     return fund
 
 
