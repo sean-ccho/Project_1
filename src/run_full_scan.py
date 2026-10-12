@@ -38,7 +38,6 @@ from screener.config import (
 from data.ticker_fetcher import fetch_all_tickers, filter_tickers_basic
 from data.fetch import (
     fetch_company_names,
-    fetch_latest_news,
     fetch_latest_prices,
     fetch_ohlcv,
 )
@@ -297,11 +296,10 @@ def build_full_scan_dataframe(
         print(f"[{context_label}] 결과에 티커 정보가 없어 건너뜁니다.")
         return None
 
-    # 회사명, 현재가, 뉴스
+    # 회사명, 현재가 (최근뉴스 열은 2026-10-11 삭제 — 시트로 내보내는 열이 아니라 매일 받고 버리던 Yahoo 요청)
     fetched_names = fetch_company_names(unique_tickers)
     full_name_map = {**fetched_names, **COMPANY_NAME_MAP}
     fetched_prices = fetch_latest_prices(unique_tickers)
-    fetched_news = fetch_latest_news(unique_tickers)
 
     insert_loc = ranked.columns.get_loc("티커")
     ranked.insert(
@@ -315,11 +313,6 @@ def build_full_scan_dataframe(
         ranked["티커"].map(
             lambda t: fetched_prices.get(str(t).upper(), float("nan"))
         ),
-    )
-    ranked.insert(
-        insert_loc + 2,
-        "최근뉴스",
-        ranked["티커"].map(lambda t: fetched_news.get(str(t).upper(), "")),
     )
 
     # ranked(전체 컬럼)를 paper trading에서 사용하기 위해 캐시
