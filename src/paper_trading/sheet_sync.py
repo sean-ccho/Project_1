@@ -82,6 +82,28 @@ def _fmt_price(val) -> str:
         return str(val) if val else ""
 
 
+def _norm_date(val: Any) -> str:
+    """시트 날짜 셀을 YYYY-MM-DD 로. USER_ENTERED 로 날짜가 된 셀은 표시 형식이 달라질 수 있다. 모르는 형식은 원문."""
+    text = str(val or "").strip()
+    for fmt in ("%Y-%m-%d", "%Y. %m. %d", "%Y.%m.%d", "%Y/%m/%d", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(text, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return text
+
+
+def _log_key(row: list[Any]) -> tuple[str, str, str]:
+    """거래로그 행의 (날짜, 종목, BUY/SELL)."""
+    return _norm_date(row[0]), str(row[1]).strip(), "BUY" if "BUY" in str(row[3]) else "SELL"
+
+
+def _already_logged(existing: list[list[Any]], row: list[Any]) -> bool:
+    """같은 (날짜, 종목, BUY/SELL) 행이 이미 있으면 True — 같은 일봉을 다시 처리해도 행이 겹치지 않게."""
+    key = _log_key(row)
+    return any(len(r) >= 4 and _log_key(r) == key for r in existing)
+
+
 def sync_trade_log(trade: dict[str, Any], action: str = "SELL", worksheet: str = WORKSHEET_LOG) -> bool:
     """거래 기록 1건을 거래로그 탭(기본 [페이퍼_거래로그])에 append."""
     sheet = _open_sheet()
@@ -93,9 +115,9 @@ def sync_trade_log(trade: dict[str, Any], action: str = "SELL", worksheet: str =
         return False
 
     try:
-        # 헤더 검사: 첫 행이 비어있거나 헤더가 안맞으면 삽입
+        # 헤더 검사: 첫 행이 비어있거나 헤더가 안맞으면 삽입 (gspread 6 은 빈 시트에 [[]] 를 돌려준다)
         existing = ws.get_all_values()
-        if not existing or existing[0][0] != "날짜":
+        if not existing or not existing[0] or existing[0][0] != "날짜":
             ws.insert_row(_LOG_HEADERS, index=1, value_input_option="USER_ENTERED")
         elif len([c for c in existing[0] if c]) < len(_LOG_HEADERS):
             ws.update([_LOG_HEADERS], "A1", value_input_option="USER_ENTERED")  # 새 열(SPY) 헤더 보강
@@ -145,6 +167,9 @@ def sync_trade_log(trade: dict[str, Any], action: str = "SELL", worksheet: str =
                 diff_str,                                     # SPY대비%p
             ]
 
+        if _already_logged(existing, row):
+            logger.info(f"[SheetSync] 거래로그 이미 있음 — 건너뜀: {action} {trade.get('ticker', '')} {row[0]}")
+            return True
         ws.append_row(row, value_input_option="USER_ENTERED")
         logger.info(f"[SheetSync] 거래로그 append: {action} {trade.get('ticker', '')}")
         return True
