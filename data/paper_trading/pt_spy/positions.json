@@ -1,1 +1,24 @@
-[]
+[
+  {
+    "ticker": "SPY",
+    "entry_price": 778.78,
+    "entry_date": "2026-10-12",
+    "shares": 6.413884,
+    "strategy": "SPY 보유",
+    "star_rating": "",
+    "ccs_score": 1.0,
+    "sector": "",
+    "setup": "index",
+    "highest_price": 779.4,
+    "highest_close": 778.78,
+    "last_close": 778.0999755859375,
+    "bars_held": 0,
+    "signal_date": "2026-10-09",
+    "signal_close": 778.5700073242188,
+    "atr_at_signal": 0.0,
+    "version": "pt-spy-v1",
+    "stop_price": null,
+    "target_price": null,
+    "last_bar_date": "2026-10-12"
+  }
+]

@@ -36,5 +36,20 @@
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 55.400210283927166
+  },
+  {
+    "ticker": "RTX",
+    "entry_price": 186.66000366210938,
+    "entry_date": "2026-10-12",
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (7.0)",
+    "ccs_score": 0.5581,
+    "sector": "Industrials",
+    "highest_price": 186.66000366210938,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 39.30833490679904
   }
 ]
