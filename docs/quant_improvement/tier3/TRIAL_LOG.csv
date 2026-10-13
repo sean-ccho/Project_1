@@ -257,3 +257,6 @@
 2026-10-12 10:53,stage10,idea_batch_v1,7,B2,,탈락,"Sharpe 0.92 vs SPY 0.89, ΔSharpe +0.03 [-0.15, +0.19] p 0.380, CAGR +12.4%, MDD -24.6%"
 2026-10-12 10:53,stage10,idea_batch_v1,7,C1,0.03,탈락,"Sharpe 0.07 vs SPY 0.89, ΔSharpe -0.83 [-1.16, -0.54] p 1.000, CAGR -0.4%, MDD -40.1%"
 2026-10-12 10:53,stage10,idea_batch_v1,7,C2,-0.54,탈락,"Sharpe 0.59 vs SPY 0.89, ΔSharpe -0.31 [-0.58, -0.07] p 0.995, CAGR +8.6%, MDD -29.0%"
+2026-10-12 20:03,stage11,h1_trail_activate_v1,2,(등록),,등록,"[2016-01-04~2025-09-30, PT-1 백테스트 엔진, 13y PIT S&P 500, 매일 리밸런스, $5,000, 가격 캐시 고정] H1a/H1b = EXIT_PARAMS[모멘텀·바닥반등].trail_activate_pct 0.03/0.05 (나머지 지금 규칙). 기준 = 같은 실행의 BASE (저장된 pt1_base_dev_equity 와 같아야 함). 채택 = BASE 대비 verdict 채택 후보(ΔSharpe 95% 하한>0 · 3구간 중 2+ · MDD 2%p 이내) · p_개선아님 ≤ 0.05/2. SPY 대비·청산 이유 분포는 참고."
+2026-10-12 20:13,stage11,h1_trail_activate_v1,2,H1a,,탈락,"Sharpe 0.69 vs BASE 0.62, ΔSharpe +0.07 [-0.34, +0.44] p 0.390, 구간 1/3, CAGR +14.0%, MDD -26.5%, 거래 591"
+2026-10-12 20:13,stage11,h1_trail_activate_v1,2,H1b,,탈락,"Sharpe 0.63 vs BASE 0.62, ΔSharpe +0.01 [-0.47, +0.45] p 0.492, 구간 1/3, CAGR +12.7%, MDD -26.2%, 거래 576"
