@@ -13,6 +13,7 @@ from paper_trading.pt1_account import (  # noqa: E402
     allocate,
     build_dollar_account,
     daily_equity,
+    held_rows,
     section_html,
     sheet_rows,
     summary,
@@ -42,6 +43,16 @@ def test_allocate_splits_cash_over_empty_slots_and_sells_first():
     assert a.proceeds == 600.0                          # 9/3 AAA 판 돈으로
     assert (c.cost, c.shares) == (600.0, 120.0)         # 같은 날 CCC 매수
     assert cash == 0.0
+
+
+def test_allocate_buys_whole_shares_and_keeps_change():
+    lots = [Lot("AAA", "2026-09-01", 30.0), Lot("BBB", "2026-09-02", 7.0), Lot("CCC", "2026-09-03", 2000.0)]
+    cash = allocate(lots, max_positions=3, initial=1000.0, cost=0.0)
+    a, b, c = lots
+    assert (a.shares, a.cost) == (11.0, 330.0)          # 1000/3 = 333.33 → 11주, 3.33 은 현금
+    assert (b.shares, b.cost) == (47.0, 329.0)          # 670/2 = 335 → 47.86 → 47주
+    assert (c.shares, c.cost) == (0.0, 0.0)             # 341 로 $2,000 짜리 1주도 못 삼 → 0주, 돈은 현금에 남음
+    assert math.isclose(cash, 1000.0 - 330.0 - 329.0)
 
 
 def test_allocate_same_day_round_trip_buys_before_selling():
@@ -77,6 +88,10 @@ def test_build_account_compares_with_spy_bought_same_day():
 
     html = section_html([("PT-1", acct), ("PT-1S (S&P 500만)", build_dollar_account([], [], frame=frame))])
     assert "$1,200" in html and "+10.0%p" in html and "아직 거래 없음" in html
+    held = held_rows([("PT-1", acct)])
+    assert len(held) == 1 and held[0]["label"] == "PT-1"
+    assert math.isclose(held[0]["price"], 24.0) and math.isclose(held[0]["value"], 25 * 24.0)
+    assert math.isclose(held[0]["spy_ret"], 110.0 / 101.0 - 1)   # BBB 매수일(9/2) SPY 종가 101 → 마지막 110
     rows = sheet_rows(acct, "PT-1")
     assert rows[3][:4] == ["2026-09-01", "$1,000", "$1,200", "+20.0%"]
     assert ["날짜", "평가액", "같은 날 SPY 샀으면"] in rows and rows[-1] == ["2026-09-07", 1200.0, 1100.0]

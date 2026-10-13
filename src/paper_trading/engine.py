@@ -65,6 +65,21 @@ def _resolve_exit_params(strategy: str) -> dict[str, float]:
     return EXIT_PARAMS_DEFAULT
 
 
+def _in_defer_freeze(pos: dict[str, Any], as_of: str | date | None = None) -> bool:
+    """재평가(defer) 직후 freeze 기간이면 True — 그동안 목표가·시간익절은 보지 않는다."""
+    last_defer = pos.get("last_defer_date")
+    if not last_defer or pos.get("defer_count", 0) <= 0:
+        return False
+    try:
+        from datetime import datetime as _dt
+        defer_dt = _dt.strptime(str(last_defer), "%Y-%m-%d").date()
+        check_dt = (as_of if isinstance(as_of, date) else
+                    _dt.strptime(str(as_of), "%Y-%m-%d").date() if as_of else date.today())
+        return (check_dt - defer_dt).days < HOLD_WINNERS_DEFER_FREEZE_DAYS
+    except Exception:
+        return False
+
+
 def check_sell_conditions(
     pos: dict[str, Any],
     current_price: float,
@@ -81,17 +96,7 @@ def check_sell_conditions(
 
     # 1. 목표가 도달
     # defer freeze 중이면 시간익절/목표가는 skip (tight trail만 작동)
-    last_defer = pos.get("last_defer_date")
-    in_freeze = False
-    if last_defer and pos.get("defer_count", 0) > 0:
-        try:
-            from datetime import datetime as _dt
-            defer_dt = _dt.strptime(str(last_defer), "%Y-%m-%d").date()
-            check_dt = (as_of if isinstance(as_of, date) else
-                        _dt.strptime(str(as_of), "%Y-%m-%d").date() if as_of else date.today())
-            in_freeze = (check_dt - defer_dt).days < HOLD_WINNERS_DEFER_FREEZE_DAYS
-        except Exception:
-            in_freeze = False
+    in_freeze = _in_defer_freeze(pos, as_of)
 
     if not in_freeze:
         # 1. 목표가 도달
@@ -123,6 +128,43 @@ def check_sell_conditions(
         return True, f"장기보유({days}일,{ret:+.1%})"
 
     return False, ""
+
+
+def exit_levels(pos: dict[str, Any], as_of: str | date | None = None) -> dict[str, Any]:
+    """표시용 — check_sell_conditions 와 같은 규칙으로 '종가가 여기 닿으면 판다'는 선을 계산한다.
+
+    up: 이 가격 이상이면 익절 (목표가, 시간익절 날짜가 지났으면 더 낮은 시간익절선). freeze 중이면 None.
+    down: 이 가격 이하면 매도 (손절·트레일링, 장기보유 날짜가 지났으면 +stale 선 중 가장 높은 것).
+    next: 다음에 생기는 선 {"day", "side", "price", "tag"} — 며칠째부터 어느 쪽 선이 바뀌는지. 없으면 None.
+    재평가로 익절을 미룬 경우(목표가 도달 → 보유 연장)는 엔진이 다음 실행에서 다시 판단하므로 up 을 그대로 보여 준다.
+    """
+    entry = float(pos["entry_price"])
+    highest = float(pos.get("highest_price", entry) or entry)
+    days = get_holding_days(pos, as_of)
+    p = _resolve_exit_params(pos.get("strategy", ""))
+
+    up, up_tag = None, ""
+    if not _in_defer_freeze(pos, as_of):
+        up, up_tag = entry * (1 + p["profit_target"]), "목표가"
+        if days >= p["time_profit_days"] and p["time_profit_min"] < p["profit_target"]:
+            up, up_tag = entry * (1 + p["time_profit_min"]), "시간익절"
+
+    down, down_tag = entry * (1 - p["stop_loss"]), "손절"
+    if highest > entry * (1 + p.get("trail_activate_pct", 0.0)):
+        trail = highest * (1 - (pos.get("trailing_stop_override") or p["trailing_stop"]))
+        if trail > down:
+            down, down_tag = trail, "트레일링"
+    stale = entry * (1 + p["stale_min_return"])
+    if days > p["max_holding_days"] and stale > down:
+        down, down_tag = stale, "장기보유"
+
+    nxt = None
+    if up is not None and up_tag == "목표가" and days < p["time_profit_days"]:
+        nxt = {"day": int(p["time_profit_days"]), "side": "up", "price": entry * (1 + p["time_profit_min"]),
+               "tag": "시간익절"}
+    elif days <= p["max_holding_days"] and stale > down:
+        nxt = {"day": int(p["max_holding_days"]) + 1, "side": "down", "price": stale, "tag": "장기보유"}
+    return {"up": up, "up_tag": up_tag, "down": down, "down_tag": down_tag, "next": nxt}
 
 
 def intraday_stop_exit(

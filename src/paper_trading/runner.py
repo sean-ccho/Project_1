@@ -306,19 +306,23 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None, a
 
     # ── $5,000 계좌: 같은 거래를 가상 자본으로 다시 계산 (매매와 무관, 표시만) ──
     dollar_html = ""
+    dollar_holdings: list[dict] = []
+    account_positions: dict[str, list[dict]] = {acct["label"]: positions}  # 계좌 이름 → 보유 position dict
     try:
-        from paper_trading.pt1_account import build_accounts, section_html, sync_sheet
+        from paper_trading.pt1_account import build_accounts, held_rows, section_html, sync_sheet
 
         books = {acct["label"]: (trades, positions)}
         if acct["email"]:  # PT-1 메일에는 PT-1S 계좌도 함께 보여 준다
             other = PT1_ACCOUNTS["pt1s"]
             other_dir = Path(PAPER_TRADING_DATA_DIR) / other["subdir"]
-            books[other["label"]] = (load_trades(other_dir), load_positions(other_dir))
+            account_positions[other["label"]] = load_positions(other_dir)
+            books[other["label"]] = (load_trades(other_dir), account_positions[other["label"]])
         dollars = build_accounts(books)
         if not report_only:
             sync_sheet(dollars[acct["label"]], acct["label"], acct["dollar_tab"])
             print(f"[Unified PT] $5,000 계좌 탭 '{acct['dollar_tab']}' 동기화 완료")
         dollar_html = section_html(list(dollars.items()))
+        dollar_holdings = held_rows(list(dollars.items()))
     except Exception as exc:  # noqa: BLE001 — 매매·메일은 계속
         print(f"[Unified PT] $5,000 계좌 계산 실패 (무시): {exc}")
 
@@ -334,7 +338,9 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None, a
 
     # ── 내부자 거래 90일 요약 (openinsider, 표시용) — 후보 / 매수 / 매도 / 보유 / 골든크로스 ──
     top5 = pt_result.get("selection_debug", {}).get("top5", [])
-    shown = top5 + buys + sells + golden_cross + positions
+    # PT-1S 보유 종목도 합친 보유 표에 나오므로 내부자·거래량을 함께 채운다
+    other_held = [p for label, ps in account_positions.items() if label != acct["label"] for p in ps]
+    shown = top5 + buys + sells + golden_cross + positions + other_held
     try:
         from screener.insider import fetch_insider_snapshots
 
@@ -367,16 +373,26 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None, a
             except (TypeError, ValueError):
                 return 0.0
 
-        for p in positions:
+        for p in positions + other_held:
             rows = merged_df[merged_df["티커"] == p.get("ticker", "")]
             if not rows.empty:
                 r = rows.iloc[0]
                 p["vol_ratio"] = _vol_float(r.get("거래량돌파배수"))
                 p["vol_ma20"] = _vol_float(r.get("volume_ma20"))
 
+    # 합친 보유 표: $5,000 계좌 줄마다 그 계좌 position 의 전략·섹터·고점·내부자·거래량을 붙인다
+    for row in dollar_holdings:
+        pos = next((p for p in account_positions.get(row["label"], [])
+                    if p.get("ticker") == row["ticker"] and str(p.get("entry_date")) == row["entry_date"]), {})
+        for key in ("strategy", "sector", "highest_price", "trailing_stop_override", "defer_count", "last_defer_date",
+                    "insider", "vol_ratio", "vol_ma20"):
+            if key in pos:
+                row[key] = pos[key]
+
     send_paper_trading_email(
         pt_result, positions, prices=prices,
         golden_cross=golden_cross, extra_html=dollar_html,
+        dollar_holdings=dollar_holdings,
     )
     print("=" * 60)
     print("[Unified Paper Trading] 완료")

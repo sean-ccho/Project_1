@@ -562,8 +562,13 @@ def send_paper_trading_email(
     prices: dict[str, float] | None = None,
     golden_cross: list[dict] | None = None,
     extra_html: str = "",
+    dollar_holdings: list[dict] | None = None,
 ) -> bool:
-    """페이퍼 트레이딩 매수/매도 결과를 이메일로 발송한다. extra_html 은 SPY 비교 표 바로 아래에 넣는다 ($5,000 계좌)."""
+    """페이퍼 트레이딩 매수/매도 결과를 이메일로 발송한다. extra_html 은 SPY 비교 표 바로 아래에 넣는다 ($5,000 계좌).
+
+    dollar_holdings(계좌×보유 종목 줄)가 있으면 $5,000 계좌 요약 아래에 보유 표 하나로 합쳐 보여 주고,
+    따로 있던 '현재 보유 현황' 표는 그리지 않는다.
+    """
     if not EMAIL_ENABLED:
         return False
 
@@ -670,6 +675,73 @@ def send_paper_trading_email(
     def _cap(ticker) -> str:
         return _cap_map.get(str(ticker or "").upper(), "?")
 
+    def _exit_cell(p: dict, current) -> str:
+        """매도 기준 셀: 엔진 매도 규칙(check_sell_conditions)과 같은 선 — ▲ 닿으면 익절, ▼ 닿으면 매도 (현재가 대비 %).
+
+        아래 회색 줄은 며칠째부터 선이 바뀌는지 (시간익절 / 장기보유). 표시 전용.
+        """
+        from paper_trading.engine import exit_levels
+        if not p.get("entry_price") or not p.get("entry_date"):
+            return "-"
+        try:
+            cur = float(current) if current else 0.0
+            # 엔진은 매도 판단 전에 고점을 현재가로 올린다 (update_highest_price) — 같은 순서로 계산
+            highest = max(float(p.get("highest_price") or p["entry_price"]), cur)
+            lv = exit_levels({**p, "highest_price": highest})
+        except (KeyError, TypeError, ValueError):
+            return "-"
+
+        def _dist(level: float) -> str:
+            return f" ({level / cur - 1:+.1%})" if cur else ""
+
+        lines = []
+        if lv["up"] is not None:
+            reached = cur and cur >= lv["up"]
+            lines.append(f"<span style='color:#1e8449;font-weight:bold'>▲ {_price(lv['up'])}"
+                         f"{' 도달' if reached else _dist(lv['up'])}</span>"
+                         f" <span style='color:#999;font-size:11px'>{lv['up_tag']}</span>")
+        lines.append(f"<span style='color:#c0392b;font-weight:bold'>▼ {_price(lv['down'])}{_dist(lv['down'])}</span>"
+                     f" <span style='color:#999;font-size:11px'>{lv['down_tag']}</span>")
+        nxt = lv["next"]
+        if nxt:
+            arrow = "▲" if nxt["side"] == "up" else "▼"
+            lines.append(f"<span style='color:#999;font-size:11px'>{nxt['day']}일째부터 {arrow} {_price(nxt['price'])}"
+                         f" {nxt['tag']}</span>")
+        if int(p.get("defer_count") or 0) > 0:
+            lines.append(f"<span style='color:#d35400;font-size:11px'>보유 연장 {int(p['defer_count'])}/{HOLD_WINNERS_MAX_DEFERS}</span>")
+        return "<br>".join(lines)
+
+    def _exit_stats_note() -> str:
+        """표 아래 설명: 매도 기준이 무엇인지 + PT-1 이 지금까지 어떤 이유로 팔았는지 (건수·평균 수익률)."""
+        from screener import config as _c
+        basis = "▼ 는 장중 저가, ▲ 는 종가" if getattr(_c, "PT1_STOP_INTRADAY", False) else "종가"
+        note = (f"매도 기준은 봇이 실제로 쓰는 규칙입니다 ({basis} 기준). ▲ 는 '여기까지 오른다'는 예측이 아니라 "
+                f"'닿으면 판다'는 선이며, 그때 상승세가 강하면 바로 팔지 않고 고점 대비 "
+                f"−{_c.HOLD_WINNERS_TIGHT_TRAIL:.1%}로 좁혀 더 들고 갈 수 있습니다 (최대 {HOLD_WINNERS_MAX_DEFERS}번). "
+                f"더 좋은 후보가 나오면 가장 약한 종목을 바꿔 팔기도 합니다 (교체).")
+        try:
+            from paper_trading.portfolio import load_trades as _lt
+            groups: dict[str, list[float]] = {}
+            for t in _lt():
+                reason = str(t.get("exit_reason") or "")
+                key = next((k for k in ("목표가", "시간익절", "트레일링", "손절", "장기보유", "교체")
+                            if reason.startswith(k)), "기타")
+                groups.setdefault(key, []).append(float(t.get("return_pct") or 0))
+            if groups:
+                order = ("목표가", "시간익절", "트레일링", "손절", "장기보유", "교체", "기타")
+                parts = [f"{k} {len(groups[k])}건({sum(groups[k]) / len(groups[k]):+.1%})" for k in order if k in groups]
+                n = sum(len(v) for v in groups.values())
+                note += f"<br>PT-1이 지금까지 판 이유 (청산 {n}건, 평균 수익률): " + " · ".join(parts)
+        except Exception:  # noqa: BLE001 — 설명 줄일 뿐, 메일은 계속
+            pass
+        return f"<p style='color:#777;font-size:12px'>{note}</p>"
+
+    def _days_held(entry_date) -> str:
+        try:
+            return f"{(datetime.now().date() - datetime.strptime(str(entry_date), '%Y-%m-%d').date()).days}일"
+        except (TypeError, ValueError):
+            return "-"
+
     # ── 매도 테이블 ──
     sell_html = ""
     if sells:
@@ -747,19 +819,67 @@ def send_paper_trading_email(
             buy_html += _build_chart_images_html(ticker, color_theme="buys")
         buy_html += "<br>"
 
-    # ── 현재 보유 현황 (현재가/수익률/재평가 뱃지/Trail Stop) ──
+    # ── 현재 보유 현황 (현재가/수익률/재평가 뱃지/매도 기준) ──
     holdings_html = ""
-    if positions:
+    if dollar_holdings:
+        # ── 합친 보유 표 ($5,000 계좌 줄 + 시총·헬스체크·SPY 대비·매도 기준·거래량·내부자) ──
+        _gray = "<br><span style='color:#999;font-size:11px'>{}</span>"
+        holdings_html = f"""
+<h3 style='color:#2980b9'>📊 보유 종목 ({len(dollar_holdings)}줄)</h3>
+<table border='1' cellpadding='4' style='border-collapse:collapse;font-size:14px'>
+<tr style='background:#ebf5fb;text-align:center'>
+  <th>계좌</th><th>종목</th><th>섹터/지수</th><th>[시총]</th><th>[헬스체크]</th><th>매수일</th><th>매수가<br>→ 현재가</th>
+  <th>주식 수</th><th>평가액</th><th>손익</th><th>SPY 대비</th><th>전략</th>
+  <th>매도 기준<br><span style='font-weight:normal;font-size:11px'>(현재가 대비)</span></th><th>거래량</th><th>내부자(90일)</th>
+</tr>
+"""
+        for h in dollar_holdings:
+            ticker = h.get("ticker", "")
+            cost, value = float(h.get("cost") or 0), float(h.get("value") or 0)
+            pnl = value - cost
+            ret = value / cost - 1 if cost else None
+            pnl_color = "#27ae60" if pnl >= 0 else "#e74c3c"
+            pnl_str = (f"<span style='color:{pnl_color};font-weight:bold'>{'+' if pnl >= 0 else '-'}${abs(pnl):,.0f}</span>"
+                       f"<br>{_pct(ret) if ret is not None else '-'}")
+            days = _days_held(h.get("entry_date"))
+            # 같은 기간 SPY (매수일 종가 → 마지막 종가) 대비 — 'SPY 대비 누적 성과' 표와 같은 기준
+            spy_ret = h.get("spy_ret")
+            if ret is not None and spy_ret is not None and spy_ret == spy_ret:
+                diff = ret - float(spy_ret)
+                spy_str = (f"<span style='color:{'#27ae60' if diff >= 0 else '#e74c3c'};font-weight:bold'>"
+                           f"{diff * 100:+.1f}%p</span>" + _gray.format(f"SPY {float(spy_ret):+.1%}"))
+            else:
+                spy_str = "-"
+            holdings_html += (
+                f"<tr style='text-align:center'>"
+                f"<td>{str(h.get('label', '')).split(' (')[0]}</td>"
+                f"<td><b>{ticker}</b></td>"
+                f"<td>{h.get('sector', '')}<br><span style='color:#999;font-size:11px'>{_index_source(ticker)}</span></td>"
+                f"<td>{_cap(ticker)}</td>"
+                f"<td>{_health_cell(ticker)}</td>"
+                f"<td>{h.get('entry_date', '')}{_gray.format(days + '째') if days != '-' else ''}</td>"
+                f"<td>{_price(h.get('entry_price'))}<br>→ {_price(h.get('price'))}</td>"
+                f"<td>{int(h.get('shares') or 0):,}</td>"
+                f"<td><b>${value:,.0f}</b>{_gray.format(f'매수 ${cost:,.0f}')}</td>"
+                f"<td>{pnl_str}</td>"
+                f"<td>{spy_str}</td>"
+                f"<td>{h.get('strategy', '')}</td>"
+                f"<td style='text-align:left;white-space:nowrap'>{_exit_cell(h, h.get('price'))}</td>"
+                f"<td>{_vol_cell(h.get('vol_ratio'), h.get('vol_ma20'))}</td>"
+                f"<td style='font-size:12px'>{h.get('insider') or '—'}</td>"
+                f"</tr>\n"
+            )
+        holdings_html += "</table>\n" + _exit_stats_note() + "<br>\n"
+    elif positions:
         from datetime import date
         holdings_html = """
 <h3 style='color:#2980b9'>📊 현재 보유 현황 ({n}종목)</h3>
 <table border='1' cellpadding='4' style='border-collapse:collapse;font-size:14px'>
 <tr style='background:#ebf5fb;text-align:center'>
   <th>종목</th><th>섹터/지수</th><th>[시총]</th><th>[헬스체크]</th><th>매수일</th><th>매수가</th><th>현재가</th>
-  <th>수익률</th><th>보유일</th><th>전략</th><th>Trail Stop</th><th>거래량</th><th>내부자(90일)</th>
+  <th>수익률</th><th>보유일</th><th>전략</th><th>매도 기준</th><th>거래량</th><th>내부자(90일)</th>
 </tr>
 """.format(n=len(positions))
-        from paper_trading.engine import _resolve_exit_params
         for p in positions:
             entry_date = p.get("entry_date", "")
             try:
@@ -814,24 +934,7 @@ def send_paper_trading_email(
                 )
             else:
                 status = ""
-            # Trail Stop: 엔진 청산 로직(check_sell_conditions)과 동일하게 계산 — 표시 전용.
-            # 고점이 매수가를 넘은 적 있으면 트레일링, 아니면 하드손절이 실제 보호선.
-            exit_p = _resolve_exit_params(p.get("strategy", ""))
-            highest = p.get("highest_price", entry_price) or entry_price
-            if entry_price and highest > entry_price:
-                trail = p.get("trailing_stop_override") or exit_p["trailing_stop"]
-                stop_price, trail_tag = highest * (1 - trail), "트레일"
-            elif entry_price:
-                stop_price, trail_tag = entry_price * (1 - exit_p["stop_loss"]), "손절"
-            else:
-                stop_price, trail_tag = 0, ""
-            if stop_price:
-                trail_str = (
-                    f"<span style='color:#e67e22;font-weight:bold'>{_price(stop_price)}</span>"
-                    f"<br><span style='color:#999;font-size:11px'>{trail_tag}</span>"
-                )
-            else:
-                trail_str = "-"
+            trail_str = _exit_cell(p, current)
             vol_str = _vol_cell(p.get("vol_ratio"), p.get("vol_ma20"))
             insider_str = p.get("insider") or "—"
             holdings_html += (
@@ -851,10 +954,13 @@ def send_paper_trading_email(
                 f"<td style='font-size:12px'>{insider_str}</td>"
                 f"</tr>\n"
             )
-        holdings_html += "</table>\n"
-        for p in positions:
-            holdings_html += _build_chart_images_html(p.get("ticker", ""), color_theme="holdings")
-        holdings_html += "<br>"
+        holdings_html += "</table>\n<br>"
+
+    # ── 보유 종목 차트 (두 계좌 티커 합쳐 중복 제거, 표 아래 원래 자리) ──
+    chart_tickers = [p.get("ticker", "") for p in positions] + [h.get("ticker", "") for h in (dollar_holdings or [])]
+    holdings_charts_html = "".join(
+        _build_chart_images_html(t, color_theme="holdings") for t in dict.fromkeys(chart_tickers) if t
+    )
 
     # ── 재평가 체크 라인 생성 (P1: 통과/실패 모두 표시) ──
     def _render_check_lines(dbg: dict, checks: dict) -> tuple[list[str], int]:
@@ -1062,11 +1168,13 @@ def send_paper_trading_email(
 <h2 style='font-family:sans-serif'>📈 페이퍼 트레이딩 일일 보고 — {date_str}</h2>
 {spy_html}
 {extra_html}
+{holdings_html if dollar_holdings else ""}
 {sell_html}
 {buy_html}
 {defer_html}
 {defer_skip_html}
-{holdings_html}
+{"" if dollar_holdings else holdings_html}
+{holdings_charts_html}
 {candidates_html}
 {golden_cross_html}
 <p style='color:#999;font-size:12px'>본 메일은 시스템에 의해 자동으로 발송되었습니다.</p>

@@ -1,8 +1,9 @@
 """PT-1 $5,000 계좌 — PT-1 실제 거래(같은 종목·날짜·가격)를 가상 자본 $5,000 로 다시 계산한다.
 
 PT-1 은 거래마다 수익률(%)만 기록해서 "실제 돈으로 얼마"가 보이지 않았다. 같은 거래를 $5,000 계좌로 따라간다:
-빈 자리(최대 PAPER_TRADING_MAX_POSITIONS 종목)마다 남은 현금을 똑같이 나눠 매수하고, 편도 비용 0.1%
-(BACKTEST_COST_PER_SIDE — PT-1 백테스트·PT-SPY 와 같은 회계). 같은 날 같은 돈으로 SPY 를 샀을 때와 비교한다.
+빈 자리(최대 PAPER_TRADING_MAX_POSITIONS 종목)마다 남은 현금을 똑같이 나눠 그 돈으로 살 수 있는 만큼 정수 주식을 사고
+(남는 돈은 현금), 편도 비용 0.1% (BACKTEST_COST_PER_SIDE — PT-1 백테스트·PT-SPY 와 같은 회계).
+같은 날 같은 돈으로 SPY 를 샀을 때와 비교한다.
 
 매매 판단은 바꾸지 않고 기록·표시만 한다. 매번 거래 기록 전체에서 다시 계산하므로 따로 저장할 상태가 없다.
 평가에 쓰는 종가는 수정주가라, 보유 중 액면분할이 있으면 그 종목 평가액이 틀릴 수 있다 (PT-1 자체 기록과 같은 한계).
@@ -82,6 +83,7 @@ def allocate(lots: list[Lot], *, max_positions: int, initial: float = INITIAL_CA
     """날짜순으로 사고팔며 lot 마다 주식 수·매수금액·매도금액을 채운다. 남은 현금을 돌려준다.
 
     같은 날에는 다른 종목 매도 → 매수 → 그날 산 종목의 당일 매도 순서 (판 돈으로 빈 자리를 채운다).
+    주식은 정수로만 산다 — 자리 몫으로 1주도 못 사면 0주(자리만 차지, 돈은 현금에 남음).
     """
     events = []
     for i, lot in enumerate(lots):
@@ -92,8 +94,9 @@ def allocate(lots: list[Lot], *, max_positions: int, initial: float = INITIAL_CA
     for _, kind, i in sorted(events):
         lot = lots[i]
         if kind == 1:
-            lot.cost = cash / max(1, max_positions - held)
-            lot.shares = lot.cost / (lot.entry_price * (1 + cost))
+            budget = cash / max(1, max_positions - held)
+            lot.shares = float(math.floor(budget / (lot.entry_price * (1 + cost)) + 1e-9))
+            lot.cost = lot.shares * lot.entry_price * (1 + cost)
             cash -= lot.cost
             held += 1
         else:
@@ -195,7 +198,7 @@ def summary(acct: DollarAccount) -> dict[str, Any]:
     """요약 숫자 (평가액·수익률·같은 날 SPY·현금·손익·MDD)."""
     equity = acct.equity
     spy_eq = float(acct.spy_curve.iloc[-1]) if not acct.spy_curve.empty else math.nan
-    closed = acct.closed
+    closed = [lot for lot in acct.closed if lot.shares > 0]  # 0주(1주도 못 산 자리)는 거래로 세지 않는다
     return {
         "start": acct.start or "-",
         "equity": equity,
@@ -223,7 +226,7 @@ def _pct(v: float) -> str:
 
 def section_html(accounts: Sequence[tuple[str, DollarAccount]]) -> str:
     """PT-1 메일에 넣는 '$5,000 계좌' 섹션."""
-    rows, held = "", ""
+    rows = ""
     for label, acct in accounts:
         if not acct.lots:
             rows += f"<tr style='text-align:center'><td>{label}</td><td colspan='8'>아직 거래 없음 — 현금 $5,000</td></tr>"
@@ -235,32 +238,45 @@ def section_html(accounts: Sequence[tuple[str, DollarAccount]]) -> str:
                  f"<td>{_pct(s['ret'])}</td><td>{_usd(s['spy_equity'])} ({_pct(s['spy_ret'])})</td>"
                  f"<td style='color:{color}'><b>{'—' if diff != diff else f'{diff * 100:+.1f}%p'}</b></td>"
                  f"<td>{_usd(s['cash'])}</td><td>{s['holdings']}</td><td>{s['mdd']:.1%} ({s['spy_mdd']:.1%})</td></tr>")
-        for lot in acct.holdings:
-            value = lot.shares * acct.price(lot)
-            held += (f"<tr style='text-align:center'><td>{label}</td><td>{lot.ticker}</td><td>{lot.entry_date}</td>"
-                     f"<td>{lot.shares:,.2f}</td><td>{_usd(lot.cost)}</td><td>{_usd(value)}</td>"
-                     f"<td>{_pct(value / lot.cost - 1)}</td></tr>")
-    held_html = ""
-    if held:
-        held_html = ("<table border='1' style='border-collapse:collapse;width:80%;font-size:13px;margin-top:6px'>"
-                     "<tr style='background:#f4f6f7;text-align:center'><th>계좌</th><th>보유 종목</th><th>매수일</th>"
-                     f"<th>주식 수</th><th>매수금액</th><th>평가액</th><th>손익</th></tr>{held}</table>")
     return f"""
 <h3 style='color:#34495e'>💵 $5,000 계좌 — PT-1 실제 거래를 실제 돈으로</h3>
 <table border='1' style='border-collapse:collapse;width:80%;font-size:14px'>
 <tr style='background:#f4f6f7;text-align:center'><th>계좌</th><th>시작</th><th>평가액</th><th>수익률</th><th>같은 날 SPY 샀으면</th><th>SPY 대비</th><th>현금</th><th>보유</th><th>MDD (SPY)</th></tr>
 {rows}
 </table>
-{held_html}
-<p style='color:#777;font-size:12px'>PT-1이 실제로 사고판 종목·날짜·가격 그대로, 빈 자리(최대 3종목)마다 남은 현금을 똑같이 나눠 산 것으로 계산합니다 (편도 비용 0.1%). 매매 판단은 바뀌지 않습니다.</p>
+<p style='color:#777;font-size:12px'>PT-1이 실제로 사고판 종목·날짜·가격 그대로, 빈 자리(최대 3종목)마다 남은 현금을 똑같이 나눠 정수 주식만 산 것으로 계산합니다 (남는 돈은 현금, 편도 비용 0.1%). 매매 판단은 바뀌지 않습니다.</p>
 """
+
+
+def spy_since(acct: DollarAccount, entry_date: str) -> float:
+    """매수일 종가 → 마지막 종가 SPY 수익률 (benchmarks.spy_window_return 과 같은 기준). 없으면 nan.
+
+    계좌의 SPY 평가액 곡선은 SPY 종가에 비례하므로 두 날짜의 비율이 곧 SPY 수익률이다.
+    """
+    spy = acct.spy_curve.dropna()
+    if spy.empty:
+        return math.nan
+    start = spy.loc[:pd.Timestamp(entry_date)]
+    return float(spy.iloc[-1] / start.iloc[-1] - 1) if not start.empty else math.nan
+
+
+def held_rows(accounts: Sequence[tuple[str, DollarAccount]]) -> list[dict[str, Any]]:
+    """메일 보유 표용 — 계좌×보유 종목마다 한 줄 (숫자만, HTML 은 exporter 가 만든다)."""
+    rows: list[dict[str, Any]] = []
+    for label, acct in accounts:
+        for lot in acct.holdings:
+            price = acct.price(lot)
+            rows.append({"label": label, "ticker": lot.ticker, "entry_date": lot.entry_date,
+                         "entry_price": lot.entry_price, "shares": lot.shares, "cost": lot.cost,
+                         "price": price, "value": lot.shares * price, "spy_ret": spy_since(acct, lot.entry_date)})
+    return rows
 
 
 def sheet_rows(acct: DollarAccount, label: str) -> list[list[Any]]:
     """계좌 탭 내용: 요약 → 보유 종목 → 청산 거래(최근 순) → 일별 평가액."""
     stamp = datetime.now(timezone(timedelta(hours=-5))).strftime("%Y-%m-%d %H:%M EST")
     rows: list[list[Any]] = [[f"{label} $5,000 계좌 — PT-1 실제 거래를 가상 자본으로 계산 "
-                              "(빈 자리마다 남은 현금을 똑같이 나눠 매수, 편도 비용 0.1%)", stamp], []]
+                              "(빈 자리마다 남은 현금을 똑같이 나눠 정수 주식만 매수, 편도 비용 0.1%)", stamp], []]
     if not acct.lots:
         return rows + [["아직 거래 없음 — 현금 $5,000"]]
     s = summary(acct)
@@ -274,12 +290,13 @@ def sheet_rows(acct: DollarAccount, label: str) -> list[list[Any]]:
     for lot in acct.holdings:
         px = acct.price(lot)
         value = lot.shares * px
-        rows.append([lot.ticker, lot.entry_date, round(lot.entry_price, 2), round(lot.shares, 4), round(lot.cost, 2),
-                     round(px, 2), round(value, 2), round(value - lot.cost, 2), _pct(value / lot.cost - 1)])
+        rows.append([lot.ticker, lot.entry_date, round(lot.entry_price, 2), int(lot.shares), round(lot.cost, 2),
+                     round(px, 2), round(value, 2), round(value - lot.cost, 2), _pct(value / lot.cost - 1 if lot.cost else math.nan)])
     rows += [[], ["청산 거래 (최근 순)"], ["종목", "매수일", "매도일", "주식 수", "매수금액", "매도금액", "손익", "수익률"]]
     for lot in sorted(acct.closed, key=lambda x: (x.exit_date or "", x.entry_date), reverse=True):
-        rows.append([lot.ticker, lot.entry_date, lot.exit_date, round(lot.shares, 4), round(lot.cost, 2),
-                     round(lot.proceeds, 2), round(lot.proceeds - lot.cost, 2), _pct(lot.proceeds / lot.cost - 1)])
+        rows.append([lot.ticker, lot.entry_date, lot.exit_date, int(lot.shares), round(lot.cost, 2),
+                     round(lot.proceeds, 2), round(lot.proceeds - lot.cost, 2),
+                     _pct(lot.proceeds / lot.cost - 1 if lot.cost else math.nan)])
     rows += [[], ["일별 평가액"], ["날짜", "평가액", "같은 날 SPY 샀으면"]]
     spy = acct.spy_curve
     for d, v in acct.curve.items():
