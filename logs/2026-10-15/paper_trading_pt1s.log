@@ -2,26 +2,10 @@
 [Unified Paper Trading] PT-1S (S&P 500만) 실행 시작
 ============================================================
 [Unified PT] PT1_UNIVERSE=sp500 — S&P 500 스냅샷만 사용
-2026-10-15 07:54:45,893 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+2026-10-15 18:54:22,667 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
 [Unified PT] SP500 snapshot 로드: 130개 종목
-[Unified PT] 거래일(일봉 날짜): 2026-10-14
-[Unified PT] 골든크로스임박 종목: 28개
-2026-10-15 07:54:46,633 [INFO] paper_trading.engine — [PaperTrading] SELL MPWR @ 1243.11 (손절(-10.3%))
-2026-10-15 07:54:46,645 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 25 | 4.0~5.0: 14 | 5.0~5.5: 5 | 5.5~6.0: 11 | 6.0+: 75
-2026-10-15 07:54:46,661 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=6/130 | Selected: SNPS (CCS=0.5921)
-2026-10-15 07:54:46,663 [INFO] paper_trading.engine — [PaperTrading] BUY SNPS @ 479.93 (CCS=0.5921, RSI=60)
-[Unified PT] 매도=1 매수=1 보유=3종목
-[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 55, '바닥반등_52주과열': 1, '판단등급_미달': 59, '과열_차단': 5, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 2, '같은회사_중복': 0, '모멘텀_ADX부족': 2, '바닥_RSI데드존': 0, '섹터_집중': 0, '_통과': 6, '_전체': 130}
-[Unified PT] Top5 후보:
-  DDOG   CCS=0.5950 전략=📈 모멘텀 섹터=Technology
-  MS     CCS=0.5922 전략=📉 바닥반등 섹터=Financial Services
-  SNPS   CCS=0.5921 전략=📈 모멘텀 섹터=Technology
-  T      CCS=0.5881 전략=📉 바닥반등 섹터=Communication Services
-  BKNG   CCS=0.4649 전략=📉 바닥반등 섹터=Consumer Cyclical
-2026-10-15 07:54:48,074 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 append: SELL MPWR
-2026-10-15 07:54:49,012 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 append: BUY SNPS
-2026-10-15 07:54:50,063 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
-2026-10-15 07:54:51,217 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 1건 거래
-[Unified PT] 구글 시트 동기화 완료
-[Unified PT] $5,000 계좌 탭 '페이퍼S_계좌' 동기화 완료
+[Unified PT] 건너뜀: 스냅샷에 일봉 날짜(_bar_date)가 없음 — 매매 없이 일일 리포트만 발송
+[Unified PT] 거래일(일봉 날짜): None
+[Unified PT] 골든크로스임박 종목: 31개
+[Unified PT] 매도=0 매수=0 보유=3종목
 [Unified PT] PT-1S (S&P 500만): 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)

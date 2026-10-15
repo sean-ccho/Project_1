@@ -1,28 +1,14 @@
 ============================================================
 [Unified Paper Trading] PT-1N (S&P 500 밖) 실행 시작
 ============================================================
-2026-10-15 07:54:52,908 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+2026-10-15 18:54:24,401 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
 [Unified PT] SP500 snapshot 로드: 130개 종목
-2026-10-15 07:54:52,916 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 231개 종목
-[Unified PT] NASDAQ snapshot 로드: 231개 종목
-[Unified PT] 합산 완료: 353개 종목 (SP500 130 + NASDAQ 231개, 중복 제거 후)
-[Unified PT] PT1_UNIVERSE=ex_sp500 — S&P 500 구성종목 134개 제외 → 219개
-[Unified PT] 거래일(일봉 날짜): 2026-10-14
-[Unified PT] 골든크로스임박 종목: 9개
-2026-10-15 07:54:53,222 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 84 | 4.0~5.0: 58 | 5.0~5.5: 10 | 5.5~6.0: 17 | 6.0+: 50
-2026-10-15 07:54:53,237 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=6/219 | Selected: DUOL (CCS=0.6114)
-2026-10-15 07:54:53,239 [INFO] paper_trading.engine — [PaperTrading] BUY DUOL @ 139.73 (CCS=0.6114, RSI=44)
-[Unified PT] 매도=0 매수=1 보유=1종목
-[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 169, '바닥반등_52주과열': 1, '판단등급_미달': 43, '과열_차단': 0, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 0, '같은회사_중복': 0, '모멘텀_ADX부족': 0, '바닥_RSI데드존': 0, '섹터_집중': 0, '_통과': 6, '_전체': 219}
-[Unified PT] Top5 후보:
-  DUOL   CCS=0.6114 전략=📉 바닥반등 섹터=Technology
-  PATK   CCS=0.5341 전략=📉 바닥반등 섹터=Consumer Cyclical
-  WGS    CCS=0.5204 전략=📉 바닥반등 섹터=Healthcare
-  VNET   CCS=0.4297 전략=📉 바닥반등 섹터=Technology
-  ALHC   CCS=0.4175 전략=📉 바닥반등 섹터=Healthcare
-2026-10-15 07:54:55,229 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 append: BUY DUOL
-2026-10-15 07:54:56,486 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 1개 종목
-2026-10-15 07:54:57,844 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 0건 거래
-[Unified PT] 구글 시트 동기화 완료
-[Unified PT] $5,000 계좌 탭 '페이퍼N_계좌' 동기화 완료
+2026-10-15 18:54:24,410 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 229개 종목
+[Unified PT] NASDAQ snapshot 로드: 229개 종목
+[Unified PT] 합산 완료: 352개 종목 (SP500 130 + NASDAQ 229개, 중복 제거 후)
+[Unified PT] PT1_UNIVERSE=ex_sp500 — S&P 500 구성종목 136개 제외 → 216개
+[Unified PT] 건너뜀: 스냅샷에 일봉 날짜(_bar_date)가 없음 — 매매 없이 일일 리포트만 발송
+[Unified PT] 거래일(일봉 날짜): None
+[Unified PT] 골든크로스임박 종목: 14개
+[Unified PT] 매도=0 매수=0 보유=1종목
 [Unified PT] PT-1N (S&P 500 밖): 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)
