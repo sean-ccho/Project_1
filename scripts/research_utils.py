@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import csv
+import itertools
 from datetime import datetime
 from pathlib import Path
 
@@ -92,3 +93,50 @@ def total_trials() -> int:
         return 0
     df = pd.read_csv(TRIAL_LOG, encoding="utf-8-sig")
     return int(df.drop_duplicates("family")["n_family"].sum())
+
+
+def pbo_cscv(returns: np.ndarray, n_splits: int = 16, chunk: int = 2000) -> dict[str, float]:
+    """CSCV 과적합 확률 PBO (Bailey·Borwein·López de Prado·Zhu 2017).
+
+    returns: 날짜 × 시도 (같은 날짜의 일간 수익 — 초과수익 권장). 날짜를 n_splits 개 연속 구간으로 나누고,
+    절반 구간을 고르는 모든 조합마다 '표본 내 Sharpe 1등'이 나머지 절반에서 몇 등인지 본다.
+    PBO = 표본 내 1등이 표본 외에서 중앙값 이하로 떨어진 조합의 비율 (0.5 근처 = 고른 게 운).
+
+    Returns:
+        PBO, 조합 수, 표본 외 상대순위 logit 중앙값, 표본 내 1등의 표본 외 Sharpe 중앙값(연율).
+        시도가 2개 미만이거나 날짜가 너무 짧으면 PBO = nan.
+    """
+    x = np.asarray(returns, dtype=float)
+    t, n = x.shape
+    nan = {"PBO": float("nan"), "조합": 0, "logit_중앙": float("nan"), "OOS_Sharpe_중앙": float("nan")}
+    if n < 2 or t < 4 * n_splits or n_splits % 2:
+        return nan
+    x = np.nan_to_num(x)
+    blocks = np.array_split(np.arange(t), n_splits)
+    s1 = np.stack([x[b].sum(axis=0) for b in blocks])
+    s2 = np.stack([(x[b] ** 2).sum(axis=0) for b in blocks])
+    cnt = np.array([len(b) for b in blocks], dtype=float)
+    combos = np.array(list(itertools.combinations(range(n_splits), n_splits // 2)))
+    tot1, tot2, totn = s1.sum(axis=0), s2.sum(axis=0), cnt.sum()
+
+    def _sr(a1: np.ndarray, a2: np.ndarray, m: np.ndarray) -> np.ndarray:
+        mean = a1 / m[:, None]
+        var = (a2 - m[:, None] * mean ** 2) / (m[:, None] - 1.0)
+        return mean / np.sqrt(np.maximum(var, 1e-300))
+
+    lam, oos_best_all = [], []
+    for lo in range(0, len(combos), chunk):
+        sel = np.zeros((len(combos[lo:lo + chunk]), n_splits))
+        np.put_along_axis(sel, combos[lo:lo + chunk], 1.0, axis=1)
+        i1, i2, im = sel @ s1, sel @ s2, sel @ cnt
+        sr_is = _sr(i1, i2, im)
+        sr_oos = _sr(tot1 - i1, tot2 - i2, totn - im)
+        best = sr_is.argmax(axis=1)
+        oos_best = sr_oos[np.arange(len(best)), best]
+        rank = (sr_oos < oos_best[:, None]).sum(axis=1) + 1
+        omega = rank / (n + 1.0)
+        lam.append(np.log(omega / (1.0 - omega)))
+        oos_best_all.append(oos_best)
+    lam_a = np.concatenate(lam)
+    return {"PBO": float((lam_a <= 0).mean()), "조합": int(len(lam_a)), "logit_중앙": float(np.median(lam_a)),
+            "OOS_Sharpe_중앙": float(np.median(np.concatenate(oos_best_all)) * np.sqrt(252))}

@@ -242,6 +242,25 @@ PYTHONPATH=src python src/run_full_scan.py
 
 ---
 
+## 백테스트 병렬 실행 (멀티프로세싱)
+
+서로의 결과를 기다리지 않는 백테스트 여러 개를 **프로세스 여러 개로 동시에** 돌리는 방식입니다. 동시에 도는 프로세스 하나를 **워커**라고 부릅니다. 요청할 때는 "백테스트 여러 개 병렬로 돌려줘, 워커 3개로"처럼 말하면 됩니다.
+
+| 항목 | 내용 |
+|---|---|
+| 지원 스크립트 | `scripts/isb_vs_pt1.py --run --workers N` (기본 3), `scripts/isb_bo_bottom.py --run --workers N`, `scripts/isb_label_search.py --run --workers N` (기본 4). 구현은 `isb_vs_pt1.run_many()` (`ProcessPoolExecutor`) |
+| 후보표 재사용 | 엔진 시간의 약 80%는 날짜별 PT-1 후보표 계산이고, 이 표는 실험 설정과 무관하다. `isb_vs_pt1.enable_snapshot_cache()` 를 켠 워커는 첫 실행 뒤 이 표를 재사용해 1회 약 160초 → 30초대 (2026-10-13 측정, 워커당 메모리 약 2GB). `isb_label_search.py` 가 사용 |
+| 메모리 | PT-1 엔진 1회 ≈ 1.0~1.2GB. 맥 미니(16GB · 8코어)는 워커 3개가 안전하고 4~5개는 빠듯함 |
+| 효과 | 2026-10-12 ISB 연구: 엔진 68회를 하나씩 돌리면 약 3.5시간 → 워커 3개로 약 70분 |
+| 조건 | 서로 독립적인 실행만 한 묶음으로 돌린다. 확인 단계(BASE 재현)를 먼저 끝내고, 앞 실행의 결과가 필요한 실행은 다음 묶음으로 |
+
+- 워커는 각자 가격·피처 캐시를 따로 읽어서 메모리가 워커 수만큼 늘어납니다. 디스크 읽기가 겹쳐 속도는 워커 수만큼 빨라지지 않습니다.
+- 워커 안의 엔진 출력은 숨기고, 진행 상황은 로그 `output/logs/<스크립트>_<날짜>_<시각>.log` 에 `[xx.x%]` 줄로 남깁니다. `bash scripts/watch_backtest.sh` 로 실시간 확인합니다.
+- 예전 연구 스크립트(`h1_trail_activation.py`, `idea_batch_research.py`, `wfo_structure.py` 등)는 하나씩 돕니다. 병렬로 하려면 같은 방식(`run_many`)을 넣어야 합니다.
+- macOS 는 워커를 새 프로세스로 띄우는 spawn 방식이라, 스크립트 실행은 `if __name__ == "__main__":` 안에서 해야 하고 워커가 부르는 함수는 모듈 최상위에 있어야 합니다.
+
+---
+
 ## 문제 해결
 
 - **Rate limit 오류**: `run_full_scan.py`는 배치 크기 100, 배치 간 2초 딜레이, rate limit 발생 시 30/60/120초 자동 재시도가 적용되어 있습니다.
