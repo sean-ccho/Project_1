@@ -1144,7 +1144,7 @@ def send_paper_trading_email(
 
         spy_close = load_spy_close()
         rows_html = ""
-        for label, sub in (("PT-1 (전체 유니버스)", ""), ("PT-1S (S&P 500만)", "pt1s")):
+        for label, sub in (("PT-1 (전체 유니버스)", ""), ("PT-1S (S&P 500만)", "pt1s"), ("PT-1N (S&P 500 밖)", "pt1n")):
             cmp = spy_comparison(_load_trades_spy(_Path(_PT_DIR) / sub if sub else None), spy_close)
             if not cmp:
                 rows_html += f"<tr style='text-align:center'><td>{label}</td><td colspan='5'>청산 거래 없음</td></tr>"
@@ -1159,7 +1159,7 @@ def send_paper_trading_email(
 <tr style='background:#f4f6f7;text-align:center'><th>계좌</th><th>청산</th><th>거래당 평균</th><th>같은 기간 SPY 평균</th><th>SPY 대비</th><th>SPY를 이긴 거래</th></tr>
 {rows_html}
 </table>
-<p style='color:#777;font-size:12px'>SPY 대비가 0 근처면 "그냥 SPY를 들고 있는 것"과 차이가 없다는 뜻입니다. PT-1S는 같은 규칙에 후보만 S&P 500으로 좁힌 병행 계좌입니다.</p>
+<p style='color:#777;font-size:12px'>SPY 대비가 0 근처면 "그냥 SPY를 들고 있는 것"과 차이가 없다는 뜻입니다. PT-1S·PT-1N은 같은 규칙에 후보만 S&P 500 / S&P 500 밖 나스닥·NYSE 종목으로 나눈 병행 계좌입니다.</p>
 """
     except Exception as exc:  # noqa: BLE001 — 메일은 계속 발송
         print(f"[PaperTrading] SPY 비교 계산 실패 (무시): {exc}")

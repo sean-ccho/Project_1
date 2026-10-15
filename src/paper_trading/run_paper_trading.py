@@ -10,6 +10,7 @@ GitHub Actions 실행 순서:
 로컬 실행:
   PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py                 # PT-1 (기존)
   PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt1s  # PT-1S (PT-1 규칙, S&P 500만)
+  PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt1n  # PT-1N (PT-1 규칙, S&P 500 밖)
   PYTHONPATH=.:src python src/paper_trading/run_paper_trading.py --account pt_spy  # PT-SPY SPY 보유 기준선
   ... --dry-run [--as-of 2026-09-29]   # 저장·시트·이메일 없이 결과만 출력
 """
@@ -27,15 +28,16 @@ if str(_src_dir) not in sys.path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="페이퍼 트레이딩 실행")
-    parser.add_argument("--account", choices=["pt1", "pt1s", "pt_spy", "all"], default="pt1",
-                        help="pt1=기존, pt1s=PT-1 규칙·S&P 500만, pt_spy=SPY 보유 기준선, all=전부(pt1·pt1s·pt_spy)")
+    parser.add_argument("--account", choices=["pt1", "pt1s", "pt1n", "pt_spy", "all"], default="pt1",
+                        help="pt1=기존, pt1s=PT-1 규칙·S&P 500만, pt1n=PT-1 규칙·S&P 500 밖, pt_spy=SPY 보유 기준선, "
+                             "all=전부(pt1·pt1s·pt1n·pt_spy)")
     parser.add_argument("--dry-run", action="store_true", help="파일 저장·시트·이메일 없이 결과만 출력")
     parser.add_argument("--as-of", default=None, help="거래일 강제 지정 (YYYY-MM-DD)")
     args = parser.parse_args()
 
-    accounts = ["pt1", "pt1s", "pt_spy"] if args.account == "all" else [args.account]
+    accounts = ["pt1", "pt1s", "pt1n", "pt_spy"] if args.account == "all" else [args.account]
     for key in accounts:
-        if key in ("pt1", "pt1s"):
+        if key in ("pt1", "pt1s", "pt1n"):
             from paper_trading.runner import run_unified_paper_trading
 
             run_unified_paper_trading(dry_run=args.dry_run, as_of=args.as_of, account=key)

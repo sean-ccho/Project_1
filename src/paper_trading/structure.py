@@ -3,7 +3,11 @@
 - PT1_BEAR_MODE: "none"(기존) | "liquidate"(약세장이 되면 보유 종목을 다음날 시가에 모두 정리)
     · 신규 매수 중단은 기존 스위치 CANDIDATE_BEAR_BLOCK_NEW 를 쓴다
 - PT1_SIZING: "equal"(기존: 남은 현금 ÷ 빈자리) | "inv_vol"(평가액 ÷ 최대 보유 수 × min(1, 그날 중앙 ATR% ÷ 종목 ATR%))
+    | "equal_fixed"(남은 현금 ÷ 빈자리, 빈자리는 약세장에도 PAPER_TRADING_MAX_POSITIONS 기준)
     · 변동성이 중앙값보다 큰 종목은 그만큼 덜 산다. 레버리지는 없다 (남는 현금은 그대로 둔다)
+    · equal 은 약세장(최대 2종목)에서 두 번째 매수가 남은 현금을 전부 쓰고, 레짐이 풀려 자리가 3개가 되면
+      세 번째 매수가 0주가 된다 (2026-10-13 발견). equal_fixed 는 약세장 한도가 '몇 종목'만 줄이고 한 종목 크기는
+      그대로 둔다 — 실거래 $5,000 계좌(pt1_account.allocate)와 같은 회계
 
 screener/config.py 는 피처 캐시 해시 대상이라 고치면 10년 캐시를 다시 만들어야 한다. 그래서 검증 전 실험 스위치의
 기본값은 여기서 config 모듈에 붙인다. 채택되면 config.py 로 옮기고 실거래 엔진에도 같은 규칙을 넣는다.
@@ -45,8 +49,13 @@ def inv_vol_factor(ranked_df: pd.DataFrame | None, ticker: str) -> float:
 
 def slot_allocation(cash: float, equity: float, max_positions: int, empty_slots: int,
                     ranked_df: pd.DataFrame | None, ticker: str) -> float:
-    """새 종목에 쓸 금액. equal = 기존 공식 그대로, inv_vol = 평가액 기준 한 자리 × 변동성 계수 (현금 한도)."""
-    if getattr(_cfg, "PT1_SIZING", "equal") != "inv_vol":
+    """새 종목에 쓸 금액. equal = 기존 공식 그대로, inv_vol = 평가액 기준 한 자리 × 변동성 계수 (현금 한도),
+    equal_fixed = 빈자리를 약세장 한도(max_positions) 대신 PAPER_TRADING_MAX_POSITIONS 로 센다."""
+    mode = getattr(_cfg, "PT1_SIZING", "equal")
+    if mode == "equal_fixed":
+        held = max_positions - empty_slots
+        return cash / max(1, int(_cfg.PAPER_TRADING_MAX_POSITIONS) - held)
+    if mode != "inv_vol":
         return cash / max(1, empty_slots)
     slot = equity / max(1, max_positions)
     return max(0.0, min(cash, slot * inv_vol_factor(ranked_df, ticker)))

@@ -4,7 +4,7 @@
 하나라도 실패하면 exit 1 → 잡 실패 → 'Notify on failure' 메일 (본문에 이 결과 표).
 
 검사
-  1. 계좌 상태    pt1·pt1s·pt_spy 의 state.json 이 있고, 일봉이 확정됐으면 마지막 처리 일봉 == 스냅샷 일봉
+  1. 계좌 상태    pt1·pt1s·pt1n·pt_spy 의 state.json 이 있고, 일봉이 확정됐으면 마지막 처리 일봉 == 스냅샷 일봉
   2. 스냅샷 최신  sp500·nasdaq 스냅샷의 _bar_date 가 서로 같고 LOG_DATE − 4일 이후 (주말 + 공휴일 하루)
   3. 에러 로그    logs/LOG_DATE/*.log 에 우리 모듈의 [ERROR]·Traceback 이 없음 (외부 라이브러리 [ERROR] 는 경고만)
   4. 메일         paper_trading.log 에 PT-1 메일 발송 완료(또는 보낼 것 없음) 줄이 있음
@@ -38,15 +38,16 @@ from paper_trading.runner import BAR_DATE_COL, snapshot_bar_date
 DATA_DIR = Path("data/paper_trading")
 LOG_ROOT = Path("logs")
 # 계좌 키 → 데이터 폴더 (runner.PT1_ACCOUNTS · accounts.py 와 같게 — 계좌를 늘리면 여기도 늘린다)
-ACCOUNTS: dict[str, str] = {"pt1": "", "pt1s": "pt1s", "pt_spy": "pt_spy"}
+ACCOUNTS: dict[str, str] = {"pt1": "", "pt1s": "pt1s", "pt1n": "pt1n", "pt_spy": "pt_spy"}
 ACCOUNT_FILES: dict[str, tuple[str, ...]] = {
     "pt1": ("positions.json", "trades.json"),
     "pt1s": ("positions.json", "trades.json"),
+    "pt1n": ("positions.json", "trades.json"),
     "pt_spy": ("positions.json", "trades.json", "account.json"),
 }
 SNAPSHOTS = ("sp500_ranked.parquet", "nasdaq_ranked.parquet")
 STEP_LOGS = ("sp500_analysis.log", "full_scan.log", "paper_trading.log",
-             "paper_trading_pt1s.log", "paper_trading_pt_spy.log", "portfolio_report.log")
+             "paper_trading_pt1s.log", "paper_trading_pt1n.log", "paper_trading_pt_spy.log", "portfolio_report.log")
 MAX_BAR_AGE_DAYS = 4
 OWN_LOGGERS = ("paper_trading", "screener", "data", "monitoring", "ml", "analytics", "__main__", "root")
 EMAIL_SENT = ("페이퍼 트레이딩 알림 발송 완료", "이메일 발송 생략")

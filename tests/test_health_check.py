@@ -53,7 +53,7 @@ def _failed(result) -> list[str]:
 def test_healthy_run_passes_and_records_expected_state(tmp_path):
     r = _run(tmp_path)
     assert r["status"] == "healthy", _failed(r)
-    assert r["expected"] == {"pt1": "2026-10-09", "pt1s": "2026-10-09", "pt_spy": "2026-10-09"}
+    assert r["expected"] == {"pt1": "2026-10-09", "pt1s": "2026-10-09", "pt1n": "2026-10-09", "pt_spy": "2026-10-09"}
 
 
 def test_state_not_advanced_fails(tmp_path):

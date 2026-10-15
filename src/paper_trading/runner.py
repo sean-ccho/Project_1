@@ -32,11 +32,14 @@ _NASDAQ_SNAPSHOT = _SNAPSHOT_DIR / "nasdaq_ranked.parquet"
 # 스크리너가 쓴 마지막 일봉 날짜 (main.py / run_full_scan.py에서 기록)
 BAR_DATE_COL = "_bar_date"
 
-# PT-1 후보 유니버스: "all" = S&P 500 + 나스닥/NYSE 전체 스캔 (기존), "sp500" = S&P 500 스냅샷만.
+# PT-1 후보 유니버스: "all" = S&P 500 + 나스닥/NYSE 전체 스캔 (기존), "sp500" = S&P 500 스냅샷만,
+# "ex_sp500" = all 에서 S&P 500 구성종목을 뺀 것 (지수 행 SPY·QQQ·IWM 은 남는다 — 레짐 판단이 SPY 행을 쓴다).
 # 연구·백테스트로 검증한 범위는 S&P 500뿐이다. 환경변수 PT1_UNIVERSE 로 바꿀 수 있다.
 PT1_UNIVERSE = os.environ.get("PT1_UNIVERSE", "all")
 
-# PT-1 규칙 계좌들. pt1s = PT-1과 같은 규칙, 후보만 S&P 500 (소형주가 값을 하는지 실거래로 비교하는 병행 계좌)
+# PT-1 규칙 계좌들 (소형주가 값을 하는지 실거래로 비교하는 병행 계좌):
+#   pt1s = PT-1과 같은 규칙, 후보만 S&P 500 / pt1n = 같은 규칙, 후보만 S&P 500 밖 나스닥/NYSE 종목
+#   → PT-1 후보 = PT-1S 후보 ∪ PT-1N 후보 (서로 겹치지 않음)
 PT1_ACCOUNTS: dict[str, dict[str, Any]] = {
     "pt1": {"label": "PT-1", "subdir": "", "universe": None, "email": True,
             "tabs": None,  # None = config 기본 탭 (페이퍼_거래로그 등)
@@ -44,6 +47,9 @@ PT1_ACCOUNTS: dict[str, dict[str, Any]] = {
     "pt1s": {"label": "PT-1S (S&P 500만)", "subdir": "pt1s", "universe": "sp500", "email": False,
              "tabs": {"log": "페이퍼S_거래로그", "positions": "페이퍼S_포지션현황", "summary": "페이퍼S_성과요약"},
              "dollar_tab": "페이퍼S_계좌"},
+    "pt1n": {"label": "PT-1N (S&P 500 밖)", "subdir": "pt1n", "universe": "ex_sp500", "email": False,
+             "tabs": {"log": "페이퍼N_거래로그", "positions": "페이퍼N_포지션현황", "summary": "페이퍼N_성과요약"},
+             "dollar_tab": "페이퍼N_계좌"},
 }
 
 
@@ -117,8 +123,22 @@ def load_and_merge_snapshots(universe: str | None = None) -> pd.DataFrame | None
     - 어느 한 파일만 있어도 동작
     - 둘 다 없으면 None 반환
     - universe="sp500"(또는 PT1_UNIVERSE)이면 NASDAQ/NYSE 스냅샷은 읽지 않는다
+    - universe="ex_sp500"이면 둘 다 합친 뒤 S&P 500 구성종목(data.sp500_tickers, 매월 갱신)을 뺀다
     """
     universe = (universe or PT1_UNIVERSE).lower()
+    combined = _load_and_merge(universe)
+    if combined is None or universe != "ex_sp500" or "티커" not in combined.columns:
+        return combined
+    from data.sp500_tickers import SP500_TICKERS
+
+    sp500 = set(SP500_TICKERS)
+    kept = combined[~combined["티커"].astype(str).isin(sp500)].reset_index(drop=True)
+    print(f"[Unified PT] PT1_UNIVERSE=ex_sp500 — S&P 500 구성종목 {len(combined) - len(kept)}개 제외 → {len(kept)}개")
+    return kept
+
+
+def _load_and_merge(universe: str) -> pd.DataFrame | None:
+    """스냅샷 로드·합치기 (load_and_merge_snapshots 본체). universe 는 소문자."""
     sources = [(_SP500_SNAPSHOT, "SP500")]
     if universe != "sp500":
         sources.append((_NASDAQ_SNAPSHOT, "NASDAQ"))
@@ -312,11 +332,12 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None, a
         from paper_trading.pt1_account import build_accounts, held_rows, section_html, sync_sheet
 
         books = {acct["label"]: (trades, positions)}
-        if acct["email"]:  # PT-1 메일에는 PT-1S 계좌도 함께 보여 준다
-            other = PT1_ACCOUNTS["pt1s"]
-            other_dir = Path(PAPER_TRADING_DATA_DIR) / other["subdir"]
-            account_positions[other["label"]] = load_positions(other_dir)
-            books[other["label"]] = (load_trades(other_dir), account_positions[other["label"]])
+        if acct["email"]:  # PT-1 메일에는 PT-1S·PT-1N 계좌도 함께 보여 준다
+            for other_key in ("pt1s", "pt1n"):
+                other = PT1_ACCOUNTS[other_key]
+                other_dir = Path(PAPER_TRADING_DATA_DIR) / other["subdir"]
+                account_positions[other["label"]] = load_positions(other_dir)
+                books[other["label"]] = (load_trades(other_dir), account_positions[other["label"]])
         dollars = build_accounts(books)
         if not report_only:
             sync_sheet(dollars[acct["label"]], acct["label"], acct["dollar_tab"])
