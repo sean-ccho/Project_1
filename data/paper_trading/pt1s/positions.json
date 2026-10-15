@@ -23,21 +23,6 @@
     "upside_bucket_key": "모멘텀|0.55+|5★(9+)"
   },
   {
-    "ticker": "MPWR",
-    "entry_price": 1386.2900390625,
-    "entry_date": "2026-10-09",
-    "strategy": "📈 모멘텀",
-    "star_rating": "★★★★★ (11.5)",
-    "ccs_score": 0.685,
-    "sector": "Technology",
-    "highest_price": 1386.2900390625,
-    "defer_count": 0,
-    "trailing_stop_override": null,
-    "last_defer_date": null,
-    "defer_debug": null,
-    "entry_rsi": 55.400210283927166
-  },
-  {
     "ticker": "RTX",
     "entry_price": 186.66000366210938,
     "entry_date": "2026-10-12",
@@ -51,5 +36,20 @@
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 39.30833490679904
+  },
+  {
+    "ticker": "SNPS",
+    "entry_price": 479.92999267578125,
+    "entry_date": "2026-10-14",
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (14.0)",
+    "ccs_score": 0.5921,
+    "sector": "Technology",
+    "highest_price": 479.92999267578125,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 59.72707539058847
   }
 ]
