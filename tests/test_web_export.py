@@ -64,3 +64,79 @@ def test_list_chart_files_keeps_latest_per_timeframe(tmp_path: Path, monkeypatch
         "FIG": {"Weekly": "charts/screenshots_sp500/FIG/FIG_Weekly_20261015_063508.png"},
     }
     assert wd._captured_at(found) == "2026-10-15T06:35:08Z"
+
+
+def test_ticker_info_fundamentals_keep_yfinance_units() -> None:
+    row = pd.Series({"회사": "Airbnb", "fund_revenue_growth": 0.165, "fund_debt_to_equity": 32.004,
+                     "fund_free_cashflow": 3206874880.0, "fund_earnings_growth": float("nan"),
+                     "52주포지션": 0.7645, "시장상대강도": -0.034})
+    info = wd.ticker_info(row)
+    f = info["fundamentals"]
+    assert f["revenue_growth"] == 0.165 and f["debt_to_equity"] == 32.0 and f["free_cashflow"] == 3206874880.0
+    assert f["earnings_growth"] is None and f["roe"] is None  # NaN·컬럼 없음 → None
+    assert info["position_52w"] == 0.7645 and info["rel_market"] == -0.034 and info["insider"] is None
+    json.dumps(info, allow_nan=False)
+
+
+def test_insider_info_signals(monkeypatch) -> None:
+    import screener.insider as ins
+
+    df = pd.DataFrame([
+        {"티커": "AAA", "insider_buy_count": 3, "insider_sell_count": 0, "insider_net_value": 860000.0,
+         "insider_last_trade_date": "2026-10-01", "내부자(90일)": "🟢 클러스터매수 · 매수 3/매도 0 · 순 +$860K (~10-01)"},
+        {"티커": "BBB", "insider_buy_count": 1, "insider_sell_count": 2, "insider_net_value": -1.2e6,
+         "insider_last_trade_date": "2026-09-20", "내부자(90일)": "🟢 매수 · 매수 1/매도 2 · 순 -$1.2M (~09-20)"},
+        {"티커": "CCC", "insider_buy_count": 0, "insider_sell_count": 4, "insider_net_value": -5e5,
+         "insider_last_trade_date": "2026-09-02", "내부자(90일)": "🔴 매도 · 매수 0/매도 4 · 순 -$500K (~09-02)"},
+        {"티커": "DDD", "insider_buy_count": 0, "insider_sell_count": 0, "insider_net_value": 0.0,
+         "insider_last_trade_date": "", "내부자(90일)": "—"},
+    ])
+    monkeypatch.setattr(ins, "fetch_insider_snapshots", lambda tickers, use_cache=True: df)
+    out = wd.insider_info(["AAA", "BBB", "CCC", "DDD"], cache_only=False)
+    assert [out[t]["signal"] for t in ("AAA", "BBB", "CCC", "DDD")] == ["cluster_buy", "buy", "sell", None]
+    assert out["BBB"] == {"buys": 1, "sells": 2, "net_value": -1200000.0, "last_date": "2026-09-20", "signal": "buy"}
+    assert out["DDD"]["last_date"] is None
+
+
+def test_insider_info_failure_is_empty(monkeypatch) -> None:
+    import screener.insider as ins
+
+    def boom(tickers, use_cache=True):
+        raise RuntimeError("openinsider down")
+
+    monkeypatch.setattr(ins, "fetch_insider_snapshots", boom)
+    assert wd.insider_info(["AAA"], cache_only=False) == {}
+
+
+def test_insider_info_cache_only_skips_uncached(monkeypatch) -> None:
+    import screener.insider as ins
+
+    asked: list[list[str]] = []
+
+    def fake(tickers, use_cache=True):
+        asked.append(list(tickers))
+        return pd.DataFrame([{"티커": t, "insider_buy_count": 1, "insider_sell_count": 0, "insider_net_value": 1.0,
+                              "insider_last_trade_date": "2026-10-01", "내부자(90일)": "🟢 매수"} for t in tickers])
+
+    monkeypatch.setattr(ins, "fetch_insider_snapshots", fake)
+    monkeypatch.setattr(ins, "has_fresh_cache", lambda t: t == "AAA")
+    assert list(wd.insider_info(["AAA", "BBB"])) == ["AAA"] and asked == [["AAA"]]  # 캐시 없는 BBB 는 조회 안 함
+    monkeypatch.setattr(ins, "has_fresh_cache", lambda t: False)
+    assert wd.insider_info(["BBB"]) == {} and len(asked) == 1  # 전부 없으면 조회 자체를 안 함
+
+
+def test_golden_cross_lists_by_market() -> None:
+    ranked = pd.DataFrame([
+        {"티커": "AAA", "market": "sp500", "일봉패턴": "골든크로스임박", "주봉패턴": "골든크로스", "월봉패턴": "",
+         "ema_gap_20_50": -0.012, "주봉_MA갭": 0.02, "월봉_MA갭": 0.3},
+        {"티커": "BBB", "market": "nasdaq", "일봉패턴": "골든크로스", "주봉패턴": "", "월봉패턴": "",
+         "ema_gap_20_50": 0.2, "주봉_MA갭": 0.0, "월봉_MA갭": 0.0},  # 5% 넘게 벌어진 교차는 빠진다
+        {"티커": "CCC", "market": "nasdaq", "일봉패턴": "데드크로스", "주봉패턴": "", "월봉패턴": "골든크로스임박",
+         "ema_gap_20_50": -0.1, "주봉_MA갭": 0.0, "월봉_MA갭": -0.03},
+    ])
+    out = wd.golden_cross_lists(ranked)
+    assert out["sp500"] == [{"ticker": "AAA", "timeframes": [{"tf": "daily", "gap": -0.012}, {"tf": "weekly", "gap": 0.02}]}]
+    assert out["nasdaq"] == [{"ticker": "CCC", "timeframes": [{"tf": "monthly", "gap": -0.03}]}]
+    info = wd.ticker_info(pd.Series({"거래량돌파배수": 2.345, "ema_gap_20_50": -0.0123, "주봉_MA갭": float("nan")}))
+    assert info["vol_ratio"] == 2.35 and info["ma_gap"] == {"daily": -0.0123, "weekly": None, "monthly": None}
+    assert info["golden"] is None

@@ -51,6 +51,11 @@ def _cache_valid(path: Path) -> bool:
     return age_hours < _INSIDER_CACHE_MAX_AGE_HOURS
 
 
+def has_fresh_cache(ticker: str) -> bool:
+    """24시간 안에 받아 둔 캐시가 있는지 (네트워크 없이 확인)."""
+    return _cache_valid(_cache_path(str(ticker).strip()))
+
+
 def _parse_value(text: str) -> float:
     """'$1,234,567' / '-$1,234' 형태를 float로 변환. 실패 시 0.0."""
     cleaned = re.sub(r"[^0-9.\-]", "", str(text).replace("+", ""))

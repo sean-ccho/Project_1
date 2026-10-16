@@ -308,9 +308,39 @@ jobs:
           git add dashboard.json
           git commit -q -m "dashboard data $(date +%s) [skip ci]"
           if git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" dashboard-data; then
+            date +%s > "$RUNNER_TEMP/web_pushed_at"
             echo "✅ dashboard-data 브랜치 업데이트 완료"
           else
             echo "::warning title=웹 데이터 push 실패::dashboard-data 브랜치를 갱신하지 못했습니다 (파이프라인은 계속 진행)."
+          fi
+
+      # 개인 웹사이트에 새 데이터를 알려 /quant 캐시를 바로 비운다 (안 부르면 사이트 캐시가 겹쳐 최대 1시간 늦다).
+      # raw.githubusercontent 는 최대 5분(max-age=300) 캐시라서 push 후 5분이 지나 옛 파일이 다 빠진 뒤에 부른다.
+      - name: Refresh personal website
+        if: always()
+        env:
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
+          SITE_URL: https://seancho.vercel.app
+        run: |
+          if [ ! -f "$RUNNER_TEMP/web_pushed_at" ]; then
+            echo "⏭️  새 dashboard.json 을 push 하지 않았음, 건너뜀"
+            exit 0
+          fi
+          if [ -z "$REVALIDATE_SECRET" ]; then
+            echo "⏭️  REVALIDATE_SECRET 없음, 건너뜀 (사이트는 30분 자동 갱신)"
+            exit 0
+          fi
+          wait=$(( $(cat "$RUNNER_TEMP/web_pushed_at") + 310 - $(date +%s) ))
+          if [ "$wait" -gt 0 ]; then
+            echo "⏳ GitHub raw 캐시가 빠지도록 ${wait}초 기다림"
+            sleep "$wait"
+          fi
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -X POST \
+            -H "Authorization: Bearer ${REVALIDATE_SECRET}" "$SITE_URL/api/revalidate" || true)
+          if [ "$code" = "200" ]; then
+            echo "✅ 웹사이트 갱신 요청 완료"
+          else
+            echo "::warning title=웹사이트 갱신 실패::HTTP $code — 사이트는 30분 자동 갱신으로 늦게 반영됩니다 (파이프라인은 계속 진행)."
           fi
 
       - name: Notify on failure

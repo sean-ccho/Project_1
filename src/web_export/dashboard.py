@@ -117,6 +117,30 @@ def load_ranked(data_dir: Path) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True).drop_duplicates("티커")
 
 
+# (웹 키, 스냅샷 컬럼, 반올림 자리) — yfinance 값 그대로: 성장률·마진·ROE·비중은 0.165 = 16.5%,
+# 부채비율은 % (32 = 0.32배), 유동비율은 배, 현금흐름·시총은 달러
+FUNDAMENTAL_FIELDS = (
+    ("revenue_growth", "fund_revenue_growth", 4),
+    ("earnings_growth", "fund_earnings_growth", 4),
+    ("gross_margin", "fund_gross_margin", 4),
+    ("profit_margin", "fund_profit_margin", 4),
+    ("roe", "fund_roe", 4),
+    ("debt_to_equity", "fund_debt_to_equity", 2),
+    ("current_ratio", "fund_current_ratio", 2),
+    ("free_cashflow", "fund_free_cashflow", 0),
+    ("operating_cashflow", "fund_operating_cashflow", 0),
+    ("market_cap", "fund_market_cap", 0),
+    ("dividend_yield", "dividend_yield", 4),
+    ("short_pct_float", "fund_short_pct_float", 4),
+    ("institutional_pct", "fund_institutional_holders_pct", 4),
+)
+
+
+def fundamentals(row: pd.Series) -> dict[str, float | None]:
+    """스냅샷의 재무 컬럼(fund_*) → 웹 키. 없는 값은 None."""
+    return {key: _num(row.get(col), digits) for key, col, digits in FUNDAMENTAL_FIELDS}
+
+
 def ticker_info(row: pd.Series) -> dict[str, Any]:
     """랭킹 스냅샷 한 줄 → 웹에 보여 줄 요약."""
     earnings = _text(row.get("next_earnings_date"))
@@ -142,7 +166,54 @@ def ticker_info(row: pd.Series) -> dict[str, Any]:
             "weekly": _patterns(row.get("주봉패턴")),
             "monthly": _patterns(row.get("월봉패턴")),
         },
+        "vol_ratio": _num(row.get("거래량돌파배수"), 2),  # 오늘 거래량 ÷ 20일 평균
+        "ma_gap": {  # 단기 MA 가 장기 MA 보다 몇 % 위(+)·아래(−)인지 — 골든·데드크로스까지 거리
+            "daily": _num(row.get("ema_gap_20_50"), 4),
+            "weekly": _num(row.get("주봉_MA갭"), 4),
+            "monthly": _num(row.get("월봉_MA갭"), 4),
+        },
+        "golden": None,  # PT 골든크로스 목록에 있으면 build_dashboard 가 채운다
+        "position_52w": _num(row.get("52주포지션"), 4),  # 52주 저점 0 ~ 고점 1
+        "atr_pct": _num(row.get("ATR%"), 4),
+        "rel_market": _num(row.get("시장상대강도"), 4),
+        "rel_sector": _num(row.get("섹터상대강도"), 4),
+        "fundamentals": fundamentals(row),
+        "insider": None,  # build_dashboard 가 후보·보유·차트 종목에만 채운다
     }
+
+
+def insider_info(tickers: list[str], *, cache_only: bool = True) -> dict[str, dict[str, Any]]:
+    """openinsider 90일 내부자 거래 요약.
+
+    cache_only: 같은 실행에서 스크리너·PT 가 받아 둔 24시간 캐시가 있는 종목만 (네트워크 없음 — openinsider 가
+    멈춰도 종목당 30초씩 기다리지 않는다). 캐시가 없는 종목은 빠진다 (웹은 '정보 없음').
+    signal: 'cluster_buy'(여러 명이 매수) · 'buy' · 'sell' · None(거래 없음). 조회가 통째로 실패하면 빈 dict.
+    """
+    from screener.insider import fetch_insider_snapshots, has_fresh_cache
+
+    if cache_only:
+        tickers = [t for t in tickers if has_fresh_cache(t)]
+    if not tickers:
+        return {}
+    try:
+        df = fetch_insider_snapshots(tickers)
+    except Exception as exc:  # noqa: BLE001 — 표시용이라 실패해도 나머지는 내보낸다
+        print(f"[web_export] 내부자 거래 조회 실패 (건너뜀): {exc}")
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for _, r in df.iterrows():
+        buys = int(_num(r.get("insider_buy_count")) or 0)
+        sells = int(_num(r.get("insider_sell_count")) or 0)
+        text = _text(r.get("내부자(90일)")) or ""
+        signal = "cluster_buy" if "클러스터" in text else "buy" if buys else "sell" if sells else None
+        out[str(r["티커"])] = {
+            "buys": buys,
+            "sells": sells,
+            "net_value": _num(r.get("insider_net_value"), 0),
+            "last_date": _text(r.get("insider_last_trade_date")),
+            "signal": signal,
+        }
+    return out
 
 
 def build_candidates(ranked: pd.DataFrame, infos: dict[str, dict[str, Any]], held: dict[str, int],
@@ -154,6 +225,26 @@ def build_candidates(ranked: pd.DataFrame, infos: dict[str, dict[str, Any]], hel
     rows = [{"ticker": t, **infos[t], "held": t in held} for t in tickers]
     rows.sort(key=lambda c: -(c["score"] or 0.0))
     return rows[:limit]
+
+
+_TF_KEYS = {"일봉": "daily", "주봉": "weekly", "월봉": "monthly"}
+
+
+def golden_cross_lists(ranked: pd.DataFrame) -> dict[str, list[dict[str, Any]]]:
+    """시장별 PT 골든크로스 목록 (PT-1 이메일 '골든크로스임박' 섹션과 같은 규칙·순서).
+
+    timeframes: [{tf, gap}] — gap < 0 이면 교차 임박(단기 MA 가 아래, 5% 이내), ≥ 0 이면 방금 교차(0~5%).
+    """
+    from paper_trading.golden_cross import extract_golden_cross
+
+    out: dict[str, list[dict[str, Any]]] = {}
+    for key, *_rest in MARKETS:
+        part = ranked[ranked["market"] == key] if "market" in ranked.columns else ranked.iloc[0:0]
+        out[key] = [{
+            "ticker": g["ticker"],
+            "timeframes": [{"tf": _TF_KEYS.get(label, label), "gap": _num(gap, 4)} for label, gap in g["tf_gaps"]],
+        } for g in extract_golden_cross(part)]
+    return out
 
 
 # ── 계좌 ─────────────────────────────────────────────────────
@@ -351,7 +442,7 @@ def build_charts(infos: dict[str, dict[str, Any]], held: dict[str, int], repo: s
 
 
 def build_dashboard(data_dir: Path | None = None, *, charts_from_git: bool = False,
-                    with_prices: bool = True) -> dict[str, Any]:
+                    with_prices: bool = True, with_insider: bool = True) -> dict[str, Any]:
     """dashboard.json 내용 전체."""
     from paper_trading.portfolio import load_positions, load_trades
     from paper_trading.runner import PT1_ACCOUNTS
@@ -378,6 +469,24 @@ def build_dashboard(data_dir: Path | None = None, *, charts_from_git: bool = Fal
             held.setdefault(p["ticker"], len(held) + 1)
     # 보유 종목 현재가·평가액은 $5,000 계좌가 받은 마지막 종가 기준 (스크리너 일봉보다 하루 늦을 수 있다)
     curve_dates = [a["dollar"]["curve"][-1]["date"] for a in accounts if a["dollar"] and a["dollar"]["curve"]]
+    golden = golden_cross_lists(ranked)
+    for items in golden.values():
+        for rank, g in enumerate(items):
+            if g["ticker"] in infos:
+                infos[g["ticker"]]["golden"] = {"rank": rank, "timeframes": g["timeframes"]}
+    candidates = build_candidates(ranked, infos, held)
+    charts = build_charts(infos, held, cfg.GITHUB_REPO_NAME, from_git=charts_from_git)
+
+    # 웹 종목 상세 페이지용 — 후보·보유·차트·골든크로스에 나오는 종목만 (차트 항목의 info 는 같은 dict 라 함께 채워진다)
+    shown = ([c["ticker"] for c in candidates] + list(held) + [it["ticker"] for m in charts for it in m["items"]]
+             + [g["ticker"] for items in golden.values() for g in items])
+    stocks = {t: infos[t] for t in dict.fromkeys(shown) if t in infos}
+    if with_insider and stocks:
+        for t, rec in insider_info(list(stocks)).items():
+            if t in stocks:
+                stocks[t]["insider"] = rec
+        for c in candidates:
+            c["insider"] = infos[c["ticker"]]["insider"]
 
     return {
         "schema": SCHEMA_VERSION,
@@ -387,8 +496,10 @@ def build_dashboard(data_dir: Path | None = None, *, charts_from_git: bool = Fal
         "repo": cfg.GITHUB_REPO_NAME,
         "max_positions": int(cfg.PAPER_TRADING_MAX_POSITIONS),
         "accounts": accounts,
-        "candidates": build_candidates(ranked, infos, held),
-        "charts": build_charts(infos, held, cfg.GITHUB_REPO_NAME, from_git=charts_from_git),
+        "candidates": candidates,
+        "charts": charts,
+        "golden_cross": golden,
+        "stocks": stocks,
     }
 
 
@@ -400,16 +511,21 @@ def main(argv: list[str] | None = None) -> int:
                         help="로컬 차트 폴더 대신 origin/screenshots-* 브랜치 파일 목록을 읽는다 (로컬 테스트용)")
     parser.add_argument("--no-prices", action="store_true",
                         help="$5,000 계좌 재계산(일봉 다운로드)을 건너뛴다")
+    parser.add_argument("--no-insider", action="store_true",
+                        help="내부자 거래 요약을 넣지 않는다 (기본은 이미 받아 둔 캐시만 읽는다)")
     args = parser.parse_args(argv)
 
-    data = build_dashboard(charts_from_git=args.charts_from_git, with_prices=not args.no_prices)
+    data = build_dashboard(charts_from_git=args.charts_from_git, with_prices=not args.no_prices,
+                           with_insider=not args.no_insider)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(data, ensure_ascii=False, allow_nan=False, separators=(",", ":")),
                         encoding="utf-8")
     n_charts = sum(len(m["items"]) for m in data["charts"])
     n_pos = sum(len(a["positions"]) for a in data["accounts"])
+    n_insider = sum(1 for s in data["stocks"].values() if s["insider"] is not None)
     print(f"[web_export] {args.out} — 일봉 {data['bar_date']}, 보유 {n_pos}, 후보 {len(data['candidates'])}, "
-          f"차트 {n_charts}종목 ({args.out.stat().st_size / 1024:.0f} KB)")
+          f"차트 {n_charts}종목, 종목 정보 {len(data['stocks'])} (내부자 {n_insider}) "
+          f"({args.out.stat().st_size / 1024:.0f} KB)")
     return 0
 
 
