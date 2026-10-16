@@ -111,6 +111,13 @@ def _apply_hard_filters(
     total = len(df)
     effective_rsi_max = rsi_max if rsi_max is not None else CANDIDATE_RSI_MAX
 
+    # 0. 지수 ETF(SPY·QQQ·IWM)는 레짐 판단용으로만 후보표에 남는다 — 사지 않는다
+    #    (2026-10-16: 10-05 후보표로 PT-1N 규칙을 돌리면 IWM 이 뽑혔다. 실제로 산 적은 없음)
+    tickers = df.get("티커", pd.Series("", index=df.index)).astype(str)
+    is_index = tickers.isin(set(_cfg.INDICES))
+    rejections["지수ETF"] = int(is_index.sum())
+    df = df[~is_index]
+
     # 1. 전략 점수 >= threshold (전략 라벨 부여된 종목만)
     bottom_scores = df.get("바닥반등_적합도", pd.Series(0, index=df.index)).fillna(0)
     momentum_scores = df.get("모멘텀_적합도", pd.Series(0, index=df.index)).fillna(0)

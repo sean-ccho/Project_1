@@ -104,3 +104,10 @@ def test_calendar_mode_off_and_env(monkeypatch, tmp_path):
     assert len(EarningsCalendar.load(path, mode="off")) == 0
     monkeypatch.setenv("BACKTEST_EARNINGS_CAL", "off")
     assert len(EarningsCalendar.load(path)) == 0
+
+
+def test_index_etfs_never_pass_hard_filters():
+    """SPY·QQQ·IWM 은 레짐 판단용 행 — 다른 조건을 다 통과해도 후보가 되지 않는다 (2026-10-16)."""
+    df = pd.DataFrame([{**_passing(10.0), "티커": t} for t in ("IWM", "SPY", "QQQ", "AAA")])
+    out, rej = _apply_hard_filters(df, [])
+    assert out["티커"].tolist() == ["AAA"] and rej["지수ETF"] == 3
