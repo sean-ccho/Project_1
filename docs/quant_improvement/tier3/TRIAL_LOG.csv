@@ -323,3 +323,18 @@
 2026-10-14 22:50,stage18,lab_G_v1,180,G-최종,,탈락,① PBO < 0.3 X · ② 이웃 80%+ O · ③ 검증 X · ④ 재확인 X · ⑥ 스트레스 X
 2026-10-14 23:11,stage19,pt1_sizing_fix_v1,1,(등록),,등록,"[2016-01-04~2025-09-30, PT-1 백테스트 엔진, 13y PIT S&P 500, 매일 리밸런스, $5,000, 가격 캐시 고정] FIX = PT1_SIZING equal_fixed (빈자리를 약세장 한도 대신 PAPER_TRADING_MAX_POSITIONS 기준, 실거래 $5,000 계좌와 같은 회계). 기준 = 같은 실행의 BASE (저장된 pt1_base_dev_equity 와 같아야 함). 버그 수정이라 채택 = ΔSharpe 95% 상한>0 (유의하게 나빠지지 않음) · 0주 매수 0건. 개선 = 채택 중 하한>0 · p≤0.05 (참고). SPY 대비·매수 비중 분포·연도별은 참고."
 2026-10-14 23:20,stage19,pt1_sizing_fix_v1,1,FIX,,채택,"Sharpe 0.74 vs BASE 0.62, ΔSharpe +0.12 [-0.13, +0.32] p 0.213, 구간 2/3, CAGR +13.0%, MDD -28.6%, 거래 616, 0주 0 (BASE 41), 비중 90%+ 0 (BASE 19)"
+2026-10-15 23:05,stage16,idea_batch_v2,12,(등록),,등록,"B1 매출 가속(REVACC·RUNNER) · B2 애널리스트(UPG·DNG·PTB) · B3 공매도(SIR·DTC·DSI) 12건, 월말 상위20%/집합/이벤트 vs 구성종목, z=2.87. 정의는 scripts/idea_batch_v2.py 머리말"
+2026-10-15 23:05,stage16,acc_confirm_v1,1,(등록),,등록,"fundamental_px10y_v2 ACC|h63 '관찰'의 재확인 1건: 2010-01~2015-09 S&P PIT (yfinance 새 가격), z=1.96"
+2026-10-15 23:06,stage16,idea_batch_v2,12,REVACC|h21,-0.22,탈락,
+2026-10-15 23:06,stage16,idea_batch_v2,12,REVACC|h63,-0.05,탈락,
+2026-10-15 23:06,stage16,idea_batch_v2,12,RUNNER|h21,1.03,탈락,
+2026-10-15 23:06,stage16,idea_batch_v2,12,RUNNER|h63,0.87,탈락,
+2026-10-15 23:06,stage16,idea_batch_v2,12,UPG|h21,-0.01,탈락,
+2026-10-15 23:06,stage16,idea_batch_v2,12,DNG|h63,-0.49,탈락,
+2026-10-15 23:06,stage16,idea_batch_v2,12,PTB|h21,-0.68,탈락,
+2026-10-15 23:06,stage16,idea_batch_v2,12,PTB|h63,0.14,탈락,
+2026-10-15 23:06,stage16,idea_batch_v2,12,SIR|h21,0.01,탈락,
+2026-10-15 23:06,stage16,idea_batch_v2,12,SIR|h63,-0.11,탈락,
+2026-10-15 23:06,stage16,idea_batch_v2,12,DTC|h63,-2.41,피하기 관찰,
+2026-10-15 23:06,stage16,idea_batch_v2,12,DSI|h63,0.14,탈락,
+2026-10-15 23:06,stage16,acc_confirm_v1,1,ACC|h63,0.59,탈락,
