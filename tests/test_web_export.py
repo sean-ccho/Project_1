@@ -153,3 +153,37 @@ def test_benchmark_block(monkeypatch):
     assert benchmark_block() == {"ticker": "SPY", "closes": [["2026-10-14", 600.1235], ["2026-10-15", 601.5]]}
     monkeypatch.setattr(bm, "load_spy_close", lambda period="6y": pd.Series(dtype=float))
     assert benchmark_block() is None
+
+
+def test_all_charts_merges_sources_and_orders_by_score(monkeypatch, tmp_path) -> None:
+    """전체차트: 두 시장의 모든 종목 (점수 순, 지수 ETF 제외), 이미지는 차트분석 PNG 먼저 → 전체차트 WebP."""
+    from screener import config as cfg
+    monkeypatch.chdir(tmp_path)
+    for d, f in (("charts/sp500x/AAA", "AAA_Daily_20261016_060000.png"), ("charts/allx/BBB", "BBB_Daily_20261016_070000.webp"),
+                 ("charts/allx/CCC", "CCC_Weekly_20261016_070000.webp")):
+        Path(d).mkdir(parents=True)
+        (Path(d) / f).write_bytes(b"x")
+    monkeypatch.setattr(cfg, "CHARTS_OUTPUT_DIR", "charts/sp500x")
+    monkeypatch.setattr(cfg, "CHARTS_SIGNALS2_OUTPUT_DIR", "charts/nasdaqx")
+    monkeypatch.setattr(wd, "ALL_CHARTS", ("charts/allx", "screenshots-all"))
+    ranked = pd.DataFrame({"티커": ["AAA", "BBB", "SPY", "CCC"], "매수적합도": [5.0, 7.0, 1.0, 6.0],
+                           "market": ["sp500", "sp500", "sp500", "nasdaq"]})
+    out = wd.build_all_charts(ranked, {"AAA": 1}, "o/r")
+    sp = next(m for m in out if m["key"] == "sp500")
+    assert [it["ticker"] for it in sp["items"]] == ["BBB", "AAA"]
+    assert sp["items"][0]["images"]["Daily"].endswith("/screenshots-all/charts/allx/BBB/BBB_Daily_20261016_070000.webp")
+    assert sp["items"][1]["held"] and "screenshots-sp500" in sp["items"][1]["images"]["Daily"]
+    nq = next(m for m in out if m["key"] == "nasdaq")
+    assert nq["items"][0]["images"] == {"Weekly": nq["items"][0]["images"]["Weekly"]}
+
+
+def test_trade_log_with_spy() -> None:
+    idx = pd.to_datetime(["2026-10-01", "2026-10-08", "2026-10-15"])
+    spy = pd.Series([100.0, 102.0, 101.0], index=idx)
+    trades = [{"ticker": "A", "entry_date": "2026-10-01", "exit_date": "2026-10-08", "return_pct": 0.05,
+               "entry_price": 10, "exit_price": 10.5, "exit_reason": "목표가", "strategy": "📈 모멘텀"},
+              {"ticker": "B", "entry_date": "2026-10-08", "exit_date": "2026-10-15", "return_pct": -0.02}]
+    log = wd.trade_log(trades, spy)
+    assert [x["ticker"] for x in log] == ["B", "A"]                      # 최근 청산 먼저
+    assert log[1]["spy_return"] == 0.02 and log[1]["vs_spy"] == 0.03
+    assert wd.trade_log(trades)[0]["spy_return"] is None

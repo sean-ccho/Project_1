@@ -17,7 +17,7 @@ Google Sheets '내계좌' 워크시트에 있는 종목들을 읽어
   [리스크 — 파이프라인 자동] ATR%, 베타(1년), 평균상관, 실적일
   [입력 — 웹 내계좌] 손절가, 매수이유
 '관심종목' 탭(웹에서 추가)이 있으면 현재가·목표까지·도달을 채우고, 메일 맨 위에 알림(손절가 아래·근접,
-실적 7일 이내, 관심종목 목표가 도달)을 붙인다.
+실적 7일 이내, 관심종목 목표가 도달, 3일 안에 나온 SEC 🔴·🟠 공시, 관심종목의 🔴 공시)을 붙인다.
 
 사용:
     python src/screener/portfolio_report.py
@@ -29,7 +29,8 @@ import json
 import os
 import smtplib
 import time
-from datetime import datetime, timedelta, timezone
+from dataclasses import asdict
+from datetime import date, datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
@@ -54,6 +55,7 @@ except ImportError:
     Credentials = None
     WorksheetNotFound = None
 
+from screener.sec_filings import fetch_flags, format_flags
 from screener.config import (
     GOOGLE_SHEETS_CREDENTIALS_PATH,
     GOOGLE_SHEETS_ENABLED,
@@ -104,7 +106,8 @@ ANALYSIS_HEADERS.append("업데이트")  # 마지막: 마지막 갱신 시각
 #   베타(1년) = 1년 일간수익률의 SPY 베타
 #   평균상관  = 최근 120거래일 일간수익률로 본 다른 보유 종목과의 상관 평균 (종목이 2개 이상일 때)
 #   실적일    = 다음 실적 발표일 (yfinance calendar)
-RISK_HEADERS: list[str] = ["ATR%", "베타(1년)", "평균상관", "실적일"]
+#   공시      = SEC 공시 경고 🔴·🟠 (screener.sec_filings — 상장폐지 경고·재작성·보고서 지연·자금 조달 등)
+RISK_HEADERS: list[str] = ["ATR%", "베타(1년)", "평균상관", "실적일", "공시"]
 
 # ── 웹 내계좌에서 쓰는 입력 칸 (2026-10-16) — 손절가는 알림 메일, 매수이유는 웹 매매일지 성적에 쓴다 ──
 EXTRA_INPUT_HEADERS: list[str] = ["손절가", "매수이유"]
@@ -129,6 +132,7 @@ WATCH_HEADERS = WATCH_INPUT_HEADERS + WATCH_ANALYSIS_HEADERS
 
 STOP_NEAR_PCT = 0.03       # 손절가 위 3% 이내면 '손절가 근접' 알림
 EARNINGS_ALERT_DAYS = 7    # 실적 발표가 7일 안이면 알림
+SEC_NEW_DAYS = 3           # 이 기간 안에 나온 🔴·🟠 공시는 메일 맨 위 알림으로도 올린다
 CORR_WINDOW = 120          # 평균상관 계산 거래일 수
 BETA_MIN_OBS = 120         # 베타 계산 최소 거래일 수
 
@@ -584,6 +588,7 @@ def _analysis_values(tf_data: dict, now_str: str) -> dict[str, str]:
     vals["베타(1년)"] = f"{beta:.2f}" if beta is not None else ""
     vals["평균상관"] = f"{corr:.2f}" if corr is not None else ""
     vals["실적일"] = f"'{earn}" if earn else ""  # ' = 글자로 (시트 날짜 서식이 바꾸지 않게)
+    vals["공시"] = format_flags(tf_data.get("_sec") or [])
     return vals
 
 
@@ -660,6 +665,9 @@ def update_watchlist(sheet) -> list[dict[str, str]]:
     prices: dict[str, Optional[float]] = {}
     data: list[dict] = []
     alerts: list[dict[str, str]] = []
+    warned: set[str] = set()
+    watch_sec = fetch_flags([str(r[header.index("티커")]).strip().upper() for r in values[1:]
+                             if "티커" in header and len(r) > header.index("티커") and str(r[header.index("티커")]).strip()])
     for row_num, row in enumerate(values[1:], start=2):
         rec = {h: (row[i] if i < len(row) else "") for i, h in enumerate(header)}
         ticker = str(rec.get("티커", "")).strip().upper()
@@ -679,6 +687,11 @@ def update_watchlist(sheet) -> list[dict[str, str]]:
             "업데이트": now_str,
         }
         data += [{"range": f"{_col_letter(col[h])}{row_num}", "values": [[v]]} for h, v in out.items() if h in col]
+        for f in watch_sec.get(ticker.replace(".", "-"), []):
+            if f.severity == "red" and ticker not in warned:
+                warned.add(ticker)
+                alerts.append({"kind": "sec", "ticker": ticker,
+                               "text": f"관심종목 {ticker} 공시: {format_flags([f])} ({f.form}) — 사기 전에 확인하세요"})
         if hit:
             cond = "이상" if above else "이하"
             alerts.append({"kind": "watch", "ticker": ticker,
@@ -699,6 +712,7 @@ def build_alerts(records: list[dict[str, str]], ticker_results: dict[str, dict],
     alerts: list[dict[str, str]] = []
     no_stop: list[str] = []
     seen_earn: set[str] = set()
+    seen_sec: set[str] = set()
     for rec in records:
         ticker = str(rec.get("티커", "")).strip().upper()
         res = ticker_results.get(ticker, {})
@@ -714,6 +728,13 @@ def build_alerts(records: list[dict[str, str]], ticker_results: dict[str, dict],
             elif price <= stop * (1 + STOP_NEAR_PCT):
                 alerts.append({"kind": "near", "ticker": ticker,
                                "text": f"{ticker} 손절가 ${stop:,.2f} 까지 {price / stop - 1:.1%} 남았어요 (현재 ${price:,.2f})"})
+        if ticker not in seen_sec:
+            seen_sec.add(ticker)
+            for f in res.get("_sec") or []:
+                fd = asdict(f) if not isinstance(f, dict) else f
+                if fd["severity"] in ("red", "orange") and 0 <= (today - date.fromisoformat(fd["date"])).days <= SEC_NEW_DAYS:
+                    alerts.append({"kind": "sec", "ticker": ticker,
+                                   "text": f"{ticker} 새 공시: {format_flags([fd])} ({fd['form']}) — {fd['url']}"})
         earn = res.get("_earnings")
         if earn and ticker not in seen_earn:
             days = (datetime.fromisoformat(earn).date() - today).days
@@ -724,7 +745,26 @@ def build_alerts(records: list[dict[str, str]], ticker_results: dict[str, dict],
     return alerts, no_stop
 
 
-_ALERT_ICON = {"stop": "🛑", "near": "⚠️", "earn": "📅", "watch": "🎯"}
+_ALERT_ICON = {"stop": "🛑", "near": "⚠️", "earn": "📅", "watch": "🎯", "sec": "📄", "squeeze": "🔥"}
+
+
+def squeeze_alerts(tickers: list[str], watch=None) -> list[dict[str, str]]:
+    """보유 종목이 숏스퀴즈 감시 목록에 있으면 알림 (🔥 진행 가능 · 대기). 목록은 같은 실행의 short_squeeze 단계가 저장."""
+    from screener.short_squeeze import load_watch  # noqa: PLC0415
+
+    w = load_watch() if watch is None else watch
+    if w.empty:
+        return []
+    by = {r.ticker: r for r in w.itertuples()}
+    out = []
+    for t in dict.fromkeys(tickers):
+        r = by.get(t.strip().upper().replace(".", "-"))
+        if r is None:
+            continue
+        state = "🔥 스퀴즈 진행 가능 (신고가 + 거래량 급증)" if r.status == "fire" else "숏스퀴즈 대기 (공매도 몰림)"
+        out.append({"kind": "squeeze", "ticker": t,
+                    "text": f"{t} {state} — 공매도 {r.short_pct:.0%} · 되사기 {r.dtc:.1f}일분. 크게 움직일 수 있어요 (위·아래 모두)"})
+    return out
 
 
 def _alerts_html(alerts: list[dict[str, str]], no_stop: list[str]) -> str:
@@ -963,7 +1003,8 @@ def build_html_report(ticker_results: dict[str, dict[str, dict]], alerts: Option
         risk = [f"ATR {tf_data['_atr_pct']:.1%}" if tf_data.get("_atr_pct") is not None else "",
                 f"베타 {tf_data['_beta']:.2f}" if tf_data.get("_beta") is not None else "",
                 f"평균상관 {tf_data['_avg_corr']:.2f}" if tf_data.get("_avg_corr") is not None else "",
-                f"실적 {tf_data['_earnings']}" if tf_data.get("_earnings") else ""]
+                f"실적 {tf_data['_earnings']}" if tf_data.get("_earnings") else "",
+                format_flags(tf_data.get("_sec") or [])]
         risk_line = " · ".join(x for x in risk if x)
         if risk_line:
             body += f"      <div style='color:#6b7280;font-size:12px;margin:0 0 8px 2px'>{risk_line}</div>\n"
@@ -1053,6 +1094,9 @@ def run_portfolio_report() -> bool:
         ticker_results[ticker] = analyze_ticker(ticker)
     spy = _fetch_ohlcv("SPY", "1d", "1y")
     add_risk_stats(ticker_results, spy["Close"] if not spy.empty else None)
+    sec = fetch_flags(tickers)  # SEC 공시 경고 (SEC_USER_AGENT 없으면 빈 dict)
+    for t in tickers:
+        ticker_results[t]["_sec"] = sec.get(t.strip().upper().replace(".", "-"), [])
 
     # 3. 시트 분석 컬럼 업데이트 (같은 티커 여러 줄이면 모두)
     print("\n[내계좌] 시트 업데이트 중...")
@@ -1064,6 +1108,7 @@ def run_portfolio_report() -> bool:
     # 4. 알림 (손절가·실적 임박·관심종목 목표가) + HTML 이메일 빌드 & 발송
     alerts, no_stop = build_alerts(records, ticker_results)
     alerts += update_watchlist(_open_sheet())
+    alerts += squeeze_alerts(tickers)
     for a in alerts:
         print(f"[내계좌] 알림: {a['text']}")
     html_body = build_html_report(ticker_results, alerts, no_stop)

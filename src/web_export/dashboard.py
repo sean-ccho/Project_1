@@ -37,7 +37,9 @@ MARKETS = (
     ("nasdaq", "나스닥·NYSE", "nasdaq_ranked.parquet", "CHARTS_SIGNALS2_OUTPUT_DIR", "screenshots-nasdaq"),
 )
 
-_CHART_FILE_RE = re.compile(r"_(?P<tf>1H|4H|Daily|Weekly|Monthly)_(?P<stamp>\d{8}_\d{6})\.png$")
+_CHART_FILE_RE = re.compile(r"_(?P<tf>1H|4H|Daily|Weekly|Monthly)_(?P<stamp>\d{8}_\d{6})\.(?:png|webp)$")
+# 전체차트 (charts/capture_remaining.py) — 차트분석에 없는 분석 시트 종목 캡처
+ALL_CHARTS = ("charts/screenshots_all", "screenshots-all")
 
 
 # ── 값 정리 ──────────────────────────────────────────────────
@@ -141,6 +143,39 @@ def fundamentals(row: pd.Series) -> dict[str, float | None]:
     return {key: _num(row.get(col), digits) for key, col, digits in FUNDAMENTAL_FIELDS}
 
 
+def _sec_flags(v: Any) -> list[dict[str, Any]]:
+    """스냅샷 sec_flags 열(JSON 글자) → 목록. 비었거나 깨졌으면 []."""
+    s = _text(v)
+    if not s or s == "nan":
+        return []
+    try:
+        out = json.loads(s)
+    except ValueError:
+        return []
+    return out if isinstance(out, list) else []
+
+
+def _short(row: pd.Series) -> dict[str, Any] | None:
+    pct, dtc = _num(row.get("short_pct"), 4), _num(row.get("short_dtc"), 2)
+    if pct is None and dtc is None:
+        return None
+    high = str(row.get("short_high")) == "True"
+    return {"pct": pct, "dtc": dtc, "change": _num(row.get("short_change"), 4), "settle": _text(row.get("short_settle")),
+            "high": high}
+
+
+def squeeze_block(data_dir: Path | None = None) -> dict[str, Any]:
+    """숏스퀴즈 감시 목록 (🔥 진행 가능 · 대기). 파일이 없으면 빈 목록."""
+    from screener.short_squeeze import load_watch
+
+    w = load_watch(str((data_dir or Path("data/paper_trading")) / "squeeze_watch.parquet"))
+    rows = [{"ticker": r.ticker, "name": _text(r.name), "status": r.status, "price": _num(r.price, 2),
+             "short_pct": _num(r.short_pct, 4), "short_basis": _text(r.short_basis), "dtc": _num(r.dtc, 2),
+             "si_change": _num(r.si_change, 4), "ret_5d": _num(r.ret_5d, 4), "vol_ratio": _num(r.vol_ratio, 2)}
+            for r in w.itertuples()]
+    return {"settle": _text(w["settle"].iloc[0]) if len(w) else None, "items": rows}
+
+
 def ticker_info(row: pd.Series) -> dict[str, Any]:
     """랭킹 스냅샷 한 줄 → 웹에 보여 줄 요약."""
     earnings = _text(row.get("next_earnings_date"))
@@ -179,6 +214,9 @@ def ticker_info(row: pd.Series) -> dict[str, Any]:
         "rel_sector": _num(row.get("섹터상대강도"), 4),
         "fundamentals": fundamentals(row),
         "insider": None,  # build_dashboard 가 후보·보유·차트 종목에만 채운다
+        "sec_flags": _sec_flags(row.get("sec_flags")),  # SEC 공시 경고 (sec_filings.Flag 목록, 없으면 [])
+        "short": _short(row),  # 공매도 (FINRA 잔고·되사기 + 유통주식 대비 비중), 없으면 None
+        "squeeze": None,  # build_dashboard 가 숏스퀴즈 감시 목록으로 채운다 ('fire' · 'fuel')
     }
 
 
@@ -254,6 +292,35 @@ def _exit_reason_key(reason: str) -> str:
     return next((k for k in EXIT_REASON_KEYS if reason.startswith(k)), "기타")
 
 
+def trade_log(trades: list[dict[str, Any]], spy_close: pd.Series | None = None) -> list[dict[str, Any]]:
+    """웹 '거래로그' — 청산 거래 전부 (최근 청산 먼저), 구글 시트 [페이퍼_거래로그] 의 SELL 줄과 같은 내용 + 같은 기간 SPY."""
+    from paper_trading.benchmarks import spy_window_return
+
+    out = []
+    for t in sorted(trades, key=lambda x: (str(x.get("exit_date") or ""), str(x.get("entry_date") or "")), reverse=True):
+        ret = _num(t.get("return_pct"), 4)
+        spy = None
+        if spy_close is not None and not spy_close.empty and t.get("entry_date") and t.get("exit_date"):
+            spy = spy_window_return(spy_close, str(t["entry_date"]), str(t["exit_date"]))
+        out.append({
+            "ticker": t.get("ticker"),
+            "sector": _text(t.get("sector")),
+            "strategy": _label(t.get("strategy")),
+            "star": _text(t.get("star_rating")),
+            "ccs": _num(t.get("ccs_score"), 4),
+            "entry_date": t.get("entry_date"),
+            "exit_date": t.get("exit_date"),
+            "entry_price": _num(t.get("entry_price"), 4),
+            "exit_price": _num(t.get("exit_price"), 4),
+            "return": ret,
+            "holding_days": t.get("holding_days"),
+            "exit_reason": t.get("exit_reason"),
+            "spy_return": _num(spy, 4),
+            "vs_spy": _num(ret - spy, 4) if ret is not None and spy is not None else None,
+        })
+    return out
+
+
 def trade_summary(trades: list[dict[str, Any]], recent: int = 10) -> dict[str, Any]:
     """청산 기록 → 건수·승률·평균·청산 이유별 성적·거래별 기록(청산일 순)·최근 청산."""
     trades = sorted(trades, key=lambda t: (str(t.get("exit_date") or ""), str(t.get("entry_date") or "")))
@@ -323,7 +390,7 @@ def _dollar_block(acct: Any) -> dict[str, Any] | None:
 
 
 def build_account(key: str, cfg: dict[str, Any], positions: list[dict[str, Any]], trades: list[dict[str, Any]],
-                  dollar: Any, infos: dict[str, dict[str, Any]]) -> dict[str, Any]:
+                  dollar: Any, infos: dict[str, dict[str, Any]], spy_close: pd.Series | None = None) -> dict[str, Any]:
     """계좌 1개 — 보유 종목(현재가·매도선·SPY 대비) + 청산 성적 + $5,000 계좌."""
     from paper_trading.engine import exit_levels
     from paper_trading.portfolio import get_holding_days
@@ -373,6 +440,7 @@ def build_account(key: str, cfg: dict[str, Any], positions: list[dict[str, Any]]
         "label": cfg["label"],
         "positions": rows,
         "trades": trade_summary(trades),
+        "log": trade_log(trades, spy_close),
         "dollar": _dollar_block(dollar),
     }
 
@@ -389,7 +457,7 @@ def list_chart_files(chart_dir: str, branch: str, *, from_git: bool = False) -> 
         paths = [p for p in out if p.startswith(prefix)]
     else:
         root = Path(chart_dir)
-        paths = [p.as_posix() for p in root.glob("*/*.png")] if root.exists() else []
+        paths = [p.as_posix() for p in root.glob("*/*") if p.suffix in (".png", ".webp")] if root.exists() else []
     found: dict[str, dict[str, str]] = {}
     for path in sorted(paths):  # 이름에 시각이 들어 있어 정렬하면 최근 파일이 마지막
         parts = path.split("/")
@@ -397,6 +465,41 @@ def list_chart_files(chart_dir: str, branch: str, *, from_git: bool = False) -> 
         if m and len(parts) >= 2:
             found.setdefault(parts[-2], {})[m["tf"]] = path
     return found
+
+
+def build_all_charts(ranked: pd.DataFrame, held: dict[str, int], repo: str, *,
+                     from_git: bool = False) -> list[dict[str, Any]]:
+    """웹 '전체차트' — 두 분석 시트의 모든 종목 (매수적합도 순). 이미지는 차트분석(PNG) 먼저, 없으면 전체차트(WebP).
+
+    종목 정보는 stocks 맵에서 찾는다 (크기를 줄이려고 여기엔 안 넣는다). 아직 캡처가 없으면 images 가 빈 dict.
+    """
+    from screener import config as cfg
+
+    sources = [(getattr(cfg, cfg_name), branch) for _k, _l, _f, cfg_name, branch in MARKETS] + [ALL_CHARTS]
+    urls: dict[str, dict[str, str]] = {}
+    stamps: list[str] = []
+    for chart_dir, branch in sources:
+        try:
+            files = list_chart_files(chart_dir, branch, from_git=from_git)
+        except subprocess.CalledProcessError:  # 브랜치가 아직 없음 (첫 실행 전)
+            files = {}
+        at = _captured_at(files)
+        if at:
+            stamps.append(at)
+        for ticker, tfs in files.items():
+            if ticker not in urls:
+                urls[ticker] = {tf: f"https://raw.githubusercontent.com/{repo}/{branch}/{quote(tfs[tf])}"
+                                for tf in TIMEFRAMES if tf in tfs}
+    if ranked.empty or "market" not in ranked.columns:
+        return []
+    score = pd.to_numeric(ranked.get("매수적합도", pd.Series(0.0, index=ranked.index)), errors="coerce").fillna(0.0)
+    r = ranked.assign(_s=score).sort_values("_s", ascending=False)
+    out = []
+    for key, label, *_rest in MARKETS:
+        tickers = [str(t) for t in r.loc[r["market"] == key, "티커"] if str(t) not in ("SPY", "QQQ", "IWM")]
+        out.append({"key": key, "label": label, "captured_at": max(stamps) if stamps else None,
+                    "items": [{"ticker": t, "held": t in held, "images": urls.get(t, {})} for t in dict.fromkeys(tickers)]})
+    return out
 
 
 def _captured_at(files: dict[str, dict[str, str]]) -> str | None:
@@ -441,11 +544,12 @@ def build_charts(infos: dict[str, dict[str, Any]], held: dict[str, int], repo: s
 # ── 전체 ─────────────────────────────────────────────────────
 
 
-def benchmark_block(period: str = "6y") -> dict[str, Any] | None:
-    """SPY 일봉 종가 (배당 조정) — 웹 매매일지가 '같은 기간 SPY 수익률'을 계산할 때 쓴다. 실패하면 None."""
+def benchmark_block(period: str = "6y", close: pd.Series | None = None) -> dict[str, Any] | None:
+    """SPY 일봉 종가 (배당 조정) — 웹 매매일지가 '같은 기간 SPY 수익률'을 계산할 때 쓴다. 실패하면 None.
+    close 를 주면 다시 받지 않는다 (build_dashboard 가 계좌 거래로그용으로 받은 것)."""
     from paper_trading.benchmarks import load_spy_close
 
-    close = load_spy_close(period)
+    close = load_spy_close(period) if close is None else close
     if close.empty:
         print("[web_export] SPY 종가 없음 (benchmark 건너뜀)")
         return None
@@ -475,7 +579,11 @@ def build_dashboard(data_dir: Path | None = None, *, charts_from_git: bool = Fal
         books[key] = (load_trades(acct_dir), load_positions(acct_dir))
     dollars = _dollar_accounts(books) if with_prices else {}
 
-    accounts = [build_account(key, PT1_ACCOUNTS[key], positions, trades, dollars.get(key), infos)
+    spy_close = pd.Series(dtype=float)
+    if with_prices:
+        from paper_trading.benchmarks import load_spy_close
+        spy_close = load_spy_close("6y")
+    accounts = [build_account(key, PT1_ACCOUNTS[key], positions, trades, dollars.get(key), infos, spy_close)
                 for key, (trades, positions) in books.items()]
     held: dict[str, int] = {}
     for acct in accounts:
@@ -488,12 +596,19 @@ def build_dashboard(data_dir: Path | None = None, *, charts_from_git: bool = Fal
         for rank, g in enumerate(items):
             if g["ticker"] in infos:
                 infos[g["ticker"]]["golden"] = {"rank": rank, "timeframes": g["timeframes"]}
+    # 숏스퀴즈 상태는 후보를 만들기 전에 채운다 (후보는 infos 를 복사한다)
+    squeeze = squeeze_block(data_dir)
+    status = {q["ticker"]: q["status"] for q in squeeze["items"]}
+    for t, info in infos.items():
+        info["squeeze"] = status.get(t.replace(".", "-"))
     candidates = build_candidates(ranked, infos, held)
     charts = build_charts(infos, held, cfg.GITHUB_REPO_NAME, from_git=charts_from_git)
 
     # 웹 종목 상세 페이지용 — 후보·보유·차트·골든크로스에 나오는 종목만 (차트 항목의 info 는 같은 dict 라 함께 채워진다)
+    all_charts = build_all_charts(ranked, held, cfg.GITHUB_REPO_NAME, from_git=charts_from_git)
     shown = ([c["ticker"] for c in candidates] + list(held) + [it["ticker"] for m in charts for it in m["items"]]
-             + [g["ticker"] for items in golden.values() for g in items])
+             + [g["ticker"] for items in golden.values() for g in items]
+             + [it["ticker"] for m in all_charts for it in m["items"]])
     stocks = {t: infos[t] for t in dict.fromkeys(shown) if t in infos}
     if with_insider and stocks:
         for t, rec in insider_info(list(stocks)).items():
@@ -512,9 +627,11 @@ def build_dashboard(data_dir: Path | None = None, *, charts_from_git: bool = Fal
         "accounts": accounts,
         "candidates": candidates,
         "charts": charts,
+        "all_charts": all_charts,
         "golden_cross": golden,
         "stocks": stocks,
-        "benchmark": benchmark_block() if with_prices else None,
+        "benchmark": benchmark_block(close=spy_close) if with_prices else None,
+        "squeeze": squeeze,
     }
 
 

@@ -91,6 +91,39 @@ def save_ranked_snapshot(df: pd.DataFrame, source: str) -> bool:
         except Exception as exc:
             logger.warning(f"[Runner] 헬스체크/시총 계산 실패 (무시): {exc}")
 
+        # SEC 공시 경고 (display-only) — [공시] = 🔴·🟠 한 줄 (메일·시트), sec_flags = 전체 JSON (웹)
+        try:
+            from screener.sec_filings import fetch_flags, flags_json, format_flags
+            if "티커" in df_save.columns:
+                flags = fetch_flags(df_save["티커"].astype(str).tolist())
+                if flags:
+                    keys = df_save["티커"].astype(str).str.strip().str.upper().str.replace(".", "-", regex=False)
+                    df_save["[공시]"] = [format_flags(flags.get(k, [])) for k in keys]
+                    df_save["sec_flags"] = [flags_json(flags[k]) if k in flags else "" for k in keys]
+        except Exception as exc:
+            logger.warning(f"[Runner] SEC 공시 경고 실패 (무시): {exc}")
+
+        # 공매도 (display-only) — FINRA 잔고·되사기 일수 + yfinance 유통주식 → [공매도] 한 줄, short_high = 주황 표시
+        try:
+            from screener.short_squeeze import is_high, short_data, short_line
+            sd = short_data()
+            if sd is not None and "티커" in df_save.columns:
+                pcts, dtcs, lines, highs, changes = [], [], [], [], []
+                for _, r in df_save.iterrows():
+                    got = sd.get(str(r["티커"]))
+                    fl = pd.to_numeric(r.get("fund_float_shares"), errors="coerce")
+                    pct = got["si"] / fl if got and fl and fl > 0 else pd.to_numeric(r.get("fund_short_pct_float"), errors="coerce")
+                    pct = float(pct) if pd.notna(pct) and pct < 3 else None
+                    dtc = got["dtc"] if got else None
+                    pcts.append(pct); dtcs.append(dtc); changes.append(got["si_change"] if got else None)
+                    lines.append(short_line(pct, dtc, sd.settle if got else None))
+                    highs.append(is_high(pct, dtc))
+                df_save["short_pct"], df_save["short_dtc"], df_save["short_change"] = pcts, dtcs, changes
+                df_save["short_settle"] = sd.settle
+                df_save["[공매도]"], df_save["short_high"] = lines, highs
+        except Exception as exc:
+            logger.warning(f"[Runner] 공매도 표시 실패 (무시): {exc}")
+
         # parquet은 object dtype 컬럼에 혼합 타입이 있으면 오류가 날 수 있으므로
         # 저장 전에 object 컬럼을 string으로 변환
         for col in df_save.select_dtypes(include="object").columns:

@@ -107,15 +107,15 @@ class _FakeWs:
 def test_ensure_headers_appends_only_missing_at_end():
     """이미 있는 열(웹이 먼저 붙인 손절가·매수이유 포함)은 옮기지 않고, 빠진 것만 끝에 붙인다."""
     from screener.portfolio_report import MY_ACCOUNT_HEADERS, _col_letter, _ensure_headers
-    base = [h for h in MY_ACCOUNT_HEADERS if h not in ("ATR%", "베타(1년)", "평균상관", "실적일")]
+    base = [h for h in MY_ACCOUNT_HEADERS if h not in ("ATR%", "베타(1년)", "평균상관", "실적일", "공시")]
     ws = _FakeWs(cols=len(base))
     out = _ensure_headers(ws, base + ["", ""], MY_ACCOUNT_HEADERS)
     assert out[: len(base)] == base
-    assert out[len(base):] == ["ATR%", "베타(1년)", "평균상관", "실적일"]
+    assert out[len(base):] == ["ATR%", "베타(1년)", "평균상관", "실적일", "공시"]
     assert ws.col_count >= len(out)
     (values, rng), = ws.updates
-    assert values == [["ATR%", "베타(1년)", "평균상관", "실적일"]]
-    assert rng == f"{_col_letter(len(base) + 1)}1:{_col_letter(len(base) + 4)}1"  # 기존 열 바로 다음부터
+    assert values == [["ATR%", "베타(1년)", "평균상관", "실적일", "공시"]]
+    assert rng == f"{_col_letter(len(base) + 1)}1:{_col_letter(len(base) + 5)}1"  # 기존 열 바로 다음부터
 
 
 def test_ensure_headers_noop_when_complete():
@@ -174,3 +174,18 @@ def test_build_html_report_shows_alerts():
     from screener.portfolio_report import build_html_report
     html = build_html_report({}, [{"kind": "stop", "ticker": "AAA", "text": "AAA 손절가 아래"}], ["DDD"])
     assert "알림 1건" in html and "AAA 손절가 아래" in html and "DDD" in html
+
+
+def test_build_alerts_new_sec_filing_only():
+    """3일 안의 🔴·🟠 공시만 알림 — 오래된 것·노랑은 종목 줄에만."""
+    from datetime import date
+    from screener.portfolio_report import build_alerts
+    from screener.sec_filings import Flag
+    new = Flag("offering", "자금 조달", "orange", "2026-10-15", "424B5", 1, "https://sec/x/")
+    old = Flag("delisting", "상장폐지 경고", "red", "2026-09-01", "8-K", 1, "https://sec/y/")
+    yellow = Flag("officer", "임원 변동", "yellow", "2026-10-16", "8-K", 1, "https://sec/z/")
+    records = [{"티커": "AAA", "손절가": "1"}, {"티커": "AAA", "손절가": "1"}]  # 같은 종목 두 줄이어도 한 번
+    res = {"AAA": {"_price": 5.0, "_sec": [new, old, yellow]}}
+    alerts, _ = build_alerts(records, res, today=date(2026, 10, 16))
+    sec = [a for a in alerts if a["kind"] == "sec"]
+    assert len(sec) == 1 and "자금 조달" in sec[0]["text"] and "https://sec/x/" in sec[0]["text"]

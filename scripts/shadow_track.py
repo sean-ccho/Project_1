@@ -18,6 +18,12 @@ PT 후보표는 CI 가 커밋한 origin/main 의 data/paper_trading/*_ranked.par
   RUNNER_N (buy, h63)   S&P 밖 후보 풀에서 SEC 분기 매출 YoY ≥ 15% 이고 2분기 연속 가속 (idea_batch_v2 RUNNER 와 같은 정의)
                         − 매출 YoY 있는 풀 평균. 월말. SEC 는 User-Agent 에 연락처가 필요 → SEC_USER_AGENT 가 있을 때만
   참고 (판정 없음): PT1_TOP5 (PT-1 전체 후보표), 각 TOP5 − IWM · − 그날 후보 풀 동일가중
+
+사전 등록 2 (TRIAL_LOG family shadow_v2, 2026-10-16, 2건 → z = 2.24, 판정 2027-10-15 한 번) — 숏스퀴즈 감시가 정말 '크게 움직이나':
+  SQ_FIRE|up30 · SQ_FUEL|up30  CI 의 screener.short_squeeze 가 저장한 data/paper_trading/squeeze_watch.parquet 의 🔥(fire)·대기(fuel)
+                        종목이 기록일 다음 거래일 시가부터 21거래일 안에 고가로 +30% 이상 찍은 비율 − 같은 날 무작위 표본(pool,
+                        같은 대상 조건의 일반 종목 200개)의 같은 비율. 기록일별 차이 → NW t. 비용은 빼지 않는다 (비율 비교).
+  참고: 같은 기간 저가로 −30% 이하 찍은 비율의 차이 (위·아래 모두 크게 움직이는지), 평균 수익 − SPY
   판정 = idea_batch_v2.judge (buy: 후보 = t ≥ z · 비용 후 > 0 · 앞/뒤 반 + · 연도 2/3 +; avoid 는 부호를 뒤집어 같은 기준).
   약세장(SPY < EMA200)이라 PT 규칙이 신규 진입을 막은 날은 TOP5 가 비어 그날은 관측에서 빠진다 (날짜 수를 보고서에 적는다).
 
@@ -73,6 +79,11 @@ TESTS: list[tuple[str, str, int, str, str]] = [
     ("RUNNER_N|h63", "RUNNER", 63, "set", "buy"),
 ]
 REFERENCE = [("PT1_TOP5|h21", "PT1_TOP5", 21, "top", "buy")]
+FAMILY_V2 = "shadow_v2"
+SQUEEZE_SNAPSHOT = "data/paper_trading/squeeze_watch.parquet"
+BIG_MOVE, BIG_H = 0.30, 21
+TESTS_V2: list[tuple[str, str]] = [("SQ_FIRE|up30", "SQ_FIRE"), ("SQ_FUEL|up30", "SQ_FUEL")]
+SQ_SIGNAL = {"fire": "SQ_FIRE", "fuel": "SQ_FUEL", "pool": "POOL_SQ"}
 PT_UNIVERSES = {"PT1S_TOP5": "sp500", "PT1N_TOP5": "ex_sp500", "PT1_TOP5": "all"}
 POOL_SIGNAL = {"PT1S_TOP5": "POOL_S", "PT1N_TOP5": "POOL_N", "PT1_TOP5": "POOL_ALL"}
 EPS_EVERY_DAYS = 6       # eps_trend · SEC 매출은 6일 넘게 지났을 때만 다시 받는다 (주 1회)
@@ -334,6 +345,22 @@ def runner_rows(day: str, pool: list[str]) -> list[dict[str, Any]]:
 # ============================================================
 # 기록
 # ============================================================
+def squeeze_rows(day: str, rev: str = "origin/main") -> list[dict[str, Any]]:
+    """CI 가 커밋한 숏스퀴즈 감시 목록 (🔥·대기·비교 표본). 파일이 없으면 빈 목록."""
+    try:
+        data = _git("show", f"{rev}:{SQUEEZE_SNAPSHOT}")
+    except subprocess.CalledProcessError:
+        print("[shadow] 숏스퀴즈 감시 파일 없음 (CI 첫 실행 전) — 건너뜀", flush=True)
+        return []
+    w = pd.read_parquet(io.BytesIO(data))
+    rows = [{"date": day, "signal": SQ_SIGNAL[s], "ticker": _norm(t), "rank": None, "value": float(v) if v == v else NAN,
+             "flag": s != "pool", "price": float(px) if px == px else NAN}
+            for t, s, v, px in zip(w["ticker"], w["status"], w["short_pct"], w["price"]) if s in SQ_SIGNAL]
+    n = pd.Series([r["signal"] for r in rows]).value_counts().to_dict() if rows else {}
+    print(f"[shadow] 숏스퀴즈 (FINRA {w['settle'].iloc[0] if len(w) else '-'} 기준): {n}", flush=True)
+    return rows
+
+
 def save_day(day: str, rows: list[dict[str, Any]]) -> Path:
     DAYS_DIR.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(rows, columns=COLUMNS)
@@ -364,6 +391,8 @@ def record() -> int:
             for sig in PT_UNIVERSES:
                 picks = [r["ticker"] for r in rows if r["signal"] == sig]
                 print(f"[shadow] {sig}: {picks or '없음 (규칙 통과 종목 없음)'}", flush=True)
+        if "POOL_SQ" not in have:
+            rows += squeeze_rows(day)
     print(f"===== 그림자 기록 {day} (이미 있는 신호: {sorted(have) or '없음'})", flush=True)
     if "DTC" not in have:
         try:
@@ -419,22 +448,40 @@ def load_days() -> pd.DataFrame:
     return df
 
 
-def load_opens(tickers: list[str], start: pd.Timestamp) -> pd.DataFrame:
-    """기록 종목 + SPY·IWM 일봉 시가 (배당 조정)."""
+def load_prices(tickers: list[str], start: pd.Timestamp) -> dict[str, pd.DataFrame]:
+    """기록 종목 + SPY·IWM 일봉 시가·고가·저가 (배당 조정)."""
     import yfinance as yf  # noqa: PLC0415
 
-    frames = []
+    frames: dict[str, list[pd.DataFrame]] = {"Open": [], "High": [], "Low": []}
     tks = sorted(set(tickers) | {"SPY", "IWM"})
     for i in range(0, len(tks), 100):
         data = yf.download(tks[i:i + 100], start=(start - pd.Timedelta(days=5)).strftime("%Y-%m-%d"), interval="1d",
                            auto_adjust=True, progress=False, threads=True)
         if data is None or data.empty:
             continue
-        o = data["Open"] if isinstance(data.columns, pd.MultiIndex) else data[["Open"]].rename(columns={"Open": tks[i]})
-        frames.append(o)
-    opens = pd.concat(frames, axis=1)
-    opens.index = pd.to_datetime(opens.index).tz_localize(None) if opens.index.tz is not None else pd.to_datetime(opens.index)
-    return opens.loc[:, ~opens.columns.duplicated()].sort_index()
+        for f in frames:
+            frames[f].append(data[f] if isinstance(data.columns, pd.MultiIndex) else data[[f]].rename(columns={f: tks[i]}))
+    out = {}
+    for f, parts in frames.items():
+        df = pd.concat(parts, axis=1)
+        df.index = pd.to_datetime(df.index).tz_localize(None) if df.index.tz is not None else pd.to_datetime(df.index)
+        out[f] = df.loc[:, ~df.columns.duplicated()].sort_index()
+    return out
+
+
+def big_moves(px: dict[str, pd.DataFrame], day: pd.Timestamp, tickers: list[str], h: int = BIG_H,
+              move: float = BIG_MOVE) -> pd.DataFrame | None:
+    """기록일 다음 거래일 시가 기준, h 거래일 안 고가 +move 이상 · 저가 −move 이하 찍었나 (아직 안 끝났으면 None)."""
+    o = px["Open"]
+    pos = o.index.searchsorted(day, side="right")
+    if pos + h > len(o.index):
+        return None
+    cols = [t for t in tickers if t in o.columns]
+    entry = o.iloc[pos][cols]
+    hi = px["High"].iloc[pos:pos + h][cols].max() / entry - 1
+    lo = px["Low"].iloc[pos:pos + h][cols].min() / entry - 1
+    ret = o.iloc[min(pos + h, len(o) - 1)][cols] / entry - 1
+    return pd.DataFrame({"up": hi >= move, "down": lo <= -move, "ret": ret}).dropna()
 
 
 def fwd(opens: pd.DataFrame, day: pd.Timestamp, h: int) -> pd.Series | None:
@@ -512,8 +559,9 @@ def report() -> None:
         print("[shadow] 기록 없음")
         return
     tickers = sorted(set(days["ticker"]))
-    opens = load_opens(tickers, days["date"].min())
-    rows, _ = evaluate(days, opens)
+    px = load_prices(tickers, days["date"].min())
+    rows, _ = evaluate(days, px["Open"])
+    rows_v2 = evaluate_v2(days, px)
     first, last = days["date"].min().date(), days["date"].max().date()
     n_days = days["date"].nunique()
     lines = [
@@ -532,13 +580,60 @@ def report() -> None:
                      f"{r['empty_days'] or '–'} | {r['판정(참고)']} |")
     counts = days.groupby("signal")["date"].nunique().to_dict()
     lines += ["", "기록한 날 수: " + " · ".join(f"{k} {v}" for k, v in sorted(counts.items())),
-              "", "빈 날 = PT 규칙을 통과한 종목이 없던 날 (약세장 신규 진입 중단 포함). 그날은 관측에서 빠진다."]
+              "", "빈 날 = PT 규칙을 통과한 종목이 없던 날 (약세장 신규 진입 중단 포함). 그날은 관측에서 빠진다.",
+              "", f"## 숏스퀴즈 감시 (shadow_v2, 2건, z = {bonferroni_z(len(TESTS_V2)):.2f}, 판정 {JUDGE_DATE})", "",
+              f"21거래일 안에 고가 +{BIG_MOVE:.0%} 이상 · 저가 −{BIG_MOVE:.0%} 이하를 찍은 비율 — 감시 종목 vs 같은 날 무작위 표본.", "",
+              "| test | 끝난 기록일 | 감시 +30% 비율 | 표본 +30% 비율 | 차이 | t_nw | 감시 −30% 비율 | 표본 −30% 비율 | 평균 수익 − SPY | 지금 판정(참고) |",
+              "|---|---|---|---|---|---|---|---|---|---|"]
+    for r in rows_v2:
+        lines.append(f"| {r['test_id']} | {r['n_obs']} | {pct(r['up'])} | {pct(r['pool_up'])} | {pct(r.get('mean_ex'))} | "
+                     f"{r.get('t_nw', NAN):+.2f} | {pct(r['down'])} | {pct(r['pool_down'])} | {pct(r['vs_spy'])} | {r['판정(참고)']} |")
     (SHADOW_DIR / "SHADOW_REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
 
 
+def evaluate_v2(days: pd.DataFrame, px: dict[str, pd.DataFrame]) -> list[dict[str, Any]]:
+    """숏스퀴즈 감시: 기록일마다 (감시 종목 +30% 비율 − 표본 +30% 비율) → NW t. −30% 비율·평균 수익은 참고."""
+    from idea_batch_v2 import _summ, judge  # noqa: PLC0415
+
+    z = bonferroni_z(len(TESTS_V2))
+    out = []
+    for tid, sig in TESTS_V2:
+        obs, up, pool_up, down, pool_down, vs_spy = [], [], [], [], [], []
+        for d in sorted(days.loc[days["signal"] == "POOL_SQ", "date"].unique()):
+            today = days[days["date"] == d]
+            picks = today.loc[today["signal"] == sig, "ticker"].tolist()
+            pool = today.loc[today["signal"] == "POOL_SQ", "ticker"].tolist()
+            if not picks:
+                continue
+            m = big_moves(px, d, picks + pool)
+            if m is None:
+                continue
+            a, b = m.reindex(picks).dropna(), m.reindex(pool).dropna()
+            if a.empty or b.empty:
+                continue
+            obs.append({"date": d, "ex": a["up"].mean() - b["up"].mean(), "spread": NAN, "ic": NAN, "n": len(a)})
+            up.append(a["up"].mean()); pool_up.append(b["up"].mean())
+            down.append(a["down"].mean()); pool_down.append(b["down"].mean())
+            spy = fwd(px["Open"], d, BIG_H)
+            vs_spy.append(a["ret"].mean() - spy["SPY"] if spy is not None and "SPY" in spy else NAN)
+        res, _ = _summ(pd.DataFrame(obs), BIG_H)
+        if res:
+            res["mean_net"] = res["mean_ex"]  # 비율 비교라 비용을 빼지 않는다
+        avg = lambda xs: float(np.nanmean(xs)) if xs else NAN  # noqa: E731
+        out.append({"test_id": tid, "n_obs": res.get("n_obs", 0), **res, "up": avg(up), "pool_up": avg(pool_up),
+                    "down": avg(down), "pool_down": avg(pool_down), "vs_spy": avg(vs_spy),
+                    "판정(참고)": judge(res, z, "buy") if res else "표본 없음"})
+    return out
+
+
 def register() -> None:
     log = pd.read_csv(TRIAL_LOG, encoding="utf-8-sig") if TRIAL_LOG.exists() else pd.DataFrame(columns=["family", "판정"])
+    if not ((log["family"] == FAMILY_V2) & (log["판정"] == "등록")).any():
+        log_trials(STEP, FAMILY_V2, len(TESTS_V2), [{"test_id": "(등록)", "판정": "등록", "메모": (
+            f"숏스퀴즈 감시 {len(TESTS_V2)}건 (SQ_FIRE·SQ_FUEL: 21거래일 안 고가 +30% 비율 − 같은 날 무작위 표본), "
+            f"z={bonferroni_z(len(TESTS_V2)):.2f}, 판정 {JUDGE_DATE} 한 번. 정의는 scripts/shadow_track.py 머리말")}])
+        print(f"[등록] {FAMILY_V2} {len(TESTS_V2)}건, 판정 {JUDGE_DATE}")
     if ((log["family"] == FAMILY) & (log["판정"] == "등록")).any():
         print(f"[등록] {FAMILY} 이미 등록됨")
         return

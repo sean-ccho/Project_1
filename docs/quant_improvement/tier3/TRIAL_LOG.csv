@@ -339,3 +339,4 @@
 2026-10-15 23:06,stage16,idea_batch_v2,12,DSI|h63,0.14,탈락,
 2026-10-15 23:06,stage16,acc_confirm_v1,1,ACC|h63,0.59,탈락,
 2026-10-15 23:29,shadow,shadow_v1,5,(등록),,등록,"앞으로 쌓는 그림자 기록 5건 (PT1S_TOP5·PT1N_TOP5 h21 vs SPY, DTC_HIGH h63 피하기, EPS_REV h21, RUNNER_N h63), z=2.58, 판정 2027-10-15 한 번. 정의는 scripts/shadow_track.py 머리말"
+2026-10-16 17:30,shadow,shadow_v2,2,(등록),,등록,"숏스퀴즈 감시 2건 (SQ_FIRE·SQ_FUEL: 21거래일 안 고가 +30% 비율 − 같은 날 무작위 표본), z=2.24, 판정 2027-10-15 한 번. 정의는 scripts/shadow_track.py 머리말"

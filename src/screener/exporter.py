@@ -556,6 +556,12 @@ def _build_chart_images_html(
     )
 
 
+def _pd_concat_safe(frames: list[pd.DataFrame]) -> pd.DataFrame:
+    """빈 표를 뺀 concat (모두 비면 빈 표)."""
+    frames = [f for f in frames if f is not None and not f.empty]
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
 def send_paper_trading_email(
     result: dict,
     positions: list[dict],
@@ -635,6 +641,15 @@ def send_paper_trading_email(
     # ── 회사 건전성 / 시총 lookup (ranked.parquet에서) ──
     _health_map: dict[str, str] = {}
     _cap_map: dict[str, str] = {}
+    _sec_map: dict[str, str] = {}  # SEC 공시 경고 (🔴·🟠) — sec_filings.format_flags
+    _short_map: dict[str, tuple[str, bool]] = {}  # 공매도 한 줄, 높음 여부 — short_squeeze.short_line
+    try:
+        from screener.short_squeeze import load_watch as _load_squeeze
+        _squeeze = _load_squeeze()
+    except Exception:
+        import pandas as _pd0
+        _squeeze = _pd0.DataFrame()
+    _squeeze_status = dict(zip(_squeeze.get("ticker", []), _squeeze.get("status", [])))
     try:
         from pathlib import Path as _Path
         import pandas as _pd
@@ -648,6 +663,15 @@ def send_paper_trading_email(
                     if "[시총]" in _df.columns:
                         for _t, _c in zip(_df["티커"], _df["[시총]"]):
                             _cap_map.setdefault(str(_t).upper(), str(_c))
+                    if "[공매도]" in _df.columns:
+                        _hi = _df["short_high"] if "short_high" in _df.columns else [False] * len(_df)
+                        for _t, _l, _h in zip(_df["티커"], _df["[공매도]"], _hi):
+                            if str(_l).strip() and str(_l) != "nan":
+                                _short_map.setdefault(str(_t).upper(), (str(_l), str(_h) == "True"))
+                    if "[공시]" in _df.columns:
+                        for _t, _f in zip(_df["티커"], _df["[공시]"]):
+                            if str(_f).strip() and str(_f) != "nan":
+                                _sec_map.setdefault(str(_t).upper(), str(_f))
     except Exception:
         pass
 
@@ -655,11 +679,23 @@ def send_paper_trading_email(
         """헬스체크 한 줄 문자열 (lookup)."""
         return _health_map.get(str(ticker or "").upper(), "N/A")
 
+    def _sec_line(ticker) -> str:
+        """SEC 공시 경고 줄 + 공매도 줄 (없으면 빈 문자열). 공매도가 높거나 숏스퀴즈 감시에 있으면 주황."""
+        t = str(ticker or "").upper()
+        f = _sec_map.get(t, "")
+        out = f"<br><span style='font-size:11px;color:#b45309'>{f}</span>" if f else ""
+        line, high = _short_map.get(t, ("", False))
+        tag = {"fire": "🔥 스퀴즈 진행 가능", "fuel": "스퀴즈 대기"}.get(_squeeze_status.get(t.replace(".", "-"), ""), "")
+        if line or tag:
+            color = "#b45309" if (high or tag) else "#888"
+            out += f"<br><span style='font-size:11px;color:{color}'>{' · '.join(x for x in (line, tag) if x)}</span>"
+        return out
+
     def _health_cell(ticker) -> str:
-        """이메일용 두 줄 HTML 셀: 등급(굵게) + 성장지표(작은 회색)."""
+        """이메일용 HTML 셀: 등급(굵게) + 성장지표(작은 회색) + SEC 공시 경고(있으면)."""
         raw = _health(ticker)
         if " · " not in raw:
-            return raw  # "N/A" 또는 fallback
+            return raw + _sec_line(ticker)  # "N/A" 또는 fallback
         grade_part, growth_part = raw.split(" · ", 1)
         # 등급별 색상
         color = "#666"
@@ -670,6 +706,7 @@ def send_paper_trading_email(
         return (
             f"<b style='color:{color}'>{grade_part}</b>"
             f"<br><span style='font-size:11px;color:#888'>{growth_part}</span>"
+            f"{_sec_line(ticker)}"
         )
 
     def _cap(ticker) -> str:
@@ -1133,6 +1170,40 @@ def send_paper_trading_email(
             )
         golden_cross_html += "<br>"
 
+    # ── 숏스퀴즈 감시 (표시 전용 — short_squeeze.py) : 🔥 전부 + 대기 상위 10 ──
+    squeeze_html = ""
+    if not _squeeze.empty:
+        fire = _squeeze[_squeeze["status"] == "fire"]
+        fuel = _squeeze[_squeeze["status"] == "fuel"]
+        shown_sq = _pd_concat_safe([fire, fuel.head(10)])
+        settle = str(_squeeze["settle"].iloc[0])
+        squeeze_html = (
+            f"<h3 style='color:#c2410c'>🔥 숏스퀴즈 감시 — 진행 가능 {len(fire)} · 대기 {len(fuel)}"
+            f"{f' (대기는 상위 10)' if len(fuel) > 10 else ''}</h3>\n"
+            "<p style='font-size:12px;color:#666;margin:0 0 6px'>연료 = 공매도 비중 ≥ 20% · 되사기 ≥ 5일분 · "
+            "🔥 = 연료 + 20일 신고가 돌파 + 거래량 2배. 살 목록이 아니라 크게 움직일 수 있는 종목 감시 — 공매도가 몰린 종목은 "
+            f"평균적으로 오히려 약했다. 공매도 수치는 FINRA {int(settle[5:7])}/{int(settle[8:10])} 결제일 기준.</p>\n"
+            "<table border='1' cellpadding='4' style='border-collapse:collapse;font-size:14px'>\n"
+            "<tr style='background:#fff7ed;text-align:center'><th>종목</th><th>상태</th><th>현재가</th><th>공매도 비중</th>"
+            "<th>되사기</th><th>공매도 변화<br><span style='font-size:11px'>직전 보고 대비</span></th><th>5일 수익률</th>"
+            "<th>거래량<br><span style='font-size:11px'>20일 평균 대비</span></th></tr>\n"
+        )
+        for _, q in shown_sq.iterrows():
+            st = "🔥 진행 가능" if q["status"] == "fire" else "대기"
+            def _f(v, fmt):
+                try:
+                    return fmt.format(float(v)) if v == v else "-"
+                except (TypeError, ValueError):
+                    return "-"
+            squeeze_html += (
+                f"<tr style='text-align:center;{'background:#ffedd5;' if q['status'] == 'fire' else ''}'>"
+                f"<td><b>{q['ticker']}</b><br><span style='color:#999;font-size:11px'>{str(q.get('name') or '')[:28]}</span></td>"
+                f"<td>{st}</td><td>{_price(q['price'])}</td><td>{_f(q['short_pct'], '{:.0%}')}</td>"
+                f"<td>{_f(q['dtc'], '{:.1f}일분')}</td><td>{_f(q['si_change'], '{:+.0%}')}</td>"
+                f"<td>{_pct(q['ret_5d']) if q['ret_5d'] == q['ret_5d'] else '-'}</td><td>{_f(q['vol_ratio'], '{:.1f}×')}</td></tr>\n"
+            )
+        squeeze_html += "</table><br>\n"
+
     # --- SPY 대비 누적 성과 (거래마다 같은 기간 SPY 보유와 비교) ---
     spy_html = ""
     try:
@@ -1177,6 +1248,7 @@ def send_paper_trading_email(
 {holdings_charts_html}
 {candidates_html}
 {golden_cross_html}
+{squeeze_html}
 <p style='color:#999;font-size:12px'>본 메일은 시스템에 의해 자동으로 발송되었습니다.</p>
 """
 
