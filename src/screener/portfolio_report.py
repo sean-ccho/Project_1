@@ -7,13 +7,17 @@ Google Sheets '내계좌' 워크시트에 있는 종목들을 읽어
   1) '내계좌' 시트 분석 컬럼을 업데이트한다.
   2) chunghwan14@gmail.com 으로 개인 전용 HTML 이메일을 발송한다.
 
-시트 컬럼 구조 (총 24컬럼):
+시트 컬럼 구조 (열은 머리글 **이름**으로 찾는다 — 빠진 머리글만 오른쪽 끝에 붙임):
   [입력 — 사용자 직접 작성] 티커, 회사명, 거래소, 섹터, 매수가, 수량, 매수일, 메모
-  [분석 — 파이프라인 자동] 1H RSI, 1H MACD, 1H 거래량, 4H RSI, 4H MACD, 4H 거래량,
+  [분석 — 파이프라인 자동] 현재가, 1H RSI, 1H MACD, 1H 거래량, 4H RSI, 4H MACD, 4H 거래량,
                             Daily RSI, Daily MACD, Daily 거래량,
                             Weekly RSI, Weekly MACD, Weekly 거래량,
                             Monthly RSI, Monthly MACD, Monthly 거래량,
                             업데이트
+  [리스크 — 파이프라인 자동] ATR%, 베타(1년), 평균상관, 실적일
+  [입력 — 웹 내계좌] 손절가, 매수이유
+'관심종목' 탭(웹에서 추가)이 있으면 현재가·목표까지·도달을 채우고, 메일 맨 위에 알림(손절가 아래·근접,
+실적 7일 이내, 관심종목 목표가 도달)을 붙인다.
 
 사용:
     python src/screener/portfolio_report.py
@@ -95,17 +99,38 @@ for _tf in TIMEFRAMES:
 
 ANALYSIS_HEADERS.append("업데이트")  # 마지막: 마지막 갱신 시각
 
-# 전체 헤더
-MY_ACCOUNT_HEADERS = INPUT_HEADERS + ANALYSIS_HEADERS
+# ── 리스크 컬럼 (2026-10-16, 파이프라인 자동) ──────────────────────────────
+#   ATR%      = 일봉 ATR(14) ÷ 종가 — 웹 포지션 크기 계산기의 손절폭 기본값
+#   베타(1년) = 1년 일간수익률의 SPY 베타
+#   평균상관  = 최근 120거래일 일간수익률로 본 다른 보유 종목과의 상관 평균 (종목이 2개 이상일 때)
+#   실적일    = 다음 실적 발표일 (yfinance calendar)
+RISK_HEADERS: list[str] = ["ATR%", "베타(1년)", "평균상관", "실적일"]
 
-# 분석 컬럼이 시작하는 인덱스 (0-based)
+# ── 웹 내계좌에서 쓰는 입력 칸 (2026-10-16) — 손절가는 알림 메일, 매수이유는 웹 매매일지 성적에 쓴다 ──
+EXTRA_INPUT_HEADERS: list[str] = ["손절가", "매수이유"]
+
+# 전체 헤더 (새 시트일 때의 순서). 이미 있는 시트는 **이름으로** 열을 찾고, 빠진 머리글만 오른쪽 끝에 붙인다.
+MY_ACCOUNT_HEADERS = INPUT_HEADERS + ANALYSIS_HEADERS + RISK_HEADERS + EXTRA_INPUT_HEADERS
+
+# 분석 컬럼이 시작하는 인덱스 (0-based) — 새 시트 머리글 색칠에만 쓴다 (값 쓰기는 머리글 이름으로)
 ANALYSIS_START_COL = len(INPUT_HEADERS)
 
 # 샘플 행 (처음 시트 생성 시)
 MY_ACCOUNT_SAMPLE_ROWS = [
     ["NBM.V", "Neo Battery Materials", "TSXV", "Materials", "", "", "", "샘플 — 매수가/수량/날짜 입력하세요"]
-    + [""] * len(ANALYSIS_HEADERS),
+    + [""] * (len(MY_ACCOUNT_HEADERS) - len(INPUT_HEADERS)),
 ]
+
+# ── 관심종목 탭 (2026-10-16) — 웹에서 추가하고, 파이프라인이 현재가·도달 여부를 채운다 ──
+WATCHLIST_WORKSHEET = "관심종목"
+WATCH_INPUT_HEADERS: list[str] = ["티커", "목표가", "조건", "메모", "추가일"]  # 조건: 이하 / 이상
+WATCH_ANALYSIS_HEADERS: list[str] = ["현재가", "목표까지", "도달", "업데이트"]
+WATCH_HEADERS = WATCH_INPUT_HEADERS + WATCH_ANALYSIS_HEADERS
+
+STOP_NEAR_PCT = 0.03       # 손절가 위 3% 이내면 '손절가 근접' 알림
+EARNINGS_ALERT_DAYS = 7    # 실적 발표가 7일 안이면 알림
+CORR_WINDOW = 120          # 평균상관 계산 거래일 수
+BETA_MIN_OBS = 120         # 베타 계산 최소 거래일 수
 
 # ---------------------------------------------------------------------------
 # 지표 설정
@@ -180,15 +205,7 @@ def initialize_my_account_sheet(sheet) -> bool:
 
         existing = ws.get_all_values()
         if existing and existing[0]:
-            # 헤더가 있는데 분석 컬럼이 없으면 추가
-            current_headers = existing[0]
-            if len(current_headers) < len(MY_ACCOUNT_HEADERS):
-                missing = MY_ACCOUNT_HEADERS[len(current_headers):]
-                print(f"[내계좌] 분석 컬럼 {len(missing)}개 추가: {missing}")
-                # 헤더 행 확장
-                ws.update([MY_ACCOUNT_HEADERS], value_input_option="USER_ENTERED")
-            else:
-                print(f"[내계좌] 헤더 이미 있음 ({len(current_headers)}컬럼) — 스킵")
+            _ensure_headers(ws, existing[0], MY_ACCOUNT_HEADERS)
             return True
 
         # 완전히 비어있음 → 헤더 + 샘플 삽입
@@ -242,20 +259,54 @@ def _col_letter(n: int) -> str:
     return result
 
 
+def _ensure_headers(ws, header: list[str], wanted: list[str]) -> list[str]:
+    """빠진 머리글만 오른쪽 끝에 붙인다. 이미 있는 열은 옮기지 않는다 (웹·사람이 붙인 열을 덮어쓰지 않게).
+
+    Returns:
+        붙인 뒤의 머리글 (빈 꼬리 칸은 뺀 것).
+    """
+    header = [str(h).strip() for h in header]
+    while header and not header[-1]:
+        header.pop()
+    missing = [h for h in wanted if h not in header]
+    if not missing:
+        return header
+    need = len(header) + len(missing)
+    if ws.col_count < need:
+        ws.add_cols(need - ws.col_count)
+    start = len(header) + 1
+    ws.update([missing], f"{_col_letter(start)}1:{_col_letter(start + len(missing) - 1)}1",
+              value_input_option="USER_ENTERED")
+    print(f"[{ws.title}] 머리글 {len(missing)}개 추가: {missing}")
+    return header + missing
+
+
+def _to_float(v) -> Optional[float]:
+    """시트 글자 → 숫자 ('$12.50', '1,234' 도). 없거나 숫자가 아니면 None."""
+    s = str(v or "").replace("$", "").replace(",", "").strip()
+    if not s:
+        return None
+    try:
+        x = float(s)
+    except ValueError:
+        return None
+    return x if np.isfinite(x) else None
+
+
 # ---------------------------------------------------------------------------
 # 티커 읽기
 # ---------------------------------------------------------------------------
 
-def fetch_my_tickers() -> tuple[list[str], dict[str, int]]:
-    """'내계좌' 시트에서 티커 목록과 각 티커의 행 번호(1-based)를 반환한다.
+def fetch_my_tickers() -> tuple[list[str], dict[str, int], list[dict[str, str]]]:
+    """'내계좌' 시트에서 티커 목록, 각 티커의 행 번호(1-based), 행 내용(머리글 → 값)을 반환한다.
 
     Returns:
-        (tickers, row_map) — row_map: {ticker: row_number}
+        (tickers, row_map, records) — row_map: {ticker: row_number}, records: 티커가 있는 행마다 {머리글: 값}
     """
     sheet = _open_sheet()
     if sheet is None:
         print("[내계좌] Google Sheets 연결 실패")
-        return [], {}
+        return [], {}, []
 
     ws = _get_or_create_worksheet(sheet)
 
@@ -265,15 +316,15 @@ def fetch_my_tickers() -> tuple[list[str], dict[str, int]]:
         initialize_my_account_sheet(sheet)
         existing = ws.get_all_values()
 
-    # 헤더 확인 후 부족하면 확장
-    if existing and len(existing[0]) < len(MY_ACCOUNT_HEADERS):
-        ws.update([MY_ACCOUNT_HEADERS], value_input_option="USER_ENTERED")
+    # 빠진 머리글(리스크·웹 입력 칸)은 끝에 붙인다
+    if existing and existing[0]:
+        _ensure_headers(ws, existing[0], MY_ACCOUNT_HEADERS)
 
     if not existing or len(existing) < 2:
         print("[내계좌] 데이터 행 없음 — '내계좌' 시트에 티커를 추가하세요.")
-        return [], {}
+        return [], {}, []
 
-    header = existing[0]
+    header = [str(h).strip() for h in existing[0]]
     try:
         ticker_col_idx = header.index(MY_ACCOUNT_TICKER_COLUMN)
     except ValueError:
@@ -281,17 +332,22 @@ def fetch_my_tickers() -> tuple[list[str], dict[str, int]]:
 
     tickers = []
     row_map: dict[str, int] = {}
+    records: list[dict[str, str]] = []
 
     for row_idx, row in enumerate(existing[1:], start=2):  # 2: 헤더 다음 행 (1-based)
         if not row:
             continue
         ticker = row[ticker_col_idx].strip().upper() if len(row) > ticker_col_idx else ""
         if ticker and ticker not in ("", "샘플"):
-            tickers.append(ticker)
+            if ticker not in row_map:
+                tickers.append(ticker)
             row_map[ticker] = row_idx
+            rec = {h: (row[i] if i < len(row) else "") for i, h in enumerate(header) if h}
+            rec["_row"] = str(row_idx)
+            records.append(rec)
 
     print(f"[내계좌] {len(tickers)}개 종목: {tickers}")
-    return tickers, row_map
+    return tickers, row_map, records
 
 
 # ---------------------------------------------------------------------------
@@ -412,12 +468,14 @@ def analyze_ticker(ticker: str) -> dict[str, dict]:
             df = _fetch_ohlcv(ticker, cfg["interval"], cfg["period"])
             time.sleep(0.4)
 
-        # Daily 데이터에서 현재가(최신 종가) 추출
+        # Daily 데이터에서 현재가(최신 종가)·ATR%·종가 시계열(베타·상관용) 추출
         if tf == "Daily" and not df.empty:
             try:
                 current_price = round(float(df["Close"].iloc[-1]), 4)
             except Exception:
                 pass
+            results["_atr_pct"] = _atr_pct(df)
+            results["_daily_close"] = df["Close"]
 
         ind = _calc_indicators(df)
         results[tf] = ind
@@ -429,10 +487,64 @@ def analyze_ticker(ticker: str) -> dict[str, dict]:
         print(f"    {tf:7s}: {rsi_s:12s} {mh_s:18s} {vr_s:10s} {ok}")
 
     results["_price"] = current_price
+    results["_earnings"] = _next_earnings(ticker)
     if current_price is not None:
         print(f"    현재가: ${current_price}")
 
     return results
+
+
+def _atr_pct(df: pd.DataFrame, n: int = 14) -> Optional[float]:
+    """일봉 ATR(n) ÷ 마지막 종가 (단순 평균 TR). 데이터가 모자라면 None."""
+    if len(df) < n + 1:
+        return None
+    prev = df["Close"].shift(1)
+    tr = pd.concat([df["High"] - df["Low"], (df["High"] - prev).abs(), (df["Low"] - prev).abs()], axis=1).max(axis=1)
+    atr = float(tr.iloc[-n:].mean())
+    close = float(df["Close"].iloc[-1])
+    return atr / close if close > 0 and np.isfinite(atr) else None
+
+
+def _next_earnings(ticker: str) -> Optional[str]:
+    """다음 실적 발표일 'YYYY-MM-DD' (오늘 이후 가장 가까운 날). 모르면 None."""
+    try:
+        cal = yf.Ticker(ticker).calendar
+        dates = cal.get("Earnings Date") if isinstance(cal, dict) else None
+        today = datetime.now(tz=timezone(timedelta(hours=-4))).date()
+        future = sorted(d for d in (dates or []) if hasattr(d, "year") and d >= today)
+        return future[0].isoformat() if future else None
+    except Exception as exc:  # noqa: BLE001 — 실적일은 없어도 리포트는 계속
+        print(f"    ⚠ {ticker} 실적일 조회 실패: {exc}")
+        return None
+
+
+def _daily_returns(close: Optional[pd.Series]) -> pd.Series:
+    if close is None or len(close) < 2:
+        return pd.Series(dtype=float)
+    c = close.copy()
+    if getattr(c.index, "tz", None) is not None:
+        c.index = c.index.tz_localize(None)
+    c.index = pd.DatetimeIndex(c.index).normalize()
+    return c[~c.index.duplicated(keep="last")].pct_change().dropna()
+
+
+def add_risk_stats(ticker_results: dict[str, dict], spy_close: Optional[pd.Series]) -> None:
+    """종목마다 _beta(1년 SPY 베타)·_avg_corr(다른 보유 종목과의 평균 상관)를 채운다."""
+    rets = {t: _daily_returns(r.get("_daily_close")) for t, r in ticker_results.items()}
+    spy = _daily_returns(spy_close)
+    for t, r in rets.items():
+        both = pd.concat([r, spy], axis=1, join="inner").dropna()
+        beta = None
+        if len(both) >= BETA_MIN_OBS and both.iloc[:, 1].var() > 0:
+            beta = float(both.iloc[:, 0].cov(both.iloc[:, 1]) / both.iloc[:, 1].var())
+        ticker_results[t]["_beta"] = beta
+        ticker_results[t]["_avg_corr"] = None
+    usable = {t: r.iloc[-CORR_WINDOW:] for t, r in rets.items() if len(r) >= CORR_WINDOW // 2}
+    if len(usable) >= 2:
+        corr = pd.DataFrame(usable).corr(min_periods=CORR_WINDOW // 2)
+        for t in corr.columns:
+            others = corr[t].drop(t).dropna()
+            ticker_results[t]["_avg_corr"] = float(others.mean()) if len(others) else None
 
 
 # ---------------------------------------------------------------------------
@@ -457,11 +569,29 @@ def _format_vol(v: Optional[float]) -> str:
     return f"{v:.2f}x"
 
 
+def _analysis_values(tf_data: dict, now_str: str) -> dict[str, str]:
+    """분석·리스크 머리글 → 시트에 쓸 값 (USER_ENTERED)."""
+    price = tf_data.get("_price")
+    vals: dict[str, str] = {"현재가": f"{price:.4f}" if price is not None else ""}
+    for tf in TIMEFRAMES:
+        ind = tf_data.get(tf, {})
+        vals[f"[{tf}] RSI"] = _format_rsi(ind.get("rsi"))
+        vals[f"[{tf}] MACD"] = _format_macd(ind.get("macd_hist"))
+        vals[f"[{tf}] 거래량"] = _format_vol(ind.get("volume_ratio"))
+    vals["업데이트"] = now_str
+    atr, beta, corr, earn = (tf_data.get(k) for k in ("_atr_pct", "_beta", "_avg_corr", "_earnings"))
+    vals["ATR%"] = f"{atr * 100:.2f}%" if atr is not None else ""
+    vals["베타(1년)"] = f"{beta:.2f}" if beta is not None else ""
+    vals["평균상관"] = f"{corr:.2f}" if corr is not None else ""
+    vals["실적일"] = f"'{earn}" if earn else ""  # ' = 글자로 (시트 날짜 서식이 바꾸지 않게)
+    return vals
+
+
 def update_sheet_with_indicators(
     ticker_results: dict[str, dict[str, dict]],
-    row_map: dict[str, int],
+    row_map: dict[str, int | list[int]],
 ) -> None:
-    """분석 결과를 '내계좌' 시트의 각 행 분석 컬럼에 업데이트한다."""
+    """분석 결과를 '내계좌' 시트의 각 행에 **머리글 이름으로** 쓴다 (같은 티커가 여러 줄이면 모두)."""
     sheet = _open_sheet()
     if sheet is None:
         print("[내계좌] 시트 업데이트 스킵 (연결 실패)")
@@ -469,48 +599,144 @@ def update_sheet_with_indicators(
 
     ws = _get_or_create_worksheet(sheet)
     now_str = datetime.now(tz=timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M EDT")
+    header = _ensure_headers(ws, ws.row_values(1), MY_ACCOUNT_HEADERS)
+    col = {h: i + 1 for i, h in enumerate(header) if h}
 
+    data: list[dict] = []
+    colors: list[tuple[str, dict]] = []
+    rsi_col = col.get("[Daily] RSI")
     for ticker, tf_data in ticker_results.items():
-        row_num = row_map.get(ticker)
-        if row_num is None:
+        rows = row_map.get(ticker)
+        if rows is None:
             continue
-
-        # 분석 값들을 ANALYSIS_HEADERS 순서대로 나열
-        analysis_values: list[str] = []
-        # 현재가 (맨 앞)
-        price = tf_data.get("_price")
-        analysis_values.append(f"{price:.4f}" if price is not None else "")
-        for tf in TIMEFRAMES:
-            ind = tf_data.get(tf, {})
-            analysis_values.append(_format_rsi(ind.get("rsi")))
-            analysis_values.append(_format_macd(ind.get("macd_hist")))
-            analysis_values.append(_format_vol(ind.get("volume_ratio")))
-        analysis_values.append(now_str)  # 업데이트 시각
-
-        # 분석 컬럼 범위: ANALYSIS_START_COL+1 ~ 끝 (1-based)
-        start_col = ANALYSIS_START_COL + 1
-        end_col = start_col + len(analysis_values) - 1
-        cell_range = f"{_col_letter(start_col)}{row_num}:{_col_letter(end_col)}{row_num}"
-
-        try:
-            ws.update([analysis_values], cell_range, value_input_option="USER_ENTERED")
-
-            # RSI 셀 색상 적용 (Daily RSI 기준)
+        rows = rows if isinstance(rows, list) else [rows]
+        vals = _analysis_values(tf_data, now_str)
+        for row_num in rows:
+            data += [{"range": f"{_col_letter(col[h])}{row_num}", "values": [[v]]} for h, v in vals.items() if h in col]
             daily_rsi = tf_data.get("Daily", {}).get("rsi")
-            if daily_rsi is not None:
-                daily_rsi_col_idx = ANALYSIS_START_COL + 1 + TIMEFRAMES.index("Daily") * 3
-                rsi_cell = f"{_col_letter(daily_rsi_col_idx)}{row_num}"
+            if daily_rsi is not None and rsi_col:
                 if daily_rsi >= 70:
                     bg = {"red": 1.0, "green": 0.85, "blue": 0.85}  # 연빨강 (과매수)
                 elif daily_rsi <= 30:
                     bg = {"red": 0.85, "green": 1.0, "blue": 0.85}  # 연초록 (과매도)
                 else:
                     bg = {"red": 1.0, "green": 1.0, "blue": 1.0}    # 흰색
-                ws.format(rsi_cell, {"backgroundColor": bg})
+                colors.append((f"{_col_letter(rsi_col)}{row_num}", bg))
+    if not data:
+        return
+    try:
+        ws.batch_update(data, value_input_option="USER_ENTERED")
+        for cell, bg in colors:
+            ws.format(cell, {"backgroundColor": bg})
+        print(f"    [시트] {len(ticker_results)}종목 분석 값 업데이트 완료 ({len(data)}칸)")
+    except Exception as exc:
+        print(f"    [시트] 업데이트 실패: {exc}")
 
-            print(f"    [시트] {ticker} 행 {row_num} 업데이트 완료")
+
+# ---------------------------------------------------------------------------
+# 관심종목 · 알림
+# ---------------------------------------------------------------------------
+
+def _last_close(ticker: str) -> Optional[float]:
+    df = _fetch_ohlcv(ticker, "1d", "5d")
+    return round(float(df["Close"].iloc[-1]), 4) if not df.empty else None
+
+
+def update_watchlist(sheet) -> list[dict[str, str]]:
+    """'관심종목' 탭의 현재가·목표까지·도달을 채우고, 목표가에 닿은 종목 알림을 돌려준다. 탭이 없으면 건너뛴다."""
+    if sheet is None:
+        return []
+    try:
+        ws = sheet.worksheet(WATCHLIST_WORKSHEET)
+    except Exception:
+        print(f"[관심종목] '{WATCHLIST_WORKSHEET}' 탭 없음 — 건너뜀 (웹에서 첫 종목을 추가하면 생긴다)")
+        return []
+    values = ws.get_all_values()
+    if not values or not values[0]:
+        return []
+    header = _ensure_headers(ws, values[0], WATCH_HEADERS)
+    col = {h: i + 1 for i, h in enumerate(header) if h}
+    now_str = datetime.now(tz=timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M EDT")
+    prices: dict[str, Optional[float]] = {}
+    data: list[dict] = []
+    alerts: list[dict[str, str]] = []
+    for row_num, row in enumerate(values[1:], start=2):
+        rec = {h: (row[i] if i < len(row) else "") for i, h in enumerate(header)}
+        ticker = str(rec.get("티커", "")).strip().upper()
+        if not ticker:
+            continue
+        if ticker not in prices:
+            prices[ticker] = _last_close(ticker)
+            time.sleep(0.3)
+        price = prices[ticker]
+        target = _to_float(rec.get("목표가"))
+        above = str(rec.get("조건", "")).strip() in ("이상", "above", ">=")
+        hit = price is not None and target is not None and (price >= target if above else price <= target)
+        out = {
+            "현재가": f"{price:.4f}" if price is not None else "",
+            "목표까지": f"{target / price - 1:.2%}" if price and target else "",
+            "도달": ("도달" if hit else "") if target is not None else "",
+            "업데이트": now_str,
+        }
+        data += [{"range": f"{_col_letter(col[h])}{row_num}", "values": [[v]]} for h, v in out.items() if h in col]
+        if hit:
+            cond = "이상" if above else "이하"
+            alerts.append({"kind": "watch", "ticker": ticker,
+                           "text": f"관심종목 {ticker} 목표가 ${target:,.2f} {cond} 도달 — 현재 ${price:,.2f}"
+                                   + (f" · 메모: {rec.get('메모')}" if rec.get("메모") else "")})
+    if data:
+        try:
+            ws.batch_update(data, value_input_option="USER_ENTERED")
+            print(f"[관심종목] {len(prices)}종목 갱신 · 목표가 도달 {len(alerts)}")
         except Exception as exc:
-            print(f"    [시트] {ticker} 업데이트 실패: {exc}")
+            print(f"[관심종목] 시트 업데이트 실패: {exc}")
+    return alerts
+
+
+def build_alerts(records: list[dict[str, str]], ticker_results: dict[str, dict], today=None) -> tuple[list[dict[str, str]], list[str]]:
+    """보유 종목 알림 (손절가 아래·근접, 실적 임박) + 손절가가 비어 있는 티커 목록."""
+    today = today or datetime.now(tz=timezone(timedelta(hours=-4))).date()
+    alerts: list[dict[str, str]] = []
+    no_stop: list[str] = []
+    seen_earn: set[str] = set()
+    for rec in records:
+        ticker = str(rec.get("티커", "")).strip().upper()
+        res = ticker_results.get(ticker, {})
+        price = res.get("_price")
+        stop = _to_float(rec.get("손절가"))
+        if stop is None:
+            if ticker not in no_stop:
+                no_stop.append(ticker)
+        elif price is not None and stop > 0:
+            if price <= stop:
+                alerts.append({"kind": "stop", "ticker": ticker,
+                               "text": f"{ticker} 현재 ${price:,.2f} — 손절가 ${stop:,.2f} 아래로 내려왔어요"})
+            elif price <= stop * (1 + STOP_NEAR_PCT):
+                alerts.append({"kind": "near", "ticker": ticker,
+                               "text": f"{ticker} 손절가 ${stop:,.2f} 까지 {price / stop - 1:.1%} 남았어요 (현재 ${price:,.2f})"})
+        earn = res.get("_earnings")
+        if earn and ticker not in seen_earn:
+            days = (datetime.fromisoformat(earn).date() - today).days
+            if 0 <= days <= EARNINGS_ALERT_DAYS:
+                seen_earn.add(ticker)
+                alerts.append({"kind": "earn", "ticker": ticker,
+                               "text": f"{ticker} 실적 발표 {earn} ({'오늘' if days == 0 else f'{days}일 후'}) — 발표 전후로 크게 움직일 수 있어요"})
+    return alerts, no_stop
+
+
+_ALERT_ICON = {"stop": "🛑", "near": "⚠️", "earn": "📅", "watch": "🎯"}
+
+
+def _alerts_html(alerts: list[dict[str, str]], no_stop: list[str]) -> str:
+    if not alerts and not no_stop:
+        return ""
+    items = "".join(f"<li style='margin:4px 0'>{_ALERT_ICON.get(a['kind'], '•')} {a['text']}</li>" for a in alerts)
+    tail = (f"<p style='margin:8px 0 0;color:#6b7280;font-size:12px'>손절가가 비어 있는 종목: {', '.join(no_stop)} "
+            f"— 웹 내계좌에서 손절가를 적어 두면 근접 알림을 보내요</p>") if no_stop else ""
+    head = f"⚠️ 알림 {len(alerts)}건" if alerts else "알림 없음"
+    ul = f"<ul style='margin:0;padding-left:18px'>{items}</ul>" if items else ""
+    return (f"<div class='card' style='padding:14px 18px;margin-bottom:14px;border-left:4px solid #d97706'>"
+            f"<div style='font-weight:700;font-size:15px;margin-bottom:6px'>{head}</div>{ul}{tail}</div>")
 
 
 # ---------------------------------------------------------------------------
@@ -661,7 +887,8 @@ td.tf-row-label{
 </style>"""
 
 
-def build_html_report(ticker_results: dict[str, dict[str, dict]]) -> str:
+def build_html_report(ticker_results: dict[str, dict[str, dict]], alerts: Optional[list[dict[str, str]]] = None,
+                      no_stop: Optional[list[str]] = None) -> str:
     now_edt = datetime.now(tz=timezone(timedelta(hours=-4)))
     date_str = now_edt.strftime("%Y-%m-%d %H:%M EDT")
     n_tickers = len(ticker_results)
@@ -683,6 +910,7 @@ def build_html_report(ticker_results: dict[str, dict[str, dict]]) -> str:
     </div>
     <p>{date_str} &nbsp;·&nbsp; {n_tickers}종목 &nbsp;·&nbsp; RSI · MACD · 거래량 (멀티 타임프레임)</p>
   </div>
+  {_alerts_html(alerts or [], no_stop or [])}
   <div class="card">
 """
 
@@ -732,6 +960,13 @@ def build_html_report(ticker_results: dict[str, dict[str, dict]]) -> str:
         </thead>
         <tbody>
 """
+        risk = [f"ATR {tf_data['_atr_pct']:.1%}" if tf_data.get("_atr_pct") is not None else "",
+                f"베타 {tf_data['_beta']:.2f}" if tf_data.get("_beta") is not None else "",
+                f"평균상관 {tf_data['_avg_corr']:.2f}" if tf_data.get("_avg_corr") is not None else "",
+                f"실적 {tf_data['_earnings']}" if tf_data.get("_earnings") else ""]
+        risk_line = " · ".join(x for x in risk if x)
+        if risk_line:
+            body += f"      <div style='color:#6b7280;font-size:12px;margin:0 0 8px 2px'>{risk_line}</div>\n"
         for tf in TIMEFRAMES:
             ind = tf_data.get(tf, {})
             tf_color, tf_bg = _TF_COLORS.get(tf, ("#374151", "#f9fafb"))
@@ -764,14 +999,14 @@ def build_html_report(ticker_results: dict[str, dict[str, dict]]) -> str:
 # 이메일 발송
 # ---------------------------------------------------------------------------
 
-def send_portfolio_email(html_body: str, tickers: list[str]) -> bool:
+def send_portfolio_email(html_body: str, tickers: list[str], n_alerts: int = 0) -> bool:
     if not EMAIL_PASSWORD:
         print("[내계좌] EMAIL_PASSWORD 미설정 — 이메일 스킵")
         return False
 
     date_str = datetime.now().strftime("%Y-%m-%d")
     ticker_summary = ", ".join(tickers[:5]) + ("..." if len(tickers) > 5 else "")
-    subject = f"📊 내계좌 리포트 [{ticker_summary}] - {date_str}"
+    subject = f"{f'⚠️ 알림 {n_alerts}건 · ' if n_alerts else ''}📊 내계좌 리포트 [{ticker_summary}] - {date_str}"
 
     try:
         msg = MIMEMultipart()
@@ -806,24 +1041,33 @@ def run_portfolio_report() -> bool:
         return False
 
     # 1. 시트에서 티커 + 행 번호 가져오기 (없으면 자동 초기화)
-    tickers, row_map = fetch_my_tickers()
+    tickers, row_map, records = fetch_my_tickers()
     if not tickers:
         print("[내계좌] 분석할 종목 없음. '내계좌' 시트에 티커를 추가하세요.")
         return False
 
-    # 2. 각 티커별 멀티 타임프레임 지표 계산
+    # 2. 각 티커별 멀티 타임프레임 지표 계산 + 베타·평균상관
     ticker_results: dict[str, dict[str, dict]] = {}
     for ticker in tickers:
         print(f"\n[내계좌] ▶ {ticker} 분석 중...")
         ticker_results[ticker] = analyze_ticker(ticker)
+    spy = _fetch_ohlcv("SPY", "1d", "1y")
+    add_risk_stats(ticker_results, spy["Close"] if not spy.empty else None)
 
-    # 3. 시트 분석 컬럼 업데이트
+    # 3. 시트 분석 컬럼 업데이트 (같은 티커 여러 줄이면 모두)
     print("\n[내계좌] 시트 업데이트 중...")
-    update_sheet_with_indicators(ticker_results, row_map)
+    rows_by_ticker: dict[str, list[int]] = {}
+    for rec in records:
+        rows_by_ticker.setdefault(str(rec.get("티커", "")).strip().upper(), []).append(int(rec["_row"]))
+    update_sheet_with_indicators(ticker_results, rows_by_ticker or row_map)
 
-    # 4. HTML 이메일 빌드 & 발송
-    html_body = build_html_report(ticker_results)
-    success = send_portfolio_email(html_body, tickers)
+    # 4. 알림 (손절가·실적 임박·관심종목 목표가) + HTML 이메일 빌드 & 발송
+    alerts, no_stop = build_alerts(records, ticker_results)
+    alerts += update_watchlist(_open_sheet())
+    for a in alerts:
+        print(f"[내계좌] 알림: {a['text']}")
+    html_body = build_html_report(ticker_results, alerts, no_stop)
+    success = send_portfolio_email(html_body, tickers, len(alerts))
 
     print("\n" + "=" * 60)
     print(f"[내계좌] 완료 — 이메일 {'✅ 성공' if success else '❌ 실패'}")

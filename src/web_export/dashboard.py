@@ -441,6 +441,20 @@ def build_charts(infos: dict[str, dict[str, Any]], held: dict[str, int], repo: s
 # ── 전체 ─────────────────────────────────────────────────────
 
 
+def benchmark_block(period: str = "6y") -> dict[str, Any] | None:
+    """SPY 일봉 종가 (배당 조정) — 웹 매매일지가 '같은 기간 SPY 수익률'을 계산할 때 쓴다. 실패하면 None."""
+    from paper_trading.benchmarks import load_spy_close
+
+    close = load_spy_close(period)
+    if close.empty:
+        print("[web_export] SPY 종가 없음 (benchmark 건너뜀)")
+        return None
+    if getattr(close.index, "tz", None) is not None:
+        close = close.tz_localize(None)
+    return {"ticker": "SPY", "closes": [[ts.strftime("%Y-%m-%d"), _num(v, 4)] for ts, v in close.items()
+                                        if _num(v, 4) is not None]}
+
+
 def build_dashboard(data_dir: Path | None = None, *, charts_from_git: bool = False,
                     with_prices: bool = True, with_insider: bool = True) -> dict[str, Any]:
     """dashboard.json 내용 전체."""
@@ -500,6 +514,7 @@ def build_dashboard(data_dir: Path | None = None, *, charts_from_git: bool = Fal
         "charts": charts,
         "golden_cross": golden,
         "stocks": stocks,
+        "benchmark": benchmark_block() if with_prices else None,
     }
 
 

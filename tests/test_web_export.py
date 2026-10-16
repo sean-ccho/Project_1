@@ -140,3 +140,16 @@ def test_golden_cross_lists_by_market() -> None:
     info = wd.ticker_info(pd.Series({"거래량돌파배수": 2.345, "ema_gap_20_50": -0.0123, "주봉_MA갭": float("nan")}))
     assert info["vol_ratio"] == 2.35 and info["ma_gap"] == {"daily": -0.0123, "weekly": None, "monthly": None}
     assert info["golden"] is None
+
+
+def test_benchmark_block(monkeypatch):
+    """SPY 종가 → [[날짜, 값], ...] (tz 제거, 소수 4자리). 받기 실패면 None."""
+    import pandas as pd
+    import paper_trading.benchmarks as bm
+    from web_export.dashboard import benchmark_block
+
+    idx = pd.DatetimeIndex(["2026-10-14", "2026-10-15"]).tz_localize("America/New_York")
+    monkeypatch.setattr(bm, "load_spy_close", lambda period="6y": pd.Series([600.123456, 601.5], index=idx))
+    assert benchmark_block() == {"ticker": "SPY", "closes": [["2026-10-14", 600.1235], ["2026-10-15", 601.5]]}
+    monkeypatch.setattr(bm, "load_spy_close", lambda period="6y": pd.Series(dtype=float))
+    assert benchmark_block() is None
