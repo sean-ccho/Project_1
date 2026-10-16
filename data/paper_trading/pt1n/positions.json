@@ -7,11 +7,26 @@
     "star_rating": "★★★★★ (7.5)",
     "ccs_score": 0.6114,
     "sector": "Technology",
-    "highest_price": 139.72999572753906,
+    "highest_price": 148.92999267578125,
     "defer_count": 0,
     "trailing_stop_override": null,
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 43.66284977544346
+  },
+  {
+    "ticker": "HL",
+    "entry_price": 15.5600004196167,
+    "entry_date": "2026-10-15",
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (7.2)",
+    "ccs_score": 0.6563,
+    "sector": "Basic Materials",
+    "highest_price": 15.5600004196167,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 36.578237500093174
   }
 ]

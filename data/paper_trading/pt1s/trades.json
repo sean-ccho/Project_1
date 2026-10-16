@@ -16,5 +16,23 @@
     "defer_count": 0,
     "entry_rsi": 55.400210283927166,
     "actual_max_upside_pct": 0.0
+  },
+  {
+    "ticker": "CSCO",
+    "entry_date": "2026-10-08",
+    "exit_date": "2026-10-15",
+    "entry_price": 114.88999938964844,
+    "exit_price": 109.8499984741211,
+    "return_pct": -0.0439,
+    "holding_days": 7,
+    "highest_price": 118.38999938964844,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (13.5)",
+    "ccs_score": 0.7454,
+    "sector": "Technology",
+    "exit_reason": "트레일링(-7.2%)",
+    "defer_count": 0,
+    "entry_rsi": 59.48598541487763,
+    "actual_max_upside_pct": 0.0305
   }
 ]

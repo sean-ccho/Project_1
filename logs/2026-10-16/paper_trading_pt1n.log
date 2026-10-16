@@ -1,0 +1,28 @@
+============================================================
+[Unified Paper Trading] PT-1N (S&P 500 밖) 실행 시작
+============================================================
+2026-10-16 07:59:19,337 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+2026-10-16 07:59:19,346 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 227개 종목
+[Unified PT] NASDAQ snapshot 로드: 227개 종목
+[Unified PT] 합산 완료: 351개 종목 (SP500 130 + NASDAQ 227개, 중복 제거 후)
+[Unified PT] PT1_UNIVERSE=ex_sp500 — S&P 500 구성종목 136개 제외 → 215개
+[Unified PT] 거래일(일봉 날짜): 2026-10-15
+[Unified PT] 골든크로스임박 종목: 14개
+2026-10-16 07:59:19,777 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 72 | 4.0~5.0: 33 | 5.0~5.5: 11 | 5.5~6.0: 22 | 6.0+: 77
+2026-10-16 07:59:19,799 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=20/215 | Selected: HL (CCS=0.6563)
+2026-10-16 07:59:19,801 [INFO] paper_trading.engine — [PaperTrading] BUY HL @ 15.56 (CCS=0.6563, RSI=37)
+[Unified PT] 매도=0 매수=1 보유=2종목
+[Unified PT] 레짐=bull | 필터={'전략점수<6.0': 138, '바닥반등_52주과열': 1, '판단등급_미달': 50, '과열_차단': 3, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 1, '같은회사_중복': 0, '모멘텀_ADX부족': 0, '바닥_RSI데드존': 2, '섹터_집중': 0, '_통과': 20, '_전체': 215}
+[Unified PT] Top5 후보:
+  HL     CCS=0.6563 전략=📉 바닥반등 섹터=Basic Materials
+  NUVB   CCS=0.5705 전략=📉 바닥반등 섹터=Healthcare
+  IWM    CCS=0.5385 전략=📉 바닥반등 섹터=Unknown
+  IONQ   CCS=0.5323 전략=📉 바닥반등 섹터=Technology
+  KTOS   CCS=0.5302 전략=📉 바닥반등 섹터=Industrials
+2026-10-16 07:59:20,889 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 append: BUY HL
+2026-10-16 07:59:22,172 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 2개 종목
+2026-10-16 07:59:23,414 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 0건 거래
+[Unified PT] 구글 시트 동기화 완료
+[Unified PT] $5,000 계좌 탭 '페이퍼N_계좌' 동기화 완료
+[Unified PT] PT-1N (S&P 500 밖): 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)

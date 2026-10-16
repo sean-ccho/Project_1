@@ -1278,5 +1278,41 @@
     "upside_bucket_key": "모멘텀|0.55+|5★(9+)",
     "hit_p50": -1,
     "hit_p75": -1
+  },
+  {
+    "ticker": "FIG",
+    "entry_date": "2026-10-02",
+    "exit_date": "2026-10-15",
+    "entry_price": 21.360000610351562,
+    "exit_price": 22.989999771118164,
+    "return_pct": 0.0763,
+    "holding_days": 13,
+    "highest_price": 22.989999771118164,
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (7.5)",
+    "ccs_score": 0.5123,
+    "sector": "Technology",
+    "exit_reason": "시간익절(13일,+7.6%)",
+    "defer_count": 0,
+    "entry_rsi": 41.05665529686337,
+    "actual_max_upside_pct": 0.0763
+  },
+  {
+    "ticker": "CSCO",
+    "entry_date": "2026-10-08",
+    "exit_date": "2026-10-15",
+    "entry_price": 114.88999938964844,
+    "exit_price": 109.8499984741211,
+    "return_pct": -0.0439,
+    "holding_days": 7,
+    "highest_price": 118.38999938964844,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (13.5)",
+    "ccs_score": 0.6954,
+    "sector": "Technology",
+    "exit_reason": "트레일링(-7.2%)",
+    "defer_count": 0,
+    "entry_rsi": 59.48598541487763,
+    "actual_max_upside_pct": 0.0305
   }
 ]
