@@ -178,12 +178,23 @@ def test_all_charts_merges_sources_and_orders_by_score(monkeypatch, tmp_path) ->
 
 
 def test_trade_log_with_spy() -> None:
+    """거래로그 = $5,000 계좌 기준 (3자리 나눠 정수 주식, 편도 0.1%) + 같은 기간 SPY. 시트 줄(sheet_log)도 같은 숫자."""
     idx = pd.to_datetime(["2026-10-01", "2026-10-08", "2026-10-15"])
     spy = pd.Series([100.0, 102.0, 101.0], index=idx)
     trades = [{"ticker": "A", "entry_date": "2026-10-01", "exit_date": "2026-10-08", "return_pct": 0.05,
-               "entry_price": 10, "exit_price": 10.5, "exit_reason": "목표가", "strategy": "📈 모멘텀"},
-              {"ticker": "B", "entry_date": "2026-10-08", "exit_date": "2026-10-15", "return_pct": -0.02}]
-    log = wd.trade_log(trades, spy)
+               "entry_price": 10.0, "exit_price": 10.5, "exit_reason": "목표가", "strategy": "📈 모멘텀"},
+              {"ticker": "B", "entry_date": "2026-10-08", "exit_date": "2026-10-15", "return_pct": -0.02,
+               "entry_price": 20.0, "exit_price": 19.6}]
+    positions = [{"ticker": "C", "entry_date": "2026-10-15", "entry_price": 50.0}]
+    log = wd.trade_log(trades, spy, positions)
     assert [x["ticker"] for x in log] == ["B", "A"]                      # 최근 청산 먼저
-    assert log[1]["spy_return"] == 0.02 and log[1]["vs_spy"] == 0.03
+    a = log[1]
+    assert a["shares"] == 166 and a["cost"] == 1661.66                   # $5,000 ÷ 3 자리 → 166주 (비용 포함 1661.66)
+    assert abs(a["return"] - (a["proceeds"] / a["cost"] - 1)) < 1e-4 and a["return"] < 0.05   # 비용 빼서 5% 보다 작다
+    assert a["spy_return"] == 0.02 and abs(a["vs_spy"] - (a["return"] - 0.02)) < 1e-4
+    sheet = wd._sheet_log_json(wd.sheet_log(trades, positions, spy))
+    assert [(e["date"], e["side"], e["ticker"]) for e in sheet] == [
+        ("2026-10-01", "buy", "A"), ("2026-10-08", "sell", "A"), ("2026-10-08", "buy", "B"),
+        ("2026-10-15", "sell", "B"), ("2026-10-15", "buy", "C")]      # 같은 날: 다른 종목 매도 → 매수
+    assert sheet[1]["pnl"] == a["pnl"] and sheet[1]["strategy"] == "모멘텀"
     assert wd.trade_log(trades)[0]["spy_return"] is None

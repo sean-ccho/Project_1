@@ -75,7 +75,8 @@ def test_summary_spy_columns(monkeypatch):
     assert ss.sync_summary(trades)
     header, total = ws.rows[0], ws.rows[1]
     assert header[7:10] == ["SPY동기간평균", "SPY대비평균", "SPY이긴비율"]
-    assert total[0] == "전체" and total[7] == "+3.5%" and total[8] == "+1.0%p" and total[9] == "50%"
+    # '+1.0%p' 를 그대로 쓰면 시트가 수식으로 읽어 #ERROR! → 앞에 ' 를 붙여 글자로
+    assert total[0] == "전체" and total[7] == "+3.5%" and total[8] == "'+1.0%p" and total[9] == "50%"
 
 
 def test_spy_comparison():

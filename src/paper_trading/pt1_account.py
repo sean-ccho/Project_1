@@ -33,6 +33,8 @@ class Lot:
     shares: float = 0.0
     cost: float = 0.0      # 매수에 쓴 돈 (비용 포함)
     proceeds: float = 0.0  # 매도로 받은 돈 (비용 뺀 뒤)
+    cash_after_buy: float = math.nan   # 이 매수 직후 계좌 현금 (거래로그 '거래 후 현금')
+    cash_after_sell: float = math.nan  # 이 매도 직후 계좌 현금
 
     @property
     def is_open(self) -> bool:
@@ -99,11 +101,26 @@ def allocate(lots: list[Lot], *, max_positions: int, initial: float = INITIAL_CA
             lot.cost = lot.shares * lot.entry_price * (1 + cost)
             cash -= lot.cost
             held += 1
+            lot.cash_after_buy = cash
         else:
             lot.proceeds = lot.shares * float(lot.exit_price) * (1 - cost)
             cash += lot.proceeds
             held -= 1
+            lot.cash_after_sell = cash
     return cash
+
+
+def allocation_events(lots: Sequence[Lot]) -> list[tuple[str, str, int]]:
+    """allocate() 와 같은 순서의 (날짜, 'buy'|'sell', lot 번호) — 거래로그 줄 순서.
+
+    같은 날에는 다른 종목 매도 → 매수 → 그날 산 종목의 당일 매도.
+    """
+    events = []
+    for i, lot in enumerate(lots):
+        events.append((lot.entry_date, 1, i))
+        if lot.exit_date is not None:
+            events.append((lot.exit_date, 2 if lot.exit_date == lot.entry_date else 0, i))
+    return [(d, "buy" if kind == 1 else "sell", i) for d, kind, i in sorted(events)]
 
 
 def daily_equity(lots: Sequence[Lot], initial: float, closes: pd.DataFrame) -> pd.Series:
@@ -151,6 +168,21 @@ def fetch_price_frame(tickers: Sequence[str], start: str) -> pd.DataFrame:
 
     years = max(1, math.ceil((date.today() - date.fromisoformat(start)).days / 365) + 1)
     return fetch_ohlcv(sorted(set(tickers) | {"SPY"}), period=f"{years}y")
+
+
+def dollar_lots(trades: Sequence[dict[str, Any]], positions: Sequence[dict[str, Any]], *,
+                initial: float = INITIAL_CAPITAL, max_positions: int | None = None,
+                cost: float | None = None) -> list[Lot]:
+    """가격 없이 $5,000 계좌의 매수~매도 묶음만 (주식 수·금액·거래 후 현금). 순서 = trades 다음 positions.
+
+    거래로그 탭·웹 거래로그가 쓴다 — build_dollar_account 와 같은 배분 (일봉은 평가액 곡선에만 필요).
+    """
+    from screener import config as cfg
+
+    lots = lots_from_records(trades, positions)
+    allocate(lots, max_positions=max_positions or int(cfg.PAPER_TRADING_MAX_POSITIONS), initial=initial,
+             cost=cfg.BACKTEST_COST_PER_SIDE if cost is None else cost)
+    return lots
 
 
 def build_dollar_account(

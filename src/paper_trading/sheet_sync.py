@@ -1,7 +1,8 @@
 """페이퍼 트레이딩 구글 시트 3탭 동기화.
 
 기존 exporter.py의 _open_sheet() 패턴 재활용.
-- [페이퍼_거래로그] — 매수/매도 기록 append
+- [페이퍼_거래로그] — 매수/매도 기록. PT-1·1S·1N 은 매일 통째로 다시 쓴다 ($5,000 계좌 기준 주식 수·금액·손익, 2026-10-16).
+  PT-SPY 는 예전처럼 한 줄씩 append (sync_trade_log)
 - [페이퍼_포지션현황] — 현재 보유 종목 덮어쓰기
 - [페이퍼_성과요약] — 누적 성과 집계 덮어쓰기
 
@@ -63,7 +64,93 @@ def _get_or_create_worksheet(sheet, name: str, rows: int = 1000, cols: int = 20)
         return None
 
 
-# ── [페이퍼_거래로그] — append only ──────────────────────────
+# ── [페이퍼_거래로그] — $5,000 계좌 기준으로 통째로 다시 쓰기 (PT-1·1S·1N) ─────
+
+DOLLAR_LOG_HEADERS = [
+    "날짜", "종목", "섹터", "액션", "주식 수", "가격", "금액", "손익($)", "수익률", "보유일", "거래 후 현금",
+    "전략", "별점", "CCS점수", "사유", "SPY동기간%", "SPY대비%p",
+]
+
+
+def _pct_text(v: float | None) -> str:
+    return "" if v is None or v != v else f"{v:+.1%}"
+
+
+def dollar_log_events(trades: list[dict[str, Any]], positions: list[dict[str, Any]], *,
+                      max_positions: int | None = None, spy_fn=None) -> list[dict[str, Any]]:
+    """거래로그 줄을 숫자로 — $5,000 계좌(pt1_account)와 같은 배분으로 주식 수·금액·손익·거래 후 현금.
+
+    줄 순서 = 계좌 배분 순서 (날짜 → 같은 날은 다른 종목 매도 · 매수 · 당일 매도). 수익률 = 매도금액 ÷ 매수금액 − 1
+    (편도 비용 0.1% 포함, $5,000 계좌 탭과 같은 값). vs_spy = 그 수익률 − 같은 기간 SPY. 시트 탭과 웹 거래로그가 같이 쓴다.
+    """
+    from paper_trading.pt1_account import allocation_events, dollar_lots
+
+    spy_fn = spy_fn or _spy_return
+    recs = list(trades) + list(positions)
+    lots = dollar_lots(trades, positions, max_positions=max_positions)
+    out: list[dict[str, Any]] = []
+    for day, side, i in allocation_events(lots):
+        lot, t = lots[i], recs[i]
+        ev = {"date": day, "side": side, "ticker": lot.ticker, "sector": t.get("sector", "") or "",
+              "shares": int(lot.shares), "strategy": t.get("strategy", "") or "", "star": t.get("star_rating", "") or "",
+              "ccs": t.get("ccs_score", t.get("ccs")), "entry_date": lot.entry_date, "exit_date": lot.exit_date}
+        if side == "buy":
+            ev.update(price=lot.entry_price, amount=lot.cost, pnl=None, ret=None, days=None, cash_after=lot.cash_after_buy,
+                      reason="신규매수" if lot.shares > 0 else "0주 — 자리 몫으로 1주도 못 삼", spy=None, vs_spy=None)
+        else:
+            ret = lot.proceeds / lot.cost - 1 if lot.cost else None
+            spy = spy_fn(t)
+            ev.update(price=float(lot.exit_price), amount=lot.proceeds, pnl=lot.proceeds - lot.cost, ret=ret,
+                      days=t.get("holding_days"), cash_after=lot.cash_after_sell, reason=t.get("exit_reason", t.get("reason", "")),
+                      spy=spy, vs_spy=ret - spy if ret is not None and spy is not None else None)
+        out.append(ev)
+    return out
+
+
+def dollar_log_rows(trades: list[dict[str, Any]], positions: list[dict[str, Any]], *,
+                    max_positions: int | None = None, spy_fn=None) -> list[list[Any]]:
+    """거래로그 탭 전체 (머리글 포함) — dollar_log_events 를 시트 글자로."""
+    rows: list[list[Any]] = [list(DOLLAR_LOG_HEADERS)]
+    for e in dollar_log_events(trades, positions, max_positions=max_positions, spy_fn=spy_fn):
+        sell = e["side"] == "sell"
+        rows.append([
+            e["date"], e["ticker"], e["sector"], "🔴 SELL" if sell else "🟢 BUY", e["shares"], round(e["price"], 2),
+            round(e["amount"], 2), round(e["pnl"], 2) if sell else "", _pct_text(e["ret"]) if sell else "",
+            (e["days"] if e["days"] is not None else "") if sell else "", round(e["cash_after"], 2),
+            e["strategy"], e["star"], e["ccs"] if e["ccs"] is not None else "", e["reason"],
+            _pct_text(e["spy"]) if sell else "", f"{e['vs_spy'] * 100:+.1f}" if e["vs_spy"] is not None else "",
+        ])
+    return rows
+
+
+def rebuild_trade_log(trades: list[dict[str, Any]], positions: list[dict[str, Any]],
+                      worksheet: str = WORKSHEET_LOG) -> bool:
+    """거래로그 탭을 $5,000 계좌 기준으로 통째로 다시 쓴다 (같은 탭 — 시트 주소(gid)는 그대로).
+
+    예전 열 모양의 숫자 서식(%)이 새 열에 남지 않게 서식도 지운다.
+    """
+    sheet = _open_sheet()
+    if sheet is None:
+        return False
+    ws = _get_or_create_worksheet(sheet, worksheet)
+    if ws is None:
+        return False
+    try:
+        rows = dollar_log_rows(trades, positions)
+        width = len(DOLLAR_LOG_HEADERS)
+        if ws.row_count < len(rows) + 10 or ws.col_count < width:
+            ws.resize(rows=max(ws.row_count, len(rows) + 50), cols=max(ws.col_count, width))
+        ws.clear()
+        sheet.batch_update({"requests": [{"updateCells": {"range": {"sheetId": ws.id}, "fields": "userEnteredFormat"}}]})
+        ws.update(rows, value_input_option="USER_ENTERED")
+        logger.info(f"[SheetSync] 거래로그 다시 쓰기: {worksheet} {len(rows) - 1}줄")
+        return True
+    except Exception as exc:
+        logger.error(f"[SheetSync] 거래로그 다시 쓰기 실패: {exc}")
+        return False
+
+
+# ── [페이퍼_거래로그] — append only (PT-SPY) ──────────────────────────
 
 
 _LOG_HEADERS = [
@@ -253,8 +340,23 @@ def sync_positions(
 # ── [페이퍼_성과요약] — 매일 덮어씀 ─────────────────────────
 
 
-def sync_summary(trades: list[dict[str, Any]], worksheet: str = WORKSHEET_SUMMARY) -> bool:
-    """전체 거래 히스토리 기반 성과 집계를 성과요약 탭(기본 [페이퍼_성과요약])에 덮어쓰기."""
+def dollar_trades(trades: list[dict[str, Any]], positions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """청산 거래의 return_pct 를 $5,000 계좌 기준(비용 포함 매도금액 ÷ 매수금액 − 1)으로 바꾼 사본. 0주 거래는 뺀다
+    ($5,000 계좌 요약과 같게 — 1주도 못 산 자리는 거래로 세지 않는다)."""
+    from paper_trading.pt1_account import dollar_lots
+
+    lots = dollar_lots(trades, positions)
+    return [{**t, "return_pct": lot.proceeds / lot.cost - 1} for t, lot in zip(trades, lots) if lot.shares > 0 and lot.cost]
+
+
+def sync_summary(trades: list[dict[str, Any]], worksheet: str = WORKSHEET_SUMMARY,
+                 positions: list[dict[str, Any]] | None = None) -> bool:
+    """전체 거래 히스토리 기반 성과 집계를 성과요약 탭(기본 [페이퍼_성과요약])에 덮어쓰기.
+
+    positions 를 주면 (PT-1·1S·1N) 수익률을 $5,000 계좌 기준으로 계산한다 — 거래로그 탭과 같은 숫자.
+    """
+    if positions is not None:
+        trades = dollar_trades(trades, positions)
     sheet = _open_sheet()
     if sheet is None:
         return False
@@ -291,7 +393,8 @@ def sync_summary(trades: list[dict[str, Any]], worksheet: str = WORKSHEET_SUMMAR
                 spy_avg = sum(b for _, b in pairs) / len(pairs)
                 diff_avg = sum(r - b for r, b in pairs) / len(pairs)
                 beat = sum(1 for r, b in pairs if r > b) / len(pairs)
-                spy_cols = [f"{spy_avg:+.1%}", f"{diff_avg * 100:+.1f}%p", f"{beat:.0%}"]
+                # '+0.1%p' 는 시트가 수식으로 읽어 #ERROR! 가 된다 (숫자가 아니라서) → ' 로 글자 고정 (2026-10-16)
+                spy_cols = [f"{spy_avg:+.1%}", f"'{diff_avg * 100:+.1f}%p", f"{beat:.0%}"]
             else:
                 spy_cols = ["—", "—", "—"]
             return [
@@ -458,16 +561,11 @@ def sync_all(
 ) -> None:
     """engine.run_daily_trading() 결과를 구글 시트 3탭에 동기화. tabs = {"log","positions","summary"} 탭 이름 (없으면 PT-1 기본)."""
     tabs = tabs or {"log": WORKSHEET_LOG, "positions": WORKSHEET_POSITIONS, "summary": WORKSHEET_SUMMARY}
-    # 거래로그: 매도 기록
-    for sell in result.get("sells", []):
-        sync_trade_log(sell, action="SELL", worksheet=tabs["log"])
-
-    # 거래로그: 매수 기록
-    for buy in result.get("buys", []):
-        sync_trade_log(buy, action="BUY", worksheet=tabs["log"])
+    # 거래로그: 거래 기록 전체에서 $5,000 계좌 기준으로 다시 쓴다 (매일 같은 결과 — 중복·빈 칸 없음)
+    rebuild_trade_log(trades, positions, worksheet=tabs["log"])
 
     # 포지션현황
     sync_positions(positions, prices, worksheet=tabs["positions"])
 
-    # 성과요약
-    sync_summary(trades, worksheet=tabs["summary"])
+    # 성과요약 ($5,000 계좌 기준)
+    sync_summary(trades, worksheet=tabs["summary"], positions=positions)

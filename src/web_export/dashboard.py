@@ -292,16 +292,19 @@ def _exit_reason_key(reason: str) -> str:
     return next((k for k in EXIT_REASON_KEYS if reason.startswith(k)), "기타")
 
 
-def trade_log(trades: list[dict[str, Any]], spy_close: pd.Series | None = None) -> list[dict[str, Any]]:
-    """웹 '거래로그' — 청산 거래 전부 (최근 청산 먼저), 구글 시트 [페이퍼_거래로그] 의 SELL 줄과 같은 내용 + 같은 기간 SPY."""
-    from paper_trading.benchmarks import spy_window_return
+def trade_log(trades: list[dict[str, Any]], spy_close: pd.Series | None = None,
+              positions: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """웹 '거래로그' — 청산 거래 전부 (최근 청산 먼저), $5,000 계좌 기준 (구글 시트 거래로그 탭과 같은 숫자).
 
+    return = 매도금액 ÷ 매수금액 − 1 (편도 비용 0.1% 포함), shares·cost·proceeds·pnl = $5,000 계좌의 주식 수·금액.
+    """
+    events = sheet_log(trades, positions or [], spy_close)
+    by_exit = {(e["ticker"], e["entry_date"], e["exit_date"]): e for e in events if e["side"] == "sell"}
+    buys = {(e["ticker"], e["entry_date"]): e for e in events if e["side"] == "buy"}
     out = []
     for t in sorted(trades, key=lambda x: (str(x.get("exit_date") or ""), str(x.get("entry_date") or "")), reverse=True):
-        ret = _num(t.get("return_pct"), 4)
-        spy = None
-        if spy_close is not None and not spy_close.empty and t.get("entry_date") and t.get("exit_date"):
-            spy = spy_window_return(spy_close, str(t["entry_date"]), str(t["exit_date"]))
+        e = by_exit.get((t.get("ticker"), str(t.get("entry_date")), str(t.get("exit_date"))), {})
+        b = buys.get((t.get("ticker"), str(t.get("entry_date"))), {})
         out.append({
             "ticker": t.get("ticker"),
             "sector": _text(t.get("sector")),
@@ -312,12 +315,50 @@ def trade_log(trades: list[dict[str, Any]], spy_close: pd.Series | None = None) 
             "exit_date": t.get("exit_date"),
             "entry_price": _num(t.get("entry_price"), 4),
             "exit_price": _num(t.get("exit_price"), 4),
-            "return": ret,
+            "return": _num(e.get("ret"), 4),
             "holding_days": t.get("holding_days"),
             "exit_reason": t.get("exit_reason"),
-            "spy_return": _num(spy, 4),
-            "vs_spy": _num(ret - spy, 4) if ret is not None and spy is not None else None,
+            "spy_return": _num(e.get("spy"), 4),
+            "vs_spy": _num(e.get("vs_spy"), 4),
+            "shares": e.get("shares"),
+            "cost": _num(b.get("amount"), 2),
+            "proceeds": _num(e.get("amount"), 2),
+            "pnl": _num(e.get("pnl"), 2),
+            "cash_after": _num(e.get("cash_after"), 2),
         })
+    return out
+
+
+def sheet_log(trades: list[dict[str, Any]], positions: list[dict[str, Any]],
+              spy_close: pd.Series | None = None) -> list[dict[str, Any]]:
+    """시트 거래로그 탭과 같은 줄 (매수·매도, 계좌 배분 순서) — sheet_sync.dollar_log_events 그대로."""
+    from paper_trading.benchmarks import spy_window_return
+    from paper_trading.sheet_sync import dollar_log_events
+
+    def spy_fn(t: dict[str, Any]) -> float | None:
+        if spy_close is None or spy_close.empty or not t.get("entry_date") or not t.get("exit_date"):
+            return None
+        return spy_window_return(spy_close, str(t["entry_date"]), str(t["exit_date"]))
+
+    try:
+        return dollar_log_events(list(trades), list(positions), spy_fn=spy_fn)
+    except Exception as exc:  # noqa: BLE001 — 표시용
+        print(f"[web_export] 거래로그 계산 실패 (건너뜀): {exc}")
+        return []
+
+
+def _sheet_log_json(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    keep = ("date", "side", "ticker", "sector", "shares", "price", "amount", "pnl", "ret", "days", "cash_after",
+            "strategy", "star", "ccs", "reason", "spy", "vs_spy")
+    out = []
+    for e in events:
+        row = {k: e.get(k) for k in keep}
+        for k in ("price", "amount", "pnl", "cash_after"):
+            row[k] = _num(row[k], 2)
+        for k in ("ret", "spy", "vs_spy", "ccs"):
+            row[k] = _num(row[k], 4)
+        row["strategy"] = _label(row["strategy"])
+        out.append(row)
     return out
 
 
@@ -440,7 +481,8 @@ def build_account(key: str, cfg: dict[str, Any], positions: list[dict[str, Any]]
         "label": cfg["label"],
         "positions": rows,
         "trades": trade_summary(trades),
-        "log": trade_log(trades, spy_close),
+        "log": trade_log(trades, spy_close, positions),
+        "sheet_log": _sheet_log_json(sheet_log(trades, positions, spy_close)),
         "dollar": _dollar_block(dollar),
     }
 
