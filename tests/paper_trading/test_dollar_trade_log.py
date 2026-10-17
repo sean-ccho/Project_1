@@ -21,8 +21,11 @@ POSITIONS = [{"ticker": "C", "entry_date": "2026-10-08", "entry_price": 50.0, "s
 class FakeWS:
     id, row_count, col_count, title = 7, 1000, 20, "페이퍼_거래로그"
 
-    def __init__(self):
-        self.rows, self.cleared = [["옛 머리글"], ["옛 줄"]], False
+    def __init__(self, rows=None):
+        self.rows, self.cleared = rows if rows is not None else [["옛 머리글"], ["옛 줄"]], False
+
+    def get_all_values(self):
+        return [list(r) for r in self.rows]
 
     def clear(self):
         self.rows, self.cleared = [], True
@@ -35,11 +38,20 @@ class FakeWS:
 
 
 class FakeSheet:
-    def __init__(self):
-        self.requests = []
+    def __init__(self, titles=(), fail_copy=False):
+        self.requests, self.copies, self.titles, self.fail_copy = [], [], list(titles), fail_copy
 
     def batch_update(self, body):
         self.requests += body["requests"]
+
+    def worksheets(self):
+        return [type("W", (), {"title": t})() for t in self.titles]
+
+    def duplicate_sheet(self, sheet_id, new_sheet_name=None):
+        if self.fail_copy:
+            raise RuntimeError("quota")
+        self.copies.append((sheet_id, new_sheet_name))
+        self.titles.append(new_sheet_name)
 
 
 def test_allocate_records_cash_after_each_event():
@@ -88,3 +100,36 @@ def test_sync_all_rebuilds_log_and_summary_uses_dollar_returns(monkeypatch):
     dt = ss.dollar_trades(TRADES, POSITIONS)
     assert [t["ticker"] for t in dt] == ["A"]                    # 0주 거래(B)는 세지 않는다 ($5,000 계좌 요약과 같게)
     assert dt[0]["return_pct"] < 0.10                            # 비용 포함이라 원래 10% 보다 작다
+
+
+def _patched(monkeypatch, ws, sheet):
+    monkeypatch.setattr(ss, "_open_sheet", lambda: sheet)
+    monkeypatch.setattr(ss, "_get_or_create_worksheet", lambda s, name, **k: ws)
+    monkeypatch.setattr(ss, "_spy_return", lambda t: None)
+
+
+def test_rebuild_refuses_when_records_shrank(monkeypatch):
+    """상태 파일이 날아가 기록이 줄었으면 시트를 지우지 않는다."""
+    old = [ss.DOLLAR_LOG_HEADERS] + [["2026-04-02", f"T{i}"] for i in range(10)]
+    ws, sheet = FakeWS([list(r) for r in old]), FakeSheet()
+    _patched(monkeypatch, ws, sheet)
+    assert not ss.rebuild_trade_log(TRADES, POSITIONS, worksheet="페이퍼_거래로그")   # 새 5줄 < 시트 10줄
+    assert not ws.cleared and ws.rows == old
+
+
+def test_old_format_is_copied_once_before_rewrite(monkeypatch):
+    old = [list(ss._LOG_HEADERS), ["2026-10-01", "A", "", "🟢 BUY"]]
+    ws, sheet = FakeWS([list(r) for r in old]), FakeSheet()
+    _patched(monkeypatch, ws, sheet)
+    assert ss.rebuild_trade_log(TRADES, POSITIONS, worksheet="페이퍼_거래로그")
+    assert sheet.copies == [(7, "페이퍼_거래로그_예전")] and ws.rows[0] == ss.DOLLAR_LOG_HEADERS
+    # 다음 날은 새 모양이라 복사하지 않는다
+    assert ss.rebuild_trade_log(TRADES, POSITIONS, worksheet="페이퍼_거래로그") and len(sheet.copies) == 1
+
+
+def test_old_format_copy_failure_keeps_sheet(monkeypatch):
+    old = [list(ss._LOG_HEADERS), ["2026-10-01", "A", "", "🟢 BUY"]]
+    ws, sheet = FakeWS([list(r) for r in old]), FakeSheet(fail_copy=True)
+    _patched(monkeypatch, ws, sheet)
+    assert not ss.rebuild_trade_log(TRADES, POSITIONS, worksheet="페이퍼_거래로그")
+    assert not ws.cleared and ws.rows == old

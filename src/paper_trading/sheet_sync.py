@@ -127,7 +127,9 @@ def rebuild_trade_log(trades: list[dict[str, Any]], positions: list[dict[str, An
                       worksheet: str = WORKSHEET_LOG) -> bool:
     """거래로그 탭을 $5,000 계좌 기준으로 통째로 다시 쓴다 (같은 탭 — 시트 주소(gid)는 그대로).
 
-    예전 열 모양의 숫자 서식(%)이 새 열에 남지 않게 서식도 지운다.
+    예전 열 모양의 숫자 서식(%)이 새 열에 남지 않게 서식도 지운다. 안전장치 (2026-10-16):
+    - 새 줄 수가 지금 시트의 기록 줄보다 적으면 쓰지 않는다 (상태 파일이 날아간 날 시트 기록까지 지우지 않게) → ERROR 로그 → 헬스체크 메일
+    - 예전 모양(append 시절 머리글)이면 처음 한 번 '<탭>_예전' 복사본 탭을 만들어 둔다. 복사에 실패하면 이번엔 쓰지 않는다
     """
     sheet = _open_sheet()
     if sheet is None:
@@ -137,6 +139,22 @@ def rebuild_trade_log(trades: list[dict[str, Any]], positions: list[dict[str, An
         return False
     try:
         rows = dollar_log_rows(trades, positions)
+        existing = ws.get_all_values() or [[]]
+        old_rows = [r for r in existing[1:] if any(str(c).strip() for c in r)]
+        if len(rows) - 1 < len(old_rows):
+            logger.error(f"[SheetSync] 거래로그 다시 쓰기 멈춤: {worksheet} 새 기록 {len(rows) - 1}줄 < 시트 {len(old_rows)}줄 "
+                         "— 거래 기록(trades.json·positions.json)이 줄었을 수 있음, 시트는 그대로 둠")
+            return False
+        header = [str(c).strip() for c in existing[0]]
+        if header[:len(_LOG_HEADERS)] == _LOG_HEADERS:
+            backup = f"{worksheet}_예전"
+            if backup not in [w.title for w in sheet.worksheets()]:
+                try:
+                    sheet.duplicate_sheet(ws.id, new_sheet_name=backup)
+                    logger.info(f"[SheetSync] 예전 거래로그를 '{backup}' 탭으로 복사해 둠")
+                except Exception as exc:  # 백업 없이 지우지 않는다
+                    logger.error(f"[SheetSync] '{backup}' 복사 실패 — 이번엔 거래로그를 그대로 둠: {exc}")
+                    return False
         width = len(DOLLAR_LOG_HEADERS)
         if ws.row_count < len(rows) + 10 or ws.col_count < width:
             ws.resize(rows=max(ws.row_count, len(rows) + 50), cols=max(ws.col_count, width))
