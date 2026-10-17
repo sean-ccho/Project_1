@@ -587,7 +587,7 @@ def build_charts(infos: dict[str, dict[str, Any]], held: dict[str, int], repo: s
 
 
 def benchmark_block(period: str = "6y", close: pd.Series | None = None) -> dict[str, Any] | None:
-    """SPY 일봉 종가 (배당 조정) — 웹 매매일지가 '같은 기간 SPY 수익률'을 계산할 때 쓴다. 실패하면 None.
+    """SPY 일봉 종가 (배당 조정) — 웹 내계좌(판 거래·보유 중)가 '같은 기간 SPY 수익률'을 계산할 때 쓴다. 실패하면 None.
     close 를 주면 다시 받지 않는다 (build_dashboard 가 계좌 거래로그용으로 받은 것)."""
     from paper_trading.benchmarks import load_spy_close
 

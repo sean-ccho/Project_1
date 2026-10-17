@@ -189,3 +189,71 @@ def test_build_alerts_new_sec_filing_only():
     alerts, _ = build_alerts(records, res, today=date(2026, 10, 16))
     sec = [a for a in alerts if a["kind"] == "sec"]
     assert len(sec) == 1 and "자금 조달" in sec[0]["text"] and "https://sec/x/" in sec[0]["text"]
+
+
+def test_sync_trade_status_marks_rows_and_clears_closed_analysis(monkeypatch):
+    """한 줄 = 거래 하나: 매도일 있으면 '매도 완료' + 남은 분석 값 지움, 없으면 '보유 중'."""
+    import screener.portfolio_report as pr
+
+    header = pr.MY_ACCOUNT_HEADERS
+    writes = []
+
+    class WS:
+        title = "내계좌"
+        col_count = len(header)
+
+        def row_values(self, n):
+            return list(header)
+
+        def batch_update(self, data, value_input_option=None):
+            writes.extend(data)
+
+    monkeypatch.setattr(pr, "_open_sheet", lambda: object())
+    monkeypatch.setattr(pr, "_get_or_create_worksheet", lambda sheet: WS())
+    recs = [
+        {"티커": "AAPL", "매도일": "", "상태": "", "_row": "2", "_closed": ""},
+        {"티커": "MSFT", "매도일": "2026-10-15", "상태": "보유 중", "현재가": "420", "ATR%": "2%", "_row": "3", "_closed": "1"},
+        {"티커": "NVDA", "매도일": "2026-10-01", "상태": "매도 완료", "_row": "4", "_closed": "1"},  # 이미 맞음
+    ]
+    assert pr.sync_trade_status(recs) == len(writes) == 4
+    cell = {w["range"]: w["values"][0][0] for w in writes}
+    col = lambda h: pr._col_letter(header.index(h) + 1)  # noqa: E731
+    assert cell[f"{col('상태')}2"] == "보유 중" and cell[f"{col('상태')}3"] == "매도 완료"
+    assert cell[f"{col('현재가')}3"] == "" and cell[f"{col('ATR%')}3"] == ""
+    assert not any(k.endswith("4") for k in cell)
+    assert pr.is_closed({"매도일": " 2026-10-15 "}) and not pr.is_closed({"매도일": ""})
+
+
+def test_fetch_my_tickers_skips_closed_rows(monkeypatch):
+    """매도 완료 줄은 분석 대상(tickers·row_map)에서 빠지고, records 에는 _closed 표시로 남는다."""
+    import screener.portfolio_report as pr
+
+    header = list(pr.MY_ACCOUNT_HEADERS)
+    i = {h: n for n, h in enumerate(header)}
+
+    def row(**kv):
+        r = [""] * len(header)
+        for h, v in kv.items():
+            r[i[h]] = v
+        return r
+
+    values = [
+        header,
+        row(티커="XOM", 수량="15"),
+        row(티커="XOM", 수량="5", 매도일="2026-10-15", 매도가="106"),  # 일부 매도한 줄
+        row(티커="MSFT", 수량="3", 매도일="2026-09-01", 매도가="400"),
+        row(티커="AAPL", 수량="10"),
+    ]
+
+    class WS:
+        def get_all_values(self):
+            return values
+
+        def row_values(self, n):
+            return values[0]
+
+    monkeypatch.setattr(pr, "_open_sheet", lambda: object())
+    monkeypatch.setattr(pr, "_get_or_create_worksheet", lambda sheet: WS())
+    tickers, row_map, records = pr.fetch_my_tickers()
+    assert tickers == ["XOM", "AAPL"] and row_map == {"XOM": 2, "AAPL": 5}
+    assert [r["_closed"] for r in records] == ["", "1", "1", ""]
