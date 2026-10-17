@@ -7,7 +7,7 @@
     "star_rating": "★★★★★ (7.5)",
     "ccs_score": 0.5392,
     "sector": "Healthcare",
-    "highest_price": 104.68000030517578,
+    "highest_price": 104.88999938964844,
     "defer_count": 0,
     "trailing_stop_override": null,
     "last_defer_date": null,
@@ -28,5 +28,20 @@
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 36.578237500093174
+  },
+  {
+    "ticker": "OKTA",
+    "entry_price": 187.25999450683594,
+    "entry_date": "2026-10-16",
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (11.0)",
+    "ccs_score": 0.6672,
+    "sector": "Technology",
+    "highest_price": 187.25999450683594,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 41.54433627910399
   }
 ]

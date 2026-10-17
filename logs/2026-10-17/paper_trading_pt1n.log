@@ -1,0 +1,29 @@
+============================================================
+[Unified Paper Trading] PT-1N (S&P 500 밖) 실행 시작
+============================================================
+2026-10-17 07:55:49,444 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+2026-10-17 07:55:49,454 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 230개 종목
+[Unified PT] NASDAQ snapshot 로드: 230개 종목
+[Unified PT] 합산 완료: 353개 종목 (SP500 130 + NASDAQ 230개, 중복 제거 후)
+[Unified PT] PT1_UNIVERSE=ex_sp500 — S&P 500 구성종목 134개 제외 → 219개
+[Unified PT] 거래일(일봉 날짜): 2026-10-16
+[Unified PT] 골든크로스임박 종목: 14개
+2026-10-17 07:55:50,247 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 92 | 4.0~5.0: 34 | 5.0~5.5: 14 | 5.5~6.0: 20 | 6.0+: 56
+2026-10-17 07:55:50,267 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=neutral | Filtered=6/219 | Selected: URBN (CCS=0.6334)
+2026-10-17 07:55:50,269 [INFO] paper_trading.engine — [PaperTrading] BUY URBN @ 86.57 (CCS=0.6334, RSI=70)
+[Unified PT] 매도=0 매수=1 보유=3종목
+[Unified PT] 레짐=neutral | 필터={'지수ETF': 3, '전략점수<6.0': 160, '바닥반등_52주과열': 1, '판단등급_미달': 41, '과열_차단': 5, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 2, '같은회사_중복': 0, '모멘텀_ADX부족': 0, '바닥_RSI데드존': 1, '섹터_집중': 0, '_통과': 6, '_전체': 219}
+[Unified PT] Top5 후보:
+  URBN   CCS=0.6334 전략=📈 모멘텀 섹터=Consumer Cyclical
+  OKTA   CCS=0.6172 전략=📈 모멘텀 섹터=Technology
+  AA     CCS=0.5687 전략=📉 바닥반등 섹터=Basic Materials
+  FIGR   CCS=0.5108 전략=📉 바닥반등 섹터=Financial Services
+  HYMC   CCS=0.4953 전략=📉 바닥반등 섹터=Basic Materials
+2026-10-17 07:55:51,745 [INFO] paper_trading.sheet_sync — [SheetSync] 예전 거래로그를 '페이퍼N_거래로그_예전' 탭으로 복사해 둠
+2026-10-17 07:55:52,342 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 다시 쓰기: 페이퍼N_거래로그 3줄
+2026-10-17 07:55:53,406 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-10-17 07:55:54,449 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 0건 거래
+[Unified PT] 구글 시트 동기화 완료
+[Unified PT] $5,000 계좌 탭 '페이퍼N_계좌' 동기화 완료
+[Unified PT] PT-1N (S&P 500 밖): 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)
