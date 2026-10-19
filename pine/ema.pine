@@ -1,0 +1,42 @@
+//@version=5
+indicator(title="6 EMAs Integrated", shorttitle="SeanEMA", overlay=true)
+
+// ==========================================
+// 1. 단기 이동평균선 (5, 10, 20)
+// ==========================================
+show_ema1 = input.bool(true, title="Enable EMA 5", group="Short Term")
+len_ema1  = input.int(5, minval=1, title="Length", group="Short Term")
+ema1 = ta.ema(close, len_ema1)
+
+show_ema2 = input.bool(true, title="Enable EMA 10", group="Short Term")
+len_ema2  = input.int(10, minval=1, title="Length", group="Short Term")
+ema2 = ta.ema(close, len_ema2)
+
+show_ema3 = input.bool(true, title="Enable EMA 20", group="Short Term")
+len_ema3  = input.int(20, minval=1, title="Length", group="Short Term")
+ema3 = ta.ema(close, len_ema3)
+
+// ==========================================
+// 2. 장기 이동평균선 (50, 100, 200)
+// ==========================================
+show_ema4 = input.bool(true, title="Enable EMA 50", group="Long Term")
+len_ema4  = input.int(50, minval=1, title="Length", group="Long Term")
+ema4 = ta.ema(close, len_ema4)
+
+show_ema5 = input.bool(true, title="Enable EMA 100", group="Long Term")
+len_ema5  = input.int(100, minval=1, title="Length", group="Long Term")
+ema5 = ta.ema(close, len_ema5)
+
+show_ema6 = input.bool(true, title="Enable EMA 200", group="Long Term")
+len_ema6  = input.int(200, minval=1, title="Length", group="Long Term")
+ema6 = ta.ema(close, len_ema6)
+
+// ==========================================
+// 3. 차트에 그리기 (Plotting)
+// ==========================================
+plot(show_ema1 ? ema1 : na, title="EMA 5", color=color.new(#089981, 0), linewidth=1)   // 진초록
+plot(show_ema2 ? ema2 : na, title="EMA 10", color=color.new(#F5CB5C, 0), linewidth=1)  // 노랑
+plot(show_ema3 ? ema3 : na, title="EMA 20", color=color.new(#9C27B0, 0), linewidth=1)  // 보라
+plot(show_ema4 ? ema4 : na, title="EMA 50", color=color.new(#F23645, 0), linewidth=1)  // 빨강
+plot(show_ema5 ? ema5 : na, title="EMA 100", color=color.new(#FFEB3B, 0), linewidth=1) // 밝은 노랑
+plot(show_ema6 ? ema6 : na, title="EMA 200", color=color.new(#2962FF, 0), linewidth=1) // 파랑

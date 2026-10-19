@@ -91,7 +91,9 @@ def capture_tradingview_chart(
         TRADINGVIEW_TICKER_MAP = {}
         TRADINGVIEW_CHART_ID = None
 
-    tv_ticker = TRADINGVIEW_TICKER_MAP.get(ticker, ticker)
+    from screener.tv_symbol import tv_symbol
+
+    tv_ticker = tv_symbol(ticker, TRADINGVIEW_TICKER_MAP)
     if tv_ticker != ticker:
         print(f"[TradingView] 티커 매핑 적용: {ticker} -> {tv_ticker}")
     
@@ -265,7 +267,9 @@ def capture_multiple_timeframes(
         TRADINGVIEW_TICKER_MAP = {}
         TRADINGVIEW_CHART_ID = None
 
-    tv_ticker = TRADINGVIEW_TICKER_MAP.get(ticker, ticker)
+    from screener.tv_symbol import tv_symbol
+
+    tv_ticker = tv_symbol(ticker, TRADINGVIEW_TICKER_MAP)
     if tv_ticker != ticker:
         print(f"[TradingView] 티커 매핑 적용: {ticker} -> {tv_ticker}")
 

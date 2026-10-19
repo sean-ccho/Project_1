@@ -58,6 +58,7 @@ except ImportError:
     WorksheetNotFound = None
 
 from screener.sec_filings import fetch_flags, format_flags
+from screener.tv_symbol import tv_symbol
 from screener.config import (
     GOOGLE_SHEETS_CREDENTIALS_PATH,
     GOOGLE_SHEETS_ENABLED,
@@ -1003,7 +1004,7 @@ def build_html_report(ticker_results: dict[str, dict[str, dict]], alerts: Option
 """
 
     for ticker, tf_data in ticker_results.items():
-        tv_ticker = TRADINGVIEW_TICKER_MAP.get(ticker, ticker)
+        tv_ticker = tv_symbol(ticker, TRADINGVIEW_TICKER_MAP)
         tv_link = f"https://www.tradingview.com/chart/?symbol={tv_ticker}"
 
         current_price = tf_data.get("_price")
