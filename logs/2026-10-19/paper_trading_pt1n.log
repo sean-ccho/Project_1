@@ -1,0 +1,14 @@
+============================================================
+[Unified Paper Trading] PT-1N (S&P 500 밖) 실행 시작
+============================================================
+2026-10-19 07:40:18,949 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+2026-10-19 07:40:18,955 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 230개 종목
+[Unified PT] NASDAQ snapshot 로드: 230개 종목
+[Unified PT] 합산 완료: 353개 종목 (SP500 130 + NASDAQ 230개, 중복 제거 후)
+[Unified PT] PT1_UNIVERSE=ex_sp500 — S&P 500 구성종목 134개 제외 → 219개
+[Unified PT] 건너뜀: 이미 처리한 일봉 (2026-10-16, 마지막 처리 2026-10-16) — 매매 없이 일일 리포트만 발송
+[Unified PT] 거래일(일봉 날짜): 2026-10-16
+[Unified PT] 골든크로스임박 종목: 14개
+[Unified PT] 매도=0 매수=0 보유=3종목
+[Unified PT] PT-1N (S&P 500 밖): 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)
