@@ -82,17 +82,31 @@ def _fetch_rows(ticker: str) -> List[List[str]]:
         f"http://openinsider.com/screener?s={ticker}"
         f"&fd={lookback}&xp=1&xs=1&cnt=100&sortcol=0&page=1"
     )
-    req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        html = resp.read().decode("utf-8", "ignore")
+    return _parse_rows(_fetch_html(url))
 
+
+def _fetch_html(url: str, timeout: int = 30) -> str:
+    req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", "ignore")
+
+
+def _parse_rows(html: str) -> List[List[str]]:
+    """screener 표(tinytable)의 거래 행(셀 리스트)들 — 종목별 표 칸 순서 [X, Filing, Trade Date, Ticker, Insider, ...].
+
+    티커 없이 받은 시장 전체 표는 Ticker 뒤에 'Company Name' 칸이 하나 더 있어서, 머리글에서 찾아 빼고 같은 순서로 맞춘다.
+    """
     soup = BeautifulSoup(html, "html.parser")
     table = soup.find("table", class_="tinytable")
     rows: List[List[str]] = []
     if table is None or table.find("tbody") is None:
         return rows
+    header = [th.get_text(strip=True).replace("\xa0", " ") for th in table.find_all("th")]
+    company = next((i for i, h in enumerate(header) if h.startswith("Company")), None)
     for tr in table.find("tbody").find_all("tr"):
         cells = [td.get_text(strip=True) for td in tr.find_all("td")]
+        if company is not None and len(cells) > company:
+            del cells[company]
         if len(cells) >= 12:
             rows.append(cells)
     return rows
@@ -100,9 +114,12 @@ def _fetch_rows(ticker: str) -> List[List[str]]:
 
 def _summarize(ticker: str) -> Dict[str, object]:
     """단일 티커의 내부자 거래를 집계해 요약 dict를 만든다."""
-    cluster_min = getattr(config, "INSIDER_CLUSTER_MIN_BUYERS", 2)
+    return _aggregate(ticker, _fetch_rows(ticker))
 
-    rows = _fetch_rows(ticker)
+
+def _aggregate(ticker: str, rows: List[List[str]]) -> Dict[str, object]:
+    """거래 행들 → 요약 dict (종목별 조회·시장 전체 조회 공용)."""
+    cluster_min = getattr(config, "INSIDER_CLUSTER_MIN_BUYERS", 2)
 
     buy_count = sell_count = 0
     net_value = 0.0
@@ -219,6 +236,51 @@ def fetch_insider_snapshots(tickers: List[str], use_cache: bool = True) -> pd.Da
             except Exception:
                 pass
 
+    if not records:
+        return pd.DataFrame(columns=_RESULT_COLUMNS)
+    return pd.DataFrame(records, columns=_RESULT_COLUMNS)
+
+
+def fetch_insider_market(
+    days: Optional[int] = None,
+    *,
+    page_size: int = 5000,
+    max_pages: int = 20,
+    fetch_html=None,
+) -> pd.DataFrame:
+    """시장 전체 최근 N일 내부자 매수·매도를 한 번에 받아 티커별로 집계한다 (fetch_insider_snapshots 와 같은 컬럼).
+
+    종목마다 한 페이지씩 받으면 5천 종목에 2시간쯤 걸려서, 전체 분석(run_universe_scan.py)은 티커 없이 받는다
+    (5,000건 한 페이지 ≈ 5초). 종목별 조회는 거래 100건까지만 받아서, 그보다 많은 종목은 숫자가 조금 다를 수 있다.
+    티커는 야후 형식(BRK.B → BRK-B). 한 페이지라도 실패하면 빈 표 — 일부만 집계하면 숫자가 틀리므로.
+    """
+    lookback = days or getattr(config, "INSIDER_LOOKBACK_DAYS", 90)
+    delay = getattr(config, "INSIDER_REQUEST_DELAY_SEC", 0.4)
+    fetch_html = fetch_html or _fetch_html
+    by_ticker: Dict[str, List[List[str]]] = {}
+    try:
+        for page in range(1, max_pages + 1):
+            url = (
+                f"http://openinsider.com/screener?s=&fd={lookback}&xp=1&xs=1"
+                f"&cnt={page_size}&sortcol=0&page={page}"
+            )
+            rows = _parse_rows(fetch_html(url, timeout=90))
+            for cells in rows:
+                ticker = cells[3].strip().upper().replace(".", "-")
+                if ticker:
+                    by_ticker.setdefault(ticker, []).append(cells)
+            if len(rows) < page_size:
+                break
+            time.sleep(delay)
+        else:
+            print(f"[Insider] 시장 전체 {max_pages}페이지 한도 — 그 뒤 거래는 빠짐")
+    except Exception as exc:  # noqa: BLE001 — 표시용
+        print(f"[Insider] 시장 전체 조회 실패 (내부자 칸 비움): {exc}")
+        return pd.DataFrame(columns=_RESULT_COLUMNS)
+
+    records = [_aggregate(t, rows) for t, rows in by_ticker.items()]
+    n_rows = sum(len(r) for r in by_ticker.values())
+    print(f"[Insider] 시장 전체 {lookback}일: 거래 {n_rows:,}건 · {len(records):,}종목")
     if not records:
         return pd.DataFrame(columns=_RESULT_COLUMNS)
     return pd.DataFrame(records, columns=_RESULT_COLUMNS)

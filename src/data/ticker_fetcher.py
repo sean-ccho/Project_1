@@ -162,6 +162,58 @@ def fetch_all_tickers() -> List[str]:
     return tickers
 
 
+# otherlisted.txt Exchange 코드 → TradingView 거래소 접두어 (NYSE American·Arca 는 TradingView 에서 AMEX)
+_TV_EXCHANGE = {"N": "NYSE", "A": "AMEX", "P": "AMEX", "Z": "CBOE"}
+_SHARE_CLASS_RE = re.compile(r"^[A-Z]+\.[A-Z]$")
+_NAME_SUFFIX_RE = re.compile(
+    r"\s+(?:Class [A-Z] )?(?:Common Stock|Common Shares|Ordinary Shares|Subordinate Voting Shares)\b.*$",
+    re.IGNORECASE,
+)
+
+
+def clean_security_name(name: str) -> str:
+    """'Apple Inc. - Common Stock' → 'Apple Inc.', 'Federal Agricultural Mortgage Corporation Common Stock' → 앞부분."""
+    s = str(name or "").split(" - ")[0].strip()
+    return _NAME_SUFFIX_RE.sub("", s).strip() or s
+
+
+def listing_symbol(raw: str) -> str | None:
+    """FTP 심볼 → 야후 티커. 종류주(AGM.A)는 'AGM-A' 로 살리고, 그 밖의 비보통주는 None."""
+    s = str(raw or "").strip()
+    if _SHARE_CLASS_RE.match(s) and not s.endswith((".W", ".U", ".R")):
+        return s.replace(".", "-")
+    return s if s and _is_common_stock(s) else None
+
+
+def fetch_listings() -> pd.DataFrame:
+    """NYSE·NASDAQ 상장 보통주 전부 — 컬럼: ticker(야후), name, tv(TradingView 심볼).
+
+    fetch_all_tickers() 와 같은 ETF·테스트·비주식 규칙이지만, 종류주(AGM.A·BF.B)를 버리지 않고 야후 형식(AGM-A)으로 남긴다.
+    표시 전용 전체 분석(run_universe_scan.py)이 쓴다 — 실전 스캔은 fetch_all_tickers() 그대로.
+    """
+    frames = []
+    for filename, sym_col, exch in ((NASDAQ_FILE, "Symbol", None), (OTHER_FILE, "ACT Symbol", "Exchange")):
+        df = pd.read_csv(io.StringIO(_download_ftp_file(filename)), sep="|")
+        df = df[~df[sym_col].astype(str).str.contains("File Creation Time", na=False)]
+        for flag in ("ETF", "Test Issue"):
+            if flag in df.columns:
+                df = df[df[flag] != "Y"]
+        df = _drop_non_equity(df)
+        df = df[~df["Security Name"].astype(str).str.contains(r"\bWarrants?\b", case=False)]  # NE.A = 워런트
+        prefix = df[exch].map(_TV_EXCHANGE) if exch else pd.Series("NASDAQ", index=df.index)
+        frames.append(pd.DataFrame({
+            "raw": df[sym_col].astype(str).str.strip(),
+            "name": df["Security Name"].map(clean_security_name),
+            "prefix": prefix,
+        }))
+    out = pd.concat(frames, ignore_index=True)
+    out["ticker"] = out["raw"].map(listing_symbol)
+    out = out.dropna(subset=["ticker"]).drop_duplicates("ticker")
+    out["tv"] = [f"{p}:{r}" if isinstance(p, str) else r for p, r in zip(out["prefix"], out["raw"])]
+    print(f"[ticker_fetcher] 전체 상장 보통주 {len(out)}개 (종류주 포함)")
+    return out[["ticker", "name", "tv"]].sort_values("ticker").reset_index(drop=True)
+
+
 def _download_batch_with_retry(
     batch: List[str],
     batch_num: int,

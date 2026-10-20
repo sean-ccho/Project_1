@@ -1,0 +1,117 @@
+name: Universe Scan
+
+# 전체 분석 (표시 전용) — 필터 없이 S&P 500 전체 · S&P 밖 NASDAQ/NYSE 상장 보통주 전부 · 신규 상장 (src/run_universe_scan.py).
+# 일일 실행(run-screener.yml)이 이미 6시간 잡 한도에 가까워서 다른 러너에서 따로 돈다 — 실패해도 매매·메일·상태와 무관하다.
+# 결과: 구글 시트 [SP500 전체]·[NASDAQ/NYSE 전체]·[신규상장] + 웹 '전체분석' 데이터(universe-data 고아 브랜치).
+# push 로는 돌지 않는다 (코드만 바꾼 push 가 장중 데이터로 덮어쓰지 않게) — 예약 실행 또는 Actions 화면의 Run workflow.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 1 * * *'  # 01:15 UTC = 9:15 PM EDT (GitHub 이 몇 시간 늦게 시작시키는 일이 많다)
+
+permissions:
+  contents: write
+
+concurrency:
+  group: universe-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+
+    env:
+      PYTHONUNBUFFERED: '1'
+      # SEC EDGAR 공시 경고 — SEC 규칙상 요청에 연락처. 없으면 경고만 건너뛴다
+      SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install tenacity
+
+      - name: Restore Google service account credentials
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then
+            echo "GOOGLE_SERVICE_ACCOUNT_JSON secret is not set" >&2
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > gspread-service-account.json
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # Yahoo 종목 정보가 막힌 날 재무·섹터를 채울 전날 값 (없으면 실전 스냅샷 data/paper_trading 으로)
+      - name: Restore previous universe snapshot
+        run: |
+          mkdir -p "$RUNNER_TEMP/prev"
+          if git fetch -q --depth 1 origin universe-data 2>/dev/null; then
+            for f in sp500_ranked.parquet nasdaq_ranked.parquet; do
+              git show "FETCH_HEAD:snapshot/$f" > "$RUNNER_TEMP/prev/$f" 2>/dev/null || rm -f "$RUNNER_TEMP/prev/$f"
+            done
+          fi
+          ls -la "$RUNNER_TEMP/prev"
+
+      - name: Run universe scan
+        run: |
+          PYTHONPATH=.:src python src/run_universe_scan.py \
+            --out-dir "$RUNNER_TEMP/universe" --prev-dir "$RUNNER_TEMP/prev" | tee "$RUNNER_TEMP/universe_scan.log"
+
+      - name: Upload universe scan log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: universe-scan-log
+          path: ${{ runner.temp }}/universe_scan.log
+          retention-days: 7
+
+      - name: Push universe data (orphan branch)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd "$RUNNER_TEMP/universe"
+          git init -q -b universe-data
+          git add -A
+          git commit -q -m "universe data $(date +%s) [skip ci]"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" universe-data
+          date +%s > "$RUNNER_TEMP/web_pushed_at"
+          echo "✅ universe-data 브랜치 업데이트 완료 ($(git ls-files | wc -l) 파일)"
+
+      # 웹사이트 캐시를 비운다 — 목록은 브라우저가 raw 에서 바로 받지만, 종목 상세 페이지는 서버 캐시를 쓴다.
+      # raw.githubusercontent 는 최대 5분 캐시라서 push 후 5분이 지난 뒤에 부른다 (run-screener.yml 과 같다).
+      - name: Refresh personal website
+        env:
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
+          SITE_URL: https://seancho.vercel.app
+        run: |
+          if [ -z "$REVALIDATE_SECRET" ]; then
+            echo "⏭️  REVALIDATE_SECRET 없음, 건너뜀 (사이트는 30분 자동 갱신)"
+            exit 0
+          fi
+          wait=$(( $(cat "$RUNNER_TEMP/web_pushed_at") + 310 - $(date +%s) ))
+          if [ "$wait" -gt 0 ]; then
+            echo "⏳ GitHub raw 캐시가 빠지도록 ${wait}초 기다림"
+            sleep "$wait"
+          fi
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -X POST \
+            -H "Authorization: Bearer ${REVALIDATE_SECRET}" "$SITE_URL/api/revalidate" || true)
+          if [ "$code" = "200" ]; then
+            echo "✅ 웹사이트 갱신 요청 완료"
+          else
+            echo "::warning title=웹사이트 갱신 실패::HTTP $code — 사이트는 30분 자동 갱신으로 늦게 반영됩니다."
+          fi

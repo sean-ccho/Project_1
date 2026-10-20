@@ -240,6 +240,11 @@ def insider_info(tickers: list[str], *, cache_only: bool = True) -> dict[str, di
     except Exception as exc:  # noqa: BLE001 — 표시용이라 실패해도 나머지는 내보낸다
         print(f"[web_export] 내부자 거래 조회 실패 (건너뜀): {exc}")
         return {}
+    return insider_records(df)
+
+
+def insider_records(df: pd.DataFrame) -> dict[str, dict[str, Any]]:
+    """fetch_insider_snapshots·fetch_insider_market 표 → {티커: 웹 내부자 요약}."""
     out: dict[str, dict[str, Any]] = {}
     for _, r in df.iterrows():
         buys = int(_num(r.get("insider_buy_count")) or 0)

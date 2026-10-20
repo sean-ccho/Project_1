@@ -68,6 +68,28 @@ def _resize_worksheet_to_data(worksheet, rows: list[list[object]]) -> None:
     worksheet.resize(rows=row_count, cols=max_cols)
 
 
+_WRITE_CHUNK_ROWS = 2000
+
+
+def _write_rows(worksheet, rows: list[list[object]], chunk_rows: int = _WRITE_CHUNK_ROWS) -> None:
+    """A1 부터 rows 를 쓴다. 격자보다 크면 먼저 늘리고(안 그러면 'exceeds grid limits'), 크면 나눠 쓴다.
+
+    전체 분석 탭(5천 줄)용 — 기존 분석 탭(수백 줄)은 늘릴 일도 나눌 일도 없어 한 번에 쓴다.
+    """
+    from gspread.utils import rowcol_to_a1
+
+    n_rows = max(len(rows), 1)
+    n_cols = max((len(row) for row in rows), default=1)
+    if worksheet.row_count < n_rows or worksheet.col_count < n_cols:
+        worksheet.resize(rows=max(worksheet.row_count, n_rows), cols=max(worksheet.col_count, n_cols))
+    if len(rows) <= chunk_rows:
+        worksheet.update(rows, value_input_option="USER_ENTERED")
+        return
+    for start in range(0, len(rows), chunk_rows):
+        part = rows[start:start + chunk_rows]
+        worksheet.update(values=part, range_name=rowcol_to_a1(start + 1, 1), value_input_option="USER_ENTERED")
+
+
 def _open_sheet():
     """Authorize gspread client and return spreadsheet handle."""
     import os
@@ -205,7 +227,7 @@ def export_to_google_sheet(
             worksheet = sheet.add_worksheet(
                 title=target_worksheet, rows="1000", cols="50"
             )
-        worksheet.update(rows, value_input_option="USER_ENTERED")
+        _write_rows(worksheet, rows)
         _resize_worksheet_to_data(worksheet, rows)
         return True
     except Exception as exc:  # pragma: no cover - best effort
