@@ -1,0 +1,3 @@
+﻿test_id,rule,n_events,n_days,family
+W-LIME_SQZ|h63,W-LIME_SQZ,6422,500,True
+M-LIME_SQZ|h126,M-LIME_SQZ,1613,114,True

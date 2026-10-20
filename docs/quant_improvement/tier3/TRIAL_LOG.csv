@@ -401,3 +401,34 @@
 2026-10-16 23:21,ma-cross,ma_type_v1,8,M-3/10|EMA-SMA,+0.009,차이 없음,
 2026-10-16 23:29,ma-cross,pt1_cross_v1,2,P1,-0.110,나빠짐 가능,"ΔSharpe -0.11 [-0.46, +0.16] p 0.8186, 같은 거래 65%"
 2026-10-16 23:29,ma-cross,pt1_cross_v1,2,P2,-0.045,나빠짐 가능,"ΔSharpe -0.05 [-0.43, +0.26] p 0.6714, 같은 거래 67%"
+2026-10-19 22:25,sqz,sqz_events_v1,9,(등록),,등록,"F1 9건 z=2.77: D-FIRE|h21,D-MOM0|h21,D-TURN|h21,W-FIRE|h63,W-MOM0|h63,W-TURN|h63,M-FIRE|h126,M-MOM0|h126,M-TURN|h126"
+2026-10-19 22:25,sqz,sqz_solo_v1,9,(등록),,등록,"F2 9건 진입 {FIRE,MOM0,TURN}×{D,W,M} + FADE 청산, 보유 종목 동일가중; PT-1 보다 나음 = vs pt1_base ΔSharpe 하한>0·p≤0.05/9; 채택 후보 = + vs 동일가중 verdict 채택 후보·p≤0.05/9; paired_bootstrap 10000"
+2026-10-19 22:25,sqz,sqz_pt1_v1,4,(등록),,등록,"[2016-01-04~2025-09-30, PT-1 엔진·13y PIT S&P 500·$5,000·3슬롯, SQZMOM_LB 기본값 (20·2.0·20·1.5·TR, 원본 dev=multKC), TradingView 가격(배당 조정 안 함), 끝난 봉 → 다음 시가] *-entry = 메일 top5(PT-1 선택 먼저) 중 마지막 끝난 봉 연두(val>0·오름)인 첫 종목 매수(없으면 안 삼) + PT-1 매도; *-exit = PT-1 그대로 + 보유 중 모멘텀 꺾임(직전 오름→이번 떨어짐) 다음 시가 전량(스퀴즈>PT-1). 채택 = verdict 채택 후보 · p ≤ 0.05/4 (부트스트랩 10,000). 참고 = 3종목 계좌(F2 9규칙 × 시드 10), 무작위 게이트 위약 시드 10, SPY."
+2026-10-19 22:34,sqz,sqz_events_v1,9,D-FIRE|h21,-0.52,탈락,
+2026-10-19 22:34,sqz,sqz_events_v1,9,D-MOM0|h21,-0.96,탈락,
+2026-10-19 22:34,sqz,sqz_events_v1,9,D-TURN|h21,-0.23,탈락,
+2026-10-19 22:34,sqz,sqz_events_v1,9,W-FIRE|h63,-0.89,탈락,
+2026-10-19 22:34,sqz,sqz_events_v1,9,W-MOM0|h63,-0.92,탈락,
+2026-10-19 22:34,sqz,sqz_events_v1,9,W-TURN|h63,-1.22,탈락,
+2026-10-19 22:34,sqz,sqz_events_v1,9,M-FIRE|h126,0.55,탈락,
+2026-10-19 22:34,sqz,sqz_events_v1,9,M-MOM0|h126,1.02,탈락,
+2026-10-19 22:34,sqz,sqz_events_v1,9,M-TURN|h126,-0.63,탈락,
+2026-10-19 22:34,sqz,sqz_solo_v1,9,D-FIRE,-0.937,탈락,"Sharpe -0.16 vs EW 0.78 · PT-1 0.62 (ΔPT1 -0.78 [-1.45, -0.22])"
+2026-10-19 22:34,sqz,sqz_solo_v1,9,D-MOM0,-0.761,탈락,"Sharpe 0.02 vs EW 0.78 · PT-1 0.62 (ΔPT1 -0.60 [-1.20, -0.04])"
+2026-10-19 22:34,sqz,sqz_solo_v1,9,D-TURN,-0.600,탈락,"Sharpe 0.18 vs EW 0.78 · PT-1 0.62 (ΔPT1 -0.44 [-1.02, +0.15])"
+2026-10-19 22:34,sqz,sqz_solo_v1,9,W-FIRE,-0.424,탈락,"Sharpe 0.35 vs EW 0.78 · PT-1 0.62 (ΔPT1 -0.26 [-0.86, +0.28])"
+2026-10-19 22:34,sqz,sqz_solo_v1,9,W-MOM0,-0.383,탈락,"Sharpe 0.39 vs EW 0.78 · PT-1 0.62 (ΔPT1 -0.22 [-0.77, +0.30])"
+2026-10-19 22:34,sqz,sqz_solo_v1,9,W-TURN,-0.208,탈락,"Sharpe 0.57 vs EW 0.78 · PT-1 0.62 (ΔPT1 -0.05 [-0.61, +0.51])"
+2026-10-19 22:34,sqz,sqz_solo_v1,9,M-FIRE,-0.006,탈락,"Sharpe 0.77 vs EW 0.78 · PT-1 0.62 (ΔPT1 +0.15 [-0.40, +0.65])"
+2026-10-19 22:34,sqz,sqz_solo_v1,9,M-MOM0,-0.000,탈락,"Sharpe 0.78 vs EW 0.78 · PT-1 0.62 (ΔPT1 +0.16 [-0.38, +0.68])"
+2026-10-19 22:34,sqz,sqz_solo_v1,9,M-TURN,+0.047,탈락,"Sharpe 0.82 vs EW 0.78 · PT-1 0.62 (ΔPT1 +0.21 [-0.32, +0.74])"
+2026-10-19 23:04,sqz,sqz_lime_events_v1,2,(등록),,등록,"F1 2건 z=2.24: W-LIME_SQZ|h63,M-LIME_SQZ|h126"
+2026-10-19 23:04,sqz,sqz_lime_solo_v1,2,(등록),,등록,"F2 2건 진입 {LIME_SQZ}×{W,M} + FADE 청산, 보유 종목 동일가중; PT-1 보다 나음 = vs pt1_base ΔSharpe 하한>0·p≤0.05/2; 채택 후보 = + vs 동일가중 verdict 채택 후보·p≤0.05/2; paired_bootstrap 10000"
+2026-10-19 23:07,sqz,sqz_lime_events_v1,2,W-LIME_SQZ|h63,-2.47,역신호,
+2026-10-19 23:07,sqz,sqz_lime_events_v1,2,M-LIME_SQZ|h126,0.11,탈락,
+2026-10-19 23:07,sqz,sqz_lime_solo_v1,2,W-LIME_SQZ,-0.375,탈락,"Sharpe 0.40 vs EW 0.78 · PT-1 0.62 (ΔPT1 -0.21 [-0.73, +0.27])"
+2026-10-19 23:07,sqz,sqz_lime_solo_v1,2,M-LIME_SQZ,+0.014,탈락,"Sharpe 0.79 vs EW 0.78 · PT-1 0.62 (ΔPT1 +0.17 [-0.32, +0.66])"
+2026-10-19 23:50,sqz,sqz_pt1_v1,4,D-entry,-0.101,탈락,"ΔSharpe -0.10 [-0.78, +0.48] p 0.6751"
+2026-10-19 23:50,sqz,sqz_pt1_v1,4,W-entry,-0.185,탈락,"ΔSharpe -0.18 [-0.75, +0.34] p 0.7548"
+2026-10-19 23:50,sqz,sqz_pt1_v1,4,D-exit,-0.495,탈락,"ΔSharpe -0.50 [-0.90, -0.12] p 0.9952"
+2026-10-19 23:50,sqz,sqz_pt1_v1,4,W-exit,-0.012,탈락,"ΔSharpe -0.01 [-0.43, +0.40] p 0.5160"
