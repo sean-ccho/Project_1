@@ -3,11 +3,13 @@
 웹사이트 '전체분석' 페이지는 이 파일을 서버가 아니라 브라우저가 GitHub raw(universe-data 브랜치)에서 직접 받는다.
 나스닥·NYSE 전체는 종목당 약 2KB × 5천 = 약 10MB 라 Vercel 함수 응답 한도(4.5MB)를 넘고, raw 는 gzip(약 7배)·CORS 를 준다.
 - {key}.json         시장 목록 — 종목 정보는 dashboard.json 의 stocks 와 같은 모양(TickerInfo) + tv(TradingView 심볼)
+- {key}.json.gz      같은 내용 gzip — raw 는 몇 MB 넘는 파일을 압축해 주지 않아서(2026-10-20: 나스닥 8.3MB 그대로) 브라우저가 직접 푼다
 - stocks/{티커}.json  종목 상세 페이지용 한 종목 (dashboard.json 에 없는 종목일 때 사이트가 읽는다)
 """
 
 from __future__ import annotations
 
+import gzip
 import json
 from datetime import datetime
 from pathlib import Path
@@ -95,7 +97,10 @@ def write_payloads(out_dir: Path, payloads: list[dict[str, Any]]) -> dict[str, i
     for p in payloads:
         body = json.dumps(p, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
         (out_dir / f"{p['key']}.json").write_text(body, encoding="utf-8")
+        packed = gzip.compress(body.encode(), compresslevel=9, mtime=0)
+        (out_dir / f"{p['key']}.json.gz").write_bytes(packed)
         sizes[f"{p['key']}.json"] = len(body.encode())
+        sizes[f"{p['key']}.json.gz"] = len(packed)
         for ticker, info in p["items"].items():
             if ticker in written:
                 continue

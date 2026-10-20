@@ -112,6 +112,8 @@ def test_payload_drops_index_etfs_and_writes_stock_files(tmp_path: Path) -> None
     one = json.loads((tmp_path / "stocks" / "AAPL.json").read_text())
     assert one["market"] == "sp500" and one["info"]["company"] == "Apple Inc."
     json.loads((tmp_path / "new.json").read_text())
+    import gzip
+    assert json.loads(gzip.decompress((tmp_path / "new.json.gz").read_bytes())) == json.loads((tmp_path / "new.json").read_text())
 
 
 def test_snapshot_frame_keeps_fallback_columns_without_nan_text() -> None:
