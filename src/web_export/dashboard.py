@@ -217,6 +217,8 @@ def ticker_info(row: pd.Series) -> dict[str, Any]:
         "sec_flags": _sec_flags(row.get("sec_flags")),  # SEC 공시 경고 (sec_filings.Flag 목록, 없으면 [])
         "short": _short(row),  # 공매도 (FINRA 잔고·되사기 + 유통주식 대비 비중), 없으면 None
         "squeeze": None,  # build_dashboard 가 숏스퀴즈 감시 목록으로 채운다 ('fire' · 'fuel')
+        "isb": None,  # build_dashboard 가 채운다 — ISB 라벨 최근 날짜 (web_export.isb_signals)
+        "sqzmom": None,  # build_dashboard 가 채운다 — SQZ 모멘텀 일·주·월 상태 (web_export.sqz_signals, 표시 전용)
     }
 
 
@@ -601,8 +603,43 @@ def benchmark_block(period: str = "6y", close: pd.Series | None = None) -> dict[
                                         if _num(v, 4) is not None]}
 
 
+def daily_prices(tickers: list[str]) -> dict[str, Any]:
+    """ISB 라벨·SQZ 모멘텀이 같이 쓰는 일봉 (7년, 분할만 반영, SPY 포함) — {yfinance 심볼: OHLCV}. 실패하면 빈 dict."""
+    from web_export.isb_signals import BENCH, download_daily, yf_symbol
+
+    try:
+        return download_daily(sorted({yf_symbol(t) for t in tickers} | {BENCH}))
+    except Exception as exc:  # noqa: BLE001
+        print(f"[web_export] 일봉 다운로드 실패 (ISB·SQZ 건너뜀): {exc}")
+        return {}
+
+
+def isb_block(tickers: list[str], prices: dict[str, Any] | None = None) -> dict[str, dict[str, Any]]:
+    """ISB 라벨(BUY·REV · ◇ BOTTOM · ◆ TOP · EXIT) 최근 날짜 — 표시용이라 실패하면 빈 dict."""
+    from web_export.isb_signals import isb_labels
+
+    try:
+        return isb_labels(tickers, prices=prices) if prices else isb_labels(tickers)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[web_export] ISB 라벨 계산 실패 (건너뜀): {exc}")
+        return {}
+
+
+def sqz_block(tickers: list[str], prices: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """SQZ 모멘텀(LazyBear 기본값) 일·주·월 상태 — 표시용이라 실패하면 빈 dict. 가격을 못 받은 종목은 빠진다."""
+    from web_export.isb_signals import yf_symbol
+    from web_export.sqz_signals import sqz_states
+
+    try:
+        return sqz_states({t: prices[yf_symbol(t)] for t in tickers if yf_symbol(t) in prices})
+    except Exception as exc:  # noqa: BLE001
+        print(f"[web_export] SQZ 모멘텀 계산 실패 (건너뜀): {exc}")
+        return {}
+
+
 def build_dashboard(data_dir: Path | None = None, *, charts_from_git: bool = False,
-                    with_prices: bool = True, with_insider: bool = True) -> dict[str, Any]:
+                    with_prices: bool = True, with_insider: bool = True, with_isb: bool = True,
+                    with_sqz: bool = True) -> dict[str, Any]:
     """dashboard.json 내용 전체."""
     from paper_trading.portfolio import load_positions, load_trades
     from paper_trading.runner import PT1_ACCOUNTS
@@ -658,6 +695,17 @@ def build_dashboard(data_dir: Path | None = None, *, charts_from_git: bool = Fal
                 stocks[t]["insider"] = rec
         for c in candidates:
             c["insider"] = infos[c["ticker"]]["insider"]
+    if (with_isb or with_sqz) and stocks:
+        prices = daily_prices(list(stocks))  # 한 번만 받아 둘이 같이 쓴다
+        if with_isb:
+            for t, rec in isb_block(list(stocks), prices).items():
+                stocks[t]["isb"] = rec
+        if with_sqz and prices:
+            for t, rec in sqz_block(list(stocks), prices).items():
+                stocks[t]["sqzmom"] = rec
+        for c in candidates:
+            c["isb"] = infos[c["ticker"]]["isb"]
+            c["sqzmom"] = infos[c["ticker"]]["sqzmom"]
 
     return {
         "schema": SCHEMA_VERSION,
@@ -687,18 +735,25 @@ def main(argv: list[str] | None = None) -> int:
                         help="$5,000 계좌 재계산(일봉 다운로드)을 건너뛴다")
     parser.add_argument("--no-insider", action="store_true",
                         help="내부자 거래 요약을 넣지 않는다 (기본은 이미 받아 둔 캐시만 읽는다)")
+    parser.add_argument("--no-isb", action="store_true",
+                        help="ISB 라벨 계산(일봉 7년 다운로드)을 건너뛴다")
+    parser.add_argument("--no-sqz", action="store_true",
+                        help="SQZ 모멘텀 계산을 건너뛴다 (ISB 와 같은 일봉을 쓴다)")
     args = parser.parse_args(argv)
 
     data = build_dashboard(charts_from_git=args.charts_from_git, with_prices=not args.no_prices,
-                           with_insider=not args.no_insider)
+                           with_insider=not args.no_insider, with_isb=not args.no_isb,
+                           with_sqz=not args.no_sqz)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(data, ensure_ascii=False, allow_nan=False, separators=(",", ":")),
                         encoding="utf-8")
     n_charts = sum(len(m["items"]) for m in data["charts"])
     n_pos = sum(len(a["positions"]) for a in data["accounts"])
     n_insider = sum(1 for s in data["stocks"].values() if s["insider"] is not None)
+    n_isb = sum(1 for s in data["stocks"].values() if s["isb"] is not None)
+    n_sqz = sum(1 for s in data["stocks"].values() if s["sqzmom"] is not None)
     print(f"[web_export] {args.out} — 일봉 {data['bar_date']}, 보유 {n_pos}, 후보 {len(data['candidates'])}, "
-          f"차트 {n_charts}종목, 종목 정보 {len(data['stocks'])} (내부자 {n_insider}) "
+          f"차트 {n_charts}종목, 종목 정보 {len(data['stocks'])} (내부자 {n_insider}, ISB {n_isb}, SQZ {n_sqz}) "
           f"({args.out.stat().st_size / 1024:.0f} KB)")
     return 0
 
