@@ -1,0 +1,29 @@
+============================================================
+[Unified Paper Trading] PT-1N (S&P 500 밖) 실행 시작
+============================================================
+2026-10-21 08:35:01,305 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+2026-10-21 08:35:01,314 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 230개 종목
+[Unified PT] NASDAQ snapshot 로드: 230개 종목
+[Unified PT] 합산 완료: 352개 종목 (SP500 130 + NASDAQ 230개, 중복 제거 후)
+[Unified PT] PT1_UNIVERSE=ex_sp500 — S&P 500 구성종목 139개 제외 → 213개
+[Unified PT] 거래일(일봉 날짜): 2026-10-20
+[Unified PT] 골든크로스임박 종목: 16개
+2026-10-21 08:35:01,929 [INFO] paper_trading.engine — [PaperTrading] SELL DUOL @ 139.58 (트레일링(-6.3%))
+2026-10-21 08:35:01,945 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 59 | 4.0~5.0: 25 | 5.0~5.5: 9 | 5.5~6.0: 27 | 6.0+: 90
+2026-10-21 08:35:01,963 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=7/213 | Selected: AA (CCS=0.5428)
+2026-10-21 08:35:01,966 [INFO] paper_trading.engine — [PaperTrading] BUY AA @ 40.79 (CCS=0.5428, RSI=36)
+[Unified PT] 매도=1 매수=1 보유=3종목
+[Unified PT] 레짐=bull | 필터={'지수ETF': 3, '전략점수<6.0': 120, '바닥반등_52주과열': 0, '판단등급_미달': 74, '과열_차단': 7, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 0, '같은회사_중복': 0, '모멘텀_ADX부족': 2, '바닥_RSI데드존': 0, '섹터_집중': 0, '_통과': 7, '_전체': 213}
+[Unified PT] Top5 후보:
+  AA     CCS=0.5428 전략=📉 바닥반등 섹터=Basic Materials
+  ENPH   CCS=0.5253 전략=📉 바닥반등 섹터=Technology
+  HYMC   CCS=0.5077 전략=📉 바닥반등 섹터=Basic Materials
+  SOFI   CCS=0.4707 전략=📉 바닥반등 섹터=Financial Services
+  GDS    CCS=0.4607 전략=📉 바닥반등 섹터=Technology
+2026-10-21 08:35:04,298 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 다시 쓰기: 페이퍼N_거래로그 5줄
+2026-10-21 08:35:06,117 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-10-21 08:35:07,694 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 1건 거래
+[Unified PT] 구글 시트 동기화 완료
+[Unified PT] $5,000 계좌 탭 '페이퍼N_계좌' 동기화 완료
+[Unified PT] PT-1N (S&P 500 밖): 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)

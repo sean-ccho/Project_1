@@ -1,20 +1,5 @@
 [
   {
-    "ticker": "DUOL",
-    "entry_price": 139.72999572753906,
-    "entry_date": "2026-10-14",
-    "strategy": "📉 바닥반등",
-    "star_rating": "★★★★★ (7.5)",
-    "ccs_score": 0.6114,
-    "sector": "Technology",
-    "highest_price": 148.92999267578125,
-    "defer_count": 0,
-    "trailing_stop_override": null,
-    "last_defer_date": null,
-    "defer_debug": null,
-    "entry_rsi": 43.66284977544346
-  },
-  {
     "ticker": "HL",
     "entry_price": 15.5600004196167,
     "entry_date": "2026-10-15",
@@ -37,11 +22,26 @@
     "star_rating": "★★★★★ (14.0)",
     "ccs_score": 0.6334,
     "sector": "Consumer Cyclical",
-    "highest_price": 86.83000183105469,
+    "highest_price": 87.31999969482422,
     "defer_count": 0,
     "trailing_stop_override": null,
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 69.94394811926509
+  },
+  {
+    "ticker": "AA",
+    "entry_price": 40.790000915527344,
+    "entry_date": "2026-10-20",
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (6.0)",
+    "ccs_score": 0.5428,
+    "sector": "Basic Materials",
+    "highest_price": 40.790000915527344,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 36.2354079952268
   }
 ]
