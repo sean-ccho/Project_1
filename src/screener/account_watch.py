@@ -8,6 +8,7 @@
      🛑 손절가 아래 (현재가 또는 장중 저가) · ⚠️ 손절가 3% 이내 · 🎯 목표가 (현재가 또는 장중 고가)
      🚀/📉 전날 종가 대비 ±5% · 👀 관심종목 목표가 (조건 이하/이상)
 같은 알림은 하루 한 번만 보낸다 (state.json — CI 에서는 고아 브랜치 account-watch 에 보관).
+실행 신호는 Mac mini LaunchAgent 가 30분마다 workflow_dispatch 로 보낸다 (GitHub 예약 실행은 몇 시간씩 늦어서 안 씀).
 휴장일은 SPY 오늘 봉이 없는 것으로 알아채고 조용히 끝낸다. 시트에는 아무것도 쓰지 않는다 (밤 리포트가 쓴다).
 
 사용:
@@ -302,9 +303,13 @@ def build_watch_alerts(rows: list[dict[str, str]], watch: list[dict[str, str]],
         key = f"watch:{t}:{target:g}:{cond}"
         if hit and key not in seen:
             seen.add(key)
+            cad = is_cad(t)
+            now_hit = q.price >= target if above else q.price <= target
+            how = "" if now_hit else \
+                f" (장중 {'고가' if above else '저가'} {_money(q.day_high if above else q.day_low, cad)})"
             memo = f" · 메모: {w['메모']}" if w.get("메모") else ""
-            add("watch", t, key, f"관심종목 {t} 목표가 {_money(target, is_cad(t))} {cond} 도달 — "
-                                 f"{_context(q, None, is_cad(t))}{memo}")
+            add("watch", t, key, f"관심종목 {t} 목표가 {_money(target, cad)} {cond} 도달{how} — "
+                                 f"{_context(q, None, cad)}{memo}")
     return alerts
 
 

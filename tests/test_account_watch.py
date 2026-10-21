@@ -184,6 +184,9 @@ def test_watchlist_below_and_above():
     alerts = aw.build_watch_alerts([], watch, q)
     assert _kinds(alerts) == [("watch", "X"), ("watch", "Y")]
     assert "메모: 눌림" in alerts[0]["text"] and "이상" in alerts[1]["text"]
+    assert "(장중 저가 $49.50)" in alerts[0]["text"] and "(장중 고가 $50.20)" in alerts[1]["text"]
+    hit_now = aw.build_watch_alerts([], [{"티커": "X", "목표가": "50", "조건": "이하"}], {"X": _q(49, prev=49)})
+    assert "장중" not in hit_now[0]["text"]                # 지금 가격으로 닿았으면 장중 표시 없음
 
 
 # ── 요약 ────────────────────────────────────────────────────────────────────
