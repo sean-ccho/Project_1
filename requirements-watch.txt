@@ -1,0 +1,7 @@
+# 내계좌 장중 30분 체크 (.github/workflows/account-watch.yml) 전용 — src/screener/account_watch.py 가 import 하는 것만
+pandas>=2.0
+numpy>=1.24
+yfinance>=1.7.0
+gspread>=6.0
+google-auth>=2.0
+requests
