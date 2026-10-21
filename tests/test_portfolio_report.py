@@ -170,6 +170,24 @@ def test_build_alerts_stop_near_earnings_and_missing_stop():
     assert no_stop == ["DDD"]
 
 
+def test_build_alerts_target_hit_once_per_ticker_and_target():
+    """목표가(웹 내계좌, 2026-10-20) 이상이면 🎯 알림 — 같은 종목·같은 목표가 두 줄이어도 한 번, 못 미치면 없음."""
+    from datetime import date
+    from screener.portfolio_report import _ALERT_ICON, build_alerts
+    records = [
+        {"티커": "AAA", "손절가": "1", "매수가": "100", "목표가": "120"},
+        {"티커": "AAA", "손절가": "1", "매수가": "100", "목표가": "120"},
+        {"티커": "BBB", "손절가": "1", "목표가": "$50.00"},     # 아직 못 미침
+        {"티커": "CCC", "손절가": "1", "목표가": ""},           # 목표가 없음
+    ]
+    results = {"AAA": {"_price": 121.0}, "BBB": {"_price": 49.0}, "CCC": {"_price": 10.0}}
+    alerts, _ = build_alerts(records, results, today=date(2026, 10, 20))
+    hits = [a for a in alerts if a["kind"] == "target"]
+    assert len(hits) == 1 and hits[0]["ticker"] == "AAA"
+    assert "$120.00" in hits[0]["text"] and "+21.0%" in hits[0]["text"]
+    assert _ALERT_ICON["target"] == "🎯"
+
+
 def test_build_html_report_shows_alerts():
     from screener.portfolio_report import build_html_report
     html = build_html_report({}, [{"kind": "stop", "ticker": "AAA", "text": "AAA 손절가 아래"}], ["DDD"])

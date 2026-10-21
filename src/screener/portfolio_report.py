@@ -15,11 +15,11 @@ Google Sheets '내계좌' 워크시트에 있는 종목들을 읽어
                             Monthly RSI, Monthly MACD, Monthly 거래량,
                             업데이트
   [리스크 — 파이프라인 자동] ATR%, 베타(1년), 평균상관, 실적일, 공시
-  [입력 — 웹 내계좌] 손절가, 매수이유, 매도일, 매도가, 상태
+  [입력 — 웹 내계좌] 손절가, 매수이유, 매도일, 매도가, 상태, 목표가
 한 줄 = 거래 하나 (2026-10-16 매매일지와 합침, Logan 탭처럼). 매도일이 비어 있으면 보유 중 → 분석·알림 대상,
 매도일이 있으면 매도 완료 → 분석 안 함 (남아 있던 분석 값은 지운다). '상태' 칸은 매일 밤 매도일 기준으로 맞춘다.
 '관심종목' 탭(웹에서 추가)이 있으면 현재가·목표까지·도달을 채우고, 메일 맨 위에 알림(손절가 아래·근접,
-실적 7일 이내, 관심종목 목표가 도달, 3일 안에 나온 SEC 🔴·🟠 공시, 관심종목의 🔴 공시)을 붙인다.
+실적 7일 이내, 보유 종목·관심종목 목표가 도달, 3일 안에 나온 SEC 🔴·🟠 공시, 관심종목의 🔴 공시)을 붙인다.
 
 사용:
     python src/screener/portfolio_report.py
@@ -113,8 +113,9 @@ ANALYSIS_HEADERS.append("업데이트")  # 마지막: 마지막 갱신 시각
 RISK_HEADERS: list[str] = ["ATR%", "베타(1년)", "평균상관", "실적일", "공시"]
 
 # ── 웹 내계좌에서 쓰는 입력 칸 (2026-10-16) — 손절가는 알림 메일, 매수이유는 매수이유별 성적,
-#    매도일·매도가가 있으면 판 거래 (상태 = 매도 완료). 상태는 매일 밤 매도일 기준으로 맞춘다 ──
-EXTRA_INPUT_HEADERS: list[str] = ["손절가", "매수이유", "매도일", "매도가", "상태"]
+#    매도일·매도가가 있으면 판 거래 (상태 = 매도 완료). 상태는 매일 밤 매도일 기준으로 맞춘다.
+#    목표가(2026-10-20)는 넘으면 알림 메일 ──
+EXTRA_INPUT_HEADERS: list[str] = ["손절가", "매수이유", "매도일", "매도가", "상태", "목표가"]
 STATUS_OPEN, STATUS_CLOSED = "보유 중", "매도 완료"
 
 # 전체 헤더 (새 시트일 때의 순서). 이미 있는 시트는 **이름으로** 열을 찾고, 빠진 머리글만 오른쪽 끝에 붙인다.
@@ -756,12 +757,13 @@ def update_watchlist(sheet) -> list[dict[str, str]]:
 
 
 def build_alerts(records: list[dict[str, str]], ticker_results: dict[str, dict], today=None) -> tuple[list[dict[str, str]], list[str]]:
-    """보유 종목 알림 (손절가 아래·근접, 실적 임박) + 손절가가 비어 있는 티커 목록."""
+    """보유 종목 알림 (손절가 아래·근접, 목표가 도달, 실적 임박) + 손절가가 비어 있는 티커 목록."""
     today = today or datetime.now(tz=timezone(timedelta(hours=-4))).date()
     alerts: list[dict[str, str]] = []
     no_stop: list[str] = []
     seen_earn: set[str] = set()
     seen_sec: set[str] = set()
+    seen_target: set[tuple[str, float]] = set()
     for rec in records:
         ticker = str(rec.get("티커", "")).strip().upper()
         res = ticker_results.get(ticker, {})
@@ -777,6 +779,14 @@ def build_alerts(records: list[dict[str, str]], ticker_results: dict[str, dict],
             elif price <= stop * (1 + STOP_NEAR_PCT):
                 alerts.append({"kind": "near", "ticker": ticker,
                                "text": f"{ticker} 손절가 ${stop:,.2f} 까지 {price / stop - 1:.1%} 남았어요 (현재 ${price:,.2f})"})
+        target = _to_float(rec.get("목표가"))
+        if target and price is not None and price >= target and (ticker, target) not in seen_target:
+            seen_target.add((ticker, target))
+            buy = _to_float(rec.get("매수가"))
+            gain = f" · 매수가 대비 {price / buy - 1:+.1%}" if buy else ""
+            alerts.append({"kind": "target", "ticker": ticker,
+                           "text": f"{ticker} 목표가 ${target:,.2f} 도달 — 현재 ${price:,.2f}{gain}. "
+                                   "일부 익절하거나 손절가를 올릴 때예요"})
         if ticker not in seen_sec:
             seen_sec.add(ticker)
             for f in res.get("_sec") or []:
@@ -794,7 +804,7 @@ def build_alerts(records: list[dict[str, str]], ticker_results: dict[str, dict],
     return alerts, no_stop
 
 
-_ALERT_ICON = {"stop": "🛑", "near": "⚠️", "earn": "📅", "watch": "🎯", "sec": "📄", "squeeze": "🔥"}
+_ALERT_ICON = {"stop": "🛑", "near": "⚠️", "target": "🎯", "earn": "📅", "watch": "🎯", "sec": "📄", "squeeze": "🔥"}
 
 
 def squeeze_alerts(tickers: list[str], watch=None) -> list[dict[str, str]]:
