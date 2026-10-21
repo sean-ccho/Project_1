@@ -8,16 +8,26 @@ import pytest
 from paper_trading.market_date import MARKET_TZ
 from screener import account_watch as aw
 from screener.account_watch import Quote
+from screener.watch_news import Headline
+from screener.watch_sec import Filing
 
 TODAY = date(2026, 10, 21)
 NOW = datetime(2026, 10, 21, 11, 7, tzinfo=MARKET_TZ)
 
 
-def _q(price, prev=None, high=None, low=None, stale=False) -> Quote:
+def _q(price, prev=None, high=None, low=None, stale=False, open_=None) -> Quote:
     """오늘 시세. prev 를 안 주면 전날 종가 = 현재가 (등락 0%)."""
     return Quote(price=price, prev_close=prev if prev is not None else price,
                  day_high=high if high is not None else price,
-                 day_low=low if low is not None else price, bar_date=TODAY, stale=stale)
+                 day_low=low if low is not None else price, bar_date=TODAY, stale=stale, day_open=open_)
+
+
+def _head(title="ServiceNow raises outlook", source="Reuters") -> Headline:
+    return Headline(title, source, "https://news.google.com/rss/articles/x", None)
+
+
+def _filing(ticker="A", acc="0001-26-000001", items=("2.02",), label="실적 발표", sev="orange", form="8-K") -> Filing:
+    return Filing(ticker, form, items, label, sev, acc, date(2026, 10, 21), "https://www.sec.gov/Archives/edgar/data/1/1/")
 
 
 def _frame(data: dict[str, list[tuple]], dates: list[str]) -> pd.DataFrame:
@@ -108,9 +118,11 @@ def test_quotes_from_frame_today_stale_and_missing():
     assert set(q) == {"NOW", "NBM.V", "SPY"}
     assert q["NOW"].price == 111 and q["NOW"].prev_close == 110
     assert q["NOW"].day_low == 104 and q["NOW"].day_high == 112
+    assert q["NOW"].day_open == 108 and q["NOW"].gap == pytest.approx(108 / 110 - 1)
     assert q["NOW"].day_pct == pytest.approx(111 / 110 - 1)
     nbm = q["NBM.V"]
     assert nbm.stale and nbm.price == 0.14 and nbm.day_pct is None and nbm.day_low is None
+    assert nbm.day_open is None and nbm.gap is None
 
 
 def test_quotes_from_frame_holiday_spy_stale():
@@ -218,7 +230,7 @@ def test_summary_missing_quote_line():
 def test_state_resets_on_new_day(tmp_path):
     p = tmp_path / "state.json"
     aw.save_state(p, {"date": "2026-10-20", "sent": ["stop:A:90"], "last_run": "2026-10-20T15:30:00-04:00"})
-    assert aw.load_state(p, TODAY) == {"date": "2026-10-21", "sent": [], "last_run": None}
+    assert aw.load_state(p, TODAY) == {"date": "2026-10-21", "sent": [], "last_run": None, "sec_sent": []}
     aw.save_state(p, {"date": "2026-10-21", "sent": ["stop:A:90"]})
     assert aw.load_state(p, TODAY)["sent"] == ["stop:A:90"]
     assert aw.load_state(None, TODAY)["sent"] == []
@@ -237,9 +249,22 @@ def fake_run(monkeypatch):
     monkeypatch.setattr(aw, "read_watchlist", lambda sheet: [])
     monkeypatch.setattr(aw, "fetch_quotes", lambda tickers, today: quotes)
     monkeypatch.setenv("NTFY_TOPIC", "test-topic")
+    # 네트워크 금지 — 새 공시는 기본으로 없음(시험에서 filings 로 채움), 헤드라인은 호출을 기록
+    filings: list[Filing] = []
+    news_calls: list[tuple] = []
+    monkeypatch.setattr(aw, "fetch_new_filings",
+                        lambda tickers, today, seen=(), **kw: [f for f in filings if f.acc not in set(seen)])
+
+    def news(name, ticker, cad=False, n=2):
+        news_calls.append((name, ticker, cad, n))
+        return [_head()]
+
+    monkeypatch.setattr(aw, "headlines", news)
+    sent["filings"], sent["news"], sent["bodies"] = filings, news_calls, []
 
     def push(topic, title, body, priority=3, tags=None):
         sent["push"].append((title, priority))
+        sent["bodies"].append(body)
         return ok["push"]
 
     def mail(alerts, rows_, quotes_, now):
@@ -305,6 +330,104 @@ def test_run_backup_skips_when_checked_recently(tmp_path, fake_run):
     assert len(sent["push"]) == 2
     aw.run(p, now=NOW + timedelta(minutes=80), backup=True)   # 50분 동안 체크 없음 (Mac 꺼짐) → 돈다
     assert len(sent["push"]) == 3
+
+
+# ── 뉴스 · 새 SEC 공시 ──────────────────────────────────────────────────────
+
+def test_sec_alerts_earnings_gap_and_context():
+    rows = [{"티커": "A", "매수가": "100", "수량": "1"}]
+    q = {"A": _q(111, prev=100, open_=108)}
+    [a] = aw.sec_alerts([_filing("A")], rows, q)
+    assert a["kind"] == "sec" and a["key"] == "sec:A:0001-26-000001" and a["acc"] == "0001-26-000001"
+    assert a["text"].startswith("🟠 A 실적 발표 (8-K 2.02) 10/21 접수")
+    assert "오늘 갭 +8.0% (시가 vs 전날 종가)" in a["text"] and "현재 $111.00" in a["text"] and "매수 대비 +11.0%" in a["text"]
+    assert a["text"].endswith("https://www.sec.gov/Archives/edgar/data/1/1/")
+
+
+def test_sec_alerts_non_earnings_has_no_gap_and_handles_missing_quote():
+    [a] = aw.sec_alerts([_filing("A", items=("5.02",), label="임원 변동", sev="yellow")], [{"티커": "A"}],
+                        {"A": _q(100, prev=95, open_=98)})
+    assert a["sev"] == "yellow" and a["text"].startswith("🟡 A 임원 변동") and "갭" not in a["text"]
+    [b] = aw.sec_alerts([_filing("Z", items=(), label="증자(공모)", form="424B5")], [], {})
+    assert "(424B5)" in b["text"] and "현재" not in b["text"]            # 관심종목·시세 없음이어도 터지지 않는다
+
+
+def test_attach_news_per_ticker_once_skips_watch_and_caps():
+    rows = [{"티커": "A", "회사명": "Acme, Inc."}, {"티커": "NBM.V", "회사명": "Neo", "거래소": "TSXV"}]
+    calls = []
+
+    def fetch(name, ticker, cad, n):
+        calls.append((name, ticker, cad, n))
+        return [_head(f"{ticker} news")]
+
+    new = [{"kind": "up", "ticker": "A"}, {"kind": "stop", "ticker": "A"}, {"kind": "watch", "ticker": "W"},
+           {"kind": "sec", "ticker": "NBM.V"}]
+    aw.attach_news(new, rows, fetch)
+    assert calls == [("Acme, Inc.", "A", False, 2), ("Neo", "NBM.V", True, 2)]      # A 는 한 번만, 관심종목은 안 찾음
+    assert new[0]["news"] is new[1]["news"] and "news" not in new[2] and new[3]["news"][0].title == "NBM.V news"
+
+    many = [{"kind": "up", "ticker": f"T{i}"} for i in range(aw.NEWS_MAX_TICKERS + 3)]
+    calls.clear()
+    aw.attach_news(many, [], fetch)
+    assert len(calls) == aw.NEWS_MAX_TICKERS and many[-1]["news"] == []
+
+
+def test_alert_lines_and_email_render_headlines():
+    a = {"kind": "up", "ticker": "A", "text": "🚀 A 오늘 +6.0% 급등", "news": [_head("A beats <b>big</b>", "Reuters")]}
+    assert aw._alert_lines(a) == "🚀 A 오늘 +6.0% 급등\n  ↳ A beats <b>big</b> — Reuters"
+    assert aw._alert_lines({"text": "x"}) == "x"
+    page = aw._email_html([a], [], {})
+    assert "A beats &lt;b&gt;big&lt;/b&gt;" in page and "https://news.google.com/rss/articles/x" in page
+
+
+def test_state_sec_sent_survives_new_day_and_is_capped(tmp_path):
+    p = tmp_path / "state.json"
+    aw.save_state(p, {"date": "2026-10-20", "sent": ["stop:A:90"], "last_run": None, "sec_sent": ["a1", "a2"]})
+    st = aw.load_state(p, TODAY)
+    assert st["sent"] == [] and st["sec_sent"] == ["a1", "a2"]           # 오늘 알림은 리셋, 공시 기억은 유지
+
+
+def test_run_sec_alert_pushes_once_across_days_and_records_accession(tmp_path, fake_run):
+    sent, quotes, _ = fake_run
+    quotes["A"] = _q(120, prev=115, open_=118)                           # 손절·±5% 알림은 없는 가격 (공시 알림만)
+    sent["filings"].append(_filing("A", acc="X1"))
+    p = tmp_path / "state.json"
+    aw.run(p, now=NOW)
+    assert len(sent["push"]) == 1 and sent["push"][-1][1] == 4 and sent["mail"] == [1]
+    assert "실적 발표" in sent["bodies"][-1] and "↳ ServiceNow raises outlook — Reuters" in sent["bodies"][-1]
+    assert aw.load_state(p, TODAY)["sec_sent"] == ["X1"]
+    aw.run(p, now=NOW)                                                    # 같은 공시 → 조용한 요약
+    assert sent["push"][-1][1] == 2 and sent["mail"] == [1]
+    aw.run(p, now=NOW.replace(day=22))                                    # 다음 날에도 다시 안 나간다
+    assert sent["push"][-1][1] == 2 and sent["mail"] == [1]
+
+
+def test_run_yellow_only_sec_alert_is_quiet_priority(tmp_path, fake_run):
+    sent, quotes, _ = fake_run
+    quotes["A"] = _q(120, prev=119)
+    sent["filings"].append(_filing("A", acc="Y1", items=("5.02",), label="임원 변동", sev="yellow"))
+    aw.run(tmp_path / "s.json", now=NOW)
+    assert sent["push"][-1][1] == 3
+
+
+def test_run_attaches_headlines_only_for_new_alerts(tmp_path, fake_run):
+    sent, _, _ = fake_run
+    p = tmp_path / "state.json"
+    aw.run(p, now=NOW)                                                    # A 손절 알림 → 헤드라인 찾음
+    assert [c[1] for c in sent["news"]] == ["A"]
+    aw.run(p, now=NOW)                                                    # 이미 보낸 알림 → 다시 안 찾음
+    assert len(sent["news"]) == 1
+
+
+def test_run_news_failure_does_not_block_alert(tmp_path, fake_run, monkeypatch):
+    sent, _, _ = fake_run
+
+    def boom(*a, **k):
+        raise RuntimeError("google down")
+
+    monkeypatch.setattr(aw, "headlines", boom)
+    assert aw.run(tmp_path / "s.json", now=NOW) == 0
+    assert sent["push"][-1][1] == 4 and "손절가" in sent["bodies"][-1]
 
 
 def test_run_dry_run_sends_nothing(tmp_path, fake_run):

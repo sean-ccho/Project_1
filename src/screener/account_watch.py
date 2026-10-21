@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import os
 import re
 import smtplib
@@ -29,7 +30,7 @@ from datetime import date, datetime, time, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import pandas as pd
 import requests
@@ -47,11 +48,17 @@ from screener.config import (
     SMTP_SERVER,
 )
 from screener.portfolio_report import STOP_NEAR_PCT, WATCHLIST_WORKSHEET, _open_sheet, _to_float, is_closed
+from screener.watch_news import Headline, headlines
+from screener.watch_sec import ICON as SEC_ICON
+from screener.watch_sec import Filing, fetch_new_filings
 
 MARKET_OPEN = time(9, 30)
 WINDOW_END = time(16, 10)        # 16:00 실행이 마감 요약 (시작이 조금 늦어도 되게 10분 여유) — 그 뒤는 필요 없다
 BACKUP_GAP = timedelta(minutes=45)  # GitHub 예약(예비) 실행은 이 안에 체크한 적이 있으면(Mac 신호기 정상) 건너뛴다
 MOVE_ALERT_PCT = 0.05            # 전날 종가 대비 ±5% 넘으면 급등락 알림
+NEWS_PER_TICKER = 2              # 알림에 붙이는 헤드라인 수
+NEWS_MAX_TICKERS = 6             # 한 번 실행에서 헤드라인을 찾는 종목 수 (구글 뉴스 요청을 아끼려고)
+SEC_SENT_KEEP = 300              # 이미 알린 공시 접수번호를 기억하는 개수 (날짜가 바뀌어도 유지)
 NTFY_URL = "https://ntfy.sh"
 ACCOUNT_URL = "https://seancho.vercel.app/quant/account"
 CAD_EXCHANGES = ("TSX", "TSXV", "CSE")
@@ -147,6 +154,14 @@ class Quote:
     day_low: Optional[float]
     bar_date: date
     stale: bool  # 오늘 봉이 없음 (오늘 거래 없음 · 휴장) → price 는 마지막 종가
+    day_open: Optional[float] = None
+
+    @property
+    def gap(self) -> Optional[float]:
+        """오늘 시가가 전날 종가보다 얼마나 벌어졌나 (실적 갭). 오늘 봉이 없으면 None."""
+        if self.stale or not self.prev_close or not self.day_open:
+            return None
+        return self.day_open / self.prev_close - 1
 
     @property
     def day_pct(self) -> Optional[float]:
@@ -192,6 +207,7 @@ def quotes_from_frame(df: pd.DataFrame, symbols: dict[str, str], today: date) ->
             day_low=None if stale else _num(last.get("Low")),
             bar_date=bar_date,
             stale=stale,
+            day_open=None if stale else _num(last.get("Open")),
         )
     return out
 
@@ -315,6 +331,51 @@ def build_watch_alerts(rows: list[dict[str, str]], watch: list[dict[str, str]],
     return alerts
 
 
+def sec_alerts(filings: list[Filing], rows: list[dict[str, str]], quotes: dict[str, Quote]) -> list[dict[str, Any]]:
+    """새 SEC 공시 → 알림. 키는 접수번호라 날짜가 바뀌어도 한 번만 (state.sec_sent). 실적(2.02)이면 오늘 갭을 붙인다."""
+    held = positions(rows)
+    out: list[dict[str, Any]] = []
+    for f in filings:
+        p = held.get(f.ticker)
+        q = quotes.get(f.ticker)
+        cad = p["cad"] if p else is_cad(f.ticker)
+        what = f"{f.form} {', '.join(f.items)}" if f.items else f.form
+        parts = [f"{SEC_ICON[f.severity]} {f.ticker} {f.label} ({what}) {f.filed:%-m/%-d} 접수"]
+        if q is not None:
+            gap = f" — 오늘 갭 {q.gap:+.1%} (시가 vs 전날 종가) ·" if f.is_earnings and q.gap is not None else " —"
+            parts.append(f"{gap} {_context(q, p['buy'] if p else None, cad)}")
+        parts.append(f" · {f.url}")
+        out.append({"kind": "sec", "ticker": f.ticker, "key": f.key, "acc": f.acc, "sev": f.severity,
+                    "text": "".join(parts)})
+    return out
+
+
+def attach_news(new: list[dict[str, Any]], rows: list[dict[str, str]],
+                fetch: Optional[Callable[..., list[Headline]]] = None) -> None:
+    """새 알림에 그 종목 헤드라인을 붙인다 (a["news"]). 관심종목 도달 알림은 제외, 종목당 한 번만 찾고 NEWS_MAX_TICKERS 까지."""
+    fetch = fetch or headlines  # 부를 때 찾는다 — 시험에서 바꿔 끼울 수 있게
+    held = positions(rows)
+    names = {r.get("티커", "").upper(): r.get("회사명", "") for r in rows}
+    found: dict[str, list[Headline]] = {}
+    for a in new:
+        if a["kind"] == "watch":
+            continue
+        t = a["ticker"]
+        if t not in found:
+            found[t] = [] if len(found) >= NEWS_MAX_TICKERS else fetch(
+                names.get(t) or None, t, held[t]["cad"] if t in held else is_cad(t), NEWS_PER_TICKER)
+        a["news"] = found[t]
+
+
+def _alert_lines(a: dict[str, Any]) -> str:
+    """푸시 본문 — 알림 한 줄 아래에 '↳ 제목 — 매체 · 3시간 전' (링크는 메일에만, 구글 뉴스 주소가 길어서)."""
+    lines = [a["text"]]
+    for h in a.get("news") or []:
+        age = h.age_text()
+        lines.append(f"  ↳ {h.title} — {h.source}{' · ' + age if age else ''}")
+    return "\n".join(lines)
+
+
 def build_summary(rows: list[dict[str, str]], quotes: dict[str, Quote], now: datetime) -> tuple[str, str]:
     """(제목, 본문) — 종목별 한 줄 + 오늘 손익·평가 손익 합계 (USD · C$ 따로)."""
     spy = quotes.get("SPY")
@@ -353,11 +414,17 @@ def build_summary(rows: list[dict[str, str]], quotes: dict[str, Quote], now: dat
 # ---------------------------------------------------------------------------
 
 def load_state(path: Optional[Path], today: date) -> dict[str, Any]:
-    """{"date", "sent": [key…], "last_run": 마지막 체크 시각 ISO | None}. 날짜가 바뀌었거나 파일이 없으면 빈 상태."""
+    """{"date", "sent": [key…], "last_run": 마지막 체크 시각 ISO | None, "sec_sent": [접수번호…]}.
+
+    날짜가 바뀌었거나 파일이 없으면 sent·last_run 은 빈 상태. sec_sent(이미 알린 공시)는 날짜를 넘어 유지한다 —
+    어제 낸 공시를 오늘 아침에 또 알리지 않게.
+    """
     state = read_json(path, {}) if path else {}
+    sec_sent = list(state.get("sec_sent", []))
     if state.get("date") != today.isoformat():
-        return {"date": today.isoformat(), "sent": [], "last_run": None}
-    return {"date": state["date"], "sent": list(state.get("sent", [])), "last_run": state.get("last_run")}
+        return {"date": today.isoformat(), "sent": [], "last_run": None, "sec_sent": sec_sent}
+    return {"date": state["date"], "sent": list(state.get("sent", [])), "last_run": state.get("last_run"),
+            "sec_sent": sec_sent}
 
 
 def save_state(path: Path, state: dict[str, Any]) -> None:
@@ -382,7 +449,14 @@ def send_ntfy(topic: str, title: str, body: str, priority: int = 3, tags: Option
 
 
 def _email_html(alerts: list[dict[str, str]], rows: list[dict[str, str]], quotes: dict[str, Quote]) -> str:
-    items = "".join(f"<li style='margin:4px 0'>{a['text']}</li>" for a in alerts)
+    def li(a: dict[str, Any]) -> str:
+        news = "".join(
+            f"<br><span style='color:#6b7280'>↳</span> <a href='{html.escape(h.url, quote=True)}'>{html.escape(h.title)}</a>"
+            f" <span style='color:#6b7280'>— {html.escape(h.source)}"
+            f"{' · ' + h.age_text() if h.age_text() else ''}</span>" for h in a.get("news") or [])
+        return f"<li style='margin:4px 0'>{a['text']}{news}</li>"
+
+    items = "".join(li(a) for a in alerts)
     th = "".join(f"<th style='padding:4px 8px;text-align:right;border-bottom:1px solid #d1d5db'>{h}</th>"
                  for h in ("티커", "현재가", "오늘", "매수 대비", "손절까지", "목표까지"))
     body = ""
@@ -475,12 +549,18 @@ def run(state_path: Optional[Path] = None, force: bool = False, dry_run: bool = 
         print(f"[계좌감시] 시세 없음: {missing}")
 
     alerts = build_watch_alerts(rows, watch, quotes)
+    sec_sent = set(state["sec_sent"])
+    alerts += sec_alerts(fetch_new_filings(tickers, today, sec_sent), rows, quotes)  # 새 공시는 이미 안 알린 것만 온다
     sent = set(state["sent"])
-    new = [a for a in alerts if a["key"] not in sent]
+    new = [a for a in alerts if a["kind"] == "sec" or a["key"] not in sent]
+    try:
+        attach_news(new, rows)
+    except Exception as exc:  # noqa: BLE001 — 헤드라인은 덤이라 실패해도 알림은 그대로
+        print(f"[계좌감시] 헤드라인 붙이기 실패: {type(exc).__name__}: {exc}")
     title, summary = build_summary(rows, quotes, now)
     print(f"[계좌감시] 알림 {len(alerts)}건 (새 알림 {len(new)}건)")
     for a in alerts:
-        print(f"  {'NEW ' if a in new else 'sent'} {a['text']}")
+        print(f"  {'NEW ' if a in new else 'sent'} {_alert_lines(a)}")
     print(f"--- {title}\n{summary}")
     if dry_run:
         print("[계좌감시] --dry-run — 보내지 않음")
@@ -490,8 +570,10 @@ def run(state_path: Optional[Path] = None, force: bool = False, dry_run: bool = 
     pushed = False
     if topic:
         if new:
+            quiet = all(a.get("sev") == "yellow" for a in new)  # 임원 변동 공시뿐이면 소리 없이(3)
             pushed = send_ntfy(topic, f"⚠️ 알림 {len(new)}건 · {title}",
-                               "\n".join(a["text"] for a in new) + "\n\n" + summary, priority=4, tags=["warning"])
+                               "\n".join(_alert_lines(a) for a in new) + "\n\n" + summary,
+                               priority=3 if quiet else 4, tags=["warning"])
         else:
             pushed = send_ntfy(topic, title, summary, priority=2)
         print(f"[계좌감시] ntfy {'✅' if pushed else '❌'}")
@@ -500,7 +582,8 @@ def run(state_path: Optional[Path] = None, force: bool = False, dry_run: bool = 
     mailed = send_alert_email(new, rows, quotes, now) if new else False
 
     if new and (pushed or mailed):
-        state["sent"] = sorted(sent | {a["key"] for a in new})
+        state["sent"] = sorted(sent | {a["key"] for a in new if a["kind"] != "sec"})
+        state["sec_sent"] = [*state["sec_sent"], *(a["acc"] for a in new if a["kind"] == "sec")][-SEC_SENT_KEEP:]
     state["last_run"] = now.isoformat(timespec="seconds")
     if state_path:
         save_state(state_path, state)

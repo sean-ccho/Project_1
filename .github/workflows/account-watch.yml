@@ -85,6 +85,7 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
           FORCE: ${{ inputs.force && '--force' || '' }}
           BACKUP: ${{ github.event_name == 'schedule' && '--backup' || '' }}
         run: |
