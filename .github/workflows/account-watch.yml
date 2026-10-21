@@ -4,9 +4,11 @@ name: Account Watch
 # 매번 ntfy 로 요약 푸시(현재가·오늘 ±%·매수 대비 ±%), 새 알림(손절·근접·목표가·±5%·관심종목)이 있으면 ntfy + 메일.
 # 같은 알림 하루 한 번용 state.json 은 고아 브랜치 account-watch 에 둔다 (main 에 push 하지 않으니 run-screener 가 다시 돌지 않는다).
 #
-# 예약 실행(schedule)은 쓰지 않는다 — 이 저장소의 GitHub 예약은 4~5시간씩 늦어서(밤 작업 20:45 → 01:19) 30분 체크가 안 됐다 (2026-10-21).
-# 대신 Mac mini LaunchAgent(com.seancho.account-watch, ~/account-watch/trigger.sh)가 평일 장중 :07·:37 에
-# workflow_dispatch API 를 부른다. 장 시간·휴장 판단은 스크립트가 한다 (force 를 켜면 건너뜀).
+# 실행 신호: Mac mini LaunchAgent(com.seancho.account-watch, ~/account-watch/trigger.sh)가 월~금 09:30~16:00
+# 30분마다 workflow_dispatch API 를 부른다. 이 저장소의 GitHub 예약은 4~5시간씩 늦어서(밤 작업 20:45 → 01:19)
+# 2026-10-21 장중 예약이 한 번도 안 돌았다 — 그래서 schedule 은 예비로만 둔다: --backup 으로 돌아서
+# 45분 안에 체크한 적이 있으면(Mac 정상) 조용히 끝나고, Mac 이 꺼진 날에만 실제로 체크한다.
+# 장 시간·휴장 판단은 스크립트가 한다 (force 를 켜면 건너뜀).
 
 on:
   workflow_dispatch:
@@ -15,6 +17,9 @@ on:
         description: '장 시간 밖·휴장이어도 실행'
         type: boolean
         default: false
+  schedule:
+    # 예비 — UTC 라 EDT·EST 장 시간을 모두 덮고, 월~금 09:30~16:10 ET 밖이면 첫 스텝에서 바로 끝난다
+    - cron: '0,30 13-21 * * 1-5'
 
 permissions:
   contents: write
@@ -31,10 +36,23 @@ jobs:
     env:
       PYTHONUNBUFFERED: '1'
     steps:
+      - name: Market-hours gate
+        id: gate
+        run: |
+          read -r dow hm < <(TZ=America/Toronto date '+%u %H%M')
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || { [ "$dow" -le 5 ] && (( 10#$hm >= 930 && 10#$hm < 1610 )); }; then
+            echo "run=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "⏭️  장 시간 밖 ($(TZ=America/Toronto date '+%a %H:%M %Z')) — 건너뜀"
+            echo "run=0" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check out repository
+        if: steps.gate.outputs.run == '1'
         uses: actions/checkout@v4
 
       - name: Set up Python
+        if: steps.gate.outputs.run == '1'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -42,14 +60,17 @@ jobs:
           cache-dependency-path: requirements-watch.txt
 
       - name: Install dependencies
+        if: steps.gate.outputs.run == '1'
         run: pip install -r requirements-watch.txt
 
       - name: Configure git identity
+        if: steps.gate.outputs.run == '1'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Restore alert state
+        if: steps.gate.outputs.run == '1'
         run: |
           mkdir -p "$RUNNER_TEMP/aw"
           if git fetch -q --depth 1 origin account-watch 2>/dev/null; then
@@ -59,16 +80,18 @@ jobs:
           cat "$RUNNER_TEMP/aw/state.json" 2>/dev/null || echo "(상태 없음 — 새로 시작)"
 
       - name: Run account watch
+        if: steps.gate.outputs.run == '1'
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           FORCE: ${{ inputs.force && '--force' || '' }}
+          BACKUP: ${{ github.event_name == 'schedule' && '--backup' || '' }}
         run: |
-          PYTHONPATH=.:src python src/screener/account_watch.py --state "$RUNNER_TEMP/aw/state.json" $FORCE
+          PYTHONPATH=.:src python src/screener/account_watch.py --state "$RUNNER_TEMP/aw/state.json" $FORCE $BACKUP
 
       - name: Save alert state (orphan branch)
-        if: always()
+        if: always() && steps.gate.outputs.run == '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

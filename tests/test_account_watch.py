@@ -35,8 +35,9 @@ def _frame(data: dict[str, list[tuple]], dates: list[str]) -> pd.DataFrame:
 @pytest.mark.parametrize("dt, expected", [
     (datetime(2026, 10, 21, 9, 29, tzinfo=MARKET_TZ), False),
     (datetime(2026, 10, 21, 9, 30, tzinfo=MARKET_TZ), True),
-    (datetime(2026, 10, 21, 16, 7, tzinfo=MARKET_TZ), True),
-    (datetime(2026, 10, 21, 16, 15, tzinfo=MARKET_TZ), False),
+    (datetime(2026, 10, 21, 16, 0, tzinfo=MARKET_TZ), True),     # 마감 요약
+    (datetime(2026, 10, 21, 16, 9, tzinfo=MARKET_TZ), True),
+    (datetime(2026, 10, 21, 16, 10, tzinfo=MARKET_TZ), False),   # 그 뒤는 필요 없다
     (datetime(2026, 10, 24, 11, 0, tzinfo=MARKET_TZ), False),   # 토요일
     (datetime(2026, 11, 2, 9, 37, tzinfo=MARKET_TZ), True),     # EST 로 바뀐 뒤 월요일
 ])
@@ -216,8 +217,8 @@ def test_summary_missing_quote_line():
 
 def test_state_resets_on_new_day(tmp_path):
     p = tmp_path / "state.json"
-    aw.save_state(p, {"date": "2026-10-20", "sent": ["stop:A:90"]})
-    assert aw.load_state(p, TODAY) == {"date": "2026-10-21", "sent": []}
+    aw.save_state(p, {"date": "2026-10-20", "sent": ["stop:A:90"], "last_run": "2026-10-20T15:30:00-04:00"})
+    assert aw.load_state(p, TODAY) == {"date": "2026-10-21", "sent": [], "last_run": None}
     aw.save_state(p, {"date": "2026-10-21", "sent": ["stop:A:90"]})
     assert aw.load_state(p, TODAY)["sent"] == ["stop:A:90"]
     assert aw.load_state(None, TODAY)["sent"] == []
@@ -275,7 +276,7 @@ def test_run_both_channels_fail_not_marked(tmp_path, fake_run):
     p = tmp_path / "state.json"
     ok["push"] = ok["mail"] = False
     aw.run(p, now=NOW)
-    assert not p.exists()
+    assert aw.load_state(p, TODAY)["sent"] == []        # 체크 시각만 남고 알림은 다음에 다시
     ok["mail"] = True                                   # 한 채널만 성공해도 기록
     aw.run(p, now=NOW)
     assert aw.load_state(p, TODAY)["sent"] == ["stop:A:90"]
@@ -288,6 +289,22 @@ def test_run_skips_outside_window_and_holiday(tmp_path, fake_run):
                           bar_date=date(2026, 10, 20), stale=True)
     assert aw.run(tmp_path / "s.json", now=NOW) == 0
     assert sent["push"] == [] and sent["mail"] == []
+
+
+def test_run_backup_skips_when_checked_recently(tmp_path, fake_run):
+    """GitHub 예약(예비) 실행 — 45분 안에 Mac 신호기 실행이 있었으면 건너뛰고, 없었으면 대신 돈다."""
+    from datetime import timedelta
+    sent, _, _ = fake_run
+    p = tmp_path / "state.json"
+    assert aw.run(p, now=NOW, backup=True) == 0               # 오늘 첫 체크 → 돈다
+    assert len(sent["push"]) == 1
+    assert aw.load_state(p, TODAY)["last_run"] == "2026-10-21T11:07:00-04:00"
+    aw.run(p, now=NOW + timedelta(minutes=20), backup=True)   # 늦게 온 예약 실행 → 건너뜀
+    assert len(sent["push"]) == 1
+    aw.run(p, now=NOW + timedelta(minutes=30))                # Mac 신호기 실행은 늘 돈다
+    assert len(sent["push"]) == 2
+    aw.run(p, now=NOW + timedelta(minutes=80), backup=True)   # 50분 동안 체크 없음 (Mac 꺼짐) → 돈다
+    assert len(sent["push"]) == 3
 
 
 def test_run_dry_run_sends_nothing(tmp_path, fake_run):

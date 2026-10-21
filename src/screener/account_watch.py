@@ -8,7 +8,8 @@
      🛑 손절가 아래 (현재가 또는 장중 저가) · ⚠️ 손절가 3% 이내 · 🎯 목표가 (현재가 또는 장중 고가)
      🚀/📉 전날 종가 대비 ±5% · 👀 관심종목 목표가 (조건 이하/이상)
 같은 알림은 하루 한 번만 보낸다 (state.json — CI 에서는 고아 브랜치 account-watch 에 보관).
-실행 신호는 Mac mini LaunchAgent 가 30분마다 workflow_dispatch 로 보낸다 (GitHub 예약 실행은 몇 시간씩 늦어서 안 씀).
+실행 신호는 Mac mini LaunchAgent 가 월~금 09:30~16:00 30분마다 workflow_dispatch 로 보낸다. GitHub 예약 실행은
+몇 시간씩 늦어서 예비로만 쓴다 (--backup: 45분 안에 체크한 적이 있으면 건너뜀 — Mac 이 꺼졌을 때만 실제로 돈다).
 휴장일은 SPY 오늘 봉이 없는 것으로 알아채고 조용히 끝낸다. 시트에는 아무것도 쓰지 않는다 (밤 리포트가 쓴다).
 
 사용:
@@ -24,7 +25,7 @@ import re
 import smtplib
 import sys
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -48,7 +49,8 @@ from screener.config import (
 from screener.portfolio_report import STOP_NEAR_PCT, WATCHLIST_WORKSHEET, _open_sheet, _to_float, is_closed
 
 MARKET_OPEN = time(9, 30)
-WINDOW_END = time(16, 15)        # 16:07 예약 실행이 마감 요약이 되도록 마감 뒤 15분까지
+WINDOW_END = time(16, 10)        # 16:00 실행이 마감 요약 (시작이 조금 늦어도 되게 10분 여유) — 그 뒤는 필요 없다
+BACKUP_GAP = timedelta(minutes=45)  # GitHub 예약(예비) 실행은 이 안에 체크한 적이 있으면(Mac 신호기 정상) 건너뛴다
 MOVE_ALERT_PCT = 0.05            # 전날 종가 대비 ±5% 넘으면 급등락 알림
 NTFY_URL = "https://ntfy.sh"
 ACCOUNT_URL = "https://seancho.vercel.app/quant/account"
@@ -351,11 +353,11 @@ def build_summary(rows: list[dict[str, str]], quotes: dict[str, Quote], now: dat
 # ---------------------------------------------------------------------------
 
 def load_state(path: Optional[Path], today: date) -> dict[str, Any]:
-    """{"date", "sent": [key…]}. 날짜가 바뀌었거나 파일이 없으면 빈 상태."""
+    """{"date", "sent": [key…], "last_run": 마지막 체크 시각 ISO | None}. 날짜가 바뀌었거나 파일이 없으면 빈 상태."""
     state = read_json(path, {}) if path else {}
     if state.get("date") != today.isoformat():
-        return {"date": today.isoformat(), "sent": []}
-    return {"date": state["date"], "sent": list(state.get("sent", []))}
+        return {"date": today.isoformat(), "sent": [], "last_run": None}
+    return {"date": state["date"], "sent": list(state.get("sent", [])), "last_run": state.get("last_run")}
 
 
 def save_state(path: Path, state: dict[str, Any]) -> None:
@@ -430,13 +432,21 @@ def send_alert_email(alerts: list[dict[str, str]], rows: list[dict[str, str]], q
 # ---------------------------------------------------------------------------
 
 def run(state_path: Optional[Path] = None, force: bool = False, dry_run: bool = False,
-        tickers_override: Optional[list[str]] = None, now: Optional[datetime] = None) -> int:
-    """한 번 체크. 반환값은 종료 코드 (시트를 못 읽으면 1, 나머지는 0)."""
+        tickers_override: Optional[list[str]] = None, now: Optional[datetime] = None, backup: bool = False) -> int:
+    """한 번 체크. 반환값은 종료 코드 (시트를 못 읽으면 1, 나머지는 0).
+
+    backup=True (GitHub 예약 실행) 이면 BACKUP_GAP 안에 체크한 적이 있을 때 조용히 끝낸다 — 늦게 도착한 예약 실행이
+    Mac 신호기 실행과 겹쳐 요약을 한 번 더 보내지 않게.
+    """
     now = now or market_now()
     if not force and not in_market_window(now):
         print(f"[계좌감시] 장 시간 밖 ({now:%a %H:%M %Z}) — 건너뜀")
         return 0
     today = now.date()
+    state = load_state(state_path, today)
+    if backup and state["last_run"] and now - datetime.fromisoformat(state["last_run"]) < BACKUP_GAP:
+        print(f"[계좌감시] 예비 실행 — {state['last_run'][11:16]} 에 이미 체크함 (Mac 신호기 정상) — 건너뜀")
+        return 0
 
     if tickers_override:
         rows, watch = [{"티커": t.strip().upper()} for t in tickers_override if t.strip()], []
@@ -465,7 +475,6 @@ def run(state_path: Optional[Path] = None, force: bool = False, dry_run: bool = 
         print(f"[계좌감시] 시세 없음: {missing}")
 
     alerts = build_watch_alerts(rows, watch, quotes)
-    state = load_state(state_path, today)
     sent = set(state["sent"])
     new = [a for a in alerts if a["key"] not in sent]
     title, summary = build_summary(rows, quotes, now)
@@ -492,8 +501,9 @@ def run(state_path: Optional[Path] = None, force: bool = False, dry_run: bool = 
 
     if new and (pushed or mailed):
         state["sent"] = sorted(sent | {a["key"] for a in new})
-        if state_path:
-            save_state(state_path, state)
+    state["last_run"] = now.isoformat(timespec="seconds")
+    if state_path:
+        save_state(state_path, state)
     return 0
 
 
@@ -503,8 +513,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     ap.add_argument("--force", action="store_true", help="장 시간·휴장 확인을 건너뛴다 (수동 실행·테스트)")
     ap.add_argument("--dry-run", action="store_true", help="보내지 않고 상태도 쓰지 않는다 — 출력만")
     ap.add_argument("--tickers", default="", help="시트 대신 이 티커들 (쉼표) — 시세·요약 확인용")
+    ap.add_argument("--backup", action="store_true", help="GitHub 예약(예비) 실행 — 45분 안에 체크했으면 건너뜀")
     args = ap.parse_args(argv)
-    return run(args.state, force=args.force, dry_run=args.dry_run,
+    return run(args.state, force=args.force, dry_run=args.dry_run, backup=args.backup,
                tickers_override=[t for t in args.tickers.split(",") if t.strip()] or None)
 
 
