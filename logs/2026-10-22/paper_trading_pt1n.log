@@ -1,0 +1,28 @@
+============================================================
+[Unified Paper Trading] PT-1N (S&P 500 밖) 실행 시작
+============================================================
+2026-10-22 08:46:11,823 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+2026-10-22 08:46:11,835 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 228개 종목
+[Unified PT] NASDAQ snapshot 로드: 228개 종목
+[Unified PT] 합산 완료: 352개 종목 (SP500 130 + NASDAQ 228개, 중복 제거 후)
+[Unified PT] PT1_UNIVERSE=ex_sp500 — S&P 500 구성종목 141개 제외 → 211개
+[Unified PT] 거래일(일봉 날짜): 2026-10-21
+[Unified PT] 골든크로스임박 종목: 13개
+2026-10-22 08:46:12,583 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 62 | 4.0~5.0: 19 | 5.0~5.5: 22 | 5.5~6.0: 29 | 6.0+: 76
+2026-10-22 08:46:12,608 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=5/211 | Selected: WING (CCS=0.4637)
+2026-10-22 08:46:12,617 [INFO] paper_trading.engine — [PaperTrading] 교체 기준 미달 — 매수 안 함
+[Unified PT] 매도=0 매수=0 보유=3종목
+[Unified PT] 레짐=bull | 필터={'지수ETF': 3, '전략점수<6.0': 132, '바닥반등_52주과열': 0, '판단등급_미달': 59, '과열_차단': 4, '유동성_부족': 0, '어닝_임박': 0, '보유_중복': 2, '같은회사_중복': 0, '모멘텀_ADX부족': 2, '바닥_RSI데드존': 1, '섹터_집중': 3, '_통과': 5, '_전체': 211}
+[Unified PT] 스킵 사유: 교체_미달
+[Unified PT] Top5 후보:
+  FLY    CCS=0.4644 전략=📉 바닥반등 섹터=Industrials
+  WING   CCS=0.4637 전략=📈 모멘텀 섹터=Consumer Cyclical
+  AMPX   CCS=0.4513 전략=📉 바닥반등 섹터=Industrials
+  PUMP   CCS=0.4208 전략=📉 바닥반등 섹터=Energy
+2026-10-22 08:46:14,239 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 다시 쓰기: 페이퍼N_거래로그 5줄
+2026-10-22 08:46:15,611 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-10-22 08:46:16,890 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 1건 거래
+[Unified PT] 구글 시트 동기화 완료
+[Unified PT] $5,000 계좌 탭 '페이퍼N_계좌' 동기화 완료
+[Unified PT] PT-1N (S&P 500 밖): 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)
