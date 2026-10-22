@@ -25,8 +25,9 @@ ET = ZoneInfo("America/Toronto")
 INDEX_TICKERS = ("SPY", "QQQ", "IWM")  # 시장 레짐 판단용으로 분석은 하지만 목록에는 안 보인다 (전체차트와 같다)
 
 ISB_NAMES = {"rev": "BUY·REV", "bottom": "◇BOTTOM", "top": "◆TOP", "exit": "EXIT"}
-SQZ_DOTS = {"black": "●", "gray": "○", "blue": "·"}
-SQZ_COLORS = {"lime": "연두", "green": "초록", "red": "빨강", "maroon": "적갈"}
+# SQZ 막대 색 → 방향 (웹사이트와 같은 말): 연두 · 초록 · 빨강 · 갈색
+SQZ_DIR = {"lime": "▲ 상승 중", "green": "▲ 상승 힘 빠짐", "red": "▼ 하락 중", "maroon": "▼ 하락 힘 빠짐"}
+SQZ_FADE_WARN = 2  # 힘 빠짐이 이 봉 수부터 ⚠ (압축 중엔 안 붙음) — Carter 청산 기준 '약해진 색 2봉', 웹과 같다
 TF_KO = {"D": "일", "W": "주", "M": "월"}
 
 
@@ -43,19 +44,46 @@ def isb_text(rec: dict[str, Any] | None) -> str:
     return " · ".join(parts)
 
 
+def sqz_state_text(st: dict[str, Any]) -> str:
+    """한 봉 — 웹 목록 배지와 같은 말: 상태(압축 N봉째 · ⤴ 위로/⤵ 아래로 발사 N봉 전, 압축 아님은 생략) + 방향.
+
+    방향은 막대 색: ▲ 상승 중 · ▲ 상승 힘 빠짐 · ▼ 하락 중 · ▼ 하락 힘 빠짐. 힘 빠짐은 몇 봉째(color_run)를 붙이고,
+    압축 중이 아니면서 2봉째부터 ⚠.
+    """
+    words = []
+    squeezed = st.get("dot") == "black"
+    fire = st.get("fire")
+    if squeezed:
+        words.append(f"압축 {st.get('run', 0)}봉째")
+    elif fire:
+        up = fire.get("color") in ("lime", "green")
+        ago = fire.get("ago") or 0
+        words.append(("⤴ 위로 발사" if up else "⤵ 아래로 발사") + (f" {ago}봉 전" if ago else ""))
+    color = st.get("color", "")
+    if color in SQZ_DIR:
+        d = SQZ_DIR[color]
+        run = st.get("color_run")
+        if color in ("green", "maroon") and run:
+            d += f" {run}봉째"
+            if not squeezed and run >= SQZ_FADE_WARN:
+                d += " ⚠"
+        words.append(d)
+    return " ".join(words)
+
+
 def sqz_text(rec: dict[str, Any] | None) -> str:
-    """SQZ 모멘텀 한 줄 (시트) — '일 ●5 연두 · 주 ○ 초록 · 월 · 빨강'. ● = 스퀴즈 중(n봉째), ○ = 풀림, · = 둘 다 아님."""
+    """SQZ 모멘텀 한 줄 (시트) — 웹과 같은 말, 봉 사이는 ' | '.
+
+    예: '일 압축 5봉째 ▲ 상승 중 | 주 ⤴ 위로 발사 1봉 전 ▲ 상승 중 | 월 ▼ 하락 힘 빠짐 2봉째 ⚠'
+    """
     parts = []
     for tf in ("D", "W", "M"):
         st = (rec or {}).get(tf)
         if not st:
             continue
-        dot = SQZ_DOTS.get(st.get("dot", ""), "?")
-        if st.get("dot") == "black" and st.get("run"):
-            dot += str(st["run"])
-        color = SQZ_COLORS.get(st.get("color", ""), "")
-        parts.append(" ".join(p for p in (TF_KO[tf], dot, color) if p))
-    return " · ".join(parts)
+        body = sqz_state_text(st)
+        parts.append(f"{TF_KO[tf]} {body}" if body else TF_KO[tf])
+    return " | ".join(parts)
 
 
 def item_info(row: pd.Series, *, tv: str | None, insider: dict[str, Any] | None, isb: dict[str, Any] | None,

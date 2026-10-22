@@ -89,9 +89,18 @@ def test_isb_and_sqz_text() -> None:
            "W": {"bottom": {"date": "2026-09-26", "ago": 3}}}
     assert wu.isb_text(isb) == "일 BUY·REV 10/14 · 주 ◇BOTTOM 9/26"
     assert wu.isb_text({}) == "" and wu.isb_text(None) == ""
-    sqz = {"D": {"dot": "black", "run": 5, "color": "lime"}, "W": {"dot": "gray", "run": 0, "color": "green"},
+    # 웹 배지와 같은 말: 상태(압축 · 발사) + 방향(막대 색), 힘 빠짐은 몇 봉째 + 압축 중이 아닐 때 2봉째부터 ⚠
+    sqz = {"D": {"dot": "black", "run": 5, "color": "lime", "color_run": 3},
+           "W": {"dot": "gray", "run": 0, "color": "green", "color_run": 2,
+                 "fire": {"ago": 1, "run": 35, "color": "lime"}},
            "M": {"dot": "blue", "run": 0, "color": ""}}
-    assert wu.sqz_text(sqz) == "일 ●5 연두 · 주 ○ 초록 · 월 ·"
+    assert wu.sqz_text(sqz) == "일 압축 5봉째 ▲ 상승 중 | 주 ⤴ 위로 발사 1봉 전 ▲ 상승 힘 빠짐 2봉째 ⚠ | 월"
+    assert wu.sqz_state_text({"dot": "black", "run": 9, "color": "maroon", "color_run": 4}) == "압축 9봉째 ▼ 하락 힘 빠짐 4봉째"
+    assert wu.sqz_state_text({"dot": "gray", "run": 0, "color": "red", "color_run": 2,
+                              "fire": {"ago": 0, "run": 2, "color": "red"}}) == "⤵ 아래로 발사 ▼ 하락 중"
+    assert wu.sqz_state_text({"dot": "blue", "run": 0, "color": "green", "color_run": 1}) == "▲ 상승 힘 빠짐 1봉째"
+    assert wu.sqz_state_text({"dot": "blue", "run": 0, "color": "green"}) == "▲ 상승 힘 빠짐"  # color_run 없는 옛 데이터
+    assert wu.sqz_text(None) == ""
 
 
 def test_payload_drops_index_etfs_and_writes_stock_files(tmp_path: Path) -> None:
