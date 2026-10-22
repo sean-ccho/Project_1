@@ -7,6 +7,8 @@
 - dot   : 마지막 끝난 봉 십자 (black = 스퀴즈 중, gray = 풀림, blue = 둘 다 아님)
 - run   : 검은 십자가 그 봉까지 몇 봉째 이어지는지 (검정이 아니면 0)
 - color : 막대 색 (lime · green · red · maroon) · val = 막대 값 · val_pct = val ÷ 종가 × 100 (종목끼리 비교용)
+- color_run : 막대가 지금 색으로 몇 봉째 이어지는지 (마지막 끝난 봉 포함 · 상한 없음)
+          웹이 '힘 빠짐(초록·갈색) 2봉째부터 ⚠' 를 보여 주는 데 쓴다 — Carter 청산 기준 '약해진 색 2봉', 표시 전용
 - fire  : 최근 FIRE_BARS 봉 안에 검은 십자 → 회색으로 풀린 봉 {ago(0 = 마지막 끝난 봉), run(풀리기 전 눌린 봉 수), color}
           막대 색과 상관없이 낸다 (차트에서도 똑같이 회색 십자로 보인다 — 방향은 color 로 구분)
 - lime  : 최근 FIRE_BARS 봉 안에 '눌린 채로 막대가 연두로 바뀐' 봉 {ago} (screener.squeeze_momentum 의 lime_sqz)
@@ -83,6 +85,14 @@ def tf_state(daily: pd.DataFrame, tf: str, now: datetime) -> dict[str, Any] | No
             k += 1
         return k
 
+    colors = done["color"].to_numpy()
+
+    def color_run(end: int) -> int:
+        k = 0
+        while end - k >= 0 and colors[end - k] == colors[end]:
+            k += 1
+        return k
+
     fire = None
     lime = None
     for ago in range(min(FIRE_BARS, last + 1)):
@@ -93,7 +103,7 @@ def tf_state(daily: pd.DataFrame, tf: str, now: datetime) -> dict[str, Any] | No
             lime = {"ago": ago}
     close = float(r["close"])
     out = {"date": done.index[last].strftime("%Y-%m-%d"), "dot": str(r["dot"]), "run": black_run(last),
-           "color": str(r["color"]), "val": _num(r["val"], 4),
+           "color": str(r["color"]), "color_run": color_run(last), "val": _num(r["val"], 4),
            "val_pct": _num(r["val"] / close * 100 if close > 0 else np.nan, 2)}
     # 없는 것은 키를 빼서 dashboard.json 을 줄인다 (352종목 × 3봉에서 약 30 KB)
     out.update({k: v for k, v in (("fire", fire), ("lime", lime), ("live", live)) if v is not None})

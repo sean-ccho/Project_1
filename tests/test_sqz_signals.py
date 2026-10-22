@@ -1,4 +1,4 @@
-"""web_export.sqz_signals: 끝난 봉 판단 · 배지 값 (십자 연속 수 · 풀림 · 연두 전환 · 진행 중 봉)."""
+"""web_export.sqz_signals: 끝난 봉 판단 · 배지 값 (십자 연속 수 · 같은 색 연속 수 · 풀림 · 연두 전환 · 진행 중 봉)."""
 
 from __future__ import annotations
 
@@ -69,12 +69,34 @@ def test_state_matches_indicator_and_badge_rules() -> None:
         while run < len(on) and on[len(on) - 1 - run]:
             run += 1
         assert st["run"] == run
+        colors = done["color"].to_numpy()
+        crun = 0
+        while crun < len(colors) and colors[len(colors) - 1 - crun] == colors[-1]:
+            crun += 1
+        assert st["color_run"] == crun >= 1
         rel = [a for a in range(FIRE_BARS) if on[-2 - a] and not on[-1 - a]]
         assert (st.get("fire") is None) == (not rel)
         if rel:
             assert st["fire"]["ago"] == rel[0]
         lime = [a for a in range(FIRE_BARS) if done["lime_sqz"].iloc[-1 - a]]
         assert (st.get("lime") is None) == (not lime)
+
+
+def test_color_run_counts_bars_of_current_color(monkeypatch) -> None:
+    """연두 연두 연두 초록 초록 → 초록 2봉째 (상한 없음 — 같은 색이 이어지는 만큼)."""
+    import web_export.sqz_signals as Q
+
+    idx = pd.bdate_range(end="2026-10-16", periods=5)
+    frame = pd.DataFrame({
+        "close": 100.0, "val": [1.0, 2.0, 3.0, 2.5, 2.0], "color": ["lime", "lime", "lime", "green", "green"],
+        "dot": "blue", "sqz_on": False, "valid": True, "lime_sqz": False,
+    }, index=idx)
+    monkeypatch.setattr(Q, "squeeze_frame", lambda daily, tf: frame)
+    now = _et(2026, 10, 17, 2, 30)
+    st = Q.tf_state(_ohlc(5, "2026-10-16"), "D", now)
+    assert st is not None and st["color"] == "green" and st["color_run"] == 2
+    frame["color"] = "lime"
+    assert Q.tf_state(_ohlc(5, "2026-10-16"), "D", now)["color_run"] == 5
 
 
 def test_fire_found_somewhere_in_history() -> None:
