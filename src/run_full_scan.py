@@ -44,7 +44,6 @@ from data.fetch import (
 from screener.exporter import (
     export_to_google_sheet,
     prepare_export_dataframe,
-    send_email_notification,
 )
 from screener.fundamentals_guard import compute_all_features_guarded
 from screener.processing import apply_neutralization, liquidity_filter
@@ -371,7 +370,7 @@ def main() -> None:
                     f"[{GOOGLE_SHEETS_SIGNALS2_WORKSHEET}] "
                     f"Google Sheets 업데이트 완료 ({len(export_df)}개 종목)"
                 )
-                send_email_notification(export_df, subject_prefix="[NASDAQ/NYSE 분석]")
+                # 2026-10-21 — '[NASDAQ/NYSE 분석] 전략별 매수 적합 종목' 메일은 사용자 요청으로 끔 (시트는 그대로)
             else:
                 print(
                     f"[{GOOGLE_SHEETS_SIGNALS2_WORKSHEET}] "

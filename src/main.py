@@ -32,7 +32,6 @@ from screener.exporter import (
     export_to_google_sheet,
     fetch_tickers_from_sheet,
     prepare_export_dataframe,
-    send_email_notification,
 )
 from screener.backtest import run_backtest
 from screener.fundamentals_guard import compute_all_features_guarded
@@ -317,8 +316,7 @@ def main() -> None:
                     signals_export, GOOGLE_SHEETS_SIGNALS_WORKSHEET
                 ):
                     print(f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Google Sheets 업데이트 완료")
-                    # 이메일 알림 발송 (전략별 적합도 기준)
-                    send_email_notification(signals_export, subject_prefix="[SP500 분석]")
+                    # 2026-10-21 — '[SP500 분석] 전략별 매수 적합 종목' 메일은 사용자 요청으로 끔 (시트는 그대로)
                 else:
                     print(
                         f"[{GOOGLE_SHEETS_SIGNALS_WORKSHEET}] Google Sheets 업데이트를 건너뛰었습니다."
