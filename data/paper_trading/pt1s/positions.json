@@ -7,27 +7,12 @@
     "star_rating": "★★★★★ (7.0)",
     "ccs_score": 0.5581,
     "sector": "Industrials",
-    "highest_price": 193.9199981689453,
+    "highest_price": 194.7100067138672,
     "defer_count": 0,
     "trailing_stop_override": null,
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 39.30833490679904
-  },
-  {
-    "ticker": "SNPS",
-    "entry_price": 479.92999267578125,
-    "entry_date": "2026-10-14",
-    "strategy": "📈 모멘텀",
-    "star_rating": "★★★★★ (14.0)",
-    "ccs_score": 0.5921,
-    "sector": "Technology",
-    "highest_price": 479.92999267578125,
-    "defer_count": 0,
-    "trailing_stop_override": null,
-    "last_defer_date": null,
-    "defer_debug": null,
-    "entry_rsi": 59.72707539058847
   },
   {
     "ticker": "MS",
@@ -43,5 +28,20 @@
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 26.8294205456786
+  },
+  {
+    "ticker": "DHR",
+    "entry_price": 229.75,
+    "entry_date": "2026-10-22",
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (14.0)",
+    "ccs_score": 0.6173,
+    "sector": "Healthcare",
+    "highest_price": 229.75,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 59.35172535106668
   }
 ]

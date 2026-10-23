@@ -34,5 +34,23 @@
     "defer_count": 0,
     "entry_rsi": 59.48598541487763,
     "actual_max_upside_pct": 0.0305
+  },
+  {
+    "ticker": "SNPS",
+    "entry_date": "2026-10-14",
+    "exit_date": "2026-10-22",
+    "entry_price": 479.92999267578125,
+    "exit_price": 422.4800109863281,
+    "return_pct": -0.1197,
+    "holding_days": 8,
+    "highest_price": 479.92999267578125,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (14.0)",
+    "ccs_score": 0.5921,
+    "sector": "Technology",
+    "exit_reason": "손절(-12.0%)",
+    "defer_count": 0,
+    "entry_rsi": 59.72707539058847,
+    "actual_max_upside_pct": 0.0
   }
 ]
