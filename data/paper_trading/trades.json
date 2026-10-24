@@ -1314,5 +1314,41 @@
     "defer_count": 0,
     "entry_rsi": 59.48598541487763,
     "actual_max_upside_pct": 0.0305
+  },
+  {
+    "ticker": "HL",
+    "entry_date": "2026-10-15",
+    "exit_date": "2026-10-23",
+    "entry_price": 15.5600004196167,
+    "exit_price": 13.850000381469727,
+    "return_pct": -0.1099,
+    "holding_days": 8,
+    "highest_price": 15.5600004196167,
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (7.2)",
+    "ccs_score": 0.6563,
+    "sector": "Basic Materials",
+    "exit_reason": "손절(-11.0%)",
+    "defer_count": 0,
+    "entry_rsi": 36.578237500093174,
+    "actual_max_upside_pct": 0.0
+  },
+  {
+    "ticker": "OKTA",
+    "entry_date": "2026-10-16",
+    "exit_date": "2026-10-23",
+    "entry_price": 187.25999450683594,
+    "exit_price": 213.0500030517578,
+    "return_pct": 0.1377,
+    "holding_days": 7,
+    "highest_price": 213.0500030517578,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (11.0)",
+    "ccs_score": 0.6672,
+    "sector": "Technology",
+    "exit_reason": "목표가(+13.8%)",
+    "defer_count": 0,
+    "entry_rsi": 41.54433627910399,
+    "actual_max_upside_pct": 0.1377
   }
 ]

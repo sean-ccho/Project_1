@@ -16,5 +16,23 @@
     "defer_count": 0,
     "entry_rsi": 43.66284977544346,
     "actual_max_upside_pct": 0.0658
+  },
+  {
+    "ticker": "HL",
+    "entry_date": "2026-10-15",
+    "exit_date": "2026-10-23",
+    "entry_price": 15.5600004196167,
+    "exit_price": 13.850000381469727,
+    "return_pct": -0.1099,
+    "holding_days": 8,
+    "highest_price": 15.5600004196167,
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (7.2)",
+    "ccs_score": 0.6563,
+    "sector": "Basic Materials",
+    "exit_reason": "손절(-11.0%)",
+    "defer_count": 0,
+    "entry_rsi": 36.578237500093174,
+    "actual_max_upside_pct": 0.0
   }
 ]

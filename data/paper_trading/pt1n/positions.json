@@ -1,20 +1,5 @@
 [
   {
-    "ticker": "HL",
-    "entry_price": 15.5600004196167,
-    "entry_date": "2026-10-15",
-    "strategy": "📉 바닥반등",
-    "star_rating": "★★★★★ (7.2)",
-    "ccs_score": 0.6563,
-    "sector": "Basic Materials",
-    "highest_price": 15.5600004196167,
-    "defer_count": 0,
-    "trailing_stop_override": null,
-    "last_defer_date": null,
-    "defer_debug": null,
-    "entry_rsi": 36.578237500093174
-  },
-  {
     "ticker": "URBN",
     "entry_price": 86.56999969482422,
     "entry_date": "2026-10-16",
@@ -43,5 +28,20 @@
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 36.2354079952268
+  },
+  {
+    "ticker": "INSP",
+    "entry_price": 71.11000061035156,
+    "entry_date": "2026-10-23",
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (12.0)",
+    "ccs_score": 0.6305,
+    "sector": "Healthcare",
+    "highest_price": 71.11000061035156,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 54.1152919462766
   }
 ]

@@ -64,6 +64,12 @@
       "equity": 4899.95,
       "cash": -0.0,
       "positions": 1
+    },
+    {
+      "date": "2026-10-23",
+      "equity": 4874.36,
+      "cash": -0.0,
+      "positions": 1
     }
   ]
 }
