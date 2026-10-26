@@ -275,3 +275,53 @@ def test_fetch_my_tickers_skips_closed_rows(monkeypatch):
     tickers, row_map, records = pr.fetch_my_tickers()
     assert tickers == ["XOM", "AAPL"] and row_map == {"XOM": 2, "AAPL": 5}
     assert [r["_closed"] for r in records] == ["", "1", "1", ""]
+
+
+def test_sample_rows_are_excluded_but_kept_in_records(monkeypatch):
+    """메모가 '샘플'로 시작하면 예시 줄: 분석 대상에서 빠지고, 상태는 '샘플', 남은 분석 값은 지운다."""
+    import screener.portfolio_report as pr
+
+    header = list(pr.MY_ACCOUNT_HEADERS)
+    i = {h: n for n, h in enumerate(header)}
+
+    def row(**kv):
+        r = [""] * len(header)
+        for h, v in kv.items():
+            r[i[h]] = v
+        return r
+
+    values = [
+        header,
+        row(티커="AAA", 매수가="1", 수량="100", 메모=pr.MY_ACCOUNT_SAMPLE_ROWS[0][7], 상태="보유 중", 현재가="0.5"),
+        row(티커="BBB", 수량="3", 메모=" 샘플 줄 "),
+        row(티커="CCC", 수량="10", 메모="차트에서 매수 · 샘플처럼 보이는 말이 뒤에 있어도 보유"),
+    ]
+    writes = []
+
+    class WS:
+        title = "내계좌"
+        col_count = len(header)
+
+        def get_all_values(self):
+            return values
+
+        def row_values(self, n):
+            return values[0]
+
+        def batch_update(self, data, value_input_option=None):
+            writes.extend(data)
+
+    monkeypatch.setattr(pr, "_open_sheet", lambda: object())
+    monkeypatch.setattr(pr, "_get_or_create_worksheet", lambda sheet: WS())
+    tickers, row_map, records = pr.fetch_my_tickers()
+    assert tickers == ["CCC"] and row_map == {"CCC": 4}
+    assert [r["_sample"] for r in records] == ["1", "1", ""]
+    assert pr.is_sample({"메모": "샘플"}) and not pr.is_sample({"메모": ""}) and not pr.is_sample({})
+
+    pr.sync_trade_status(records)
+    cell = {w["range"]: w["values"][0][0] for w in writes}
+    col = lambda h: pr._col_letter(header.index(h) + 1)  # noqa: E731
+    assert cell[f"{col('상태')}2"] == "샘플" and cell[f"{col('상태')}3"] == "샘플"
+    assert cell[f"{col('상태')}4"] == "보유 중"
+    assert cell[f"{col('현재가')}2"] == ""                  # 더는 갱신 안 하니 옛 값 지움
+    assert not any(k == f"{col('현재가')}4" for k in cell)

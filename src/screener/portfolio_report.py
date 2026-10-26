@@ -117,6 +117,10 @@ RISK_HEADERS: list[str] = ["ATR%", "베타(1년)", "평균상관", "실적일", 
 #    목표가(2026-10-20)는 넘으면 알림 메일 ──
 EXTRA_INPUT_HEADERS: list[str] = ["손절가", "매수이유", "매도일", "매도가", "상태", "목표가"]
 STATUS_OPEN, STATUS_CLOSED = "보유 중", "매도 완료"
+# ── 샘플 줄 (2026-10-22) — 메모가 '샘플'로 시작하면 예시 줄. 시트·웹에 보이기만 하고 분석·알림·합계에서 뺀다
+#    (처음 시트를 만들 때 넣는 줄이 이 메모로 시작한다). 상태 칸은 '샘플' ──
+STATUS_SAMPLE = "샘플"
+SAMPLE_MEMO_PREFIX = "샘플"
 
 # 전체 헤더 (새 시트일 때의 순서). 이미 있는 시트는 **이름으로** 열을 찾고, 빠진 머리글만 오른쪽 끝에 붙인다.
 MY_ACCOUNT_HEADERS = INPUT_HEADERS + ANALYSIS_HEADERS + RISK_HEADERS + EXTRA_INPUT_HEADERS
@@ -312,12 +316,17 @@ def is_closed(rec: dict[str, str]) -> bool:
     return bool(str(rec.get("매도일", "") or "").strip())
 
 
+def is_sample(rec: dict[str, str]) -> bool:
+    """메모가 '샘플'로 시작하면 예시 줄 — 보유로 치지 않는다 (분석·알림·합계 제외)."""
+    return str(rec.get("메모", "") or "").strip().startswith(SAMPLE_MEMO_PREFIX)
+
+
 def fetch_my_tickers() -> tuple[list[str], dict[str, int], list[dict[str, str]]]:
     """'내계좌' 시트에서 보유 중 티커 목록, 각 티커의 행 번호(1-based), 행 내용(머리글 → 값)을 반환한다.
 
     Returns:
-        (tickers, row_map, records) — tickers·row_map 은 보유 중(매도일 없음)인 줄만,
-        records 는 티커가 있는 모든 줄 {머리글: 값, "_row": 행 번호, "_closed": "1"/""}
+        (tickers, row_map, records) — tickers·row_map 은 보유 중(매도일 없음, 샘플 아님)인 줄만,
+        records 는 티커가 있는 모든 줄 {머리글: 값, "_row": 행 번호, "_closed": "1"/"", "_sample": "1"/""}
     """
     sheet = _open_sheet()
     if sheet is None:
@@ -358,15 +367,18 @@ def fetch_my_tickers() -> tuple[list[str], dict[str, int], list[dict[str, str]]]
             rec = {h: (row[i] if i < len(row) else "") for i, h in enumerate(header) if h}
             rec["_row"] = str(row_idx)
             rec["_closed"] = "1" if is_closed(rec) else ""
+            rec["_sample"] = "1" if is_sample(rec) else ""
             records.append(rec)
-            if rec["_closed"]:
+            if rec["_closed"] or rec["_sample"]:
                 continue
             if ticker not in row_map:
                 tickers.append(ticker)
             row_map[ticker] = row_idx
 
-    n_closed = sum(1 for r in records if r["_closed"])
-    print(f"[내계좌] 보유 중 {len(tickers)}개 종목: {tickers} · 판 거래 {n_closed}줄")
+    n_closed = sum(1 for r in records if r["_closed"] and not r["_sample"])
+    n_sample = sum(1 for r in records if r["_sample"])
+    print(f"[내계좌] 보유 중 {len(tickers)}개 종목: {tickers} · 판 거래 {n_closed}줄"
+          + (f" · 샘플 {n_sample}줄 (제외)" if n_sample else ""))
     return tickers, row_map, records
 
 
@@ -655,7 +667,8 @@ def update_sheet_with_indicators(
 
 
 def sync_trade_status(records: list[dict[str, str]]) -> int:
-    """'상태' 칸을 매도일 기준으로 맞추고 (보유 중 / 매도 완료), 판 줄에 남은 분석 값(현재가·RSI…)은 지운다.
+    """'상태' 칸을 매도일·메모 기준으로 맞추고 (보유 중 / 매도 완료 / 샘플),
+    판 줄·샘플 줄에 남은 분석 값(현재가·RSI…)은 지운다 (더는 갱신하지 않으니 옛 값이 남지 않게).
 
     Returns:
         고친 칸 수.
@@ -672,10 +685,10 @@ def sync_trade_status(records: list[dict[str, str]]) -> int:
     data: list[dict] = []
     for rec in records:
         row = int(rec["_row"])
-        want = STATUS_CLOSED if rec.get("_closed") else STATUS_OPEN
+        want = STATUS_SAMPLE if rec.get("_sample") else STATUS_CLOSED if rec.get("_closed") else STATUS_OPEN
         if "상태" in col and str(rec.get("상태", "")).strip() != want:
             data.append({"range": f"{_col_letter(col['상태'])}{row}", "values": [[want]]})
-        if rec.get("_closed"):
+        if rec.get("_closed") or rec.get("_sample"):
             data += [{"range": f"{_col_letter(col[h])}{row}", "values": [[""]]}
                      for h in analysis if str(rec.get(h, "")).strip()]
     if data:
@@ -1143,7 +1156,7 @@ def run_portfolio_report() -> bool:
     # 1. 시트에서 티커 + 행 번호 가져오기 (없으면 자동 초기화). 상태 칸은 판 줄까지 매번 맞춘다
     tickers, row_map, records = fetch_my_tickers()
     sync_trade_status(records)
-    records = [r for r in records if not r.get("_closed")]  # 아래 분석·알림은 보유 중인 줄만
+    records = [r for r in records if not r.get("_closed") and not r.get("_sample")]  # 아래 분석·알림은 보유 중인 줄만
     if not tickers:
         print("[내계좌] 분석할 종목 없음. '내계좌' 시트에 티커를 추가하세요.")
         return False

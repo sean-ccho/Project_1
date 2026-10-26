@@ -106,6 +106,25 @@ def test_rows_from_values_header_names_and_closed_rows():
     assert aw.read_watchlist(_Sheet()) == []   # 관심종목 탭 없음
 
 
+def test_read_open_rows_skips_sample_memo_rows():
+    """메모가 '샘플'로 시작하는 예시 줄은 요약·알림 대상이 아니다."""
+    values = [
+        ["티커", "매수가", "수량", "메모", "매도일"],
+        ["AAA", "1", "100", "샘플 — 매수가/수량/날짜 입력하세요", ""],
+        ["BBB", "10", "2", "차트에서 매수", ""],
+    ]
+
+    class _WS:
+        def get_all_values(self):
+            return values
+
+    class _Sheet:
+        def worksheet(self, name):
+            return _WS()
+
+    assert [r["티커"] for r in aw.read_open_rows(_Sheet())] == ["BBB"]
+
+
 # ── 시세 ────────────────────────────────────────────────────────────────────
 
 def test_quotes_from_frame_today_stale_and_missing():

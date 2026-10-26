@@ -47,7 +47,8 @@ from screener.config import (
     SMTP_PORT,
     SMTP_SERVER,
 )
-from screener.portfolio_report import STOP_NEAR_PCT, WATCHLIST_WORKSHEET, _open_sheet, _to_float, is_closed
+from screener.portfolio_report import (STOP_NEAR_PCT, WATCHLIST_WORKSHEET, _open_sheet, _to_float, is_closed,
+                                       is_sample)
 from screener.watch_news import Headline, headlines
 from screener.watch_sec import ICON as SEC_ICON
 from screener.watch_sec import Filing, fetch_new_filings
@@ -126,9 +127,9 @@ def _rows_from_values(values: list[list[str]], ticker_col: str = "티커") -> li
 
 
 def read_open_rows(sheet) -> list[dict[str, str]]:
-    """'내계좌' 탭에서 보유 중(매도일 없음)인 줄만 읽는다."""
+    """'내계좌' 탭에서 보유 중(매도일 없음, 메모가 '샘플'로 시작하는 예시 줄 아님)인 줄만 읽는다."""
     values = sheet.worksheet(MY_ACCOUNT_WORKSHEET).get_all_values()
-    return [r for r in _rows_from_values(values, MY_ACCOUNT_TICKER_COLUMN) if not is_closed(r)]
+    return [r for r in _rows_from_values(values, MY_ACCOUNT_TICKER_COLUMN) if not is_closed(r) and not is_sample(r)]
 
 
 def read_watchlist(sheet) -> list[dict[str, str]]:
