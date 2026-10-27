@@ -1,0 +1,24 @@
+============================================================
+[Unified Paper Trading] PT-1S (S&P 500만) 실행 시작
+============================================================
+[Unified PT] PT1_UNIVERSE=sp500 — S&P 500 스냅샷만 사용
+2026-10-27 09:23:19,328 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+[Unified PT] 거래일(일봉 날짜): 2026-10-26
+[Unified PT] 골든크로스임박 종목: 27개
+2026-10-27 09:23:20,102 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 22 | 4.0~5.0: 14 | 5.0~5.5: 16 | 5.5~6.0: 10 | 6.0+: 65
+2026-10-27 09:23:20,117 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=3/130 | Selected: TJX (CCS=0.5265)
+2026-10-27 09:23:20,123 [INFO] paper_trading.engine — [PaperTrading] 교체 기준 미달 — 매수 안 함
+[Unified PT] 매도=0 매수=0 보유=3종목
+[Unified PT] 레짐=bull | 필터={'지수ETF': 3, '전략점수<6.0': 62, '바닥반등_52주과열': 1, '판단등급_미달': 51, '과열_차단': 2, '유동성_부족': 0, '어닝_임박': 3, '보유_중복': 0, '같은회사_중복': 0, '모멘텀_ADX부족': 5, '바닥_RSI데드존': 0, '섹터_집중': 0, '_통과': 3, '_전체': 130}
+[Unified PT] 스킵 사유: 교체_미달
+[Unified PT] Top5 후보:
+  TJX    CCS=0.5265 전략=📈 모멘텀 섹터=Consumer Cyclical
+  BE     CCS=0.5163 전략=📉 바닥반등 섹터=Industrials
+  VZ     CCS=0.4486 전략=📉 바닥반등 섹터=Communication Services
+2026-10-27 09:23:21,620 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 다시 쓰기: 페이퍼S_거래로그 9줄
+2026-10-27 09:23:22,646 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-10-27 09:23:23,819 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 3건 거래
+[Unified PT] 구글 시트 동기화 완료
+[Unified PT] $5,000 계좌 탭 '페이퍼S_계좌' 동기화 완료
+[Unified PT] PT-1S (S&P 500만): 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)

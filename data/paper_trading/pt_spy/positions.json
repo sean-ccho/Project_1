@@ -11,14 +11,14 @@
     "setup": "index",
     "highest_price": 779.4,
     "highest_close": 778.78,
-    "last_close": 759.969970703125,
-    "bars_held": 9,
+    "last_close": 765.3699951171875,
+    "bars_held": 10,
     "signal_date": "2026-10-09",
     "signal_close": 778.5700073242188,
     "atr_at_signal": 0.0,
     "version": "pt-spy-v1",
     "stop_price": null,
     "target_price": null,
-    "last_bar_date": "2026-10-23"
+    "last_bar_date": "2026-10-26"
   }
 ]

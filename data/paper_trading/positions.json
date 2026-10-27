@@ -28,5 +28,20 @@
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 54.1152919462766
+  },
+  {
+    "ticker": "URBN",
+    "entry_price": 90.58999633789062,
+    "entry_date": "2026-10-26",
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (14.0)",
+    "ccs_score": 0.6343,
+    "sector": "Consumer Cyclical",
+    "highest_price": 90.58999633789062,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 72.06684132888748
   }
 ]
