@@ -69,23 +69,26 @@ def test_num_and_percentile_ranker():
 
 def _gc_row(ticker: str, **kw) -> dict:
     base = {"티커": ticker, "섹터": "Tech", "현재가격": 100.0, "일봉패턴": "", "주봉패턴": "", "월봉패턴": "",
-            "ema_gap_20_50": 0.0, "주봉_MA갭": 0.0, "월봉_MA갭": 0.0}
+            "일봉_MA갭": 0.0, "주봉_MA갭": 0.0, "월봉_MA갭": 0.0}
     base.update(kw)
     return base
 
 
 def test_extract_golden_cross_rules_and_order():
     rows = [
-        _gc_row("ONE", 일봉패턴="골든크로스, 상승삼각형", ema_gap_20_50=0.01),
-        _gc_row("FAR", 일봉패턴="골든크로스", ema_gap_20_50=0.2),
+        _gc_row("ONE", 일봉패턴="골든크로스, 상승삼각형", 일봉_MA갭=0.01),
+        _gc_row("FAR", 일봉패턴="골든크로스", 일봉_MA갭=0.2),
         _gc_row("IMM", 주봉패턴="골든크로스임박", 주봉_MA갭=-0.02),
-        _gc_row("TWO", 일봉패턴="골든크로스", ema_gap_20_50=0.03, 주봉패턴="골든크로스임박", 주봉_MA갭=-0.04),
+        _gc_row("TWO", 일봉패턴="골든크로스", 일봉_MA갭=0.03, 주봉패턴="골든크로스임박", 주봉_MA갭=-0.04,
+                주봉_예고="골든크로스", 월봉_예고=""),
+        _gc_row("PRE", 주봉_예고="골든크로스"),  # 예고만 있으면 목록에 안 든다 (끝난 봉 기준)
     ]
     out = extract_golden_cross(rows)
     assert [g["ticker"] for g in out] == ["TWO", "ONE", "IMM"]
     two = out[0]
     assert two["tf_count"] == 2 and two["has_daily"] is True
     assert two["tf_gaps"] == [("일봉", 0.03), ("주봉", -0.04)]
+    assert two["previews"] == [("주봉", "골든크로스")] and out[1]["previews"] == []
 
 
 def test_extract_golden_cross_empty_inputs():

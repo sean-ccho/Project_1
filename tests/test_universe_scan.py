@@ -160,3 +160,15 @@ def test_write_rows_small_tab_is_one_update() -> None:
     ws = FakeWorksheet()
     ex._write_rows(ws, [["x"] * 3 for _ in range(231)])
     assert ws.calls == [("update", 231)]
+
+
+def test_sheet_pattern_cells_get_running_bar_preview() -> None:
+    """시트 주·월봉 패턴 칸 끝에 예고 — 원본(점수용) 칸은 그대로."""
+    ranked = pd.DataFrame([
+        {"티커": "AAA", "주봉패턴": "골든크로스임박, 정배열(완전)", "월봉패턴": "", "주봉_예고": "골든크로스", "월봉_예고": "데드크로스임박"},
+        {"티커": "BBB", "주봉패턴": "도지", "월봉패턴": np.nan, "주봉_예고": "", "월봉_예고": np.nan},
+    ])
+    out = ex.prepare_export_dataframe(ranked)
+    assert out["주봉패턴"].tolist() == ["골든크로스임박, 정배열(완전) · 예고(이번 주) 골든크로스", "도지"]
+    assert out.loc[0, "월봉패턴"] == "예고(이번 달) 데드크로스임박" and pd.isna(out.loc[1, "월봉패턴"])
+    assert "주봉_예고" not in out.columns and ranked.loc[0, "주봉패턴"] == "골든크로스임박, 정배열(완전)"

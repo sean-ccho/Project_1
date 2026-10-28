@@ -176,6 +176,87 @@ def fetch_ohlcv(tickers: List[str], period: str = "1y", force_download: bool = F
     return data
 
 
+CHART_DAILY_YEARS = 6   # 차트 가격의 일봉은 최근 6년만 남긴다 (패턴은 5년 · 진행 중인 봉용) — 주·월봉은 상장 이후 전체
+
+
+def fetch_chart_prices(tickers: List[str], daily_years: int = CHART_DAILY_YEARS,
+                       daily_since: "pd.Timestamp | None" = None) -> Dict[str, "ChartPrices"]:
+    """패턴 · 교차 라벨용 차트 가격 — TradingView 기본 차트와 같은 분할만 반영 가격, 상장 이후 전체 (2026-10-27).
+
+    yfinance auto_adjust=False 의 OHLC = 분할만 반영 (ADJ 꺼짐). 주·월봉 EMA100/200 이 TradingView 값과 맞으려면
+    상장 첫날부터 이어서 계산해야 해서 period="max" 로 받는다 (월봉 EMA200 = 200개월). 배치(50) · 쉬는 시간은 fetch_ohlcv 와 같고,
+    배치마다 주·월봉으로 줄여 메모리를 아낀다 (일봉은 최근 daily_years 년만). 못 받은 종목은 빠진다 → 그 종목은 피처 계산이
+    받은 일봉(5년)으로 만든다.
+
+    daily_since: 일봉을 남길 첫날 (주면 daily_years 대신 — 백테스트용으로 얼릴 때).
+
+    Returns:
+        {종목: screener.chart_ma.ChartPrices}
+    """
+    import time as _time
+
+    from screener.chart_ma import OHLCV, chart_prices
+
+    since = (pd.Timestamp(daily_since) if daily_since is not None
+             else pd.Timestamp.now().normalize() - pd.DateOffset(years=daily_years))
+    out: Dict[str, "ChartPrices"] = {}
+    failed = 0
+    for i in range(0, len(tickers), _OHLCV_BATCH_SIZE):
+        batch = list(tickers[i : i + _OHLCV_BATCH_SIZE])
+        data = None
+        for attempt in range(1, MAX_DOWNLOAD_RETRIES + 1):
+            try:
+                data = yf.download(batch, period="max", interval="1d", auto_adjust=False, actions=False,
+                                   threads=True, progress=False)
+                if not data.empty:
+                    break
+            except Exception as exc:
+                logger.warning(f"[차트 가격] 배치 다운로드 실패 (시도 {attempt}): {exc}")
+            if attempt < MAX_DOWNLOAD_RETRIES:
+                _time.sleep(RETRY_DELAY_SECONDS)
+        if data is None or data.empty:
+            failed += len(batch)
+            continue
+        if not isinstance(data.columns, pd.MultiIndex):
+            data = pd.concat({batch[0]: data}, axis=1)
+        elif "Close" in data.columns.get_level_values(0):
+            data = data.swaplevel(0, 1, axis=1).sort_index(axis=1)
+        for t in batch:
+            if t not in data.columns.get_level_values(0):
+                failed += 1
+                continue
+            frame = data[t].reindex(columns=list(OHLCV)).dropna(subset=["Close"])
+            if frame.empty:
+                failed += 1
+                continue
+            out[t] = chart_prices(frame, daily_since=since)
+        if i + _OHLCV_BATCH_SIZE < len(tickers):
+            _time.sleep(_OHLCV_BATCH_DELAY)
+    print(f"[차트 가격] 분할만 반영 · 상장 이후 전체: {len(out)}종목 받음 · 못 받음 {failed}개")
+    return out
+
+
+def chart_prices_path(tickers: List[str]) -> Path:
+    """얼린 차트 가격 파일 (연구 백테스트용 — 종목 목록마다 하나, 한 번 받으면 다시 받지 않는다)."""
+    key = hashlib.md5(",".join(sorted(tickers)).encode()).hexdigest()[:12]
+    return _OHLCV_CACHE_DIR / "chart_prices" / f"{key}.pkl"
+
+
+def save_chart_prices(path: Path, chart_map: Dict[str, "ChartPrices"], meta: Dict[str, str]) -> None:
+    """차트 가격 묶음을 파일로 얼린다 (pickle — 같은 저장소 코드가 쓰고 읽는다)."""
+    import pickle
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(pickle.dumps({"meta": meta, "chart": chart_map}, protocol=5))
+
+
+def load_chart_prices(path: Path) -> Dict[str, "ChartPrices"]:
+    """save_chart_prices 로 얼린 파일을 읽는다."""
+    import pickle
+
+    return pickle.loads(path.read_bytes())["chart"]
+
+
 def fetch_company_names(tickers: List[str]) -> Dict[str, str]:
     """yfinance Ticker API를 활용해 종목명을 가져온다."""
 

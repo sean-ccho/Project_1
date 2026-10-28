@@ -29,7 +29,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from data.fetch import fetch_ohlcv
+from data.fetch import fetch_chart_prices, fetch_ohlcv
 from data.sp500_tickers import SP500_TICKERS
 from data.ticker_fetcher import fetch_listings
 from screener.config import (
@@ -157,7 +157,9 @@ def analyze_market(tickers: list[str], label: str, names: dict[str, str], strong
     fund = fetch_with_retry(list(price_map), f"[{label}]", waits=INFO_RETRY_WAITS)
     fund = fill_from_previous_snapshot(fund, f"[{label}]", snapshot_dir=snapshot_dir)
     t2 = time.perf_counter()
-    features = compute_features_snapshot(price_map, fundamentals_df=fund)
+    # 패턴 · 교차 라벨은 TradingView 차트와 같은 가격(분할만 반영 · 상장 이후 전체)으로 본다 (2026-10-27)
+    chart_map = fetch_chart_prices(list(price_map))
+    features = compute_features_snapshot(price_map, fundamentals_df=fund, chart_map=chart_map)
     t3 = time.perf_counter()
     print(f"[{label}] 가격 {(t1 - t0) / 60:.1f}분 · 종목 정보 {(t2 - t1) / 60:.1f}분 · 피처 {(t3 - t2) / 60:.1f}분")
     analyzed = set(features["티커"]) if not features.empty else set()

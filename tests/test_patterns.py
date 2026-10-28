@@ -367,12 +367,22 @@ def test_chart_reversal_no_trigger_in_downtrend():
 
 def test_chart_reversal_in_weekly_and_monthly():
     from screener.patterns import detect_weekly_patterns, detect_monthly_patterns
-    # 일봉 6년: 하락 후 마지막 주/월에 급반등 → 주봉·월봉 양쪽에서 차트반전 감지
-    n = 1500
+    # 일봉 6년: 하락 후 마지막 주/월에 급반등 → 주봉·월봉 양쪽에서 차트반전 감지.
+    # 2026-10-27: 끝난 봉만 보므로 그 주 · 그 달이 끝난 날(금요일 · 그 달 마지막 평일)까지 넣는다 — 진행 중인 봉으로는 안 뜬다
+    idx = pd.date_range("2021-01-04", "2026-09-30", freq="B")      # 9월 30일 = 수요일 · 그 달 마지막 평일
+    n = len(idx)
     close = np.linspace(200, 80, n)
     close[-4:] = np.linspace(82, 100, 4)
     df = make_df(close)
-    w = [name for name, _ in detect_weekly_patterns(df)]
+    assert df.index[-1] == pd.Timestamp("2026-09-30")
     m = [name for name, _ in detect_monthly_patterns(df)]
-    assert "chart_reversal" in w
     assert "chart_reversal" in m
+    week_end = df.loc[:"2026-09-25"]                                 # 금요일에 끝난 주
+    week_end = make_df(np.concatenate([np.linspace(200, 80, len(week_end) - 4), np.linspace(82, 100, 4)]))
+    assert week_end.index[-1].dayofweek == 4
+    w = [name for name, _ in detect_weekly_patterns(week_end)]
+    assert "chart_reversal" in w
+    # 같은 반등이 진행 중인 주(수요일까지)에만 있으면 아직 안 뜬다
+    running = make_df(np.concatenate([np.linspace(200, 80, len(week_end)), np.linspace(82, 100, 3)]))
+    assert running.index[-1].dayofweek == 2
+    assert "chart_reversal" not in [name for name, _ in detect_weekly_patterns(running)]

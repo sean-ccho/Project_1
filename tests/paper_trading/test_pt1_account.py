@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from paper_trading.pt1_account import (  # noqa: E402
+    RULE_CHANGES,
     Lot,
     allocate,
     build_dollar_account,
@@ -93,5 +94,7 @@ def test_build_account_compares_with_spy_bought_same_day():
     assert math.isclose(held[0]["price"], 24.0) and math.isclose(held[0]["value"], 25 * 24.0)
     assert math.isclose(held[0]["spy_ret"], 110.0 / 101.0 - 1)   # BBB 매수일(9/2) SPY 종가 101 → 마지막 110
     rows = sheet_rows(acct, "PT-1")
-    assert rows[3][:4] == ["2026-09-01", "$1,000", "$1,200", "+20.0%"]
+    n_rule = len(RULE_CHANGES)  # 제목 아래 '규칙 변경 날짜: …' 줄
+    assert rows[1][0].startswith("규칙 변경 2026-10-28")
+    assert rows[3 + n_rule][:4] == ["2026-09-01", "$1,000", "$1,200", "+20.0%"]
     assert ["날짜", "평가액", "같은 날 SPY 샀으면"] in rows and rows[-1] == ["2026-09-07", 1200.0, 1100.0]

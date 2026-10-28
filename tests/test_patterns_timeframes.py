@@ -1,12 +1,14 @@
 """주봉·월봉 패턴과 패턴 라벨 연결 테스트.
 
 test_patterns.py 는 감지 함수 하나하나를 일봉 모양 합성 데이터로 본다. 여기서는 그 위 단계를 본다:
-일봉→주봉·월봉 변환, 정배열 3단계, 정배열(완전·눌림목)이면 골든크로스 태그 제거, 최소 데이터 조건,
+일봉→주봉·월봉 변환, 정배열 3단계 (2026-10-27 차트 4선 EMA10/20/100/200 · 있는 선으로만), 끝난 봉만 보는지,
+정배열이어도 골든크로스 · 임박 태그는 남는지, 최소 데이터 조건,
 그리고 점수 계산이 찾는 라벨이 스크리너가 실제로 만드는 라벨과 같은지 (오타 하나면 가중치가 조용히 0 이 된다).
 """
 import numpy as np
 import pandas as pd
 
+from screener.chart_ma import CrossLabel, cross_label, ohlcv_bars, split_only_close
 from screener.features import compute_features_for_ticker
 from screener.patterns import (
     detect_golden_cross,
@@ -23,7 +25,7 @@ DAILY_LABELS = {
     "강세잉걸핑", "약세잉걸핑", "모닝스타", "이브닝스타", "도지", "차트반전",
 }
 HIGHER_TF_LABELS = {
-    "골든크로스", "골든크로스임박", "이중바닥", "역헤드앤숄더", "컵앤핸들", "상승삼각형", "하락쐐기",
+    "골든크로스", "골든크로스임박", "데드크로스", "데드크로스임박", "이중바닥", "역헤드앤숄더", "컵앤핸들", "상승삼각형", "하락쐐기",
     "강세잉걸핑", "모닝스타", "정배열(완전)", "정배열(눌림목)", "정배열(형성중)", "차트반전",
 }
 
@@ -86,46 +88,88 @@ def test_monthly_bars_label_month_end_and_keep_unfinished_month():
     assert m["Volume"].sum() == df["Volume"].sum()
 
 
+def test_chart_bars_have_the_same_values_as_resampled_bars():
+    # chart_ma.ohlcv_bars (날짜 = 봉의 마지막 거래일) 값 = get_weekly_data / get_monthly_data (날짜 = 금요일 · 말일)
+    df = make_daily(np.linspace(50, 150, 700), start="2023-01-02")
+    cols = ["Open", "High", "Low", "Close", "Volume"]
+    for tf, resampled in (("W", get_weekly_data(df)), ("M", get_monthly_data(df))):
+        bars = ohlcv_bars(df, tf)
+        np.testing.assert_allclose(bars[cols].to_numpy(), resampled[cols].to_numpy())
+        assert (bars["end"].to_numpy() == resampled.index.to_numpy()).all()
+
+
 # ---------------------------------------------------------------------------
-# 정배열 3단계와 골든크로스 태그
+# 정배열 3단계 (차트 4선)와 골든크로스 태그
 # ---------------------------------------------------------------------------
 
-def test_steady_rise_is_full_uptrend_on_both_timeframes():
+LONG_RISE = make_daily(np.linspace(50, 150, 3000), start="2014-01-01")   # 약 12년: 주봉 4선 다 있음, 월봉 EMA200 없음
+
+
+def test_long_steady_rise_is_full_uptrend_on_both_timeframes():
+    assert names(detect_weekly_patterns(LONG_RISE)) == ["weekly_uptrend_full"]
+    assert names(detect_monthly_patterns(LONG_RISE)) == ["monthly_uptrend_full"]   # 월봉은 EMA10 > 20 > 100 (200 은 아직 없음)
+
+
+def test_young_stock_is_forming_at_most():
+    # 상장 1년 반: 주봉 EMA100 · 200 이 아직 없다 → '있는 선으로만' 이면 형성중까지만. 월봉은 EMA20 도 없어 정배열 없음
     df = make_daily(np.linspace(50, 150, 400))
-    assert names(detect_weekly_patterns(df)) == ["weekly_uptrend_full"]
-    assert names(detect_monthly_patterns(df)) == ["monthly_uptrend_full"]
+    assert names(detect_weekly_patterns(df)) == ["weekly_uptrend_forming"]
+    assert names(detect_monthly_patterns(df)) == []
 
 
 def test_pullback_stage():
-    assert names(detect_weekly_patterns(rise_then_dip(10, 0.05))) == ["weekly_uptrend_pullback"]
-    assert names(detect_monthly_patterns(rise_then_dip(10, 0.08))) == ["monthly_uptrend_pullback"]
+    def rise_then(days, dip):
+        return make_daily(np.concatenate([np.linspace(50, 150, 3000), np.linspace(150, 150 * (1 - dip), days)]),
+                          start="2014-01-01")
+    assert names(detect_weekly_patterns(rise_then(5, 0.02))) == ["weekly_uptrend_pullback"]
+    assert names(detect_monthly_patterns(rise_then(40, 0.08))) == ["monthly_uptrend_pullback"]
 
 
-def test_weekly_golden_cross_dropped_when_uptrend_full():
-    # 주봉 SMA10/40 이 최근 5주 안에 교차했어도, 이미 정배열(완전)이면 골든크로스 태그는 뺀다
-    df = decline_then_rally(250, 60, 100, 220)
-    weekly = get_weekly_data(df)
-    gc = detect_golden_cross(weekly, short_period=10, long_period=40, recent_window=5, slope_lookback=5)
-    assert gc.pattern_type == "golden_cross"
-    assert names(detect_weekly_patterns(df)) == ["weekly_uptrend_full"]
+def test_forming_when_long_lines_are_still_above():
+    # 오래 내린 뒤 반등: EMA10 > EMA20 이지만 EMA100 · 200 이 아직 위 → 형성중
+    df = make_daily(np.concatenate([np.linspace(200, 60, 2500), np.linspace(60, 90, 150)]), start="2014-01-01")
+    assert names(detect_weekly_patterns(df)) == ["weekly_uptrend_forming"]
+    assert names(detect_monthly_patterns(df)) == ["golden_cross", "monthly_uptrend_forming"]
 
+
+# 2026-10-26: 교차는 차트 선(EMA10/EMA20, 끝난 봉 — screener.chart_ma)으로 본다. 아래 데이터는 그 기준으로 고른 것
+# 2026-10-27: 정배열(완전 · 눌림목)이어도 골든크로스 · 임박 태그를 지우지 않는다
 
 def test_weekly_golden_cross_kept_while_uptrend_forming():
-    df = decline_then_rally(250, 60, 100, 180)
+    df = decline_then_rally(250, 30, 100, 150)
+    assert cross_label(split_only_close(df), "W").label == "golden_cross"
     assert names(detect_weekly_patterns(df)) == ["golden_cross", "weekly_uptrend_forming"]
 
 
-def test_monthly_golden_cross_dropped_when_uptrend_full():
-    df = decline_then_rally(500, 80, 100, 180)
-    monthly = get_monthly_data(df)
-    gc = detect_golden_cross(monthly, short_period=3, long_period=10, recent_window=3, slope_lookback=3)
-    assert gc.pattern_type == "golden_cross"
-    assert names(detect_monthly_patterns(df)) == ["monthly_uptrend_full"]
-
-
 def test_monthly_golden_cross_kept_while_uptrend_forming():
-    df = decline_then_rally(400, 40, 80, 125, start="2020-01-02")
+    df = decline_then_rally(500, 120, 100, 220)
+    assert cross_label(split_only_close(df), "M").label == "golden_cross"
     assert names(detect_monthly_patterns(df)) == ["golden_cross", "monthly_uptrend_forming"]
+
+
+def test_golden_tags_kept_with_uptrend_full(monkeypatch):
+    # 교차 결과는 고정하고 규칙만 본다 — 정배열(완전)이어도 골든크로스 · 임박 태그가 남는다 (예전엔 지워졌다)
+    import screener.patterns as pt
+    for label in ("golden_cross", "golden_cross_imminent"):
+        monkeypatch.setattr(pt, "cross_label", lambda close, tf, as_of=None, _l=label, **_: CrossLabel(_l, 0.0, ""))
+        assert names(detect_weekly_patterns(LONG_RISE)) == [label, "weekly_uptrend_full"]
+        assert names(detect_monthly_patterns(LONG_RISE)) == [label, "monthly_uptrend_full"]
+
+
+# ---------------------------------------------------------------------------
+# 끝난 봉만 본다 (진행 중인 주 · 달은 TradingView 에서도 아직 바뀌는 봉)
+# ---------------------------------------------------------------------------
+
+def test_patterns_ignore_the_running_week_and_month():
+    rng = np.random.default_rng(3)
+    for drift in (-0.0008, -0.0004, 0.0, 0.0004, 0.0008, 0.0012):
+        close = 60 * np.exp(np.cumsum(rng.normal(drift, 0.02, 2603)))
+        df = make_daily(close, start="2015-01-05")            # 마지막 날 = 수요일
+        assert df.index[-1].dayofweek < 4
+        last_friday = df.index[df.index.dayofweek == 4][-1]
+        last_month_end = df.index[df.index < df.index[-1].to_period("M").start_time][-1]
+        assert detect_weekly_patterns(df) == detect_weekly_patterns(df.loc[:last_friday])
+        assert detect_monthly_patterns(df) == detect_monthly_patterns(df.loc[:last_month_end])
 
 
 # ---------------------------------------------------------------------------
@@ -134,11 +178,12 @@ def test_monthly_golden_cross_kept_while_uptrend_forming():
 
 def test_not_enough_history():
     assert detect_weekly_patterns(make_daily(np.linspace(50, 100, 59))) == []    # 일봉 60개 미만
-    assert detect_weekly_patterns(make_daily(np.linspace(50, 100, 80))) == []    # 주봉 16개 → 20개 미만
+    assert detect_weekly_patterns(make_daily(np.linspace(50, 100, 80))) == []    # 끝난 주봉 16개 → 20개 미만
     assert detect_monthly_patterns(make_daily(np.linspace(50, 100, 119))) == []  # 일봉 120개 미만
-    assert detect_monthly_patterns(make_daily(np.linspace(50, 100, 200))) == []  # 월봉 10개 → 12개 미만
-    # 주봉 정배열은 EMA50 이라 주봉 50개가 있어야 한다 (일봉 200개 ≈ 주봉 40개)
-    assert not any(n.startswith("weekly_uptrend") for n in names(detect_weekly_patterns(make_daily(np.linspace(50, 100, 200)))))
+    assert detect_monthly_patterns(make_daily(np.linspace(50, 100, 200))) == []  # 끝난 월봉 9개 → 12개 미만
+    # 주봉 40개: EMA100 이 아직 없어 정배열은 형성중까지만
+    got = names(detect_weekly_patterns(make_daily(np.linspace(50, 100, 200))))
+    assert [n for n in got if n.startswith("weekly_uptrend")] == ["weekly_uptrend_forming"]
 
 
 # ---------------------------------------------------------------------------

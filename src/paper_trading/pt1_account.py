@@ -19,6 +19,11 @@ from typing import Any, Sequence
 import pandas as pd
 
 INITIAL_CAPITAL = 5000.0
+# PT-1 이 종목을 고르는 규칙이 바뀐 날 (그날 장 마감분부터 새 규칙) — 계좌 탭 맨 위에 적어 전후 성과를 나눠 볼 수 있게
+RULE_CHANGES: tuple[tuple[str, str], ...] = (
+    ("2026-10-28", "패턴 · 골든크로스 라벨을 TradingView 차트 기준으로 (EMA10/20 · 끝난 봉 · 분할만 반영 가격, "
+                   "docs/goldencross.md) — 10년 시험 '비슷함'"),
+)
 
 
 @dataclass
@@ -308,7 +313,8 @@ def sheet_rows(acct: DollarAccount, label: str) -> list[list[Any]]:
     """계좌 탭 내용: 요약 → 보유 종목 → 청산 거래(최근 순) → 일별 평가액."""
     stamp = datetime.now(timezone(timedelta(hours=-5))).strftime("%Y-%m-%d %H:%M EST")
     rows: list[list[Any]] = [[f"{label} $5,000 계좌 — PT-1 실제 거래를 가상 자본으로 계산 "
-                              "(빈 자리마다 남은 현금을 똑같이 나눠 정수 주식만 매수, 편도 비용 0.1%)", stamp], []]
+                              "(빈 자리마다 남은 현금을 똑같이 나눠 정수 주식만 매수, 편도 비용 0.1%)", stamp],
+                             *([f"규칙 변경 {day}: {what}"] for day, what in RULE_CHANGES), []]
     if not acct.lots:
         return rows + [["아직 거래 없음 — 현금 $5,000"]]
     s = summary(acct)

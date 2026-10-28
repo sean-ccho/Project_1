@@ -25,7 +25,7 @@ import pandas as pd
 
 import hashlib
 
-from data.fetch import fetch_ohlcv
+from data.fetch import fetch_chart_prices, fetch_ohlcv
 from screener.backtest import _compute_ranked_snapshot, _prepare_price_map
 from screener.cache import cache_meta_valid, count_cached_snapshots, write_cache_meta
 from screener import config as _cfg
@@ -75,6 +75,7 @@ _HASHED_SOURCES = (
     "screener/features.py", "screener/alpha_model.py", "screener/patterns.py",
     "screener/fundamentals.py", "screener/processing.py", "screener/signals.py",
     "screener/backtest.py", "screener/config.py",
+    "screener/chart_ma.py", "screener/ma_cross.py",   # 2026-10-26 교차 라벨이 차트 선 계산을 쓴다
 )
 _SECRET_MARKERS = ("PASSWORD", "SECRET", "TOKEN", "CREDENTIAL", "EMAIL", "SPREADSHEET", "DRIVE", "GITHUB", "KEY")
 _SNAPSHOT_SKIP = {"TICKERS", "SECTOR_MAP", "COMPANY_NAME_MAP"}
@@ -581,6 +582,16 @@ def run_paper_trading_backtest(
             logger.warning(f"[BtPaper] 섹터 ETF 다운로드 실패 — 섹터 필터 없이 진행: {exc}")
     ranked_cache: dict[pd.Timestamp, pd.DataFrame] = {}
     ic_weights_cache: dict = {}  # IC 가중치 캐시 (20거래일마다 재계산)
+    chart_box: dict[str, Any] = {}
+
+    def chart_loader() -> dict:
+        """패턴 · 교차 라벨용 차트 가격 (분할만 반영 · 상장 이후 전체) — 피처를 새로 계산할 때 한 번만 받는다.
+
+        연구 실행은 이 이름(fetch_chart_prices)을 얼린 파일 읽기로 바꿔 끼운다 (scripts/isb_vs_pt1.py _patched).
+        """
+        if "v" not in chart_box:
+            chart_box["v"] = fetch_chart_prices(tickers)
+        return chart_box["v"]
 
     use_capital = initial_capital > 0
     cash: float = initial_capital
@@ -655,6 +666,7 @@ def run_paper_trading_backtest(
                         ic_weights_cache=ic_weights_cache,
                         ohlcv_hash=ohlcv_hash,
                         fundamentals_df=prefetched_fundamentals,
+                        chart_loader=chart_loader,
                     )
                 row = _get_row_for_ticker(_defer_ranked_df, pos.ticker)
                 defer, debug = _should_defer_sell(pos_dict, row, cur)
@@ -727,6 +739,7 @@ def run_paper_trading_backtest(
             ic_weights_cache=ic_weights_cache,
             ohlcv_hash=ohlcv_hash,
             fundamentals_df=prefetched_fundamentals,
+            chart_loader=chart_loader,
         )
         if membership is not None and "티커" in ranked_df.columns:
             ranked_df = ranked_df[ranked_df["티커"].isin(membership.on(today_str) | {"SPY"})]

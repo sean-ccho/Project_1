@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Deque, Iterable
+from typing import Any, Callable, Deque, Iterable, Mapping
 
 import numpy as np
 import pandas as pd
@@ -41,7 +41,8 @@ from screener.config import (
     RISK_PER_TRADE,
     ATR_POSITION_MULTIPLE,
 )
-from data.fetch import fetch_ohlcv
+from data.fetch import fetch_chart_prices, fetch_ohlcv
+from screener.chart_ma import ChartPrices, split_only_close
 from screener.features import compute_features_snapshot
 from screener.processing import apply_neutralization, liquidity_filter
 from screener.signals import attach_signals_and_sort
@@ -108,8 +109,18 @@ FEATURE_HISTORY_YEARS = 5
 
 
 def _prepare_price_map(raw: pd.DataFrame) -> dict[str, pd.DataFrame]:
-    """티커별로 OHLCV 데이터를 분리."""
-    return {ticker: raw[ticker].dropna(how="all") for ticker in raw.columns.levels[0]}
+    """티커별로 OHLCV 데이터를 분리.
+
+    CloseSplit(분할만 반영한 종가)도 붙인다 — 기준일마다 잘라 쓰면 받은 날까지의 배당이 섞여 되돌린 값이 어긋나서
+    (0.1~0.2%), 전체 기간으로 한 번 되돌린다. 교차 라벨(screener.chart_ma)이 쓴다 (2026-10-26).
+    """
+    out = {}
+    for ticker in raw.columns.levels[0]:
+        frame = raw[ticker].dropna(how="all")
+        if not frame.empty and "Close" in frame.columns:
+            frame = frame.assign(CloseSplit=split_only_close(frame))
+        out[ticker] = frame
+    return out
 
 
 def _compute_ranked_snapshot(
@@ -121,10 +132,13 @@ def _compute_ranked_snapshot(
     ic_weights_cache: dict | None = None,
     ohlcv_hash: str | None = None,
     fundamentals_df: "pd.DataFrame | None" = None,
+    chart_loader: "Callable[[], Mapping[str, ChartPrices]] | None" = None,
 ) -> pd.DataFrame:
     """주어진 시점까지의 데이터로 특징 계산 및 시그널 부착.
 
     ic_weights_cache: {"key": "YYYY-MM", "weights": dict} — 월 단위 IC 가중치 (전월 말 기준)
+    chart_loader: 차트 가격(분할만 반영 · 상장 이후 전체 주·월봉)을 돌려주는 함수 — 피처를 새로 계산할 때만 부른다
+        (캐시에 다 있으면 안 받는다). 패턴 · 교차 라벨이 그 날짜(cutoff)까지의 봉만 본다 (screener.chart_ma.chart_view).
 
     ohlcv_hash: 디스크 캐시 키. 제공되면 feature 스냅샷을 디스크에 캐싱한다.
     fundamentals_df: 시뮬레이션 시작 전에 미리 가져온 펀더멘탈 DataFrame.
@@ -196,6 +210,7 @@ def _compute_ranked_snapshot(
             include_fundamentals=include_fundamentals,
             ic_weights_override=ic_override,
             fundamentals_df=fundamentals_df,
+            chart_map=chart_loader() if chart_loader is not None else None,
         )
         if ohlcv_hash and not features.empty:
             save_feature_snapshot(ohlcv_hash, cutoff, features)
@@ -547,6 +562,13 @@ def run_backtest(
 
     price_map = _prepare_price_map(raw)
     ranked_cache: dict[pd.Timestamp, pd.DataFrame] = {}
+    chart_box: dict[str, Any] = {}
+
+    def chart_loader() -> Mapping[str, ChartPrices]:
+        """패턴 · 교차 라벨용 차트 가격 (분할만 반영 · 상장 이후 전체) — 처음 필요할 때 한 번만 받는다."""
+        if "v" not in chart_box:
+            chart_box["v"] = fetch_chart_prices(tickers)
+        return chart_box["v"]
 
     start_index = min_history_days
     trades: list[SignalTrade] = []
@@ -558,7 +580,8 @@ def run_backtest(
         next_date = dates[idx + 1]
 
         ranked = _compute_ranked_snapshot(
-            price_map, date, include_fundamentals=include_fundamentals, cache=ranked_cache
+            price_map, date, include_fundamentals=include_fundamentals, cache=ranked_cache,
+            chart_loader=chart_loader,
         )
         lookup = _lookup(ranked)
 

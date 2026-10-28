@@ -10,11 +10,15 @@ from typing import Any, Iterable
 # 패턴 컬럼 ↔ MA갭 컬럼 매핑.
 # gap_col이 없으면 conf_col로 폴백 (임박 conf만 역산 가능, 직후는 미감지).
 # 폴백은 features.py 업데이트 전의 기존 parquet에서 회귀를 막기 위한 안전망.
+# 2026-10-26: 갭은 교차 라벨과 같은 선 (차트 EMA10/EMA20, 끝난 봉 — screener.chart_ma). 일봉은 새 칸 '일봉_MA갭'
+# (예전 일봉 갭 ema_gap_20_50 은 알파·ML 입력이라 그대로 남아 있다)
 PATTERN_COLUMNS: tuple[tuple[str, str, str, str], ...] = (
-    ("일봉패턴", "일봉", "ema_gap_20_50", "일봉_골든크로스_신뢰도"),
+    ("일봉패턴", "일봉", "일봉_MA갭", "일봉_골든크로스_신뢰도"),
     ("주봉패턴", "주봉", "주봉_MA갭", "주봉_골든크로스_신뢰도"),
     ("월봉패턴", "월봉", "월봉_MA갭", "월봉_골든크로스_신뢰도"),
 )
+# 진행 중인 주·월봉의 예고 칸 (features — 이번 주·달 봉이 지금 가격으로 끝나면 바뀌는 교차 라벨). 표시 전용: 목록에 넣는 규칙은 끝난 봉 그대로
+PREVIEW_COLUMNS: tuple[tuple[str, str], ...] = (("주봉_예고", "주봉"), ("월봉_예고", "월봉"))
 
 
 def _safe_float(val: Any) -> float:
@@ -102,6 +106,8 @@ def extract_golden_cross(data: Any) -> list[dict]:
                 "vol_ma20": _safe_float(row.get("volume_ma20")),
                 "tf_count": len(hit_tfs),
                 "has_daily": "일봉" in hit_tfs,
+                "previews": [(label, str(row[col]).strip()) for col, label in PREVIEW_COLUMNS
+                             if isinstance(row.get(col), str) and row[col].strip()],
             })
 
     result.sort(

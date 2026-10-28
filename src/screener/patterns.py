@@ -30,13 +30,14 @@
 - 골든크로스 임박 (Golden Cross Imminent)
 - 데드크로스 임박 (Death Cross Imminent)
 
-[추세 상태 지표 — 6종] (주봉/월봉 전용, 각 3단계)
-- 주봉 정배열 완전 (Weekly Uptrend Full)     — Price > EMA10 > EMA20 > EMA50
-- 주봉 정배열 눌림목 (Weekly Uptrend Pullback) — EMA10 > EMA20 > EMA50, Price > EMA20
-- 주봉 정배열 형성중 (Weekly Uptrend Forming) — EMA10 > EMA20, Price > EMA10
-- 월봉 정배열 완전 (Monthly Uptrend Full)    — Price > EMA3 > EMA6 > EMA12
-- 월봉 정배열 눌림목 (Monthly Uptrend Pullback) — EMA3 > EMA6 > EMA12, Price > EMA6
-- 월봉 정배열 형성중 (Monthly Uptrend Forming) — EMA3 > EMA6, Price > EMA3
+[추세 상태 지표 — 6종] (주봉/월봉 전용, 각 3단계) — 차트 4선 EMA10/20/100/200 (2026-10-27, chart_ma.uptrend_stage)
+- 정배열 완전 (Uptrend Full)     — Price > EMA10 > EMA20 > EMA100 > EMA200
+- 정배열 눌림목 (Uptrend Pullback) — 네 선 정렬, EMA10 >= Price > EMA20
+- 정배열 형성중 (Uptrend Forming) — EMA10 > EMA20, Price > EMA10 (EMA100·200 쪽은 아직)
+  아직 없는 선(상장 직후)은 빼고 있는 선으로만 본다. 예전: 주봉 EMA10/20/50 · 월봉 EMA3/6/12
+
+[바탕 — 2026-10-27] 모든 패턴을 TradingView 차트와 같은 봉으로 본다: 분할만 반영한 가격 (ADJ 꺼짐) ·
+주·월봉은 끝난 봉만 · 선은 Pine 과 같은 계산 (screener.chart_ma). 일봉은 밤 실행이 끝난 장의 봉이라 늘 끝난 봉이다.
 
 v2: 거래량 확인, 트렌드 컨텍스트 보정, 시간 대칭 검증 등
     월스트리트 투자자급 정확도로 개선
@@ -66,6 +67,18 @@ from screener.config import (
     PATTERN_DOUBLE_TOLERANCE,
     PATTERN_SHOULDER_TIME_RATIO,
 )
+from screener.chart_ma import (
+    CrossLabel,
+    chart_prices,
+    chart_view,
+    cross_label,
+    finished,
+    pine_ema_valid,
+    pine_rsi,
+    split_only_ohlcv,
+    uptrend_stage,
+)
+from screener.ma_cross import pine_ema
 
 
 @dataclass
@@ -1002,7 +1015,11 @@ def detect_chart_reversal(df: pd.DataFrame) -> PatternResult:
     구조 돌파가 매일 발생하므로 제외.
 
     Args:
-        df: OHLCV 일봉. 확정 하락추세 판정에는 221봉 이상 필요(부족하면 단기 추세만 사용).
+        df: OHLCV 봉 (일·주·월). 확정 하락추세 판정에는 221봉 이상 필요(부족하면 단기 추세만 사용).
+            차트와 같은 바탕으로 넣는다 — 분할만 반영한 가격, 끝난 봉, 긴 기록 (screener.chart_ma.chart_view).
+
+    계산은 Pine 과 같다 (2026-10-27): EMA = ta.ema (처음 n봉 평균에서 시작), RSI = ta.rsi (rma), MACD = ta.macd.
+    예전엔 pandas ewm(첫 값에서 시작)이라 긴 선(EMA200)이 기록이 짧을수록 TradingView 값과 어긋났다.
 
     Returns:
         PatternResult("chart_reversal"), breakout_level = 직전 5봉 고점.
@@ -1015,8 +1032,8 @@ def detect_chart_reversal(df: pd.DataFrame) -> PatternResult:
     high = pd.Series(df["High"].values.flatten(), dtype=float)
     low = pd.Series(df["Low"].values.flatten(), dtype=float)
 
-    ema20 = close.ewm(span=20, adjust=False).mean()
-    ema50 = close.ewm(span=50, adjust=False).mean()
+    ema20 = pine_ema(close, 20)
+    ema50 = pine_ema(close, 50)
 
     c0 = float(close.iloc[-1])
     bullish_bar = c0 > float(open_.iloc[-1])
@@ -1024,7 +1041,7 @@ def detect_chart_reversal(df: pd.DataFrame) -> PatternResult:
     # 주 추세: EMA200 20일 기울기 < -0.5% + close < EMA200 + EMA50 < EMA200
     confirmed_downtrend = False
     if len(close) >= 221:
-        ema200 = close.ewm(span=200, adjust=False).mean()
+        ema200 = pine_ema(close, 200)
         slope20 = (float(ema200.iloc[-1]) / float(ema200.iloc[-21]) - 1) * 100
         confirmed_downtrend = (
             slope20 < -0.5
@@ -1059,11 +1076,7 @@ def detect_chart_reversal(df: pd.DataFrame) -> PatternResult:
             triggers.append("capitulation_reversal")
 
     # 5. RSI 강세 다이버전스 + 모멘텀 전환
-    delta = close.diff()
-    avg_gain = delta.clip(lower=0).ewm(alpha=1 / 14, adjust=False).mean()
-    avg_loss = (-delta.clip(upper=0)).ewm(alpha=1 / 14, adjust=False).mean()
-    rsi = 100 - 100 / (1 + avg_gain / avg_loss.replace(0, np.nan))
-    rsi = rsi.fillna(100.0)
+    rsi = pine_rsi(close, 14)
     bull_div = (
         float(low.iloc[-5:].min()) < float(low.iloc[-10:-5].min())
         and float(rsi.iloc[-5:].min()) > float(rsi.iloc[-10:-5].min())
@@ -1077,8 +1090,8 @@ def detect_chart_reversal(df: pd.DataFrame) -> PatternResult:
         stoch_d = stoch_k.rolling(3).mean()
         stoch_cross_up = _crossed_over(stoch_k, stoch_d) and float(stoch_k.iloc[-1]) < 30
 
-        macd_line = close.ewm(span=12, adjust=False).mean() - close.ewm(span=26, adjust=False).mean()
-        signal_line = macd_line.ewm(span=9, adjust=False).mean()
+        macd_line = pine_ema(close, 12) - pine_ema(close, 26)
+        signal_line = pine_ema_valid(macd_line, 9)
         macd_cross_up = _crossed_over(macd_line, signal_line)
 
         if stoch_cross_up or macd_cross_up or reclaim_ema20:
@@ -1397,23 +1410,44 @@ def get_monthly_data(df: pd.DataFrame) -> pd.DataFrame:
     return monthly
 
 
-def detect_monthly_patterns(df: pd.DataFrame) -> List[Tuple[str, float]]:
-    """월봉 데이터를 생성하여 주요 패턴을 감지한다."""
-    if len(df) < 120:  # 최소 데이터 요구량 (약 6개월)
-        return []
+def _chart_bars(df: pd.DataFrame, tf: str) -> pd.DataFrame:
+    """bars 를 안 넘겼을 때: 받은 일봉(배당 조정 + Dividends)으로 차트 바탕의 주·월봉을 만든다 (끝난 봉 + 진행 중인 봉)."""
+    cp = chart_prices(split_only_ohlcv(df.dropna(how="all")))
+    if cp.daily.empty:
+        return cp.weekly if tf == "W" else cp.monthly
+    _, weekly, monthly = chart_view(cp, cp.daily.index[-1])
+    return weekly if tf == "W" else monthly
 
-    monthly = get_monthly_data(df)
-    
+
+def _recent(bars: pd.DataFrame, years: int = 5) -> pd.DataFrame:
+    """가격 패턴 · 캔들은 최근 5년 봉만 본다 (긴 기록을 받기 전과 같은 길이 — 선만 긴 기록이 필요하다)."""
+    return bars.loc[bars.index > bars.index[-1] - pd.DateOffset(years=years)] if len(bars) else bars
+
+
+def detect_monthly_patterns(df: pd.DataFrame, cross: CrossLabel | None = None,
+                            bars: pd.DataFrame | None = None) -> List[Tuple[str, float]]:
+    """월봉 패턴. 차트와 같은 바탕 (2026-10-27): 분할만 반영한 가격 · 끝난 봉만 · 선은 차트 EMA (긴 기록).
+
+    df: 일봉 (bars 가 없을 때 이것으로 월봉을 만든다). cross: 이미 계산한 월봉 교차 라벨 (features 가 넘김).
+    bars: screener.chart_ma.chart_view 의 월봉 (상장 이후 전체 · complete 칸) — features 가 넘긴다.
+    """
+    if bars is None:
+        if len(df) < 120:  # 최소 데이터 요구량 (약 6개월)
+            return []
+        bars = _chart_bars(df, "M")
+    full = finished(bars)            # 끝난 봉만 — 진행 중인 달은 TradingView 에서도 아직 바뀌는 봉
     # 월봉 데이터가 너무 적으면 스킵 (최소 12개월)
-    if len(monthly) < 12:
+    if len(full) < 12:
         return []
+    monthly = _recent(full)
 
     patterns_found = []
 
-    # 1. 골든크로스 / 골든크로스 임박 (월봉) - 초장기 대세 상승
-    gc = detect_golden_cross(monthly, short_period=3, long_period=10, recent_window=3, slope_lookback=3)
-    if gc.detected and gc.pattern_type in ("golden_cross", "golden_cross_imminent"):
-        patterns_found.append((gc.pattern_type, gc.confidence))
+    # 1. 교차 (월봉) — 차트와 같은 선: EMA10(주황) · EMA20(보라), 분할만 반영 가격, 끝난 봉 (screener.chart_ma,
+    #    2026-10-26 docs/goldencross.md). 예전: SMA3/10, 배당 조정, 진행 중인 봉 포함, 골든만
+    cl = cross if cross is not None else cross_label(bars["Close"], "M", bars.index[-1], bars=True)
+    if cl.label != "none":
+        patterns_found.append((cl.label, 1.0))
 
     # 2. 더블 바텀 (월봉) - 역사적 바닥
     double = detect_double_bottom_top(monthly, lookback=24) # 2년치
@@ -1447,61 +1481,48 @@ def detect_monthly_patterns(df: pd.DataFrame) -> List[Tuple[str, float]]:
             if p in ("bullish_engulfing", "morning_star"):
                 patterns_found.append((p, candle.confidence))
 
-    # 7-1. 차트 반전 확인 (월봉) — EMA200은 데이터 부족으로 대부분 미계산 → 20개월 하락 판정만 적용
-    rev = detect_chart_reversal(monthly)
+    # 7-1. 차트 반전 확인 (월봉) — 상장 이후 전체 끝난 봉 (EMA200 = 200개월이 있어야 확정 하락추세를 본다)
+    rev = detect_chart_reversal(full)
     if rev.detected:
         patterns_found.append((rev.pattern_type, rev.confidence))
 
-    # 8. 월봉 정배열 (3단계) — EMA3/6/12 기반
-    # 완전: Price > EMA3 > EMA6 > EMA12
-    # 눌림목: EMA3 > EMA6 > EMA12, EMA3 >= Price > EMA6 (단기 눌림 허용)
-    # 형성중: EMA3 > EMA6, EMA6 <= EMA12, Price > EMA3 (초기 신호)
-    if len(monthly) >= 12:
-        close_m = monthly["Close"]
-        ema3 = close_m.ewm(span=3, adjust=False).mean().iloc[-1]
-        ema6 = close_m.ewm(span=6, adjust=False).mean().iloc[-1]
-        ema12 = close_m.ewm(span=12, adjust=False).mean().iloc[-1]
-        price_m = close_m.iloc[-1]
-        if price_m > ema3 > ema6 > ema12:
-            patterns_found.append(("monthly_uptrend_full", 1.0))
-        elif ema3 > ema6 > ema12 and ema3 >= price_m > ema6:
-            patterns_found.append(("monthly_uptrend_pullback", 1.0))
-        elif ema3 > ema6 and ema6 <= ema12 and price_m > ema3:
-            patterns_found.append(("monthly_uptrend_forming", 1.0))
+    # 8. 월봉 정배열 (3단계) — 차트 4선 EMA10/20/100/200 (2026-10-27, 예전: 차트에 없는 EMA3/6/12)
+    stage = uptrend_stage(full["Close"])
+    if stage:
+        patterns_found.append((f"monthly_uptrend_{stage}", 1.0))
 
-    # 정배열(완전/눌림목)이면 이미 골든크로스를 통과한 상태 → 골든크로스 계열 태그 제거.
-    # (정배열형성중은 교차 형성 단계라 제외하지 않는다.)
-    pattern_names = {name for name, _ in patterns_found}
-    if "monthly_uptrend_full" in pattern_names or "monthly_uptrend_pullback" in pattern_names:
-        patterns_found = [
-            (name, conf) for name, conf in patterns_found
-            if name not in ("golden_cross", "golden_cross_imminent")
-        ]
-
+    # 정배열이어도 골든크로스 · 임박 태그는 지우지 않는다 (2026-10-27). 둘 다 차트 선이지만 정배열은 네 선 · 종가 위치,
+    # 교차는 두 선의 최근 교차라 따로 본다 (예전 규칙은 '정배열 = 이미 교차를 지났다'고 보고 교차 태그를 지웠다).
     return patterns_found
 
 
-def detect_weekly_patterns(df: pd.DataFrame) -> List[Tuple[str, float]]:
-    """주봉 데이터를 생성하 주요 패턴을 감지한다.
-    
+def detect_weekly_patterns(df: pd.DataFrame, cross: CrossLabel | None = None,
+                           bars: pd.DataFrame | None = None) -> List[Tuple[str, float]]:
+    """주봉 패턴. 차트와 같은 바탕 (2026-10-27): 분할만 반영한 가격 · 끝난 봉만 · 선은 차트 EMA (긴 기록).
+
+    df: 일봉 (bars 가 없을 때 이것으로 주봉을 만든다). cross: 이미 계산한 주봉 교차 라벨 (features 가 넘김).
+    bars: screener.chart_ma.chart_view 의 주봉 (상장 이후 전체 · complete 칸) — features 가 넘긴다.
+
     Returns:
         [(패턴이름, 신뢰도), ...] 리스트
     """
-    if len(df) < 60:  # 최소 데이터 요구량 (일봉 기준)
-        return []
-
-    weekly = get_weekly_data(df)
-    
+    if bars is None:
+        if len(df) < 60:  # 최소 데이터 요구량 (일봉 기준)
+            return []
+        bars = _chart_bars(df, "W")
+    full = finished(bars)            # 끝난 봉만 — 이번 주 봉은 TradingView 에서도 아직 바뀌는 봉
     # 주봉 데이터가 너무 적으면 스킵 (최소 20주 = 약 5개월)
-    if len(weekly) < 20:
+    if len(full) < 20:
         return []
+    weekly = _recent(full)
 
     patterns_found = []
 
-    # 1. 골든크로스 / 골든크로스 임박 (주봉) - 대세 상승
-    gc = detect_golden_cross(weekly, short_period=10, long_period=40, recent_window=5, slope_lookback=5)
-    if gc.detected and gc.pattern_type in ("golden_cross", "golden_cross_imminent"):
-        patterns_found.append((gc.pattern_type, gc.confidence))
+    # 1. 교차 (주봉) — 차트와 같은 선: EMA10(주황) · EMA20(보라), 분할만 반영 가격, 끝난 봉 (screener.chart_ma,
+    #    2026-10-26 docs/goldencross.md). 예전: SMA10/40, 배당 조정, 진행 중인 봉 포함, 골든만
+    cl = cross if cross is not None else cross_label(bars["Close"], "W", bars.index[-1], bars=True)
+    if cl.label != "none":
+        patterns_found.append((cl.label, 1.0))
 
     # 2. 더블 바텀 (주봉) - 장기 바닥
     double = detect_double_bottom_top(weekly, lookback=52) # 1년치
@@ -1537,35 +1558,16 @@ def detect_weekly_patterns(df: pd.DataFrame) -> List[Tuple[str, float]]:
             if p in ("bullish_engulfing", "morning_star"):
                 patterns_found.append((p, candle.confidence))
 
-    # 7-1. 차트 반전 확인 (주봉) — EMA 20/50/200 그대로 사용 (TradingView 주봉 차트와 일치)
-    rev = detect_chart_reversal(weekly)
+    # 7-1. 차트 반전 확인 (주봉) — 상장 이후 전체 끝난 봉 (EMA 20/50/200, Pine 과 같은 계산)
+    rev = detect_chart_reversal(full)
     if rev.detected:
         patterns_found.append((rev.pattern_type, rev.confidence))
 
-    # 8. 주봉 정배열 (3단계) — EMA10/20/50 기반
-    # 완전: Price > EMA10 > EMA20 > EMA50
-    # 눌림목: EMA10 > EMA20 > EMA50, EMA10 >= Price > EMA20 (단기 눌림 허용)
-    # 형성중: EMA10 > EMA20, EMA20 <= EMA50, Price > EMA10 (초기 신호)
-    if len(weekly) >= 50:
-        close_w = weekly["Close"]
-        ema10 = close_w.ewm(span=10, adjust=False).mean().iloc[-1]
-        ema20 = close_w.ewm(span=20, adjust=False).mean().iloc[-1]
-        ema50 = close_w.ewm(span=50, adjust=False).mean().iloc[-1]
-        price_w = close_w.iloc[-1]
-        if price_w > ema10 > ema20 > ema50:
-            patterns_found.append(("weekly_uptrend_full", 1.0))
-        elif ema10 > ema20 > ema50 and ema10 >= price_w > ema20:
-            patterns_found.append(("weekly_uptrend_pullback", 1.0))
-        elif ema10 > ema20 and ema20 <= ema50 and price_w > ema10:
-            patterns_found.append(("weekly_uptrend_forming", 1.0))
+    # 8. 주봉 정배열 (3단계) — 차트 4선 EMA10/20/100/200 (2026-10-27, 예전: 수정주가 EMA10/20/50 · 진행 중인 봉 포함)
+    stage = uptrend_stage(full["Close"])
+    if stage:
+        patterns_found.append((f"weekly_uptrend_{stage}", 1.0))
 
-    # 정배열(완전/눌림목)이면 이미 골든크로스를 통과한 상태 → 골든크로스 계열 태그 제거.
-    # (정배열형성중은 교차 형성 단계라 제외하지 않는다.)
-    pattern_names = {name for name, _ in patterns_found}
-    if "weekly_uptrend_full" in pattern_names or "weekly_uptrend_pullback" in pattern_names:
-        patterns_found = [
-            (name, conf) for name, conf in patterns_found
-            if name not in ("golden_cross", "golden_cross_imminent")
-        ]
-
+    # 정배열이어도 골든크로스 · 임박 태그는 지우지 않는다 (2026-10-27). 둘 다 차트 선이지만 정배열은 네 선 · 종가 위치,
+    # 교차는 두 선의 최근 교차라 따로 본다 (예전 규칙은 '정배열 = 이미 교차를 지났다'고 보고 교차 태그를 지웠다).
     return patterns_found

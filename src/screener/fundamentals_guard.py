@@ -22,7 +22,7 @@ from __future__ import annotations
 import time
 from datetime import date, datetime
 from pathlib import Path
-from typing import Callable, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -183,10 +183,14 @@ def compute_all_features_guarded(
     sleep: Callable[[float], None] = time.sleep,
     snapshot_dir: Path = SNAPSHOT_DIR,
     today: Optional[date] = None,
+    chart_map: Optional[Mapping[str, Any]] = None,
 ) -> pd.DataFrame:
-    """compute_all_features(df) 와 같은 피처 표 — 종목 정보만 재시도·전날 스냅샷 보충을 거쳐 미리 받아 넘긴다."""
+    """compute_all_features(df) 와 같은 피처 표 — 종목 정보만 재시도·전날 스냅샷 보충을 거쳐 미리 받아 넘긴다.
+
+    chart_map: 종목 → 차트 가격 (data.fetch.fetch_chart_prices — 패턴 · 교차 라벨용, 없으면 df 로 만든다).
+    """
     price_map = {ticker: df[ticker].dropna(how="all") for ticker in df.columns.levels[0]}
     tickers = [t for t, frame in price_map.items() if not frame.empty]
     fund = fetch_with_retry(tickers, label, fetch=fetch, sleep=sleep)
     fund = fill_from_previous_snapshot(fund, label, snapshot_dir=snapshot_dir, today=today)
-    return compute_features_snapshot(price_map, fundamentals_df=fund)
+    return compute_features_snapshot(price_map, fundamentals_df=fund, chart_map=chart_map)

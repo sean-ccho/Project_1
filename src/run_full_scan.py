@@ -40,6 +40,7 @@ from data.fetch import (
     fetch_company_names,
     fetch_latest_prices,
     fetch_ohlcv,
+    fetch_chart_prices,
 )
 from screener.exporter import (
     export_to_google_sheet,
@@ -218,7 +219,9 @@ def build_full_scan_dataframe(
 
     # 종목 정보(get_info)가 요청 제한으로 대량 실패하면 쉬었다가 다시 받고, 끝내 못 받은 종목은 전날 스냅샷 값을 쓴다
     # (2026-10-09 NASDAQ/NYSE 전량 실패 사고)
-    features = compute_all_features_guarded(df, f"[{context_label}]")
+    # 패턴 · 교차 라벨은 TradingView 차트와 같은 가격(분할만 반영 · 상장 이후 전체)으로 본다 (2026-10-27, docs/goldencross.md)
+    chart_map = fetch_chart_prices(list(df.columns.levels[0])) if not df.empty else {}
+    features = compute_all_features_guarded(df, f"[{context_label}]", chart_map=chart_map)
     if features.empty:
         print(f"[{context_label}] 조건을 만족하는 종목이 없습니다.")
         return None

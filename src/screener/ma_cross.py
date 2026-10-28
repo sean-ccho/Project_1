@@ -59,15 +59,23 @@ def to_bars(close: pd.Series, tf: Timeframe) -> pd.Series:
     return pd.Series(last_close.to_numpy(), index=pd.DatetimeIndex(last_date.to_numpy()), name=close.name)
 
 
-def bar_complete(bar_dates: pd.DatetimeIndex, tf: Timeframe, as_of: pd.Timestamp) -> np.ndarray:
-    """봉이 끝났는지. 일봉은 항상 True. 주·월봉은 그 주 금요일·그 달 말일이 as_of 이전이면 True.
+def last_weekday(period_end: pd.DatetimeIndex) -> pd.DatetimeIndex:
+    """그 기간의 마지막 평일 — 토·일요일에 끝나는 달은 그 전 금요일 (주봉 기간은 원래 금요일에 끝난다)."""
+    back = np.maximum(np.asarray(period_end.dayofweek) - 4, 0)
+    return period_end - pd.to_timedelta(back, unit="D")
 
-    금요일·말일이 휴장인데 as_of 가 그 전 거래일이면 끝난 봉도 False 로 나온다 (보수적으로 '진행 중').
+
+def bar_complete(bar_dates: pd.DatetimeIndex, tf: Timeframe, as_of: pd.Timestamp) -> np.ndarray:
+    """봉이 끝났는지. 일봉은 항상 True. 주·월봉은 그 기간의 마지막 평일(주봉 금요일 · 월봉 말일, 주말이면 그 전 금요일)이
+    as_of 이전이면 True — TradingView 도 그날 장이 끝나면 그 봉을 끝난 봉으로 그린다.
+
+    2026-10-27: 예전엔 달력상 말일이라 토·일요일에 끝나는 달은 금요일 장 뒤 밤 실행에서 아직 '진행 중'이었다.
+    공휴일(성금요일 등)인 마지막 평일은 모르므로 그 전 거래일에는 끝난 봉도 False (보수적으로 '진행 중').
     """
     if tf == "D":
         return np.ones(len(bar_dates), dtype=bool)
     freq = "W-FRI" if tf == "W" else "M"
-    period_end = bar_dates.to_period(freq).end_time.normalize()
+    period_end = last_weekday(bar_dates.to_period(freq).end_time.normalize())
     return np.asarray(period_end <= pd.Timestamp(as_of).normalize())
 
 
@@ -92,7 +100,7 @@ def pine_ema(s: pd.Series, n: int) -> pd.Series:
 
 
 def cross_frame(close: pd.Series, short: int, long: int, kind: MaKind, tf: Timeframe,
-                as_of: pd.Timestamp | None = None) -> pd.DataFrame:
+                as_of: pd.Timestamp | None = None, *, bars: bool = False, tail: int | None = None) -> pd.DataFrame:
     """봉마다 크로스 상태와 사건.
 
     Args:
@@ -101,48 +109,62 @@ def cross_frame(close: pd.Series, short: int, long: int, kind: MaKind, tf: Timef
         kind: "ema" 또는 "sma".
         tf: "D" / "W" / "M".
         as_of: 마지막 봉이 끝났는지 판단할 날짜 (없으면 마지막 거래일).
+        bars: close 가 이미 그 봉의 종가(봉마다 한 값, 날짜 = 마지막 거래일)면 True — 일봉 → 봉 변환을 건너뛴다.
+        tail: 주면 선(이동평균 · 종가 필터 EMA)은 전체 기록으로 계산하고, 교차 · 임박 · 끝난 봉은 마지막 tail 봉에서만
+            계산한다 (2026-10-27, 백테스트 속도). 마지막 봉 판정이 보는 창(최대 약 25봉)보다 길면 그 봉들의 값은 전체로
+            계산한 것과 같다. 이때 bars_since 는 그 안에서만 센다 (교차가 그 전이면 −1).
 
     Returns:
         인덱스 = 봉의 마지막 거래일. 컬럼:
         close · ma_s · ma_l · gap((단기−장기)/장기) · golden(단기 > 장기) · gc(골든크로스) · dc(데드크로스)
         · bars_since(마지막 교차 후 봉 수, 교차 봉 = 0, 교차 전 = −1) · n_bar(첫 봉 = 0)
-        · gi(임박, 앱 규칙) · gi_plus(임박 + 종가 > 단기선) · complete(봉이 끝났는지).
+        · gi(임박, 앱 규칙) · gi_plus(임박 + 종가 > 단기선) · complete(봉이 끝났는지)
+        · close_ema(tail 을 주고 종가 필터가 있는 봉만 — 전체 기록으로 계산한 필터 EMA).
     """
     if short >= long:
         raise ValueError(f"short({short}) < long({long}) 이어야 한다")
     rule = TF_RULES[tf]
-    c = to_bars(close, tf)
-    out = pd.DataFrame(index=c.index)
-    out["close"] = c
+    c = close.dropna().astype("float64") if bars else to_bars(close, tf)
     ms = moving_average(c, short, kind)
     ml = moving_average(c, long, kind)
-    out["ma_s"], out["ma_l"] = ms, ml
-    out["gap"] = (ms - ml) / ml
+    ce = pine_ema(c, rule.close_filter_ema) if rule.close_filter_ema > 0 else None
+    offset = 0
+    if tail is not None and len(c) > tail:
+        offset = len(c) - tail
+        c, ms, ml = c.iloc[offset:], ms.iloc[offset:], ml.iloc[offset:]
+        ce = ce.iloc[offset:] if ce is not None else None
+    gap = (ms - ml) / ml
     valid = ms.notna() & ml.notna()
     above = (ms > ml) & valid
     prev_valid = valid.shift(1, fill_value=False)
     prev_le = (ms.shift(1) <= ml.shift(1)) & prev_valid
     prev_ge = (ms.shift(1) >= ml.shift(1)) & prev_valid
-    out["golden"] = above
-    out["gc"] = valid & (ms > ml) & prev_le
-    out["dc"] = valid & (ms < ml) & prev_ge
+    gc = valid & (ms > ml) & prev_le
+    dc = valid & (ms < ml) & prev_ge
 
-    cross = (out["gc"] | out["dc"]).to_numpy()
-    pos = np.arange(len(out))
-    last = np.maximum.accumulate(np.where(cross, pos, -1)) if len(out) else pos
-    out["bars_since"] = np.where(last >= 0, pos - last, -1)
-    out["n_bar"] = pos  # 첫 봉 = 0 (상장 직후 봉을 빼고 싶을 때 쓴다)
-
-    out["gi"] = _imminent(c, ms, ml, out["gap"], valid, cross, short, rule)
-    out["gi_plus"] = out["gi"] & (c > ms)
+    cross = (gc | dc).to_numpy()
+    pos = np.arange(len(c))
+    last = np.maximum.accumulate(np.where(cross, pos, -1)) if len(c) else pos
+    gi = _imminent(c, ms, ml, gap, valid, cross, short, rule, close_ema=ce)
     as_of = c.index[-1] if as_of is None or c.empty else as_of
-    out["complete"] = bar_complete(out.index, tf, as_of) if not c.empty else np.zeros(0, dtype=bool)
-    return out
+    cols: dict[str, object] = {
+        "close": c, "ma_s": ms, "ma_l": ml, "gap": gap, "golden": above, "gc": gc, "dc": dc,
+        "bars_since": np.where(last >= 0, pos - last, -1),
+        "n_bar": pos + offset,  # 첫 봉 = 0 (상장 직후 봉을 빼고 싶을 때 쓴다)
+        "gi": gi, "gi_plus": gi & (c > ms),
+        "complete": bar_complete(c.index, tf, as_of) if not c.empty else np.zeros(0, dtype=bool),
+    }
+    if tail is not None and ce is not None:
+        cols["close_ema"] = ce
+    return pd.DataFrame(cols, index=c.index)
 
 
 def _imminent(c: pd.Series, ms: pd.Series, ml: pd.Series, gap: pd.Series, valid: pd.Series,
-              cross: np.ndarray, short: int, rule: TfRule) -> pd.Series:
-    """patterns.detect_golden_cross 의 '골든크로스 임박'을 봉마다 (마지막 봉이 그 봉이라고 보고) 계산."""
+              cross: np.ndarray, short: int, rule: TfRule, close_ema: pd.Series | None = None) -> pd.Series:
+    """patterns.detect_golden_cross 의 '골든크로스 임박'을 봉마다 (마지막 봉이 그 봉이라고 보고) 계산.
+
+    close_ema: 종가 필터 EMA 를 미리 (전체 기록으로) 계산해 넘길 때 — 없으면 c 로 계산한다.
+    """
     lag = rule.slope_lookback - 1
     prev_gap = gap.shift(lag)
     # 최근 recent_window 봉 안에 교차(골든·데드)가 있으면 앱은 교차 라벨을 낸다
@@ -156,7 +178,7 @@ def _imminent(c: pd.Series, ms: pd.Series, ml: pd.Series, gap: pd.Series, valid:
     if rule.short_slope_confirm:
         ok &= ms > ms.shift(lag)
     if rule.close_filter_ema > 0:
-        ok &= c > pine_ema(c, rule.close_filter_ema)
+        ok &= c > (close_ema if close_ema is not None else pine_ema(c, rule.close_filter_ema))
     return ok.fillna(False).astype(bool)
 
 

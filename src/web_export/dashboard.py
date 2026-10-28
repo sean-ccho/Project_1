@@ -202,11 +202,13 @@ def ticker_info(row: pd.Series) -> dict[str, Any]:
             "monthly": _patterns(row.get("월봉패턴")),
         },
         "vol_ratio": _num(row.get("거래량돌파배수"), 2),  # 오늘 거래량 ÷ 20일 평균
-        "ma_gap": {  # 단기 MA 가 장기 MA 보다 몇 % 위(+)·아래(−)인지 — 골든·데드크로스까지 거리
-            "daily": _num(row.get("ema_gap_20_50"), 4),
+        "ma_gap": {  # 단기 MA 가 장기 MA 보다 몇 % 위(+)·아래(−)인지 — 골든·데드크로스까지 거리 (차트 EMA10/20, 끝난 봉)
+            "daily": _num(row.get("일봉_MA갭"), 4),
             "weekly": _num(row.get("주봉_MA갭"), 4),
             "monthly": _num(row.get("월봉_MA갭"), 4),
         },
+        # 진행 중인 주·월봉이 지금 가격으로 끝나면 바뀌는 교차 라벨 ('골든크로스' 등, 예고 — 표시 전용, 점수에 안 씀). 없으면 None
+        "preview": {"weekly": _text(row.get("주봉_예고")), "monthly": _text(row.get("월봉_예고"))},
         "golden": None,  # PT 골든크로스 목록에 있으면 build_dashboard 가 채운다
         "position_52w": _num(row.get("52주포지션"), 4),  # 52주 저점 0 ~ 고점 1
         "atr_pct": _num(row.get("ATR%"), 4),

@@ -1,6 +1,7 @@
 """출력 및 연동 유틸리티."""
 
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import pandas as pd
 
@@ -163,6 +164,22 @@ def generate_chart_paths(ticker: str) -> dict[str, str]:
     return paths
 
 
+# 시트 주·월봉 패턴 칸 끝에 붙이는 예고 (패턴 칸, 예고 칸, 진행 중인 봉)
+PREVIEW_CELLS = (("주봉패턴", "주봉_예고", "이번 주"), ("월봉패턴", "월봉_예고", "이번 달"))
+
+
+def _pattern_with_preview(patterns: Any, preview: Any, when: str) -> Any:
+    """'골든크로스임박, 정배열(완전)' + 예고 '골든크로스' → '골든크로스임박, 정배열(완전) · 예고(이번 주) 골든크로스'.
+
+    패턴 칸은 끝난 봉 기준 (TradingView 차트의 마지막 끝난 봉). 예고 = 진행 중인 봉이 지금 가격으로 끝나면 바뀌는 교차 라벨 —
+    시트에 보여 주기만 한다 (점수 · PT-1 은 features 의 패턴 칸 원본을 쓴다). 예고가 없으면 패턴 칸 그대로.
+    """
+    if not isinstance(preview, str) or not preview.strip():
+        return patterns
+    note = f"예고({when}) {preview.strip()}"
+    return f"{patterns.strip()} · {note}" if isinstance(patterns, str) and patterns.strip() else note
+
+
 def prepare_export_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     if "[헬스체크]" not in df.columns or "[시총]" not in df.columns:
         try:
@@ -178,6 +195,9 @@ def prepare_export_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
     cols = [col for col in EXPORT_COLUMNS if col in df.columns]
     export_df = df[cols].copy()
+    for pat_col, preview_col, when in PREVIEW_CELLS:
+        if pat_col in export_df.columns and preview_col in df.columns:
+            export_df[pat_col] = [_pattern_with_preview(p, v, when) for p, v in zip(export_df[pat_col], df[preview_col])]
 
     for col in PERCENT_COLUMNS:
         if col in export_df.columns:
@@ -1144,6 +1164,9 @@ def send_paper_trading_email(
     if golden_cross:
         golden_cross_html = (
             f"<h3 style='color:#b8860b'>⚡ 골든크로스 임박/직후 ({len(golden_cross)}종목)</h3>\n"
+            "<p style='font-size:12px;color:#666;margin:0 0 6px'>TradingView 차트의 EMA10(주황) · EMA20(보라) 기준. "
+            "주·월봉은 끝난 봉으로 판정 (이번 주·달 봉은 끝나야 반영 — 지금 가격으로 끝나면 바뀌는 것은 '예고'). "
+            "괄호 % = EMA10 이 EMA20 보다 위(+) · 아래(−)</p>\n"
             "<table border='1' cellpadding='4' style='border-collapse:collapse;font-size:14px'>\n"
             "<tr style='background:#fdf6e3;text-align:center'>\n"
             "  <th>종목</th><th>섹터/지수</th><th>[시총]</th><th>[헬스체크]</th><th>현재가</th><th>임박 타임프레임</th>"
@@ -1162,6 +1185,8 @@ def send_paper_trading_email(
                 tfs = ", ".join(parts)
             else:
                 tfs = ", ".join(g.get("timeframes", []))
+            for label, preview in g.get("previews") or []:
+                tfs += f"<br><span style='color:#999;font-size:11px'>예고: {label} {preview}</span>"
             # 다중 TF confirm은 ★ 표시 (2개 이상 타임프레임 임박)
             star_prefix = "★ " if g.get("tf_count", 0) >= 2 else ""
             insider_g = g.get("insider") or "—"

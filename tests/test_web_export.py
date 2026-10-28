@@ -128,17 +128,19 @@ def test_insider_info_cache_only_skips_uncached(monkeypatch) -> None:
 def test_golden_cross_lists_by_market() -> None:
     ranked = pd.DataFrame([
         {"티커": "AAA", "market": "sp500", "일봉패턴": "골든크로스임박", "주봉패턴": "골든크로스", "월봉패턴": "",
-         "ema_gap_20_50": -0.012, "주봉_MA갭": 0.02, "월봉_MA갭": 0.3},
+         "일봉_MA갭": -0.012, "주봉_MA갭": 0.02, "월봉_MA갭": 0.3},
         {"티커": "BBB", "market": "nasdaq", "일봉패턴": "골든크로스", "주봉패턴": "", "월봉패턴": "",
-         "ema_gap_20_50": 0.2, "주봉_MA갭": 0.0, "월봉_MA갭": 0.0},  # 5% 넘게 벌어진 교차는 빠진다
+         "일봉_MA갭": 0.2, "주봉_MA갭": 0.0, "월봉_MA갭": 0.0},  # 5% 넘게 벌어진 교차는 빠진다
         {"티커": "CCC", "market": "nasdaq", "일봉패턴": "데드크로스", "주봉패턴": "", "월봉패턴": "골든크로스임박",
-         "ema_gap_20_50": -0.1, "주봉_MA갭": 0.0, "월봉_MA갭": -0.03},
+         "일봉_MA갭": -0.1, "주봉_MA갭": 0.0, "월봉_MA갭": -0.03},
     ])
     out = wd.golden_cross_lists(ranked)
     assert out["sp500"] == [{"ticker": "AAA", "timeframes": [{"tf": "daily", "gap": -0.012}, {"tf": "weekly", "gap": 0.02}]}]
     assert out["nasdaq"] == [{"ticker": "CCC", "timeframes": [{"tf": "monthly", "gap": -0.03}]}]
-    info = wd.ticker_info(pd.Series({"거래량돌파배수": 2.345, "ema_gap_20_50": -0.0123, "주봉_MA갭": float("nan")}))
+    info = wd.ticker_info(pd.Series({"거래량돌파배수": 2.345, "일봉_MA갭": -0.0123, "주봉_MA갭": float("nan"),
+                                     "주봉_예고": "골든크로스", "월봉_예고": ""}))
     assert info["vol_ratio"] == 2.35 and info["ma_gap"] == {"daily": -0.0123, "weekly": None, "monthly": None}
+    assert info["preview"] == {"weekly": "골든크로스", "monthly": None}  # 예고 없음('') → None
     assert info["golden"] is None
 
 

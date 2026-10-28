@@ -61,6 +61,11 @@ from screener.config import (
 from screener.alpha_model import compute_factor_scores, compute_factor_scores_from_indicators, compute_alpha_score, compute_ic_weights
 from screener.fundamentals import fetch_fundamental_snapshots
 from screener.patterns import detect_all_patterns, detect_chart_reversal, detect_weekly_patterns, detect_monthly_patterns, AllPatterns, get_weekly_data, get_monthly_data
+from screener.chart_ma import ChartPrices, chart_prices, chart_view, cross_label, extend_chart, split_only_ohlcv
+
+# 교차 라벨 한글 이름 (일·주·월 같은 이름 — 점수 가중치 키와 같아야 한다)
+CROSS_KO = {"golden_cross": "골든크로스", "golden_cross_imminent": "골든크로스임박",
+            "death_cross": "데드크로스", "death_cross_imminent": "데드크로스임박"}
 
 
 def to_market(ticker: str) -> str:
@@ -154,11 +159,15 @@ class FeatureSet:
     daily_golden_cross_conf: float
     weekly_golden_cross_conf: float
     monthly_golden_cross_conf: float
-    # 주봉/월봉 MA갭 (signed: 음수=단기<장기 임박, 양수=단기>장기 직후/배열)
-    # 일봉은 ema_gap_20_50 사용. detect_golden_cross와 동일한 MA 기간:
-    # 주봉 SMA10/SMA40, 월봉 SMA3/SMA10.
+    # 일·주·월봉 MA갭 (signed: 음수=단기<장기 임박, 양수=단기>장기 직후/배열) — 교차 라벨과 같은 선:
+    # 차트의 EMA10(주황)·EMA20(보라), 분할만 반영 가격, 끝난 봉 (screener.chart_ma, 2026-10-26).
+    # 예전 일봉 갭은 ema_gap_20_50 이었는데 그 값은 알파·ML 입력이라 그대로 두고 일봉 갭을 따로 둔다.
+    daily_ma_gap: float
     weekly_ma_gap: float
     monthly_ma_gap: float
+    # 진행 중인 주·월봉으로 보면 달라지는 교차 라벨 (예고, 표시 전용 — 점수에 안 씀). 없으면 ""
+    weekly_preview: str
+    monthly_preview: str
     # 저점 반등 지표
     rsi_reversal: bool           # RSI 과매도 후 반등
     bollinger_bounce: bool       # 볼린저 하단 터치 후 복귀
@@ -170,8 +179,12 @@ class FeatureSet:
     monthly_patterns_list: List = field(default_factory=list)
 
 
-def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
-    """종목별 히스토리 데이터에서 계산 가능한 모든 특징을 생성한다."""
+def compute_features_for_ticker(p: pd.DataFrame, chart: ChartPrices | None = None) -> Optional[FeatureSet]:
+    """종목별 히스토리 데이터에서 계산 가능한 모든 특징을 생성한다.
+
+    chart: 그 종목의 차트 가격 (분할만 반영 · 상장 이후 전체 주·월봉, screener.chart_ma.ChartPrices) — 패턴 · 교차 라벨용.
+        밤 실행은 data.fetch.fetch_chart_prices, 백테스트는 얼린 파일에서. 없으면 p 로 만든다 (주·월봉 기록이 5년뿐)
+    """
 
     if len(p.dropna(how="all")) < 120:  # 데이터가 너무 짧으면 신뢰도가 떨어지므로 계산을 생략한다.
         return None
@@ -536,9 +549,20 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         (2.0 if macd_divergence else 0.0)
     )
 
-    # 차트 패턴 감지
+    # 차트 패턴 감지 — 모든 패턴 · 교차 라벨을 TradingView 차트와 같은 봉으로 본다 (2026-10-27, screener.chart_ma):
+    # 분할만 반영한 가격 · 주·월봉은 끝난 봉 · 선은 Pine 계산. chart(상장 이후 전체 주·월봉)가 있으면 그것으로, 없거나
+    # 그날 값이 없으면 받은 일봉(최근 5년)으로 만든다 — 그때는 주·월봉 EMA100/200 이 짧거나 없다
+    as_of = p.index[-1]
+    c_daily = pd.DataFrame()
+    if chart is not None:
+        if not chart.daily.empty and as_of > chart.daily.index[-1]:   # 전체 기록에 아직 없는 최근 날 → 받은 일봉으로 채움
+            chart = extend_chart(chart, split_only_ohlcv(p))
+        c_daily, c_weekly, c_monthly = chart_view(chart, as_of)
+    if c_daily.empty or c_daily.index[-1] < as_of:
+        c_daily, c_weekly, c_monthly = chart_view(chart_prices(split_only_ohlcv(p)), as_of)
+
     # 차트 패턴: 일봉
-    patterns = detect_all_patterns(p[-PATTERN_LOOKBACK_DAYS * 2 :])  # 충분한 데이터 전달
+    patterns = detect_all_patterns(c_daily[-PATTERN_LOOKBACK_DAYS * 2 :])  # 충분한 데이터 전달
     
     # 일봉 패턴 요약 문자열 생성
     d_patterns_list = []
@@ -577,23 +601,26 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         d_patterns_list.append(patterns.head_shoulders)
     if patterns.cup_handle:
         d_patterns_list.append("cup_with_handle")
-    if patterns.golden_cross != "none":
-        d_patterns_list.append(patterns.golden_cross)
+    # 교차 라벨 (일·주·월) — 차트와 같은 선 (screener.chart_ma). 주·월봉은 위 차트 봉(끝난 봉 판정은 as_of)으로
+    d_cross = cross_label(c_daily["Close"], "D")
+    w_cross = cross_label(c_weekly["Close"], "W", as_of, bars=True)
+    m_cross = cross_label(c_monthly["Close"], "M", as_of, bars=True)
+    if d_cross.label != "none":
+        d_patterns_list.append(d_cross.label)
     if patterns.candlestick != "none":
         # 캔들스틱은 콤마로 구분된 문자열일 수 있음
         for c in patterns.candlestick.split(","):
             d_patterns_list.append(c.strip())
-    # 차트 반전 확인: EMA200 주추세 판정에 긴 히스토리가 필요해 전체 데이터 전달
-    chart_reversal = detect_chart_reversal(p)
+    # 차트 반전 확인: EMA200 주추세 판정에 긴 히스토리가 필요해 일봉 5년 전체 전달
+    chart_reversal = detect_chart_reversal(c_daily)
     if chart_reversal.detected:
         d_patterns_list.append(chart_reversal.pattern_type)
-            
+
     # 한글로 변환하여 콤마로 연결
     daily_patterns_str = ", ".join([d_pattern_map.get(p, p) for p in d_patterns_list])
 
-    # 차트 패턴: 주봉 (Weekly)
-    # 전체 데이터를 넘기면 내부에서 리샘플링 후 패턴 감지
-    w_patterns_list = detect_weekly_patterns(p)
+    # 차트 패턴: 주봉 (Weekly) — 위 차트 주봉 (끝난 봉만 패턴으로 본다)
+    w_patterns_list = detect_weekly_patterns(p, cross=w_cross, bars=c_weekly)
     # 신뢰도가 높은 순으로 정렬 또는 중요도 순으로 정렬 가능하나, 여기선 감지된 순서대로 나열
     # 엑셀 출력을 위해 문자열로 변환 (예: "Golden Cross, Double Bottom")
     # 이름 매핑을 좀 더 예쁘게 할 수도 있음 (영어 그대로 사용)
@@ -603,6 +630,8 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         pattern_map = {
             "golden_cross": "골든크로스",
             "golden_cross_imminent": "골든크로스임박",
+            "death_cross": "데드크로스",
+            "death_cross_imminent": "데드크로스임박",
             "double_bottom": "이중바닥",
             "inverse_head_and_shoulders": "역헤드앤숄더",
             "cup_with_handle": "컵앤핸들",
@@ -618,13 +647,15 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         weekly_patterns_str = ", ".join([pattern_map.get(name, name) for name, conf in w_patterns_list])
 
     # 차트 패턴: 월봉 (Monthly)
-    m_patterns_list = detect_monthly_patterns(p)
+    m_patterns_list = detect_monthly_patterns(p, cross=m_cross, bars=c_monthly)
     monthly_patterns_str = ""
     if m_patterns_list:
         # 영어 -> 한글 매핑 (주봉과 동일한 키 사용)
         pattern_map = {
             "golden_cross": "골든크로스",
             "golden_cross_imminent": "골든크로스임박",
+            "death_cross": "데드크로스",
+            "death_cross_imminent": "데드크로스임박",
             "double_bottom": "이중바닥",
             "inverse_head_and_shoulders": "역헤드앤숄더",
             "cup_with_handle": "컵앤핸들",
@@ -640,11 +671,7 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         monthly_patterns_str = ", ".join([pattern_map.get(name, name) for name, conf in m_patterns_list])
 
     # 골든크로스/임박 신뢰도 추출 (정렬·차트 우선순위용)
-    daily_gc_conf = (
-        float(patterns.golden_cross_confidence)
-        if patterns.golden_cross in ("golden_cross", "golden_cross_imminent")
-        else 0.0
-    )
+    daily_gc_conf = 1.0 if d_cross.label in ("golden_cross", "golden_cross_imminent") else 0.0
     weekly_gc_conf = next(
         (float(c) for n, c in w_patterns_list if n in ("golden_cross", "golden_cross_imminent")),
         0.0,
@@ -654,28 +681,12 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         0.0,
     )
 
-    # 주봉/월봉 MA갭 (signed). detect_golden_cross와 동일 MA 기간 사용.
+    # 일·주·월봉 MA갭 (signed) — 교차 라벨과 같은 선 (차트 EMA10/EMA20, 끝난 봉). 선이 아직 없으면 0.0.
     # 표시 레이어에서 골든크로스 임박/직후 갭 % 출력에 쓰임.
-    weekly_ma_gap = 0.0
-    try:
-        weekly_df = get_weekly_data(p)
-        if len(weekly_df) >= 40:
-            wma10 = float(weekly_df["Close"].rolling(10).mean().iloc[-1])
-            wma40 = float(weekly_df["Close"].rolling(40).mean().iloc[-1])
-            if not (np.isnan(wma10) or np.isnan(wma40)) and wma40 != 0:
-                weekly_ma_gap = (wma10 - wma40) / wma40
-    except Exception:
-        pass
-    monthly_ma_gap = 0.0
-    try:
-        monthly_df = get_monthly_data(p)
-        if len(monthly_df) >= 10:
-            mma3 = float(monthly_df["Close"].rolling(3).mean().iloc[-1])
-            mma10 = float(monthly_df["Close"].rolling(10).mean().iloc[-1])
-            if not (np.isnan(mma3) or np.isnan(mma10)) and mma10 != 0:
-                monthly_ma_gap = (mma3 - mma10) / mma10
-    except Exception:
-        pass
+    def _gap(c) -> float:
+        return float(c.gap) if np.isfinite(c.gap) else 0.0
+
+    daily_ma_gap, weekly_ma_gap, monthly_ma_gap = _gap(d_cross), _gap(w_cross), _gap(m_cross)
 
     return FeatureSet(
         trend_score=trend_score,
@@ -737,15 +748,18 @@ def compute_features_for_ticker(p: pd.DataFrame) -> Optional[FeatureSet]:
         pattern_head_shoulders=patterns.head_shoulders,
         pattern_cup_handle=patterns.cup_handle,
         pattern_candlestick=patterns.candlestick,
-        pattern_golden_cross=patterns.golden_cross,
+        pattern_golden_cross=d_cross.label,
         daily_patterns=daily_patterns_str,
         weekly_patterns=weekly_patterns_str,
         monthly_patterns=monthly_patterns_str,
         daily_golden_cross_conf=daily_gc_conf,
         weekly_golden_cross_conf=weekly_gc_conf,
         monthly_golden_cross_conf=monthly_gc_conf,
+        daily_ma_gap=daily_ma_gap,
         weekly_ma_gap=weekly_ma_gap,
         monthly_ma_gap=monthly_ma_gap,
+        weekly_preview=CROSS_KO.get(w_cross.preview, ""),
+        monthly_preview=CROSS_KO.get(m_cross.preview, ""),
         weekly_patterns_list=w_patterns_list,
         monthly_patterns_list=m_patterns_list,
         # 저점 반등 지표
@@ -829,8 +843,11 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "일봉_골든크로스_신뢰도": feature_set.daily_golden_cross_conf,
         "주봉_골든크로스_신뢰도": feature_set.weekly_golden_cross_conf,
         "월봉_골든크로스_신뢰도": feature_set.monthly_golden_cross_conf,
+        "일봉_MA갭": feature_set.daily_ma_gap,
         "주봉_MA갭": feature_set.weekly_ma_gap,
         "월봉_MA갭": feature_set.monthly_ma_gap,
+        "주봉_예고": feature_set.weekly_preview,
+        "월봉_예고": feature_set.monthly_preview,
         # 저점 반등 지표
         "RSI반등": int(feature_set.rsi_reversal),
         "볼린저바운스": int(feature_set.bollinger_bounce),
@@ -849,9 +866,11 @@ def compute_features_snapshot(
     include_fundamentals: bool = True,
     ic_weights_override: Optional[dict[str, float]] = None,
     fundamentals_df: Optional[pd.DataFrame] = None,
+    chart_map: Optional[Mapping[str, ChartPrices]] = None,
 ) -> pd.DataFrame:
     """주어진 종목별 시계열 스냅샷에서 특징 테이블을 생성한다.
 
+    chart_map: 종목 → 차트 가격 (패턴 · 교차 라벨용, compute_features_for_ticker 의 chart). 없는 종목은 받은 일봉으로.
     ic_weights_override: 미리 계산된 IC 가중치. 제공되면 compute_ic_weights를 건너뜀.
     fundamentals_df: 미리 로드된 펀더멘탈 DataFrame. 제공되면 API 호출을 건너뜀.
     백테스트에서는 시뮬레이션 시작 전에 한 번만 가져와서 이 파라미터로 전달한다.
@@ -876,7 +895,7 @@ def compute_features_snapshot(
 
     rows = []
     for ticker, frame in price_map.items():
-        features = compute_features_for_ticker(frame.dropna(how="all"))
+        features = compute_features_for_ticker(frame.dropna(how="all"), (chart_map or {}).get(ticker))
         if features is None:
             continue
 
@@ -956,13 +975,14 @@ def compute_features_snapshot(
 
 
 def compute_all_features(
-    df: pd.DataFrame, *, include_fundamentals: bool = True
+    df: pd.DataFrame, *, include_fundamentals: bool = True,
+    chart_map: Optional[Mapping[str, ChartPrices]] = None,
 ) -> pd.DataFrame:
-    """모든 종목에 대해 특징을 계산하고 테이블 형태로 반환한다."""
+    """모든 종목에 대해 특징을 계산하고 테이블 형태로 반환한다. chart_map: 종목 → 차트 가격 (data.fetch.fetch_chart_prices)."""
 
     price_map: Dict[str, pd.DataFrame] = {
         ticker: df[ticker].dropna(how="all") for ticker in df.columns.levels[0]
     }
     return compute_features_snapshot(
-        price_map, include_fundamentals=include_fundamentals
+        price_map, include_fundamentals=include_fundamentals, chart_map=chart_map
     )
