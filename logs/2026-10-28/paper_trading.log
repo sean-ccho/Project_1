@@ -1,0 +1,35 @@
+============================================================
+[Unified Paper Trading] PT-1 실행 시작
+============================================================
+2026-10-28 09:43:54,419 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+2026-10-28 09:43:54,427 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 227개 종목
+[Unified PT] NASDAQ snapshot 로드: 227개 종목
+[Unified PT] 합산 완료: 350개 종목 (SP500 130 + NASDAQ 227개, 중복 제거 후)
+[Unified PT] 거래일(일봉 날짜): 2026-10-27
+[Unified PT] 골든크로스임박 종목: 47개
+2026-10-28 09:43:55,113 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 65 | 4.0~5.0: 34 | 5.0~5.5: 43 | 5.5~6.0: 48 | 6.0+: 157
+2026-10-28 09:43:55,131 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=16/350 | Selected: V (CCS=0.6344)
+2026-10-28 09:43:55,136 [INFO] paper_trading.engine — [PaperTrading] 교체 기준 미달 — 매수 안 함
+[Unified PT] 매도=0 매수=0 보유=3종목
+[Unified PT] 레짐=bull | 필터={'지수ETF': 3, '전략점수<6.0': 190, '바닥반등_52주과열': 3, '판단등급_미달': 116, '과열_차단': 8, '유동성_부족': 0, '어닝_임박': 4, '보유_중복': 0, '같은회사_중복': 0, '모멘텀_ADX부족': 5, '바닥_RSI데드존': 3, '섹터_집중': 2, '_통과': 16, '_전체': 350}
+[Unified PT] 스킵 사유: 교체_미달
+[Unified PT] Top5 후보:
+  V      CCS=0.6344 전략=📈 모멘텀 섹터=Financial Services
+  SPGI   CCS=0.6156 전략=📈 모멘텀 섹터=Financial Services
+  SBSW   CCS=0.6133 전략=📉 바닥반등 섹터=Basic Materials
+  AG     CCS=0.6019 전략=📉 바닥반등 섹터=Basic Materials
+  HL     CCS=0.5865 전략=📉 바닥반등 섹터=Basic Materials
+2026-10-28 09:43:57,221 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 다시 쓰기: 페이퍼_거래로그 115줄
+2026-10-28 09:43:58,406 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-10-28 09:43:59,849 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 56건 거래
+[Unified PT] 구글 시트 동기화 완료
+[OHLCV] 배치 다운로드 1/2 (50개 종목, period=2y)...
+[OHLCV] 배치 다운로드 2/2 (11개 종목, period=2y)...
+[DataValidator] 데이터 품질 경고 1건 — 정보용, 데이터는 그대로 씀
+  최근 1년 하루 ±50% 넘는 변동 (대부분 실제 급등락, 스플릿/데이터 오류 가능) — 1종목: LRN -54%(2025-10-29)
+[Unified PT] $5,000 계좌 탭 '페이퍼_계좌' 동기화 완료
+[Email] 페이퍼 트레이딩 알림 발송 완료 (매도 0건, 매수 0건, 재평가 0건, 재평가실패 0건, 후보 5건) → chunghwan14@gmail.com
+============================================================
+[Unified Paper Trading] 완료
+============================================================
