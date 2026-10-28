@@ -55,7 +55,7 @@ import pandas as pd  # noqa: E402
 
 import isb_engine as isb  # noqa: E402
 import paper_trading.backtest as bt  # noqa: E402
-from data.fetch import _ohlcv_cache_path  # noqa: E402
+from data.fetch import _ohlcv_cache_path, chart_prices_path, load_chart_prices  # noqa: E402
 from paper_trading import candidate_selector as cs  # noqa: E402
 from paper_trading.config_override import config_overrides  # noqa: E402
 from paper_trading.evaluation import cagr, max_drawdown, paired_bootstrap, sharpe, verdict  # noqa: E402
@@ -228,7 +228,8 @@ def _engine_prices() -> dict[str, Any]:
 # ============================================================
 _ORIG = {name: getattr(bt, name) for name in (
     "select_top_candidates", "check_sell_conditions", "_close_position", "intraday_stop_exit",
-    "_compute_ranked_snapshot", "_record_equity", "slot_allocation", "fetch_ohlcv", "_pit_universe_tickers")}
+    "_compute_ranked_snapshot", "_record_equity", "slot_allocation", "fetch_ohlcv", "_pit_universe_tickers",
+    "fetch_chart_prices")}
 _SNAP: dict[pd.Timestamp, pd.DataFrame] | None = None   # 실행 간 날짜별 ranked 후보표 (enable_snapshot_cache 로 켬)
 
 
@@ -328,6 +329,17 @@ def _strict_fetch(tickers: list[str], period: str = "1y", force_download: bool =
     return pd.read_parquet(path)
 
 
+def _strict_chart_fetch(tickers: list[str], *args: Any, **kw: Any) -> dict[str, Any]:
+    """얼린 차트 가격 파일만 읽는다 (패턴 · 교차 라벨용, 분할만 반영 · 상장 이후 전체). 없으면 받지 않고 멈춘다.
+
+    파일은 scripts/build_chart_prices.py 가 한 번 만든다 (2026-10-27). 피처를 새로 계산할 때만 불린다.
+    """
+    path = chart_prices_path(tickers)
+    if not path.exists():
+        raise SystemExit(f"차트 가격 파일 {path.name} 없음 — scripts/build_chart_prices.py 로 먼저 얼린다")
+    return load_chart_prices(path)
+
+
 def apply_trim(ctx: RunCtx, pos: Any, exit_price: float, exit_date: str, kind: str) -> float:
     """ISB 트림: 그 포지션 원래 주식 수의 33% 를 판다 (포지션은 남김). Returns 매도 대금 (비용 차감, 안 팔면 0)."""
     key = (pos.ticker, pos.entry_date)
@@ -368,6 +380,7 @@ def _patched(ctx: RunCtx) -> Iterator[None]:
     """엔진 이름 바꿔 끼우기. BASE 도 가격(엄격 읽기)·종목 목록(고정)은 같은 방식으로."""
     ov, pinned = ctx.ov, _pinned_tickers()
     bt.fetch_ohlcv = _strict_fetch
+    bt.fetch_chart_prices = _strict_chart_fetch
     bt._pit_universe_tickers = lambda membership, period: list(pinned)
     overrides: dict[str, Any] = {}
     if ov.key != "BASE":
