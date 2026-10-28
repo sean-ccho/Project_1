@@ -1,21 +1,21 @@
 ============================================================
-  ✅ Health Check (LOG_DATE 2026-10-28, 스냅샷 일봉 2026-10-27): HEALTHY — 실패 0 · 경고 0 · 통과 18
+  ❌ Health Check (LOG_DATE 2026-10-28, 스냅샷 일봉 None): UNHEALTHY — 실패 2 · 경고 4 · 통과 12
 ============================================================
-  ✅ pt1 상태: 일봉 2026-10-27 처리됨
+  ⚠️ pt1 상태: 마지막 처리 2026-10-27 (스냅샷 일봉을 몰라 비교 못 함)
   ✅ pt1/positions.json: 3개 항목
   ✅ pt1/trades.json: 56개 항목
-  ✅ pt1s 상태: 일봉 2026-10-27 처리됨
+  ⚠️ pt1s 상태: 마지막 처리 2026-10-27 (스냅샷 일봉을 몰라 비교 못 함)
   ✅ pt1s/positions.json: 3개 항목
   ✅ pt1s/trades.json: 3개 항목
-  ✅ pt1n 상태: 일봉 2026-10-27 처리됨
+  ⚠️ pt1n 상태: 마지막 처리 2026-10-27 (스냅샷 일봉을 몰라 비교 못 함)
   ✅ pt1n/positions.json: 3개 항목
   ✅ pt1n/trades.json: 2개 항목
-  ✅ pt_spy 상태: 일봉 2026-10-27 처리됨
+  ⚠️ pt_spy 상태: 마지막 처리 2026-10-27 (스냅샷 일봉을 몰라 비교 못 함)
   ✅ pt_spy/positions.json: 1개 항목
   ✅ pt_spy/trades.json: 0개 항목
   ✅ pt_spy/account.json: OK
-  ✅ sp500_ranked.parquet 일봉: 일봉 2026-10-27
-  ✅ nasdaq_ranked.parquet 일봉: 일봉 2026-10-27
+  ❌ sp500_ranked.parquet 일봉: _bar_date 을 읽지 못함
+  ❌ nasdaq_ranked.parquet 일봉: _bar_date 을 읽지 못함
   ✅ 스텝 로그: 7개 모두 있음
   ✅ 에러 로그: 우리 모듈의 [ERROR]·Traceback 없음
   ✅ PT-1 메일: 발송 완료
