@@ -276,6 +276,14 @@ jobs:
 
       # 개인 웹사이트(별도 리포)가 읽는 dashboard.json — 차트 폴더 목록을 읽어야 해서 스크린샷 push 보다 먼저
       # (스크린샷 스텝의 'git checkout -f main' 이 차트 폴더를 지운다). 파일은 리포 밖 RUNNER_TEMP 에 둔다.
+      # 사이트 ETF 탭(/quant/etf)과 시트 [ETF] — 묶음별 ETF 정보 · 수익률 · 추세 · 위험, 표시 전용 (2026-10-28)
+      - name: ETF scan
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/web"
+          PYTHONPATH=.:src python -m screener.etf_scan --out "$RUNNER_TEMP/web/etf.json" --sheet \
+            || echo "::warning title=ETF 스캔 실패::etf.json · 시트 [ETF] 를 만들지 못했습니다 (파이프라인은 계속 진행)."
+
       - name: Export web dashboard data
         if: always()
         run: |
@@ -344,6 +352,7 @@ jobs:
           cd "$RUNNER_TEMP/web"
           git init -q -b dashboard-data
           git add dashboard.json
+          [ -f etf.json ] && git add etf.json   # ETF 탭 (없으면 사이트가 'ETF 데이터 없음'을 보여 줌)
           git commit -q -m "dashboard data $(date +%s) [skip ci]"
           if git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" dashboard-data; then
             date +%s > "$RUNNER_TEMP/web_pushed_at"
