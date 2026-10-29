@@ -147,6 +147,23 @@ def test_fill_failed_rows_from_previous_snapshot(tmp_path, capsys):
     assert fund["fund_sector"].iloc[0] == "Unknown"
 
 
+def test_fill_text_columns_without_turning_numbers_into_objects(tmp_path):
+    """업종·회사 소개(글자)도 전날 값으로 — 실전 스냅샷의 'nan' 글자는 빈 값, 숫자 칸은 숫자 그대로."""
+    pd.DataFrame({
+        "티커": ["AAA", "BBB"], "섹터": ["Healthcare", "Energy"], "fund_sector": ["Healthcare", "Energy"],
+        "fund_roe": [0.3, 0.1], "fund_market_cap": [2e9, 3e9],
+        "fund_industry": ["Medical Devices", "nan"], "fund_summary": ["Makes stents.", "None"],
+    }).to_parquet(tmp_path / "sp500_ranked.parquet")
+    fund = pd.DataFrame([{**_record("AAA", False), "fund_industry": None, "fund_summary": None},
+                         {**_record("BBB", False), "fund_industry": None, "fund_summary": None},
+                         {**_record("OKK"), "fund_industry": "Software", "fund_summary": "Writes code."}])
+    out = fill_from_previous_snapshot(fund, snapshot_dir=tmp_path, today=TODAY).set_index("티커")
+    assert out.loc["AAA", "fund_industry"] == "Medical Devices" and out.loc["AAA", "fund_summary"] == "Makes stents."
+    assert out.loc["BBB", "fund_industry"] is None and out.loc["BBB", "fund_summary"] is None
+    assert out.loc["OKK", "fund_summary"] == "Writes code."
+    assert out["fund_roe"].dtype == float and out.loc["AAA", "fund_roe"] == 0.3
+
+
 def _ohlcv(tickers: list[str], days: int = 300) -> pd.DataFrame:
     rng = np.random.default_rng(0)
     idx = pd.bdate_range("2025-07-01", periods=days)

@@ -13,7 +13,7 @@ import gzip
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -115,8 +115,12 @@ def market_payload(key: str, label: str, items: dict[str, dict[str, Any]], *, ba
     }
 
 
-def write_payloads(out_dir: Path, payloads: list[dict[str, Any]]) -> dict[str, int]:
-    """{key}.json 과 stocks/{티커}.json 을 쓴다 → {파일: 바이트}. 같은 티커가 두 시장에 있으면 앞의 것."""
+def write_payloads(out_dir: Path, payloads: list[dict[str, Any]],
+                   about: Mapping[str, str | None] | None = None) -> dict[str, int]:
+    """{key}.json 과 stocks/{티커}.json 을 쓴다 → {파일: 바이트}. 같은 티커가 두 시장에 있으면 앞의 것.
+
+    about: 티커 → 회사 소개(영어, yfinance). 종목 파일에만 싣는다 (시장 파일에 넣으면 목록이 몇 MB 커진다).
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     stocks_dir = out_dir / "stocks"
     stocks_dir.mkdir(exist_ok=True)
@@ -133,7 +137,8 @@ def write_payloads(out_dir: Path, payloads: list[dict[str, Any]]) -> dict[str, i
             if ticker in written:
                 continue
             written.add(ticker)
-            one = {"schema": SCHEMA_VERSION, "bar_date": p["bar_date"], "market": p["key"], "ticker": ticker, "info": info}
+            one = {"schema": SCHEMA_VERSION, "bar_date": p["bar_date"], "market": p["key"], "ticker": ticker, "info": info,
+                   "about": _text((about or {}).get(ticker))}
             (stocks_dir / f"{ticker}.json").write_text(
                 json.dumps(one, ensure_ascii=False, separators=(",", ":"), allow_nan=False), encoding="utf-8")
     sizes["stocks/"] = len(written)

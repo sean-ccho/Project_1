@@ -137,6 +137,11 @@ def fetch_fundamental_snapshots(tickers: List[str], use_cache: bool = False) -> 
         record = {
             "티커": symbol,
             "fund_sector": info.get("sector", "Unknown"),  # 섹터 정보 추가
+            # 웹 표시 전용 (2026-10-28) — 세부 업종 · 회사 소개(영어). 점수·필터에 안 쓴다
+            "fund_industry": info.get("industry") or None,
+            "fund_summary": info.get("longBusinessSummary") or None,
+            # Yahoo 정기 배당(1년, 달러/주) — 0 = 정기 배당 없음(특별배당만·안 줌), NaN = 정보를 못 받음
+            "fund_dividend_rate": (_safe_float(info.get("dividendRate")) if info.get("dividendRate") else 0.0) if info else np.nan,
             "fund_roe": _safe_float(info.get("returnOnEquity")),
             "fund_debt_to_equity": _safe_float(info.get("debtToEquity")),
             "fund_revenue_growth": _safe_float(info.get("revenueGrowth")),
@@ -179,6 +184,7 @@ def fetch_fundamental_snapshots(tickers: List[str], use_cache: bool = False) -> 
         "fund_short_interest",
         "fund_short_pct_float",
         "fund_institutional_holders_pct",
+        "fund_dividend_rate",
         "days_to_next_earnings",
     ]
     for col in numeric_cols:

@@ -358,6 +358,14 @@ def new_sheet_frame(young: pd.DataFrame, sqz: dict) -> pd.DataFrame:
                                "상장후수익률": "상장후수익률(%)", "5일수익률": "5일수익률(%)", "20일수익률": "20일수익률(%)"})
 
 
+def company_about(fund: pd.DataFrame) -> dict[str, str]:
+    """종목 정보 표 → {티커: 회사 소개(영어, yfinance)}. 못 받은 종목은 전날 스냅샷 값 (fill_from_previous_snapshot)."""
+    if fund is None or fund.empty or "fund_summary" not in fund.columns:
+        return {}
+    pairs = zip(fund["티커"].astype(str), fund["fund_summary"])
+    return {t: str(v).strip() for t, v in pairs if not pd.isna(v) and str(v).strip() not in ("", "nan", "None")}
+
+
 def snapshot_frame(frames: list[pd.DataFrame]) -> pd.DataFrame:
     """다음 날 종목 정보가 막혔을 때 쓸 값 — 티커·섹터·실적일·fund_* 만 (fundamentals_guard 가 읽는 칸)."""
     parts = [f[[c for c in f.columns if c in SNAPSHOT_EXTRA or str(c).startswith("fund_")]] for f in frames if not f.empty]
@@ -417,10 +425,12 @@ def main(argv: list[str] | None = None) -> int:
     snapshots: dict[str, list[pd.DataFrame]] = {}
     bar_dates: list[str] = []
     market_of = {t: "sp500" for t in sp_tickers} | {t: "nasdaq" for t in rest}
+    about: dict[str, str] = {}
 
     for key, label, sheet, tickers in markets:
         res = analyze_market(tickers, sheet, names, strong, prev_dir)
         _log(f"{sheet} 분석 끝", start)
+        about.update(company_about(res["fund"]))
         ranked = res["ranked"]
         young = young_listings(res["young"], res["young_fund"], names, market_of)
         all_t = ranked["티커"].astype(str).tolist() if not ranked.empty else []
@@ -468,7 +478,8 @@ def main(argv: list[str] | None = None) -> int:
                                        counts={"listed": len(young_all)}))
         sheets.append((SHEET_NEW, new_sheet_frame(young_all, young_sqz)))
 
-    sizes = write_payloads(args.out_dir, payloads)
+    sizes = write_payloads(args.out_dir, payloads, about)
+    print(f"[전체분석] 회사 소개 {len(about)}종목")
     snap_dir = args.out_dir / "snapshot"
     snap_dir.mkdir(parents=True, exist_ok=True)
     for key, frames in snapshots.items():

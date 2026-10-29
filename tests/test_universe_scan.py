@@ -125,6 +125,21 @@ def test_payload_drops_index_etfs_and_writes_stock_files(tmp_path: Path) -> None
     assert json.loads(gzip.decompress((tmp_path / "new.json.gz").read_bytes())) == json.loads((tmp_path / "new.json").read_text())
 
 
+def test_company_about_goes_to_stock_files_only(tmp_path: Path) -> None:
+    fund = pd.DataFrame({"티커": ["BSX", "NEWCO", "OLD"],
+                         "fund_summary": ["  Boston Scientific develops medical devices. ", None, "nan"]})
+    about = rus.company_about(fund)
+    assert about == {"BSX": "Boston Scientific develops medical devices."}
+    info = wu.item_info(pd.Series({"티커": "BSX", "market": "sp500", "fund_industry": "Medical Devices"}),
+                        tv=None, insider=None, isb=None, sqz=None)
+    assert info["industry"] == "Medical Devices"
+    p = wu.market_payload("sp500", "S&P 500", {"BSX": info, "OLD": info}, bar_date=None, counts={})
+    wu.write_payloads(tmp_path, [p], about)
+    assert json.loads((tmp_path / "stocks" / "BSX.json").read_text())["about"] == about["BSX"]
+    assert json.loads((tmp_path / "stocks" / "OLD.json").read_text())["about"] is None
+    assert "Boston Scientific develops" not in (tmp_path / "sp500.json").read_text()
+
+
 def test_snapshot_frame_keeps_fallback_columns_without_nan_text() -> None:
     f = pd.DataFrame({"티커": ["A", "B"], "섹터": ["Tech", None], "fund_roe": [0.1, np.nan],
                       "next_earnings_date": ["2026-11-01", None], "RSI": [50, 60]})
@@ -175,12 +190,13 @@ def test_sheet_pattern_cells_get_running_bar_preview() -> None:
 
 
 def test_sheet_dividend_cells_go_last() -> None:
-    """배당 칸은 맨 끝 (기존 칸 위치 그대로) — 수익률은 %, 금액은 1주당 달러."""
+    """배당 칸은 맨 끝 (기존 칸 위치 그대로) — 지금 받는 배당: 수익률은 %, 금액은 1주당 1년 달러."""
     ranked = pd.DataFrame([
-        {"티커": "VZ", "현재가격": 43.71, "RSI": 55.0, "dividend_yield": 0.064379, "annual_dividend": 2.814},
-        {"티커": "NVDA", "현재가격": 190.0, "RSI": 61.0, "dividend_yield": 0.0002, "annual_dividend": 0.04},
+        {"티커": "VZ", "현재가격": 43.18, "RSI": 55.0, "dividend_rate": 2.832, "fund_dividend_rate": 2.83},
+        {"티커": "NVDA", "현재가격": 200.0, "RSI": 61.0, "dividend_rate": 1.0, "fund_dividend_rate": 1.0},
+        {"티커": "AIV", "현재가격": 1.61, "RSI": 40.0, "dividend_rate": 2.75, "fund_dividend_rate": 0.0},
     ])
     out = ex.prepare_export_dataframe(ranked)
     assert list(out.columns[-2:]) == ["배당수익률(%)", "연 배당금($/주)"]
-    assert out["배당수익률(%)"].tolist() == [6.4, 0.0] and out["연 배당금($/주)"].tolist() == [2.814, 0.04]
+    assert out["배당수익률(%)"].tolist() == [6.56, 0.5, 0.0] and out["연 배당금($/주)"].tolist() == [2.832, 1.0, 0.0]
     assert out.columns.tolist().index("RSI") < out.columns.tolist().index("배당수익률(%)")

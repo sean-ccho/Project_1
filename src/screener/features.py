@@ -59,6 +59,7 @@ from screener.config import (
     WEIGHTS,
 )
 from screener.alpha_model import compute_factor_scores, compute_factor_scores_from_indicators, compute_alpha_score, compute_ic_weights
+from screener.dividends import forward_dividend
 from screener.fundamentals import fetch_fundamental_snapshots
 from screener.patterns import detect_all_patterns, detect_chart_reversal, detect_weekly_patterns, detect_monthly_patterns, AllPatterns, get_weekly_data, get_monthly_data
 from screener.chart_ma import ChartPrices, chart_prices, chart_view, cross_label, extend_chart, split_only_ohlcv
@@ -128,6 +129,7 @@ class FeatureSet:
     volatility_contraction: float
     dividend_yield: float
     annual_dividend: float
+    dividend_rate: float  # 지금 받는 배당 (최근 정기 배당 × 1년 횟수, 표시 전용 — screener.dividends)
     ema20: float
     ema50: float
     ema200: float
@@ -434,6 +436,7 @@ def compute_features_for_ticker(p: pd.DataFrame, chart: ChartPrices | None = Non
     )
 
     total_div_1y = p["Dividends"].iloc[-252:].sum()
+    dividend_rate = forward_dividend(p["Dividends"])
     latest_close = p["Close"].iloc[-1]
     dividend_yield = np.nan
     if not np.isnan(latest_close) and latest_close > 0:
@@ -725,6 +728,7 @@ def compute_features_for_ticker(p: pd.DataFrame, chart: ChartPrices | None = Non
         volatility_contraction=float(volatility_contraction),
         dividend_yield=float(dividend_yield),
         annual_dividend=float(total_div_1y),
+        dividend_rate=float(dividend_rate),
         ema20=float(ema20_latest) if not np.isnan(ema20_latest) else 0.0,
         ema50=float(ema50_latest) if not np.isnan(ema50_latest) else 0.0,
         ema200=float(ema200_latest) if not np.isnan(ema200_latest) else 0.0,
@@ -811,6 +815,7 @@ def feature_row_from_set(ticker: str, feature_set: FeatureSet) -> dict:
         "변동성압축": feature_set.volatility_contraction,
         "dividend_yield": feature_set.dividend_yield,
         "annual_dividend": feature_set.annual_dividend,
+        "dividend_rate": feature_set.dividend_rate,
         "시장": to_market(ticker),
         "섹터": SECTOR_MAP.get(ticker, "Unknown"),
         "ema20": feature_set.ema20,

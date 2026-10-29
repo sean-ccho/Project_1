@@ -79,7 +79,8 @@ def save_ranked_snapshot(df: pd.DataFrame, source: str) -> bool:
         _SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
         path = _SP500_SNAPSHOT if source == "sp500" else _NASDAQ_SNAPSHOT
 
-        df_save = df.copy()
+        # 회사 소개(종목마다 긴 영어 글)는 매일 커밋되는 이 파일에 넣지 않는다 — 웹 소개는 전체분석(universe-data)에서
+        df_save = df.drop(columns=["fund_summary"], errors="ignore")
 
         # 회사 건전성 점수 + 시가총액 컬럼 추가 (display-only, score/CCS에 영향 없음)
         try:

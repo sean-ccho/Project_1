@@ -79,11 +79,29 @@ def test_ticker_info_fundamentals_keep_yfinance_units() -> None:
 
 
 def test_ticker_info_dividends() -> None:
-    """배당 — 최근 1년 1주당 합계(달러) · ÷ 지금 가격. 배당 없는 종목은 0, 칸이 없으면 None."""
-    f = wd.ticker_info(pd.Series({"dividend_yield": 0.0643791, "annual_dividend": 2.81400001}))["fundamentals"]
-    assert f["dividend_yield"] == 0.0644 and f["annual_dividend"] == 2.814
-    assert wd.ticker_info(pd.Series({"dividend_yield": 0.0, "annual_dividend": 0.0}))["fundamentals"]["annual_dividend"] == 0.0
-    assert wd.ticker_info(pd.Series({"회사": "X"}))["fundamentals"]["annual_dividend"] is None
+    """배당 — 지금 받는 배당 (최근 정기 배당 × 1년 횟수 ÷ 가격). 특별배당만이면 0, 이상한 값·모르면 None."""
+    def div(**kw):
+        f = wd.ticker_info(pd.Series({"현재가격": 12.0, **kw}))["fundamentals"]
+        return f["dividend_yield"], f["annual_dividend"]
+
+    # 배당을 줄인 종목(TELUS 0.418 → 0.188/분기): Yahoo 는 옛 1.44 — 일봉 기록 값을 쓴다
+    assert div(dividend_rate=0.752, fund_dividend_rate=1.44) == (0.0627, 0.752)
+    # 특별배당만 (Yahoo 정기 배당 없음) → 없음
+    assert div(dividend_rate=22.0, fund_dividend_rate=0.0) == (0.0, 0.0)
+    # 1주당 $453 같은 데이터 오류 → 모름
+    assert div(dividend_rate=453.6, fund_dividend_rate=453.6) == (None, None)
+    # Yahoo 정보를 못 받은 날은 기록 값, 기록 계산이 없는 옛 스냅샷은 Yahoo 값, 둘 다 없으면 모름
+    assert div(dividend_rate=1.2, fund_dividend_rate=float("nan")) == (0.1, 1.2)
+    assert div(fund_dividend_rate=0.6) == (0.05, 0.6)
+    assert div() == (None, None)
+
+
+def test_ticker_info_industry() -> None:
+    """업종 — yfinance 영어 그대로. 실전 스냅샷의 'nan'·'None' 글자와 없는 칸은 None."""
+    assert wd.ticker_info(pd.Series({"fund_industry": "Medical Devices"}))["industry"] == "Medical Devices"
+    for v in ("nan", "None", "", None, float("nan")):
+        assert wd.ticker_info(pd.Series({"fund_industry": v}))["industry"] is None
+    assert wd.ticker_info(pd.Series({"회사": "X"}))["industry"] is None
 
 
 def test_insider_info_signals(monkeypatch) -> None:

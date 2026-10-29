@@ -37,6 +37,7 @@ CHUNK_SIZE = 50                   # 이만큼씩 받으며 막혔는지 본다
 BLOCK_RATIO = 0.8                 # 한 묶음에서 이 비율 넘게 실패하면 막혔는지 대형주로 확인 (평소 실패 0~2%)
 RETRY_WAITS = (60, 120, 300, 600)  # 막혔을 때 다시 확인하기 전 쉬는 초 (누적 최대 약 18분)
 PROBE_TICKERS = ("AAPL", "MSFT", "JPM")  # 막혔는지 확인용 — 평소 정보가 늘 받히는 대형주. 하나라도 받히면 풀린 것
+TEXT_COLS = ("fund_industry", "fund_summary")  # 웹 표시 전용 글자 칸 (업종 · 회사 소개)
 
 Fetch = Callable[[list[str]], pd.DataFrame]
 
@@ -153,8 +154,13 @@ def fill_from_previous_snapshot(
     n_fund = int(failed.sum())
     if n_fund:
         src = prev.loc[tick[failed]]
-        cols = [c for c in out.columns if c.startswith("fund_") and c != "fund_sector" and c in prev.columns]
+        cols = [c for c in out.columns if c.startswith("fund_") and c != "fund_sector" and c not in TEXT_COLS
+                and c in prev.columns]
         out.loc[failed, cols] = src[cols].to_numpy()
+        # 글자 칸은 따로 — 숫자 칸과 한 배열로 넣으면 숫자 칸이 object 가 된다. 실전 스냅샷은 빈 값이 'nan' 글자로 저장돼 있다
+        for c in [c for c in TEXT_COLS if c in out.columns and c in prev.columns]:
+            out[c] = out[c].astype(object)
+            out.loc[failed, c] = [None if pd.isna(v) or str(v) in ("nan", "None", "") else str(v) for v in src[c]]
         if "섹터" in prev.columns:
             known = src["섹터"].notna() & (src["섹터"] != "Unknown")
             out.loc[failed, "fund_sector"] = src["섹터"].where(known, "Unknown").to_numpy()

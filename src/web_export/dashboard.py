@@ -25,6 +25,8 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from screener.dividends import dividend_now
+
 SCHEMA_VERSION = 1
 TIMEFRAMES = ("1H", "4H", "Daily", "Weekly", "Monthly")
 EXIT_REASON_KEYS = ("목표가", "시간익절", "트레일링", "손절", "장기보유", "교체")
@@ -121,7 +123,7 @@ def load_ranked(data_dir: Path) -> pd.DataFrame:
 
 # (웹 키, 스냅샷 컬럼, 반올림 자리) — yfinance 값 그대로: 성장률·마진·ROE·비중은 0.165 = 16.5%,
 # 부채비율은 % (32 = 0.32배), 유동비율은 배, 현금흐름·시총은 달러.
-# 배당 둘은 features 가 일봉 Dividends 칸으로 계산: 최근 252거래일에 실제로 준 1주당 배당 합계(달러) · 그 합계 ÷ 지금 가격
+# 배당 둘(dividend_yield · annual_dividend)은 fundamentals() 가 따로 채운다 — 지금 받는 배당 (screener.dividends)
 FUNDAMENTAL_FIELDS = (
     ("revenue_growth", "fund_revenue_growth", 4),
     ("earnings_growth", "fund_earnings_growth", 4),
@@ -133,16 +135,20 @@ FUNDAMENTAL_FIELDS = (
     ("free_cashflow", "fund_free_cashflow", 0),
     ("operating_cashflow", "fund_operating_cashflow", 0),
     ("market_cap", "fund_market_cap", 0),
-    ("dividend_yield", "dividend_yield", 4),
-    ("annual_dividend", "annual_dividend", 4),  # 2026-10-28
     ("short_pct_float", "fund_short_pct_float", 4),
     ("institutional_pct", "fund_institutional_holders_pct", 4),
 )
 
 
 def fundamentals(row: pd.Series) -> dict[str, float | None]:
-    """스냅샷의 재무 컬럼(fund_*) → 웹 키. 없는 값은 None."""
-    return {key: _num(row.get(col), digits) for key, col, digits in FUNDAMENTAL_FIELDS}
+    """스냅샷의 재무 컬럼(fund_*) → 웹 키. 없는 값은 None.
+
+    배당: 최근 정기 배당 × 1년 횟수 ÷ 지금 가격 (증권사 화면과 같은 방식). 특별배당만 준 종목은 0, 이상한 값은 None.
+    """
+    out = {key: _num(row.get(col), digits) for key, col, digits in FUNDAMENTAL_FIELDS}
+    price = row.get("현재가격") if _num(row.get("현재가격")) is not None else row.get("close")
+    out["dividend_yield"], out["annual_dividend"] = dividend_now(row.get("dividend_rate"), row.get("fund_dividend_rate"), price)
+    return out
 
 
 def _sec_flags(v: Any) -> list[dict[str, Any]]:
@@ -178,6 +184,12 @@ def squeeze_block(data_dir: Path | None = None) -> dict[str, Any]:
     return {"settle": _text(w["settle"].iloc[0]) if len(w) else None, "items": rows}
 
 
+def _industry(v: Any) -> str | None:
+    """업종 글자. 실전 스냅샷은 빈 값을 'nan'·'None' 글자로 저장하므로 그것도 None."""
+    s = _text(v)
+    return None if s in (None, "nan", "None", "Unknown") else s
+
+
 def ticker_info(row: pd.Series) -> dict[str, Any]:
     """랭킹 스냅샷 한 줄 → 웹에 보여 줄 요약."""
     earnings = _text(row.get("next_earnings_date"))
@@ -186,6 +198,7 @@ def ticker_info(row: pd.Series) -> dict[str, Any]:
         "company": _text(row.get("회사")),
         "market": _text(row.get("market")),
         "sector": _text(row.get("섹터")),
+        "industry": _industry(row.get("fund_industry")),  # yfinance 세부 업종 (영어 — 웹이 한국어로)
         "price": _num(row.get("현재가격"), 2),
         "strategy": _label(row.get("전략구분")),
         "score": parse_score(row.get("매수적합도_표시")),
