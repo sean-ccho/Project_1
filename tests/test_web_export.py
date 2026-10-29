@@ -78,6 +78,14 @@ def test_ticker_info_fundamentals_keep_yfinance_units() -> None:
     json.dumps(info, allow_nan=False)
 
 
+def test_ticker_info_dividends() -> None:
+    """배당 — 최근 1년 1주당 합계(달러) · ÷ 지금 가격. 배당 없는 종목은 0, 칸이 없으면 None."""
+    f = wd.ticker_info(pd.Series({"dividend_yield": 0.0643791, "annual_dividend": 2.81400001}))["fundamentals"]
+    assert f["dividend_yield"] == 0.0644 and f["annual_dividend"] == 2.814
+    assert wd.ticker_info(pd.Series({"dividend_yield": 0.0, "annual_dividend": 0.0}))["fundamentals"]["annual_dividend"] == 0.0
+    assert wd.ticker_info(pd.Series({"회사": "X"}))["fundamentals"]["annual_dividend"] is None
+
+
 def test_insider_info_signals(monkeypatch) -> None:
     import screener.insider as ins
 

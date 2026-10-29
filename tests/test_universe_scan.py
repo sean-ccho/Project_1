@@ -172,3 +172,15 @@ def test_sheet_pattern_cells_get_running_bar_preview() -> None:
     assert out["주봉패턴"].tolist() == ["골든크로스임박, 정배열(완전) · 예고(이번 주) 골든크로스", "도지"]
     assert out.loc[0, "월봉패턴"] == "예고(이번 달) 데드크로스임박" and pd.isna(out.loc[1, "월봉패턴"])
     assert "주봉_예고" not in out.columns and ranked.loc[0, "주봉패턴"] == "골든크로스임박, 정배열(완전)"
+
+
+def test_sheet_dividend_cells_go_last() -> None:
+    """배당 칸은 맨 끝 (기존 칸 위치 그대로) — 수익률은 %, 금액은 1주당 달러."""
+    ranked = pd.DataFrame([
+        {"티커": "VZ", "현재가격": 43.71, "RSI": 55.0, "dividend_yield": 0.064379, "annual_dividend": 2.814},
+        {"티커": "NVDA", "현재가격": 190.0, "RSI": 61.0, "dividend_yield": 0.0002, "annual_dividend": 0.04},
+    ])
+    out = ex.prepare_export_dataframe(ranked)
+    assert list(out.columns[-2:]) == ["배당수익률(%)", "연 배당금($/주)"]
+    assert out["배당수익률(%)"].tolist() == [6.4, 0.0] and out["연 배당금($/주)"].tolist() == [2.814, 0.04]
+    assert out.columns.tolist().index("RSI") < out.columns.tolist().index("배당수익률(%)")

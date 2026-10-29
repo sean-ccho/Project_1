@@ -120,7 +120,8 @@ def load_ranked(data_dir: Path) -> pd.DataFrame:
 
 
 # (웹 키, 스냅샷 컬럼, 반올림 자리) — yfinance 값 그대로: 성장률·마진·ROE·비중은 0.165 = 16.5%,
-# 부채비율은 % (32 = 0.32배), 유동비율은 배, 현금흐름·시총은 달러
+# 부채비율은 % (32 = 0.32배), 유동비율은 배, 현금흐름·시총은 달러.
+# 배당 둘은 features 가 일봉 Dividends 칸으로 계산: 최근 252거래일에 실제로 준 1주당 배당 합계(달러) · 그 합계 ÷ 지금 가격
 FUNDAMENTAL_FIELDS = (
     ("revenue_growth", "fund_revenue_growth", 4),
     ("earnings_growth", "fund_earnings_growth", 4),
@@ -133,6 +134,7 @@ FUNDAMENTAL_FIELDS = (
     ("operating_cashflow", "fund_operating_cashflow", 0),
     ("market_cap", "fund_market_cap", 0),
     ("dividend_yield", "dividend_yield", 4),
+    ("annual_dividend", "annual_dividend", 4),  # 2026-10-28
     ("short_pct_float", "fund_short_pct_float", 4),
     ("institutional_pct", "fund_institutional_holders_pct", 4),
 )

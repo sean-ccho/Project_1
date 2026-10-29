@@ -167,6 +167,11 @@ def generate_chart_paths(ticker: str) -> dict[str, str]:
 # 시트 주·월봉 패턴 칸 끝에 붙이는 예고 (패턴 칸, 예고 칸, 진행 중인 봉)
 PREVIEW_CELLS = (("주봉패턴", "주봉_예고", "이번 주"), ("월봉패턴", "월봉_예고", "이번 달"))
 
+# 시트 맨 끝에 붙이는 배당 칸 (원본 칸, 시트 이름) — features 가 일봉 Dividends 칸으로 계산: 최근 252거래일에 실제로 준
+# 1주당 배당 합계 · 그 합계 ÷ 지금 가격. 칸 목록(config.EXPORT_COLUMNS)은 10년 캐시 지문에 들어가서 여기서 붙인다.
+# 맨 끝이라 기존 칸 위치(손으로 넓힌 칸 너비 등)는 그대로 (2026-10-28)
+DIVIDEND_CELLS = (("dividend_yield", "배당수익률(%)"), ("annual_dividend", "연 배당금($/주)"))
+
 
 def _pattern_with_preview(patterns: Any, preview: Any, when: str) -> Any:
     """'골든크로스임박, 정배열(완전)' + 예고 '골든크로스' → '골든크로스임박, 정배열(완전) · 예고(이번 주) 골든크로스'.
@@ -194,6 +199,7 @@ def prepare_export_dataframe(df: pd.DataFrame) -> pd.DataFrame:
             pass
 
     cols = [col for col in EXPORT_COLUMNS if col in df.columns]
+    cols += [col for col, _ in DIVIDEND_CELLS if col in df.columns and col not in cols]
     export_df = df[cols].copy()
     for pat_col, preview_col, when in PREVIEW_CELLS:
         if pat_col in export_df.columns and preview_col in df.columns:
@@ -206,7 +212,7 @@ def prepare_export_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     numeric_cols = export_df.select_dtypes(include="number").columns
     export_df[numeric_cols] = export_df[numeric_cols].round(3)
 
-    export_df = export_df.rename(columns=TECH_COLUMN_LABELS)
+    export_df = export_df.rename(columns=dict(DIVIDEND_CELLS)).rename(columns=TECH_COLUMN_LABELS)
 
     cash_col = TECH_COLUMN_LABELS.get("최근20일평균거래대금", "최근20일평균거래대금")
     if cash_col in export_df.columns:
