@@ -6,6 +6,8 @@
 검사
   1. 계좌 상태    pt1·pt1s·pt1n·pt_spy 의 state.json 이 있고, 일봉이 확정됐으면 마지막 처리 일봉 == 스냅샷 일봉
   2. 스냅샷 최신  sp500·nasdaq 스냅샷의 _bar_date 가 서로 같고 LOG_DATE − 4일 이후 (주말 + 공휴일 하루)
+                  장중에 사람이 돌린 실행(push·수동)은 스캔이 일봉 날짜를 일부러 비운다 → 경고만 하고, 계좌가 그
+                  미확정 일봉을 처리하지 않았는지 본다 (2026-10-28). 정기 실행(schedule)에서 비면 그대로 실패.
   3. 에러 로그    logs/LOG_DATE/*.log 에 우리 모듈의 [ERROR]·Traceback 이 없음 (외부 라이브러리 [ERROR] 는 경고만)
   4. 메일         paper_trading.log 에 PT-1 메일 발송 완료(또는 보낼 것 없음) 줄이 있음
   5. 계좌 파일    positions/trades(/account).json 이 있고 파싱되며 positions 스키마가 맞음
@@ -23,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -46,7 +49,12 @@ ACCOUNT_FILES: dict[str, tuple[str, ...]] = {
     "pt_spy": ("positions.json", "trades.json", "account.json"),
 }
 SNAPSHOTS = ("sp500_ranked.parquet", "nasdaq_ranked.parquet")
-STEP_LOGS = ("sp500_analysis.log", "full_scan.log", "paper_trading.log",
+# 스냅샷을 쓴 스캔의 스텝 로그 — 장중이면 스캔이 'YYYY-MM-DD 일봉은 장중 데이터' 줄을 남기고 _bar_date 를 비운다
+SNAPSHOT_LOGS = {"sp500_ranked.parquet": "sp500_analysis.log", "nasdaq_ranked.parquet": "full_scan.log"}
+_INTRADAY_LINE = re.compile(r"(\d{4}-\d{2}-\d{2}) 일봉은 장중 데이터")
+# 사람이 직접 돌린 실행 (GITHUB_EVENT_NAME) — 장중이면 일봉 날짜가 비는 게 정상
+MANUAL_EVENTS = ("push", "workflow_dispatch")
+STEP_LOGS =("sp500_analysis.log", "full_scan.log", "paper_trading.log",
              "paper_trading_pt1s.log", "paper_trading_pt1n.log", "paper_trading_pt_spy.log", "portfolio_report.log")
 MAX_BAR_AGE_DAYS = 4
 OWN_LOGGERS = ("paper_trading", "screener", "data", "monitoring", "ml", "analytics", "__main__", "root")
@@ -75,8 +83,23 @@ def _snapshot_bar(path: Path) -> str | None:
         return None
 
 
-def check_snapshots(data_dir: Path, log_date: date) -> tuple[list[Check], str | None]:
-    """스냅샷마다 일봉 날짜가 있고 최근인지, 둘이 같은지. (검사 목록, 최신 일봉) 반환."""
+def intraday_bars(log_dir: Path) -> dict[str, str]:
+    """스냅샷 → 그 스캔 로그의 '장중 데이터' 일봉 날짜 (그 줄이 있는 스냅샷만)."""
+    out: dict[str, str] = {}
+    for snap, log_name in SNAPSHOT_LOGS.items():
+        path = log_dir / log_name
+        found = _INTRADAY_LINE.findall(path.read_text(encoding="utf-8", errors="replace")) if path.exists() else []
+        if found:
+            out[snap] = max(found)
+    return out
+
+
+def check_snapshots(data_dir: Path, log_date: date, intraday: dict[str, str] | None = None
+                    ) -> tuple[list[Check], str | None]:
+    """스냅샷마다 일봉 날짜가 있고 최근인지, 둘이 같은지. (검사 목록, 최신 일봉) 반환.
+
+    intraday: 장중이라 일봉 날짜를 비운 스냅샷 → 그 일봉 (사람이 돌린 실행만 넘긴다) — 실패 대신 경고.
+    """
     checks: list[Check] = []
     bars: dict[str, str] = {}
     oldest_ok = log_date - timedelta(days=MAX_BAR_AGE_DAYS)
@@ -85,6 +108,9 @@ def check_snapshots(data_dir: Path, log_date: date) -> tuple[list[Check], str | 
         bar = _snapshot_bar(path) if path.exists() else None
         if not path.exists():
             checks.append(_check(f"{name} 일봉", "fail", f"파일 없음: {path}"))
+        elif bar is None and name in (intraday or {}):
+            checks.append(_check(f"{name} 일봉", "warn",
+                                 f"장중 실행 — {intraday[name]} 일봉이 아직 안 끝나 날짜를 비워 둠 (매매 없이 리포트만)"))
         elif bar is None:
             checks.append(_check(f"{name} 일봉", "fail", f"{BAR_DATE_COL} 을 읽지 못함"))
         elif date.fromisoformat(bar) < oldest_ok:
@@ -111,9 +137,12 @@ def _read_json(path: Path) -> tuple[Any, str | None]:
         return None, f"JSON 파싱 실패: {exc}"
 
 
-def check_accounts(data_dir: Path, bar: str | None, now: datetime | None = None
+def check_accounts(data_dir: Path, bar: str | None, now: datetime | None = None, intraday: str | None = None
                    ) -> tuple[list[Check], dict[str, str | None]]:
-    """계좌별 상태·파일. (검사 목록, 계좌별 마지막 처리 일봉) 반환 — 뒤 값은 verify-pushed 의 기대값."""
+    """계좌별 상태·파일. (검사 목록, 계좌별 마지막 처리 일봉) 반환 — 뒤 값은 verify-pushed 의 기대값.
+
+    intraday: 장중 실행이라 스냅샷 일봉이 빈 경우 그 미확정 일봉 — 계좌가 그 일봉을 처리하지 않았어야 정상.
+    """
     from data.validators import validate_positions
 
     checks: list[Check] = []
@@ -126,6 +155,11 @@ def check_accounts(data_dir: Path, bar: str | None, now: datetime | None = None
         expected[key] = last
         if err:
             checks.append(_check(f"{key} 상태", "fail", err))
+        elif bar is None and intraday and last is not None and last >= intraday:
+            checks.append(_check(f"{key} 상태", "fail",
+                                 f"마지막 처리 {last} — 장중 일봉 {intraday} 까지 처리됨 (미확정 일봉으로 매매했을 수 있음)"))
+        elif bar is None and intraday:
+            checks.append(_check(f"{key} 상태", "ok", f"장중 실행 — {intraday} 일봉 미확정이라 매매 안 함 (마지막 처리 {last})"))
         elif bar is None:
             checks.append(_check(f"{key} 상태", "warn", f"마지막 처리 {last} (스냅샷 일봉을 몰라 비교 못 함)"))
         elif not complete:
@@ -195,13 +229,17 @@ def _summary(checks: list[Check], **extra: Any) -> dict[str, Any]:
 
 
 def run_health_check(data_dir: Path = DATA_DIR, log_date: str | None = None, log_root: Path = LOG_ROOT,
-                     now: datetime | None = None) -> dict[str, Any]:
-    """전체 헬스 체크. log_date 는 워크플로의 LOG_DATE (없으면 토론토 오늘)."""
+                     now: datetime | None = None, manual: bool = False) -> dict[str, Any]:
+    """전체 헬스 체크. log_date 는 워크플로의 LOG_DATE (없으면 토론토 오늘). manual = 사람이 돌린 실행 (push·수동)."""
     day = date.fromisoformat(log_date) if log_date else market_today()
-    snap_checks, bar = check_snapshots(data_dir, day)
-    acct_checks, expected = check_accounts(data_dir, bar, now)
-    checks = acct_checks + snap_checks + check_logs(log_root / day.isoformat())
-    return _summary(checks, title=f"Health Check (LOG_DATE {day}, 스냅샷 일봉 {bar})", expected=expected)
+    log_dir = log_root / day.isoformat()
+    intraday = intraday_bars(log_dir) if manual else {}
+    snap_checks, bar = check_snapshots(data_dir, day, intraday)
+    pending = max(intraday.values()) if bar is None and intraday else None
+    acct_checks, expected = check_accounts(data_dir, bar, now, pending)
+    checks = acct_checks + snap_checks + check_logs(log_dir)
+    shown = bar or (f"없음 — 장중 {pending} 미확정" if pending else None)
+    return _summary(checks, title=f"Health Check (LOG_DATE {day}, 스냅샷 일봉 {shown})", expected=expected)
 
 
 def _git(*args: str) -> subprocess.CompletedProcess:
@@ -261,7 +299,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.verify_pushed:
         result = verify_pushed(Path(args.verify_pushed))
     else:
-        result = run_health_check(Path(args.data_dir), args.log_date)
+        result = run_health_check(Path(args.data_dir), args.log_date,
+                                  manual=os.environ.get("GITHUB_EVENT_NAME", "") in MANUAL_EVENTS)
         if args.expected_out:
             Path(args.expected_out).write_text(json.dumps(result["expected"], indent=2), encoding="utf-8")
     print_report(result)

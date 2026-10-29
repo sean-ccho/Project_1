@@ -117,6 +117,53 @@ def test_intraday_run_skips_state_comparison(tmp_path):
     assert r["status"] == "healthy", _failed(r)
 
 
+INTRADAY_LOGS = {
+    "sp500_analysis.log": "[[SP500 분석]] 2026-10-12 일봉은 장중 데이터 → 페이퍼 트레이딩 대상 아님\n",
+    "full_scan.log": "[[NASDAQ/NYSE 분석]] 2026-10-12 일봉은 장중 데이터 → 페이퍼 트레이딩 대상 아님\n",
+}
+
+
+def _intraday(tmp_path, *, manual: bool = True, states: dict | None = None, logs: dict = INTRADAY_LOGS):
+    """10-28 실제 모양: 장중 push 실행이라 스캔이 _bar_date 를 비우고, 계좌는 전날(10-09) 일봉에 머문다."""
+    data, log_root = _layout(tmp_path, bar="", states=states or {k: "2026-10-09" for k in hc.ACCOUNTS}, logs=logs)
+    return hc.run_health_check(data, "2026-10-12", log_root=log_root,
+                               now=datetime(2026, 10, 12, 15, 18, tzinfo=ET), manual=manual)
+
+
+def test_manual_intraday_run_only_warns(tmp_path):
+    r = _intraday(tmp_path)
+    assert r["status"] == "warning", _failed(r)
+    assert [c["name"] for c in r["checks"] if c["status"] == "warn"] == ["sp500_ranked.parquet 일봉", "nasdaq_ranked.parquet 일봉"]
+    assert "장중 2026-10-12" in r["title"]
+
+
+def test_scheduled_intraday_run_still_fails(tmp_path):
+    """정기 실행이 장중에 돌면 그날 일봉을 놓친다 → 그대로 실패."""
+    r = _intraday(tmp_path, manual=False)
+    assert _failed(r) == ["sp500_ranked.parquet 일봉", "nasdaq_ranked.parquet 일봉"]
+
+
+def test_manual_blank_bar_without_intraday_line_fails(tmp_path):
+    """사람이 돌린 실행이라도 '장중 데이터' 줄 없이 날짜가 비면 (스캔이 데이터를 못 받음 등) 실패."""
+    r = _intraday(tmp_path, logs={"full_scan.log": INTRADAY_LOGS["full_scan.log"]})
+    assert _failed(r) == ["sp500_ranked.parquet 일봉"]
+
+
+def test_intraday_bar_processed_fails(tmp_path):
+    """장중 실행인데 계좌가 미확정 일봉을 처리했으면 실패."""
+    r = _intraday(tmp_path, states={**{k: "2026-10-09" for k in hc.ACCOUNTS}, "pt1": "2026-10-12"})
+    assert _failed(r) == ["pt1 상태"]
+
+
+def test_main_reads_event_name(tmp_path, monkeypatch):
+    data, _ = _layout(tmp_path, bar="", states={k: "2026-10-09" for k in hc.ACCOUNTS}, logs=INTRADAY_LOGS)
+    monkeypatch.chdir(tmp_path)  # LOG_ROOT = logs/ (상대 경로)
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "push")
+    assert hc.main(["--log-date", "2026-10-12", "--data-dir", str(data)]) == 0
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "schedule")
+    assert hc.main(["--log-date", "2026-10-12", "--data-dir", str(data)]) == 1
+
+
 def test_missing_email_line_fails(tmp_path):
     r = _run(tmp_path, logs={"paper_trading.log": "[Email] 페이퍼 트레이딩 이메일 발송 실패: SMTP\n"})
     assert _failed(r) == ["PT-1 메일"]
