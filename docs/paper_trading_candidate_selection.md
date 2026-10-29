@@ -1,6 +1,11 @@
 # 페이퍼 트레이딩 후보 선정 로직
 
 ---
+*최근 변경: 2026-10-28 — 문서를 실제 코드에 맞춤*
+- 본문이 예전 설계를 적고 있던 곳을 코드대로 고쳤다: 하드 필터 12단계(지수 ETF · 바닥반등 52주 위치 · 모멘텀 ADX · 바닥반등 RSI 데드존 · 같은 회사 추가), '전환구간' 제거(전략적합도 보너스 · 동점 순서), MACD 주가 대비 기준, 리스크 점수 정배열 가점, 컨플루언스 상승 패턴 11개, 레짐 가중치 · 레짐 보너스, CCS 최소 점수, 전략별 매도 규칙 · 시간익절, 교체할 종목 고르는 식, 실행 시각.
+- 같은 날 10년 시험(`scripts/doc_vs_code_check.py`, `docs/quant_improvement/tier3/DOC_VS_CODE.md`)에서 예전 문서 규칙 8곳 모두 코드보다 확실히 낫지 않아 코드를 유지.
+
+---
 *최근 변경: 2026-04-15 — Hold-Winners 재평가 + 상승 예측 모델 + 리포트 투명성 강화*
 - **Hold-Winners 재평가**: 목표가/시간익절 트리거 시 오늘 factor로 모멘텀 재평가 (RSI<75·하한없음, ADX≥20, 거래량 ≥1.2× 또는 z≥1.0, BB pband<0.95, 5일수익률>0). **5개 전부 통과** 시 최대 2회까지 defer + tight trailing stop(-3.5%). 손절/트레일링은 defer 금지. (freeze 비활성 — `HOLD_WINNERS_DEFER_FREEZE_DAYS = 0`)
 - **상승 예측 모델 (경험적 분포)**: `src/paper_trading/upside_model.py` 신규 — 과거 백테스트 거래에서 (전략, CCS버킷, ★버킷)별 P25/P50/P75/P90 분포 빌드. 매수 payload에 upside_pXX + 예상 목표가 포함. 캐시: `data/paper_trading/upside_distribution.json` (초기 빌드 128 거래 / 18 버킷).
@@ -131,24 +136,24 @@ python scripts/paper_trading.py backtest --rebalance 1 --fundamentals --no-sheet
 **관련 파일:**
 - `src/paper_trading/candidate_selector.py` — 선정 엔진 (메인)
 - `src/paper_trading/engine.py` — 일일 트레이딩 오케스트레이터
-- `src/screener/config.py` — 설정값 (lines 706–731)
+- `src/screener/config.py` — 설정값 (`CANDIDATE_*` · `EXIT_PARAMS` · `HOLD_WINNERS_*` — 맨 아래 '설정값 요약')
 
 ---
 
 ## 전체 파이프라인: N개 → 1개
 
 ```
-스크리너 DataFrame (100+ 종목)
+스크리너 DataFrame (S&P 500 + NASDAQ/NYSE 스냅샷을 합친 것)
     ↓
-[Phase 1] Hard Filters (7개) — 부적합 종목 대부분 제거
+[Phase 3] 시장 레짐 감지 (SPY) — 가중치 · 약세장 제한을 먼저 정한다
     ↓
-[Phase 2] CCS 계산 (5개 서브스코어) — 통과 종목 점수화
+[Phase 1] Hard Filters (12단계) + 약세장 추가 제한 — 부적합 종목 대부분 제거
     ↓
-[Phase 3] 시장 레짐 감지 + 가중치 조정 — 레짐에 맞는 평가 기준 적용
+[Phase 2] CCS 계산 (5개 서브스코어 × 레짐 가중치 − 섹터 페널티 + 레짐 보너스)
     ↓
-[Phase 4] 섹터 페널티 + 정렬 + 동점 처리
+[Phase 4] CCS 최소 점수 · 정렬 · 동점 처리
     ↓
-최종 1개 선정 (또는 None)
+최종 1개 선정 (또는 None) — 백테스트는 하루 최대 PAPER_TRADING_MAX_DAILY_BUY 개
 ```
 
 ---
@@ -157,148 +162,62 @@ python scripts/paper_trading.py backtest --rebalance 1 --fundamentals --no-sheet
 
 > `candidate_selector.py` — `_apply_hard_filters()`
 
-**목적:** CCS 계산 전 명백히 부적합한 종목을 빠르게 탈락시켜 연산 낭비를 막고, 잘못된 종목이 스코어링 단계로 넘어가는 것을 원천 차단.  
-7개 필터가 **순서대로(AND)** 적용되며, 탈락 수는 `debug["rejections"]`에 필터별로 기록된다.
+**목적:** CCS 계산 전 명백히 부적합한 종목을 빠르게 탈락시킨다. 아래 순서대로(AND) 적용하고, 탈락 수는 `debug["rejections"]`에 필터별로 남는다.
 
----
+| # | 필터 | 통과 조건 | 탈락 키 | config |
+|---|------|-----------|---------|--------|
+| 0 | 지수 ETF | SPY · QQQ · IWM 이 아님 (레짐 판단용으로만 후보표에 남는다) | `지수ETF` | `INDICES` |
+| 1 | 전략 점수 | `max(바닥반등_적합도, 모멘텀_적합도) ≥ 6.0` (10점 만점) | `전략점수<6.0` | `CANDIDATE_MIN_STRATEGY_SCORE` |
+| 1b | 바닥반등 52주 위치 | 바닥반등이면 `52주포지션 ≤ 0.65` — 이미 바닥에서 많이 오른 종목 차단 | `바닥반등_52주과열` | `CANDIDATE_BOTTOM_MAX_52W_POS` |
+| 1c | 허용 전략 | 정한 전략만 (기본 `None` = 전부 허용) | `허용전략_외` | `CANDIDATE_ALLOWED_STRATEGIES` |
+| 2 | 판단 등급 | `판단 ∈ {"1. 매수 후보", "1. 저점 반등"}` 또는 `추천 ∈ {"1. 즉시 진입", "1. 반등 매수"}` | `판단등급_미달` | — |
+| 3 | 과열 차단 | `RSI < 75` (약세장 **70**) · `bollinger_pband < 0.95` · `5일수익률 < 15%` 모두 | `과열_차단` | `CANDIDATE_RSI_MAX` · `_BOLLINGER_MAX` · `_5D_RETURN_MAX` |
+| 4 | 유동성 | `최근20일평균거래대금 ≥ $10M` | `유동성_부족` | `CANDIDATE_LIQUIDITY_MIN` |
+| 5 | 어닝 회피 | 다음 실적까지 3일 넘게 남음, 또는 날짜 모름 | `어닝_임박` | `CANDIDATE_EARNINGS_BUFFER_DAYS` |
+| 6 | 보유 중복 | 보유 종목 · SPY 가 아님 | `보유_중복` | — |
+| 6b | 같은 회사 | 보유 종목과 같은 회사(클래스주 · 같은 회사명)가 아님 — GOOG 보유 중 GOOGL 등 | `같은회사_중복` | — |
+| 7 | 모멘텀 ADX | 모멘텀이면 `adx ≥ 25` (추세가 약하면 모멘텀 진입 차단) | `모멘텀_ADX부족` | `ADX_BUY_MIN` |
+| 8 | 바닥반등 RSI 데드존 | 바닥반등이면 RSI 가 30 이상 35 미만이 아님 | `바닥_RSI데드존` | — (코드에 30 · 35) |
+| 9 | 섹터 집중 | 보유 중 2개 이상인 섹터는 그 섹터 전체 차단 | `섹터_집중` | `CANDIDATE_MAX_SAME_SECTOR` |
 
-### Filter 1 — 전략 점수 (Strategy Score)
+> 💡 1번 하나로 대부분이 탈락한다 (전략 점수 분포는 `[전략점수 분포]` 로그).
+>
+> 2026-10-28 10년 시험(doc_vs_code_v1): 1b · 7 · 8 을 빼 보면 Sharpe 0.62 · 0.50 · 0.58 (지금 0.46) 이었지만 운과 구분되지 않아
+> (p 0.17 · 0.42 · 0.19) 그대로 둔다. 새 데이터가 쌓이면 다시 볼 후보.
 
-```python
-(바닥반등_적합도 >= 6.0) OR (모멘텀_적합도 >= 6.0)
-```
-
-| 항목 | 설명 |
-|------|------|
-| **목적** | 스크리너가 어떤 전략으로도 의미있는 점수를 주지 않은 종목 제거 |
-| **기준** | 10점 만점 중 6.0 이상 — 상위 40% 이상의 적합도 |
-| **OR 조건** | 두 전략 중 하나만 강해도 통과 (둘 다 낮으면 탈락) |
-| **탈락 키** | `전략점수<5.0` |
-
-> 💡 이 필터 하나로 전체 종목의 50–70%가 탈락하는 경우가 많다.
-
----
-
-### Filter 2 — 판단 등급 (Judgment Grade)
-
-```python
-판단 in {"1. 매수 후보", "1. 저점 반등"}
-OR
-추천 in {"1. 즉시 진입", "1. 반등 매수"}
-```
-
-| 컬럼 | 통과 값 | 의미 |
-|------|---------|------|
-| `판단` | `"1. 매수 후보"` | 종합 판단 최상위 등급 |
-| `판단` | `"1. 저점 반등"` | 바닥 반등 가능성 최상위 |
-| `추천` | `"1. 즉시 진입"` | 즉각 진입 권고 |
-| `추천` | `"1. 반등 매수"` | 반등 시 즉시 매수 권고 |
-
-**목적:** 스크리너의 종합 판단 알고리즘과 CCS가 **이중으로 검증**하도록 설계. 스크리너가 최상위 등급을 주지 않은 종목은 CCS가 높아도 신뢰도 부족으로 탈락.  
-**탈락 키:** `판단등급_미달`
-
----
-
-### Filter 3 — 과열 차단 (Overheating Block)
-
-```python
-RSI < 75  AND  bollinger_pband < 0.95  AND  5일수익률 < 0.15
-```
-
-| 지표 | 기준 | 차단 이유 |
-|------|------|----------|
-| `RSI` | < 75 | RSI 75 이상은 단기 과매수 — 추가 상승 여력 제한 |
-| `bollinger_pband` | < 0.95 | 볼린저 상단(1.0) 근처면 이미 고점 진입 |
-| `5일수익률` | < 15% | 최근 5일 급등은 단기 과열 — 추격 매수 위험 |
-
-**세 조건 모두 AND** — 하나라도 초과하면 과열 탈락.  
-**탈락 키:** `과열_차단`
-
-> ⚠️ **약세장(bear regime):** RSI 기준이 75 → **70**으로 강화. 더 보수적으로 과열 판단.
-
----
-
-### Filter 4 — 유동성 (Liquidity)
-
-```python
-최근20일평균거래대금 >= $10,000,000
-```
-
-| 항목 | 설명 |
-|------|------|
-| **목적** | 거래가 너무 적은 종목은 진입/청산 시 슬리피지 위험 |
-| **기준** | 일평균 거래대금 $10M 이상 — 중소형주까지 포함하는 최소 기준 |
-| **컬럼** | `최근20일평균거래대금` |
-| **탈락 키** | `유동성_부족` |
-
----
-
-### Filter 5 — 어닝 회피 (Earnings Buffer)
-
-```python
-days_to_next_earnings > 3  OR  days_to_next_earnings is NaN
-```
-
-| 케이스 | 처리 |
-|--------|------|
-| 어닝까지 3일 이하 | **탈락** — 어닝 발표 불확실성 차단 |
-| 어닝까지 4일 이상 | **통과** |
-| 어닝 날짜 미상 (NaN) | **통과** — 정보 없으면 회피 안 함 |
-
-**목적:** 어닝 발표 직전은 방향성 불확실성이 극도로 높아 전략 신호 무의미. 발표 이후 결과를 보고 진입하는 구조.  
-**탈락 키:** `어닝_임박`
-
----
-
-### Filter 6 — 보유 중복 (Duplicate Holding)
-
-```python
-티커 not in {현재 보유 중인 ticker 집합}
-```
-
-**목적:** 이미 보유 중인 종목을 다시 매수하는 것 방지 (더블딩 차단).  
-**탈락 키:** `보유_중복`
-
----
-
-### Filter 7 — 섹터 집중 (Sector Concentration)
-
-```python
-blocked_sectors = {섹터 : 보유수가 2 이상인 섹터들}
-후보 섹터 not in blocked_sectors
-```
-
-| 보유 섹터 수 | 처리 |
-|-------------|------|
-| 해당 섹터 보유 0–1개 | **통과** |
-| 해당 섹터 보유 2개 이상 | **탈락** — 해당 섹터 전체 차단 |
-
-**목적:** 동일 섹터 3개 이상 보유 시 섹터 리스크 집중. 포트폴리오 섹터 분산 강제.  
-**탈락 키:** `섹터_집중`
+> 하드 필터 전 단계: 스크리너의 유동성 필터(`screener/processing.py liquidity_filter`)가 시장별 20일 평균 거래대금 상위 25% 만 남긴다
+> (`LIQUIDITY_QUANTILE = 0.25`, 거래대금 $5M 이상). S&P 500 은 하루 약 150종목만 하드 필터로 들어온다 (NASDAQ/NYSE 스캔도 같은 방식).
 
 ---
 
 ### 약세장(bear) 추가 제한
 
-Phase 3에서 레짐이 `bear`로 감지되면 Hard Filter 이후 **추가 필터** 적용:
+Phase 3 에서 레짐이 `bear` 면:
 
-```python
-buy_signal == True  # 명시적 매수 신호가 있는 종목만 통과
-```
+- 과열 차단의 RSI 기준 75 → **70**
+- 하드 필터 뒤 `buy_signal == True` 인 종목만 (하나도 없으면 이 제한은 건너뜀)
+- 모멘텀 전략 제외 — 데드캣 바운스 위험 (남는 종목이 없으면 건너뜀)
+- 보유 한도 3 → **2** (`engine.run_daily_trading`, 새로 사는 자리 기준)
+- `CANDIDATE_BEAR_BLOCK_NEW = True` 면 신규 진입 자체를 멈춤 (기본 False)
 
 ### debug["rejections"] 출력 예시
 
 ```python
 {
-    "전략점수<5.0":  45,    # 45개 탈락
-    "판단등급_미달": 12,
-    "과열_차단":     8,
-    "유동성_부족":   3,
-    "어닝_임박":     2,
-    "보유_중복":     2,
-    "섹터_집중":     1,
-    "_통과":         5,     # 최종 통과 수
-    "_전체":        78,    # 입력 종목 수
+    "지수ETF":           3,
+    "전략점수<6.0":     120,    # 대부분 여기서 탈락
+    "바닥반등_52주과열":   4,
+    "판단등급_미달":      12,
+    "과열_차단":           8,
+    "유동성_부족":         0,
+    "어닝_임박":           2,
+    "보유_중복":           2,
+    "같은회사_중복":       0,
+    "모멘텀_ADX부족":      3,
+    "바닥_RSI데드존":      1,
+    "섹터_집중":           1,
+    "_통과":               5,   # 최종 통과 수
+    "_전체":             161,   # 입력 종목 수
 }
 ```
 
@@ -319,8 +238,6 @@ buy_signal == True  # 명시적 매수 신호가 있는 종목만 통과
 
 ```python
 score = max(바닥반등_적합도, 모멘텀_적합도) / 10.0
-if "전환구간" in 전략구분:
-    score += 0.1          # 전환구간은 두 전략 특성을 동시에 가짐 → 보너스
 return min(score, 1.0)
 ```
 
@@ -330,9 +247,11 @@ return min(score, 1.0)
 | `모멘텀_적합도` | 모멘텀 전략 점수 (0–10) |
 | 둘 중 **max** 사용 | 한 전략만 강해도 인정 |
 | `/10.0` | [0, 10] → [0, 1] 정규화 |
-| 전환구간 보너스 +0.1 | 두 전략 교차점 구간은 추가 신뢰도 부여 |
 
-**예시:** 바닥반등_적합도=8.5, 전략구분="전환구간" → `(8.5/10) + 0.1 = 0.95`
+**예시:** 바닥반등_적합도=8.5 → `8.5 / 10 = 0.85`
+
+> 예전의 '전환구간 +0.1 보너스'는 없다. 스크리너가 두 점수가 모두 5.0 이상이면 전환구간 대신 더 높은 쪽 전략으로 분류한다
+> (`signals.py` — 늦은 진입 방지). 그래서 전략구분은 📉 바닥반등 · 📈 모멘텀 · — 셋뿐이다.
 
 ---
 
@@ -347,8 +266,8 @@ return min(score, 1.0)
 
 | 전략 | RSI 범위 | 점수 | 판단 근거 |
 |------|----------|------|-----------|
-| 바닥반등 / 전환구간 | 25 ≤ RSI ≤ 40 | **+0.4** | 과매도 구간 — 반등 직전 최적 진입 |
-| 바닥반등 / 전환구간 | 40 < RSI ≤ 50 | +0.2 | 회복 초입 — 아직 유효하나 최적 아님 |
+| 바닥반등 | 25 ≤ RSI ≤ 40 | **+0.4** | 과매도 구간 — 반등 직전 최적 진입 (30~35 는 하드 필터 8 에서 이미 빠짐) |
+| 바닥반등 | 40 < RSI ≤ 50 | +0.2 | 회복 초입 — 아직 유효하나 최적 아님 |
 | 모멘텀 | 45 ≤ RSI ≤ 60 | **+0.4** | 과열 없이 추세 유지 중인 골든존 |
 | 모멘텀 | 35 ≤ RSI < 45 | +0.2 | 눌림 매수 — 추세 복귀 가능성 있음 |
 | 위 범위 외 | — | +0.0 | RSI 타이밍 부적합 |
@@ -380,9 +299,11 @@ return min(score, 1.0)
 | 전략 | 조건 | 점수 | 해석 |
 |------|------|------|------|
 | 모멘텀 | `macd_hist > 0` | **+0.15** | 모멘텀 상승 확인 |
-| 바닥반등 / 전환구간 | `macd_hist > -0.5` | +0.1 | 깊은 하락이 아닌 턴업 준비 중 |
+| 바닥반등 | `macd_hist ÷ 주가 > −1%` | +0.1 | 깊은 하락이 아닌 턴업 준비 중 (주가 대비 — 예전 −0.5달러 기준은 고가주는 거의 못 받고 저가주는 깊이 빠져도 받았다) |
 
-> 💡 **만점(1.0) 예시 (바닥반등):** RSI=32(+0.4) + bband=0.15(+0.3) + vol_z=1.5(+0.15) + macd_hist=-0.2(+0.1) = **0.95**
+> 💡 **최고점 예시 (바닥반등):** RSI=28(+0.4) + bband=0.15(+0.3) + vol_z=1.5(+0.15) + macd_hist ÷ 주가 = −0.2%(+0.1) = **0.95** (모멘텀 최고점은 0.4 + 0.3 + 0.15 + 0.15 = 1.0 — 볼린저 가점은 두 전략 모두 받는다)
+>
+> 2026-10-28 10년 시험: MACD 를 예전 −0.5달러 기준으로 되돌리면 Sharpe 0.43 (지금 0.46) — 주가 대비 기준 유지.
 
 ---
 
@@ -402,7 +323,7 @@ return min(score, 1.0)
 
 #### 전략별 가중치
 
-| 팩터 | 바닥반등 / 전환구간 | 모멘텀 | 가중치 의도 |
+| 팩터 | 바닥반등 | 그 밖 (모멘텀) | 가중치 의도 |
 |------|---------------------|--------|-------------|
 | 모멘텀 | **10%** | **20%** | 모멘텀 전략도 모멘텀 비중 두지만 과대평가 차단 |
 | 추세 | **10%** | **20%** | 추세 신호 중요하나 단일 팩터 과대 의존 방지 |
@@ -413,28 +334,28 @@ return min(score, 1.0)
 #### 계산식
 
 ```python
-# 바닥반등 / 전환구간
+# 바닥반등 (config.CANDIDATE_ALPHA_WEIGHTS["바닥반등"])
 raw = 0.10*mom + 0.10*trend + 0.15*vol + 0.25*volat + 0.40*mr
 
-# 모멘텀 — 2026-04 개편: 모멘텀/추세 과대평가 방지, 거래량·mean_reversion 비중 강화
+# 그 밖 (CANDIDATE_ALPHA_WEIGHTS["기본"]) — 2026-04 개편: 모멘텀/추세 과대평가 방지, 거래량·mean_reversion 비중 강화
 raw = 0.20*mom + 0.20*trend + 0.25*vol + 0.15*volat + 0.20*mr
 
 # [-1, 1] → [0, 1] 정규화
 score = max(0.0, min((raw + 1.0) / 2.0, 1.0))
 ```
 
-> 코드 출처: `src/paper_trading/candidate_selector.py:232-236`. 이전 문서(2026-04 이전)에는 `0.35/0.30/0.20/0.10/0.05`로 기재됐으나 코드와 불일치 → 2026-05-24 정정.
+> 코드 출처: `config.CANDIDATE_ALPHA_WEIGHTS` (`candidate_selector._score_alpha_factor`). 이전 문서(2026-04 이전)에는 `0.35/0.30/0.20/0.10/0.05`로 기재됐으나 코드와 불일치 → 2026-05-24 정정.
 
 #### ML 알파 블렌딩 (옵션)
 
-`ML_ENABLED=True`이면 위 rule-based score와 ML 예측치를 가중 평균한다 (`candidate_selector.py:243-264`):
+`ML_ENABLED=True`이면 위 rule-based score와 ML 예측치를 가중 평균한다 (`_score_alpha_factor`):
 
 ```python
 return ML_BLEND_WEIGHT_ALPHA * ml_score + (1 - ML_BLEND_WEIGHT_ALPHA) * rule_score
 # 기본 ML_BLEND_WEIGHT_ALPHA = 0.4
 ```
 
-> 현재 prod는 `ML_ENABLED=False` (config.py:858) — 위 식은 사용되지 않는다.
+> 현재 prod는 `ML_ENABLED=False` (`config.py`) — 위 식은 사용되지 않는다.
 
 > 💡 모든 팩터가 +1이면 raw=1.0 → score=1.0 / 모든 팩터가 -1이면 raw=-1.0 → score=0.0
 
@@ -463,7 +384,7 @@ vol_ratio = ATR% / atr_med_252   # 현재 ATR ÷ 252일 중앙값 ATR
 
 | 전략 | 적합 범위 | 점수 | 판단 근거 |
 |------|-----------|------|-----------|
-| 바닥반등 / 전환구간 | 10–40% | **+0.2** | 저점 구간에서 반등 狙い |
+| 바닥반등 | 10–40% | **+0.2** | 저점 구간에서 반등 노림 |
 | 모멘텀 | 55–85% | **+0.2** | 신고가 근처이나 과열 아닌 구간 |
 | 범위 외 | — | +0.0 | 전략과 포지션 불일치 |
 
@@ -487,7 +408,17 @@ vol_ratio = ATR% / atr_med_252   # 현재 ATR ÷ 252일 중앙값 ATR
 | 공매도 안전 | `fund_short_pct_float` | < 5% (0.05) | **+0.05** |
 | 공매도 위험 | `fund_short_pct_float` | > 15% (0.15) | **-0.05** (페널티) |
 
-> 💡 **이론적 최고점 구성:** vol_ratio=0.7(+0.3) + 52주포지션 적합(+0.2) + ROE>10%(+0.15) + 부채<100(+0.1) + 기관>60%(+0.1) + 공매도<5%(+0.05) = **0.90**
+#### D-6. 주·월봉 추세 건강도 (최대 +0.15)
+
+| 봉 | 정배열(완전) | 정배열(눌림목) | 정배열(형성중) |
+|----|------|------|------|
+| 월봉 (`월봉패턴`) | **+0.10** | +0.05 | +0.02 |
+| 주봉 (`주봉패턴`) | **+0.05** | +0.025 | — |
+
+정배열은 차트 네 선 EMA10 · 20 · 100 · 200, 끝난 봉 기준 (2026-10-28 부터 — `patterns_reference.md`).
+2026-10-28 10년 시험에서 이 가점을 빼면 Sharpe 0.40 (지금 0.46) — 유지.
+
+> 💡 **이론적 최고점 구성:** vol_ratio=0.7(+0.3) + 52주포지션 적합(+0.2) + ROE>10%(+0.15) + 부채<100(+0.1) + 기관>60%(+0.1) + 공매도<5%(+0.05) + 월봉 · 주봉 정배열(완전)(+0.15) = 1.05 → **1.0** 으로 자름
 
 ---
 
@@ -502,8 +433,8 @@ vol_ratio = ATR% / atr_med_252   # 현재 ATR ÷ 252일 중앙값 ATR
 
 | 전략 | 조건 | 점수 |
 |------|------|------|
-| 바닥반등 / 전환구간 | `저점확률 ≥ 0.70` | **+0.4** |
-| 바닥반등 / 전환구간 | `저점확률 ≥ 0.50` | +0.2 |
+| 바닥반등 | `저점확률 ≥ 0.70` | **+0.4** |
+| 바닥반등 | `저점확률 ≥ 0.50` | +0.2 |
 | 모멘텀 | — | +0.0 (해당 없음) |
 
 > 바닥반등 전략에 특화된 항목. 모멘텀 전략은 저점확률이 낮아도 페널티 없음.
@@ -541,6 +472,10 @@ score += min(반등스코어 / 10.0, 1.0) * 0.2
 | 컵앤핸들 | 지속 |
 | 골든크로스 | 이평 |
 | 골든크로스임박 | 이평 |
+| 정배열(완전) | 추세 |
+| 정배열(눌림목) | 추세 |
+
+패턴 칸 문자열에 이 이름이 들어 있으면 그 봉은 '상승 패턴 있음' (부분 일치 — `골든크로스` 는 `골든크로스임박` 에도 걸린다). 교차 · 정배열은 TradingView 차트와 같은 선 (EMA10/20 · 네 선, 2026-10-28). 2026-10-28 10년 시험에서 정배열 2개를 빼면 Sharpe 0.36 (지금 0.46) — 11개 유지.
 
 #### E-4. EMA 정배열 (최대 +0.1)
 
@@ -597,17 +532,24 @@ else:
 
 | 서브스코어 | bull | neutral | bear | 레짐별 의도 |
 |-----------|------|---------|------|------------|
-| **strategy** | 0.25 | 0.25 | 0.20 | 강세장에서도 전략 부합 중요 |
-| **timing** | 0.15 | 0.20 | **0.25** | 약세장엔 진입 타이밍이 가장 중요 |
-| **alpha** | **0.25** | 0.20 | 0.15 | 강세장엔 알파 잠재력 우선 |
-| **risk** | 0.15 | 0.20 | **0.30** | 약세장엔 리스크 관리가 최우선 |
-| **confluence** | 0.20 | 0.15 | 0.10 | 강세장엔 신호 일치도 더 활용 |
+| **strategy** | 0.25 | 0.25 | 0.20 | 세 레짐 모두 가장 큰 축 |
+| **timing** | 0.20 | 0.20 | **0.25** | 약세장에서 가장 높다 |
+| **alpha** | 0.15 | 0.15 | 0.10 | 세 레짐 모두 작다 (약세장 0.10) |
+| **risk** | 0.20 | 0.25 | **0.30** | 약세장으로 갈수록 커진다 |
+| **confluence** | 0.20 | 0.15 | 0.15 | 강세장에서 가장 높다 |
+
+`config.CANDIDATE_REGIME_WEIGHTS`. 예전 문서 표(bull .25/.15/.25/.15/.20 · neutral .25/.20/.20/.20/.15 · bear .20/.25/.15/.30/.10)로
+돌려도 10년 Sharpe 0.49 vs 지금 0.46 — 운과 구분되지 않아 지금 표 유지 (2026-10-28).
 
 #### 가중치 변화의 의미
 
-- **bull:** 알파(0.25)와 전략 부합도(0.25)에 더 높은 비중 → 공격적 수익 추구
-- **neutral:** 균형 가중치 → 어느 방향도 베팅하지 않는 안정 기조
-- **bear:** 리스크(0.30)와 타이밍(0.25)에 집중 → 손실 최소화, 타이밍 정밀 진입
+- **bull:** 전략 부합도(0.25) 중심 + 컨플루언스 · 타이밍 · 리스크(각 0.20), 알파는 0.15
+- **neutral:** 리스크(0.25)를 조금 더 → 방향이 불분명할 때 안정 기조
+- **bear:** 리스크(0.30)와 타이밍(0.25)에 집중, 알파(0.10)는 최소 → 손실 최소화
+
+#### 레짐 보너스
+
+레짐과 맞는 전략이면 작은 가점 — bull + 모멘텀, bear + 바닥반등: `+0.015 × max(바닥반등, 모멘텀 적합도) / 10` (최대 +0.015).
 
 #### 가중치 적용 계산식
 
@@ -621,14 +563,14 @@ CCS = (
     + weights["alpha"]     * C  # Alpha Factor
     + weights["risk"]      * D  # Risk-Adjusted Quality
     + weights["confluence"]* E  # Pattern & ML Confluence
-) - sector_penalty
+) - sector_penalty + regime_bonus
 ```
 
-> 💡 **예시 — 같은 종목, 다른 레짐:**
-> - A=0.9, B=0.6, C=0.7, D=0.5, E=0.8, 페널티 없음
-> - bull CCS: `0.25×0.9 + 0.15×0.6 + 0.25×0.7 + 0.15×0.5 + 0.20×0.8` = **0.700**
-> - bear CCS: `0.20×0.9 + 0.25×0.6 + 0.15×0.7 + 0.30×0.5 + 0.10×0.8` = **0.650**
-> → 약세장에서는 같은 종목도 CCS가 낮게 평가 → 더 엄격한 기준 자동 적용
+> 💡 **예시 — 같은 종목, 다른 레짐 (보너스 · 페널티 없음):**
+> - A=0.9, B=0.6, C=0.7, D=0.5, E=0.8
+> - bull CCS: `0.25×0.9 + 0.20×0.6 + 0.15×0.7 + 0.20×0.5 + 0.20×0.8` = **0.710**
+> - bear CCS: `0.20×0.9 + 0.25×0.6 + 0.10×0.7 + 0.30×0.5 + 0.15×0.8` = **0.670**
+> → 약세장에서는 같은 종목도 CCS가 낮게 나오고, 최소 점수도 0.45 로 높다 → 더 엄격한 기준 자동 적용
 
 ---
 
@@ -669,11 +611,13 @@ CCS = (
     + weights["alpha"]     * C   # Alpha Factor
     + weights["risk"]      * D   # Risk-Adjusted Quality
     + weights["confluence"]* E   # Pattern & ML Confluence
-) - sector_penalty
+) - sector_penalty + regime_bonus
 
 # 소수점 4자리로 반올림 후 저장
 CCS = round(CCS, 4)
 ```
+
+**CCS 최소 점수:** bull · neutral `≥ 0.40` (`CANDIDATE_CCS_MIN_NORMAL`), bear `≥ 0.45` (`CANDIDATE_CCS_MIN_BEAR`). 미달이면 그날은 후보 없음. `CCS_VERSION = "v2"` 로 켜면 v2 점수와 `CCS_V2_MIN = 0.55` 를 쓴다 (기본 v1).
 
 ---
 
@@ -696,30 +640,36 @@ if len(scores) >= 2 and abs(scores[0]["ccs"] - scores[1]["ccs"]) < 0.02:
 
 ```python
 def tiebreak_key(s):
-    strat_rank    # 전략 우선순위 (낮을수록 우선)
-    -support      # buy_support_count 높을수록 우선 (부호 반전)
-    atr           # ATR% 낮을수록 우선 (안정성)
-    return (strat_rank, -support, atr)
+    regime_aligned   # 0 = 레짐과 맞는 전략 (bull+모멘텀 · bear+바닥반등 · neutral 은 모두 0), 1 = 아님
+    -raw_score       # max(바닥반등, 모멘텀 적합도) 높을수록 우선
+    -support         # buy_support_count 높을수록 우선
+    atr              # ATR% 낮을수록 우선 (안정성)
+    return (regime_aligned, -raw_score, -support, atr)
 ```
 
-| 우선순위 | 기준 | 값 | 판단 근거 |
-|---------|------|----|-----------|
-| 1순위 | 전략 타입 | 전환구간(0) > 바닥반등(1) > 모멘텀(2) | 전환구간은 두 전략 신호가 겹치는 가장 강한 구간 |
-| 2순위 | `buy_support_count` | 높은 것 우선 | 더 많은 지표가 매수를 지지 |
-| 3순위 | `ATR%` | 낮은 것 우선 | 변동성 낮으면 손절 위험 감소 |
+| 우선순위 | 기준 | 판단 근거 |
+|---------|------|-----------|
+| 1순위 | 레짐-전략 정합성 | 강세장은 모멘텀, 약세장은 바닥반등이 먼저 |
+| 2순위 | 전략 점수 `max(바닥반등, 모멘텀)` | 스크리너 점수가 높은 쪽 |
+| 3순위 | `buy_support_count` | 더 많은 지표가 매수를 지지 |
+| 4순위 | `ATR%` | 변동성 낮으면 손절 위험 감소 |
 
-> 💡 **동점 예시:** AAPL(CCS=0.7210, 모멘텀) vs MSFT(CCS=0.7205, 전환구간)  
-> → CCS 차이 0.0005 < 0.02 → 동점 처리 → 전략 우선순위로 **MSFT 선택**
+> 💡 **동점 예시 (bull):** AAPL(CCS=0.7210, 모멘텀) vs MSFT(CCS=0.7205, 바닥반등)
+> → CCS 차이 0.0005 < 0.02 → 동점 처리 → 레짐 정합성으로 **AAPL 선택**
+>
+> 예전 문서의 '전환구간(0) > 바닥반등(1) > 모멘텀(2)' 순서는 전환구간이 없어지면서 지금 순서로 바뀌었다.
 
 ---
 
 ### 반환값 구조
 
+`select_top_candidates(df, holdings, k)` → (후보 리스트, debug). 실전 엔진은 `select_best_candidate` (k=1 — 첫 번째와 같은 종목).
+
 ```python
 {
     "ticker": str,                # 선정 종목 티커
     "entry_price": float,         # 현재가 (진입 예정가)
-    "strategy": str,              # 전략 구분 레이블
+    "strategy": str,              # 전략 구분 레이블 (📉 바닥반등 · 📈 모멘텀)
     "star_rating": str,           # 스크리너 매수적합도 (★ 표시)
     "ccs_score": float,           # CCS 최종 점수 (4자리 반올림)
     "sector": str,                # 섹터
@@ -730,9 +680,14 @@ def tiebreak_key(s):
         "risk": float,            # 서브스코어 D
         "confluence": float,      # 서브스코어 E
         "penalty": float,         # 섹터 페널티 (양수값, 차감됨)
-    }
+    },
+    "ccs_v1": float, "ccs_v2": float,   # 두 버전 점수 (기록용 — 쓰는 것은 CCS_VERSION)
+    "ccs_v2_breakdown": {...},          # strategy_fit · v2_trend · v2_pos_52w · v2_rel_strength
+    "vol_ratio": float, "vol_ma20": float,
 }
 ```
+
+같은 날 여러 개를 고를 때(백테스트 k>1)도 섹터 한도와 같은 회사 중복을 지킨다.
 
 ---
 
@@ -740,7 +695,7 @@ def tiebreak_key(s):
 
 > `engine.py` — `run_daily_trading()`
 
-**실행 시점:** 매일 5PM EST (장 마감 후)  
+**실행 시점:** GitHub Actions 정기 실행 (cron 00:45 UTC, 실제로는 보통 새벽 1~2시 ET 에 시작). 거래일 = 마지막으로 확정된 일봉 (그날 16:30 ET 뒤), 같은 일봉은 계좌마다 한 번만 처리 (`market_date.check_run_guard` — 장중 · 주말 실행은 매매 없이 리포트만)  
 **전체 실행 흐름:**
 
 ```
@@ -757,36 +712,40 @@ def tiebreak_key(s):
 
 ---
 
-### Step 2 — 매도 조건 4가지 — `check_sell_conditions()`
+### Step 2 — 매도 조건 5가지 — `check_sell_conditions()` (전략별 `EXIT_PARAMS`)
 
 ```mermaid
 flowchart TD
-    A["🕔 매일 5PM EST\nmain.py 파이프라인 실행"] --> B["Step 1\nyfinance로 현재가 조회"]
-    B --> C["Step 1\nhighest_price 갱신\n(오늘 가격 > 기존 고점이면 업데이트)"]
+    A["🕔 정기 실행\n마지막 확정 일봉 기준"] --> B["Step 1\n보유 종목 현재가 조회"]
+    B --> C["Step 1\nhighest_price 갱신"]
     C --> D{"Step 2\n매도 조건 체크\ncheck_sell_conditions"}
 
-    D --> E{"조건 1\n수익률 ≥ +15%?"}
-    E -- "YES" --> SELL1["✅ SELL\n목표가 도달"]
-    E -- "NO" --> F{"조건 2\n수익률 ≤ -5%?"}
+    D --> E{"조건 1\n수익률 ≥ 목표가?\n(바닥 +18% · 모멘텀 +12%)"}
+    E -- "YES" --> HW{"Hold-Winners\n재평가 5/5 통과?"}
+    HW -- "YES" --> DEFER["⏸ defer\ntrailing 3.5%로 조임"]
+    HW -- "NO" --> SELL1["✅ SELL\n목표가 · 시간익절"]
+    E -- "NO" --> T{"조건 1b\nN일+ & 수익 ≥ 기준?\n(바닥 12일 +7% · 모멘텀 8일 +5%)"}
+    T -- "YES" --> HW
+    T -- "NO" --> F{"조건 2\n수익률 ≤ -10%?"}
 
     F -- "YES" --> SELL2["✅ SELL\n손절"]
-    F -- "NO" --> G{"조건 3\n고점 대비 -5% 이하?"}
+    F -- "NO" --> G{"조건 3\n고점이 매수가를 넘은 뒤\n고점 대비 -6%(바닥)/-5%(모멘텀)?"}
 
     G -- "YES" --> SELL3["✅ SELL\n트레일링 스탑"]
-    G -- "NO" --> H{"조건 4\n보유 21일 초과\n&& 수익률 < +2%?"}
+    G -- "NO" --> H{"조건 4\n보유 25일(바닥)/18일(모멘텀) 초과\n&& 수익률 < +2%?"}
 
     H -- "YES" --> SELL4["✅ SELL\n장기보유 청산"]
     H -- "NO" --> HOLD["⏸ 보유 유지"]
 
-    SELL1 & SELL2 & SELL3 & SELL4 --> I["close_position()\n→ positions.json에서 제거\n→ trades.json에 거래 기록"]
+    SELL1 & SELL2 & SELL3 & SELL4 --> I["close_position()\n→ trades.json에 거래 기록"]
     I --> J["구글시트 페이퍼_거래로그 동기화"]
 
-    HOLD --> K["Step 3\nselect_best_candidate 후보 선정"]
+    HOLD & DEFER --> K["Step 3\nselect_best_candidate 후보 선정"]
     J --> K
 
-    K --> L{"빈 슬롯 있음?\n보유 < 3개"}
+    K --> L{"빈 슬롯 있음?\n보유 < 3개 (약세장 2개)"}
     L -- "YES" --> BUY["✅ BUY\n즉시 신규 매수"]
-    L -- "NO" --> M{"풀슬롯 교체 검토\nnew_CCS > worst_CCS + 0.10?"}
+    L -- "NO" --> M{"풀슬롯 교체 검토\nnew_CCS > 최약 종목 CCS + 0.10?"}
 
     M -- "YES" --> REPLACE["🔄 REPLACE\n최약 종목 매도 → 신규 매수"]
     M -- "NO" --> SKIP["⏭ SKIP\n교체 기준 미달"]
@@ -794,62 +753,58 @@ flowchart TD
     BUY & REPLACE & SKIP --> SAVE["Step 5\npositions.json 저장"]
 ```
 
+보유 종목마다 위 순서대로 본다. 목표가 · 시간익절은 Hold-Winners 재평가(Step 2.5)를 거치고, 손절 · 트레일링 · 장기보유는 바로 판다. 기간은 매수일부터의 달력일.
 
+#### 전략별 매도 기준 (`config.EXIT_PARAMS`)
 
-보유 종목 각각에 대해 **순서대로** 체크. 하나라도 해당하면 즉시 매도.
+| 항목 | 📉 바닥반등 | 📈 모멘텀 | 기본 (`EXIT_PARAMS_DEFAULT`) |
+|------|------|------|------|
+| 1. 목표가 | +18% | +12% | +15% |
+| 1b. 시간익절 | 12일 지나고 +7% 이상 | 8일 지나고 +5% 이상 | 10일 · +6% |
+| 2. 손절 | −10% | −10% | −10% |
+| 3. 트레일링 (고점 대비) | −6% | −5% | −5% |
+| 4. 장기보유 | 25일 초과 · +2% 미만 | 18일 초과 · +2% 미만 | 21일 · +2% |
 
-#### 조건 1 — 목표가 도달
-
-```python
-return_rate = (current_price - entry_price) / entry_price
-if return_rate >= +0.15:  # +15%
-    sell(reason=f"목표가({return_rate:+.1%})")
-```
-
-| 항목 | 값 | 의도 |
-|------|----|----- |
-| 목표 수익률 | **+15%** | 단기 스윙 트레이딩 기준 평균 목표 |
-| 판단 | 즉시 매도 | 수익 확정 — 추가 상승 기대하다 반납하는 리스크 차단 |
-
-#### 조건 2 — 손절 (Stop Loss)
+#### 조건 1 · 1b — 목표가 · 시간익절
 
 ```python
-if return_rate <= -0.05:  # -5%
-    sell(reason=f"손절({return_rate:+.1%})")
+if ret >= p["profit_target"]:                                      # 1. 목표가
+    sell(reason=f"목표가({ret:+.1%})")
+if days >= p["time_profit_days"] and ret >= p["time_profit_min"]:  # 1b. 시간익절
+    sell(reason=f"시간익절({days}일,{ret:+.1%})")
 ```
 
-| 항목 | 값 | 의도 |
-|------|----|----- |
-| 손절선 | **-5%** | 최대 허용 손실 — 이 이상 손실은 전략 실패로 판단 |
+둘 다 Hold-Winners 재평가(Step 2.5)를 먼저 거친다 — 모멘텀이 살아 있으면 팔지 않고 미룬다.
 
-#### 조건 3 — 트레일링 스탑 (Trailing Stop)
+#### 조건 2 — 손절
 
 ```python
-drawdown = (current_price - highest_price) / highest_price
-if drawdown <= -0.05:  # 고점 대비 -5%
-    sell(reason=f"트레일링({drawdown:+.1%})")
+if ret <= -p["stop_loss"]:          # −10%
+    sell(reason=f"손절({ret:+.1%})")
 ```
 
-| 항목 | 값 | 의도 |
-|------|----|----- |
-| 기준 | 보유 중 **고점** 대비 | 진입가가 아닌 "한때 올랐던 최고점" 기준 |
-| 트레일링 폭 | **-5%** | 수익 중 최대 5%까지 반납 허용 — 그 이상이면 추세 반전으로 판단 |
-
-> 💡 **예시:** 진입 $100 → 고점 $118 → 현재 $112  
-> 손절 조건: $112/$100 - 1 = +12% (손절 아님)  
-> 트레일링: ($112 - $118) / $118 = -5.08% ≤ -5% → **트레일링 스탑 발동**
-
-#### 조건 4 — 장기 보유 청산 (Stale Position)
+#### 조건 3 — 트레일링 스탑
 
 ```python
-if holding_days > 21 and return_rate < 0.02:  # 21일 초과 + 수익 2% 미만
-    sell(reason=f"장기보유({days}일,{return_rate:+.1%})")
+if highest > entry_price * (1 + p["trail_activate_pct"]):   # 고점이 매수가를 넘은 적이 있을 때만 (trail_activate_pct = 0)
+    drawdown = (current_price - highest) / highest
+    if drawdown <= -(pos.get("trailing_stop_override") or p["trailing_stop"]):
+        sell(reason=f"트레일링({drawdown:+.1%})")
 ```
 
-| 항목 | 값 | 의도 |
-|------|----|----- |
-| 기간 | **21일 초과** | 3주 이상 방치된 포지션 |
-| 수익 기준 | **2% 미만** | 기회비용 — 3주 들고 있어도 2% 못 벌면 정리 |
+한 번도 오르지 않은 종목은 트레일링이 아니라 손절(−10%)에 맡긴다. Hold-Winners 로 미룬 포지션은 `trailing_stop_override` = 3.5%.
+
+> 💡 **예시 (모멘텀):** 진입 $100 → 고점 $110 → 현재 $104.4
+> 손절: +4.4% (아님) · 트레일링: ($104.4 − $110) / $110 = −5.1% ≤ −5% → **트레일링 스탑 발동**
+
+#### 조건 4 — 장기 보유 청산
+
+```python
+if days > p["max_holding_days"] and ret < p["stale_min_return"]:   # 25/18일 초과 + 수익 2% 미만
+    sell(reason=f"장기보유({days}일,{ret:+.1%})")
+```
+
+`PT1_STOP_INTRADAY = True` 면 손절 · 트레일링을 장중 저가로 판정한다 (기본 False = 종가).
 
 ---
 
@@ -887,7 +842,7 @@ if sum(1 for v in checks.values() if v) >= HOLD_WINNERS_MIN_CHECKS:
 > **주의:** 기존에는 `RSI >= 60` 하한 조건이 있었으나 2026-04-16 삭제.  
 > RSI 55인 종목도 상승 여지가 충분하므로 `RSI < 75`(과매수 아님)만 체크.
 
-> **MIN_CHECKS 히스토리:** 2026-04-15 v1 원형이 `all()` (5/5). 한때 다수결(4/5)로 완화했으나 현재 다시 5/5 (`config.py:839`).
+> **MIN_CHECKS 히스토리:** 2026-04-15 v1 원형이 `all()` (5/5). 한때 다수결(4/5)로 완화했으나 현재 다시 5/5 (`HOLD_WINNERS_MIN_CHECKS`).
 
 #### defer 발동 시 동작 (현재: freeze 비활성)
 
@@ -911,14 +866,14 @@ defer 2회 모두 소진 → 다음 조건 발동 시 즉시 매도
 
 #### Freeze 변천사
 
-원래 freeze 5일 동안 재트리거를 막아 "하루에 2회 모두 소진" 버그를 방지했었다. 5/5 강제 통과 + tight trailing이 그 역할을 사실상 대체했기 때문에 현재는 `HOLD_WINNERS_DEFER_FREEZE_DAYS = 0`으로 비활성 운영 중 (`config.py:840`). freeze가 필요할 때 다시 양수로 올리면 활성.
+원래 freeze 5일 동안 재트리거를 막아 "하루에 2회 모두 소진" 버그를 방지했었다. 5/5 강제 통과 + tight trailing이 그 역할을 사실상 대체했기 때문에 현재는 `HOLD_WINNERS_DEFER_FREEZE_DAYS = 0`으로 비활성 운영 중. freeze가 필요할 때 다시 양수로 올리면 활성.
 
 #### 실제 예시 (JOBY 케이스)
 
 ```
 상황: JOBY 13일 보유, +7.4% → 시간익절 발동
 재평가: RSI 51✅ | vol 1.25x✅ | 5일 +5.8%✅ | ADX 22✅ | bb 0.73✅ → 5/5 통과
-→ defer 발동! trailing → 3.5%, freeze 5일 시작
+→ defer 발동! trailing → 3.5% (당시엔 freeze 5일 — 지금은 freeze 없음)
 → 5일간 주가 상승 중이면 trailing이 따라 올라감
 → -3.5% 이탈 시점에 매도 (기존보다 훨씬 높은 가격)
 ```
@@ -935,8 +890,8 @@ new_ccs > worst_ccs + 0.10  # 최약 종목 CCS + 0.10 이상이어야만 교체
 | 포지션 상황 | 동작 |
 |------------|------|
 | 후보 없음 (None 반환) | 매수 **skip** / 이유: `"후보_없음"` |
-| 보유 < 3개 (빈 슬롯 있음) | **즉시 매수** — 비교 없이 바로 진입 |
-| 보유 = 3개 (풀슬롯) | 최약 포지션 CCS와 비교 → 교체 여부 판단 |
+| 보유 < 3개 (약세장 2개 — 빈 슬롯 있음) | **즉시 매수** — 비교 없이 바로 진입 |
+| 보유 = 3개 (풀슬롯) | 최약 포지션(약함 기준)의 CCS와 비교 → 교체 여부 판단 |
 | 교체 기준 미달 | 매수 **skip** / 이유: `"교체_미달"` |
 
 > 교체 마진: **+0.10** (기존 0.05에서 강화 — 잦은 교체 방지)
@@ -944,15 +899,18 @@ new_ccs > worst_ccs + 0.10  # 최약 종목 CCS + 0.10 이상이어야만 교체
 #### 교체 상세 흐름 (풀슬롯 시)
 
 ```
-1. get_worst_position() → 현재 3개 중 CCS 가장 낮은 종목 찾기
-2. new_candidate_ccs > worst_ccs + 0.10?  
+1. get_worst_position() → 약함이 가장 큰 보유 종목
+     약함 = (1 − 수익률 정규화) × 0.6 + (1 − 오늘 매수적합도 ÷ 10) × 0.4
+     수익률 정규화 = (수익률 + 10%) ÷ 25% 를 0~1 로 자름
+2. new_candidate_ccs > 그 종목 CCS + 0.10?   (그 종목 CCS = 매수 당시 점수, PT1_REPLACE_TODAY_CCS = False)
    → Yes: 최약 종목 매도 후 새 종목 매수 (교체)
    → No:  아무것도 안 함 (교체_미달)
 ```
 
-> 💡 **교체 예시:**  
-> 보유: AAPL(CCS=0.72), MSFT(CCS=0.68), NVDA(CCS=0.61) → 최약 = NVDA  
-> 새 후보 TSLA(CCS=0.72) → 0.72 > 0.61 + 0.10 = 0.71 → **0.72 > 0.71 → 교체 실행**  
+> 💡 **교체 예시:**
+> 보유: AAPL(+8%, ★6.5, CCS 0.72) · MSFT(+2%, ★6.0, CCS 0.68) · NVDA(−6%, ★5.0, CCS 0.61)
+> 약함: AAPL 0.31 · MSFT 0.47 · NVDA 0.70 → 최약 = NVDA
+> 새 후보 TSLA(CCS=0.72) → 0.72 > 0.61 + 0.10 = 0.71 → **교체 실행**
 > 새 후보 META(CCS=0.70) → 0.70 > 0.71? → **No → 교체 미달**
 
 ---
@@ -962,33 +920,35 @@ new_ccs > worst_ccs + 0.10  # 최약 종목 CCS + 0.10 이상이어야만 교체
 | 파라미터 | 기본값 | 설명 |
 |---------|----|------|
 | `CANDIDATE_MIN_STRATEGY_SCORE` | 6.0 | Filter 1: 전략 점수 최소 기준 |
-| `CANDIDATE_BOTTOM_MAX_52W_POS` | 0.65 | Filter 1: 바닥반등 — 52주 포지션 상한 (이미 회복된 종목 차단) |
+| `CANDIDATE_BOTTOM_MAX_52W_POS` | 0.65 | Filter 1b: 바닥반등 — 52주 포지션 상한 (이미 회복된 종목 차단) |
 | `CANDIDATE_RSI_MAX` | 75 (bear: 70) | Filter 3: RSI 상한 |
 | `CANDIDATE_BOLLINGER_MAX` | 0.95 | Filter 3: 볼린저 위치 상한 |
 | `CANDIDATE_5D_RETURN_MAX` | 0.15 | Filter 3: 5일 수익률 상한 |
 | `CANDIDATE_LIQUIDITY_MIN` | $10,000,000 | Filter 4: 일평균 거래대금 하한 |
 | `CANDIDATE_EARNINGS_BUFFER_DAYS` | 3 | Filter 5: 어닝 회피 버퍼 (일) |
-| `CANDIDATE_MAX_SAME_SECTOR` | 2 | Filter 7: 섹터 집중 차단 기준 |
+| `CANDIDATE_MAX_SAME_SECTOR` | 2 | Filter 9: 섹터 집중 차단 기준 |
 | `CANDIDATE_CCS_MIN_NORMAL` | 0.40 | CCS 임계값 (bull/neutral) |
 | `CANDIDATE_CCS_MIN_BEAR` | 0.45 | CCS 임계값 (bear) |
 | `CCS_REPLACE_MARGIN` | 0.10 | 교체 최소 CCS 마진 |
-| `ADX_BUY_MIN` | 25 | 매수 신호 ADX 강도 요건 |
+| `PT1_REPLACE_TODAY_CCS` | False | True 면 교체 비교 때 보유 종목도 오늘 CCS (기본 = 매수 당시 점수) |
+| `CANDIDATE_BEAR_BLOCK_NEW` | False | True 면 약세장(SPY < EMA200) 신규 진입 중단 |
+| `ADX_BUY_MIN` | 25 | Filter 7 (모멘텀) + 매수 신호 ADX 강도 요건 |
 | `PAPER_TRADING_MAX_POSITIONS` | 3 | 최대 동시 보유 종목 수 |
 | `PAPER_TRADING_PROFIT_TARGET` | 0.15 (+15%) | 목표가 도달 매도 기준 (기본) |
 | `PAPER_TRADING_STOP_LOSS` | 0.07 (-7%) | 손절 기준 (기본 — EXIT_PARAMS가 전략별 -10%로 오버라이드) |
 | `PAPER_TRADING_TRAILING_STOP` | 0.05 (-5%) | 트레일링 스탑 기준 (기본) |
 | `PAPER_TRADING_MAX_HOLDING_DAYS` | 21 | 장기 보유 청산 기준 (기본) |
 | `PAPER_TRADING_STALE_MIN_RETURN` | 0.02 (+2%) | 장기 보유 시 최소 수익률 기준 |
-| **EXIT_PARAMS** | | 전략별 오버라이드 (`config.py:800-828`) |
-| `EXIT_PARAMS["바닥반등"]` | profit 18% / stop 10% / trail 6% / max 25일 | 바닥 반등은 업사이드 큼, 넓은 스탑 |
-| `EXIT_PARAMS["모멘텀"]` | profit 12% / stop 10% / trail 5% / max 18일 | 모멘텀은 빠른 익절 |
+| **EXIT_PARAMS** | | 전략별 오버라이드 (실제로 쓰는 값) |
+| `EXIT_PARAMS["바닥반등"]` | profit 18% / stop 10% / trail 6% / max 25일 / 시간익절 12일 +7% | 바닥 반등은 업사이드 큼, 넓은 스탑 |
+| `EXIT_PARAMS["모멘텀"]` | profit 12% / stop 10% / trail 5% / max 18일 / 시간익절 8일 +5% | 모멘텀은 빠른 익절 |
 | **Hold-Winners 재평가** | | |
 | `HOLD_WINNERS_RSI_MAX` | 75.0 | defer 차단 RSI 상한 (과매수) |
 | `HOLD_WINNERS_ADX_MIN` | 20.0 | 추세 유효성 최소 ADX |
 | `HOLD_WINNERS_VOLUME_MULT_MIN` | 1.2 | 거래량 배수 최소 기준 |
 | `HOLD_WINNERS_VOLUME_Z_MIN` | 1.0 | 거래량 Z-score 대체 기준 |
 | `HOLD_WINNERS_BB_PBAND_MAX` | 0.95 | 볼린저 상단 차단 기준 |
-| `HOLD_WINNERS_MIN_CHECKS` | **5** | 5개 **전부** 통과해야 defer (all() 동등, `config.py:839`) |
+| `HOLD_WINNERS_MIN_CHECKS` | **5** | 5개 **전부** 통과해야 defer (all() 동등) |
 | `HOLD_WINNERS_MAX_DEFERS` | 2 | 최대 defer 횟수 |
 | `HOLD_WINNERS_TIGHT_TRAIL` | 0.035 (-3.5%) | defer 후 tight trailing 폭 |
 | `HOLD_WINNERS_DEFER_FREEZE_DAYS` | **0** | freeze 비활성 (defer 후에도 시간익절/목표가 즉시 재체크) |

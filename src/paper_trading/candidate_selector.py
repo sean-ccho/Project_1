@@ -192,7 +192,7 @@ def _apply_hard_filters(
     rejections["같은회사_중복"] = int(same.sum())
     df = df[~same]
 
-    # 7. 모멘텀 전략 ADX 최소 필터 (ADX < 20이면 추세 약함 → 모멘텀 진입 차단)
+    # 7. 모멘텀 전략 ADX 최소 필터 (ADX < ADX_BUY_MIN(25)이면 추세 약함 → 모멘텀 진입 차단)
     strategy_col2 = df.get("전략구분", pd.Series("", index=df.index)).astype(str)
     is_momentum = strategy_col2.str.contains("모멘텀", na=False)
     adx_col = df.get("adx", pd.Series(25, index=df.index)).fillna(25)

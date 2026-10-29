@@ -181,8 +181,8 @@ def get_worst_position(
 ) -> dict[str, Any] | None:
     """수익률 + 최신 스크리너 점수를 종합해서 가장 약한 포지션 반환.
 
-    weakness = -return_pct_norm + (1 - latest_score_norm)
-    둘 다 [0,1] 정규화. 값이 클수록 약한 포지션.
+    weakness = (1 - return_norm) × 0.6 + (1 - latest_score_norm) × 0.4
+    return_norm = (수익률 + 10%) ÷ 25% 를 [0,1] 로, latest_score_norm = 오늘 매수적합도 ÷ 10. 값이 클수록 약한 포지션.
     """
     if not positions:
         return None

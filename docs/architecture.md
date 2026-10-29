@@ -10,7 +10,7 @@
 ```mermaid
 flowchart TD
     %% ========== TRIGGER ==========
-    TRIGGER["⏰ GitHub Actions\n매일 오후 5시 EST\n(평일 Mon-Fri)"]
+    TRIGGER["⏰ GitHub Actions\ncron 00:45 UTC 매일\n(보통 새벽 1~2시 ET 시작)"]
 
     TRIGGER --> SPLIT
 
@@ -54,11 +54,11 @@ flowchart TD
 
     subgraph ANALYSIS ["🔬 공통 분석 파이프라인"]
         FEATURES["📐 Feature 계산 (features.py)\n30+ 기술지표"]
-        LIQUIDITY["💧 유동성 필터\n거래대금 ≥ $5M / 하위 25% 제거"]
+        LIQUIDITY["💧 유동성 필터\n거래대금 ≥ $5M / 시장별 상위 25% 만"]
         NEUTRALIZE["⚖️ 섹터 중립화\n60% 원본 + 25% 시장중립 + 15% 섹터중립"]
         ALPHA["🤖 Alpha 모델\n5개 팩터 IC 가중 (60일 재계산)"]
         SECTOR["🧭 섹터 강도\nSPY vs ETF 상대 / in_strong_sector 플래그"]
-        PATTERNS["🔭 차트 패턴 (25종)"]
+        PATTERNS["🔭 차트 패턴 (26종)\nTradingView 차트와 같은 바탕"]
         SIGNALS["🎯 시그널 스코어링\n바닥반등 / 모멘텀 독립 계산"]
         EXTREME["🧪 Extreme 모델 (옵션)\nwalk-forward 극단 예측"]
         INSIDER["🕵️ 내부자(90일) 첨부\nopeninsider 클러스터 매수"]
@@ -74,7 +74,7 @@ flowchart TD
         SHEETS_CHART["📈 [차트분석] 시트\n동적 종목 + IMAGE() 임베드"]
         CHARTS["📸 TradingView 차트 캡처\n1H/4H/Daily/Weekly/Monthly"]
         HOST["☁️ 차트 호스팅\nGoogle Drive 또는 GitHub raw URL"]
-        EMAIL["📧 이메일 알림\n(Score ≥ 4.0)"]
+        EMAIL["📧 PT 메일\n(분석 메일은 2026-10-21 부터 끔)"]
     end
 
     OUTPUT_SPLIT --> SHEETS_ANALYSIS & SHEETS_CHART & CHARTS & EMAIL & PT
@@ -105,9 +105,9 @@ flowchart TD
 > | 시트 | 생성 모듈 | 내용 |
 > |---|---|---|
 > | `[SP500 분석]` | `main.py` | SP500/Nasdaq100/ETF 약 600개 전수 랭킹 |
-> | `[SP500 차트분석]` | `main.py:338-388` | Signals 점수 임계 통과 종목만 동적 추출 + 차트 임베드 |
+> | `[SP500 차트분석]` | `main.py` | Signals 점수 임계 통과 종목만 동적 추출 + 차트 임베드 |
 > | `[NASDAQ/NYSE 분석]` | `run_full_scan.py` | 전체 시장 스캔 후 후보 정밀 분석 |
-> | `[NASDAQ/NYSE 차트분석]` | `run_full_scan.py:371+` | NASDAQ 후보 중 차트 첨부 대상 |
+> | `[NASDAQ/NYSE 차트분석]` | `run_full_scan.py` | NASDAQ 후보 중 차트 첨부 대상 |
 
 ---
 
@@ -118,14 +118,16 @@ flowchart TD
 | 항목 | 값 | 설명 |
 |------|-----|------|
 | 최대 보유 종목 | 3개 | `PAPER_TRADING_MAX_POSITIONS = 3` |
-| 수익 목표 | 바닥반등 +18% / 모멘텀 +12% / 기본 +15% | 전략별 `EXIT_PARAMS` (config.py:800-828) |
+| 수익 목표 | 바닥반등 +18% / 모멘텀 +12% / 기본 +15% | 전략별 `EXIT_PARAMS` |
+| 시간익절 | 바닥반등 12일 +7% / 모멘텀 8일 +5% / 기본 10일 +6% | 그 날수가 지나고 그 수익 이상이면 매도 (Hold-Winners 재평가 거침) |
 | 손절 | -10% (전략별) / 기본 -7% | `PAPER_TRADING_STOP_LOSS = 0.07`, `EXIT_PARAMS[*].stop_loss = 0.10` |
-| 트레일링 스탑 | 바닥반등 -6% / 모멘텀 -5% / 기본 -5% | 고점 대비 |
-| 최대 보유 기간 | 바닥반등 25일 / 모멘텀 18일 / 기본 21일 | 이후 stale_min_return 미달이면 매도 |
-| Hold-Winners Defer | 5개 체크 모두 통과 시 매도 보류 (최대 2회) | 보류 중 트레일링 -3.5%로 타이트닝 (engine.py:160-220) |
-| 실행 시각 | 매일 오후 5시 EST (평일) | GitHub Actions |
+| 트레일링 스탑 | 바닥반등 -6% / 모멘텀 -5% / 기본 -5% | 고점 대비 (고점이 매수가를 넘은 적이 있을 때만) |
+| 최대 보유 기간 | 바닥반등 25일 / 모멘텀 18일 / 기본 21일 (달력일) | 이후 stale_min_return(+2%) 미달이면 매도 |
+| Hold-Winners Defer | 5개 체크 모두 통과 시 매도 보류 (최대 2회) | 보류 중 트레일링 -3.5%로 타이트닝 (`engine._should_defer_sell`) |
+| 실행 시각 | cron 00:45 UTC 매일 (보통 새벽 1~2시 ET 시작) | 마지막으로 확정된 일봉만 매매, 같은 일봉은 한 번만 (`market_date.check_run_guard`) |
 | 후보 선정 방식 | CCS (Composite Conviction Score) | 5개 컴포넌트 × 레짐 가중치 |
-| 교체 조건 | 새 후보 CCS > 최약 CCS + 0.10 | `CCS_REPLACE_MARGIN = 0.10` |
+| 교체 조건 | 새 후보 CCS > 최약 종목(약함 기준)의 매수 당시 CCS + 0.10 | `CCS_REPLACE_MARGIN = 0.10` |
+| 약세장 | 보유 한도 3 → 2 · RSI 기준 70 · buy_signal 필수 · 모멘텀 제외 | SPY < EMA200 |
 
 ### 매일 거래 엔진 (engine.py)
 
@@ -139,13 +141,13 @@ flowchart TD
     PRICE --> SELL_LOOP["매도 조건 검사"]
 
     subgraph SELL_PHASE ["SELL PHASE"]
-        SELL_LOOP --> C1{"목표가 도달?\n(전략별 +12~18%)"}
+        SELL_LOOP --> C1{"목표가 또는 시간익절?\n(+12~18% · 8~12일 +5~7%)"}
         C1 -->|Yes| DEFER{"Hold-Winners\n5체크 통과?"}
         DEFER -->|Yes (≤2회)| TIGHT["tight-trail 전환\n(-3.5%)"]
-        DEFER -->|No| EXIT1["매도: 목표가"]
+        DEFER -->|No| EXIT1["매도: 목표가 · 시간익절"]
         C1 -->|No| C2{"수익률 <= 손절선?\n(전략별 -10%)"}
         C2 -->|Yes| EXIT2["매도: 손절"]
-        C2 -->|No| C3{"고점 대비 트레일링?\n(-5~-6%)"}
+        C2 -->|No| C3{"고점이 매수가를 넘은 뒤\n고점 대비 -5~-6%?"}
         C3 -->|Yes| EXIT3["매도: 트레일링"]
         C3 -->|No| C4{"최대일+ AND\n<stale_min_return?"}
         C4 -->|Yes| EXIT4["매도: 시간 감쇄"]
@@ -155,9 +157,9 @@ flowchart TD
 
     EXIT1 & EXIT2 & EXIT3 & EXIT4 --> CLOSE["close_position()"]
     CLOSE & HOLD --> SELECT["select_best_candidate()"]
-    SELECT --> SLOT{"보유 < 3?"}
+    SELECT --> SLOT{"보유 < 3?\n(약세장 2)"}
     SLOT -->|Yes| BUY["add_position()"]
-    SLOT -->|No| WORST["최약 포지션 선정\n(weakness = return*0.6 + CCS*0.4)"]
+    SLOT -->|No| WORST["최약 포지션 선정\n(약함 = (1-수익률정규화)×0.6\n+ (1-매수적합도/10)×0.4)"]
     WORST --> REPLACE{"새 CCS > 최약 + 0.10?"}
     REPLACE -->|Yes| SWAP["교체 매수"]
     REPLACE -->|No| SKIP["SKIP"]
@@ -170,18 +172,24 @@ flowchart TD
 
 `select_best_candidate(df, current_holdings)` — 500~1000개 후보 중 최적 1종목 선정.
 
-### Phase 1: 하드 필터 (7가지)
+### Phase 1: 하드 필터 (12단계, 순서대로)
 
 | 필터 | 기준 | config 상수 |
 |------|------|-------------|
+| 지수 ETF | SPY · QQQ · IWM 제외 (레짐 판단용) | `INDICES` |
 | 전략 점수 | 바닥반등/모멘텀 적합도 ≥ 6.0 | `CANDIDATE_MIN_STRATEGY_SCORE = 6.0` |
-| 판단 등급 | "1. 매수 후보" / "1. 저점 반등" | — |
-| RSI 과매수 | < 75 | `CANDIDATE_RSI_MAX = 75` |
-| 볼린저 | bollinger_pband < 0.95 | `CANDIDATE_BOLLINGER_MAX = 0.95` |
-| 단기 급등 | 5일 수익률 < +15% | `CANDIDATE_5D_RETURN_MAX = 0.15` |
+| 바닥반등 52주 위치 | 바닥반등이면 52주포지션 ≤ 0.65 | `CANDIDATE_BOTTOM_MAX_52W_POS = 0.65` |
+| 허용 전략 | 기본 전부 | `CANDIDATE_ALLOWED_STRATEGIES = None` |
+| 판단 등급 | 판단 "1. 매수 후보" / "1. 저점 반등" 또는 추천 "1. 즉시 진입" / "1. 반등 매수" | — |
+| 과열 | RSI < 75 (약세장 70) · bollinger_pband < 0.95 · 5일 수익률 < +15% | `CANDIDATE_RSI_MAX` · `_BOLLINGER_MAX` · `_5D_RETURN_MAX` |
 | 유동성 | 20일 평균 거래대금 ≥ $10M | `CANDIDATE_LIQUIDITY_MIN = 10_000_000` |
-| 실적 발표 | 다음 실적까지 3일+ | `CANDIDATE_EARNINGS_BUFFER_DAYS = 3` |
+| 실적 발표 | 다음 실적까지 3일 넘게 | `CANDIDATE_EARNINGS_BUFFER_DAYS = 3` |
+| 보유 중복 · 같은 회사 | 보유 종목 · SPY · 같은 회사 클래스주 제외 | — |
+| 모멘텀 ADX | 모멘텀이면 ADX ≥ 25 | `ADX_BUY_MIN = 25` |
+| 바닥반등 RSI 데드존 | 바닥반등이면 RSI 30~35 제외 | — |
 | 섹터 집중 | 동일 섹터 최대 2종목 | `CANDIDATE_MAX_SAME_SECTOR = 2` |
+
+자세한 규칙 · 2026-10-28 10년 시험 결과는 `paper_trading_candidate_selection.md`.
 
 ### Phase 2: CCS 컴포넌트 (5개)
 
@@ -191,10 +199,10 @@ CCS = w_strategy × A + w_timing × B + w_alpha × C + w_risk × D + w_confluenc
 
 | 컴포넌트 | 설명 |
 |----------|------|
-| **A. 전략 적합도** | max(바닥반등, 모멘텀) / 10, 애매한 신호 페널티 |
+| **A. 전략 적합도** | max(바닥반등, 모멘텀) / 10 |
 | **B. 진입 타이밍** | RSI 스윗스팟 + 볼린저 위치 + 거래량Z + MACD 방향 |
 | **C. 알파 팩터** | 전략별 가중치 다른 5개 팩터 합산 |
-| **D. 위험조정 품질** | ATR 압축 + 52주 포지션 + ROE + 부채비율 + 기관비율 + 공매도비율 |
+| **D. 위험조정 품질** | ATR 압축 + 52주 포지션 + ROE + 부채비율 + 기관비율 + 공매도비율 + 주·월봉 정배열 |
 | **E. 패턴 컨플루언스** | ML 저점확률 + 반등스코어 + 다중 타임프레임 패턴 + EMA 정렬 |
 
 ### Phase 3~4: 레짐별 CCS 가중치
@@ -208,16 +216,18 @@ Neutral: 그 외
 | 컴포넌트 | Bull | Neutral | Bear |
 |----------|------|---------|------|
 | 전략 적합도 | 0.25 | 0.25 | 0.20 |
-| 진입 타이밍 | 0.15 | 0.20 | 0.25 |
-| 알파 팩터 | 0.25 | 0.20 | 0.15 |
-| 위험조정 품질 | 0.15 | 0.20 | 0.30 |
-| 패턴 컨플루언스 | 0.20 | 0.15 | 0.10 |
+| 진입 타이밍 | 0.20 | 0.20 | 0.25 |
+| 알파 팩터 | 0.15 | 0.15 | 0.10 |
+| 위험조정 품질 | 0.20 | 0.25 | 0.30 |
+| 패턴 컨플루언스 | 0.20 | 0.15 | 0.15 |
+
+`CANDIDATE_REGIME_WEIGHTS`. 레짐과 맞는 전략(bull+모멘텀 · bear+바닥반등)이면 레짐 보너스 +0.015 × 전략 점수/10.
 
 ### Phase 5~7: 섹터 페널티 / 임계값 / 동점 처리
 
 - 섹터 페널티: 보유 1종목 동섹터 -0.05, 2종목+ -0.15
-- 임계값: Bull/Neutral ≥ 0.35, Bear ≥ 0.45 (+ `buy_signal == True`, 모멘텀 제외)
-- 동점 처리 (CCS 차 ≤ 0.02): 바닥반등 > 모멘텀 > 전환구간 → 매수 지지 신호 수 → ATR% 낮은 쪽
+- 임계값: Bull/Neutral ≥ 0.40, Bear ≥ 0.45 (약세장은 `buy_signal == True` · 모멘텀 제외 · RSI 70)
+- 동점 처리 (CCS 차 < 0.02): 레짐과 맞는 전략 → 전략 점수 높은 쪽 → 매수 지지 신호 수 → ATR% 낮은 쪽
 
 ---
 
@@ -247,7 +257,7 @@ Neutral: 그 외
 | `add_position()` | positions에 추가 |
 | `close_position()` | positions에서 제거 → trades에 기록 |
 | `update_highest_price()` | 신고가 갱신 |
-| `get_worst_position()` | weakness = (1-return_norm)×0.6 + (1-ccs_norm)×0.4 |
+| `get_worst_position()` | weakness = (1-return_norm)×0.6 + (1-매수적합도/10)×0.4 (return_norm = (수익률+10%)/25%, 0~1) |
 
 ---
 
@@ -281,7 +291,7 @@ nasdaq_ranked.parquet ┘
 |------|--------|----------|
 | 데이터 소스 | 실시간 parquet | 과거 OHLCV + `_compute_ranked_snapshot()` |
 | 체결 가격 | 당일 현재가 | 다음 거래일 시가 (슬리피지 반영) |
-| 리밸런싱 | 매 거래일 | `rebalance_every=5` 거래일마다 |
+| 리밸런싱 | 매 거래일 | `rebalance_every` (함수 기본 5 · 10년 연구 하네스는 1 = 매일) |
 | 포지션 저장 | JSON | 메모리 내 `@dataclass BtPosition` |
 
 출력: `trades`, `summary` (total_trades, win_rate, avg_return, sharpe, max_drawdown, strategy_breakdown, exit_distribution), `equity_curve`.
@@ -300,9 +310,11 @@ nasdaq_ranked.parquet ┘
 | `src/data/fetch.py` | yfinance OHLCV |
 | `src/screener/features.py` | 30+ 기술지표 |
 | `src/screener/processing.py` | 유동성 필터 + 섹터 중립화 |
-| `src/screener/alpha_model.py` | 5팩터 Alpha 모델 (기본 가중치 momentum 0.30 / trend 0.25 / volume 0.15 / volatility 0.15 / mean_reversion 0.15) |
+| `src/screener/alpha_model.py` | 5팩터 Alpha 모델 (60일 IC 동적 가중, 기본값 `config.ALPHA_DEFAULT_WEIGHTS` momentum 0.20 / trend 0.20 / volume 0.25 / volatility 0.15 / mean_reversion 0.20) |
 | `src/screener/signals.py` | Bottom/Momentum 스코어 |
-| `src/screener/patterns.py` | 차트 패턴 감지 (골든크로스 50바 sustained-below 검증 포함) |
+| `src/screener/patterns.py` | 차트 패턴 감지 (가격 패턴 · 캔들 · 차트반전 · 주·월봉 패턴) |
+| `src/screener/chart_ma.py` | TradingView 차트와 같은 바탕 — 분할만 반영 가격 · 끝난 봉 · EMA10/20 교차 라벨 · 예고 · 정배열 4선 (2026-10-28) |
+| `src/screener/ma_cross.py` | Pine 방식 EMA · 교차 · 임박 계산 (`TF_RULES`) |
 | `src/screener/sector_rotation.py` | `get_strong_sectors()` + `in_strong_sector` 필터 |
 | `src/screener/insider.py` | `attach_insider_summary()` — openinsider 90일 클러스터 매수 |
 | `src/screener/exporter.py` | Google Sheets + 이메일 |
@@ -350,9 +362,9 @@ PAPER_TRADING_TRAILING_STOP    = 0.05
 PAPER_TRADING_MAX_HOLDING_DAYS = 21
 PAPER_TRADING_STALE_MIN_RETURN = 0.02
 
-# 전략별 EXIT 파라미터 (EXIT_PARAMS, config.py:800-828)
-# 바닥반등: profit 18%, stop 10%, trailing 6%, max 25일
-# 모멘텀  : profit 12%, stop 10%, trailing 5%, max 18일
+# 전략별 EXIT 파라미터 (EXIT_PARAMS)
+# 바닥반등: profit 18%, stop 10%, trailing 6%, max 25일, 시간익절 12일 +7%
+# 모멘텀  : profit 12%, stop 10%, trailing 5%, max 18일, 시간익절 8일 +5%
 
 # 후보 선정 하드 필터
 CANDIDATE_MIN_STRATEGY_SCORE   = 6.0
@@ -363,6 +375,7 @@ CANDIDATE_5D_RETURN_MAX        = 0.15
 CANDIDATE_LIQUIDITY_MIN        = 10_000_000
 CANDIDATE_EARNINGS_BUFFER_DAYS = 3
 CANDIDATE_MAX_SAME_SECTOR      = 2
+ADX_BUY_MIN                    = 25     # 모멘텀 하드 필터 + 매수 신호
 
 # 교체 및 CCS
 CCS_REPLACE_MARGIN             = 0.10
