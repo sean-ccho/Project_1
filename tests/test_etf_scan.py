@@ -15,13 +15,21 @@ from screener.etf_scan import build_rows, payload, sheet_frame  # noqa: E402
 DAYS = pd.bdate_range("2024-12-02", periods=300)
 
 
-def _frame(paths: dict[str, np.ndarray]) -> pd.DataFrame:
+def _frame(paths: dict[str, np.ndarray], divs: dict[str, np.ndarray] | None = None) -> pd.DataFrame:
     cols = {}
     for t, close in paths.items():
         cols[(t, "Open")], cols[(t, "High")], cols[(t, "Low")], cols[(t, "Close")] = close, close * 1.01, close * 0.99, close
         cols[(t, "Volume")] = np.full(len(close), 1e6)
-        cols[(t, "Dividends")] = np.zeros(len(close))
+        cols[(t, "Dividends")] = (divs or {}).get(t, np.zeros(len(close)))
     return pd.DataFrame(cols, index=DAYS)
+
+
+def _adjusted(raw: np.ndarray, div: np.ndarray) -> np.ndarray:
+    """Yahoo 방식 배당 조정 종가: A_t = C_t × Π(배당락일 j > t) (1 − D_j / C_(j−1))."""
+    f = np.ones(len(raw))
+    for t in range(len(raw) - 2, -1, -1):
+        f[t] = f[t + 1] * (1 - div[t + 1] / raw[t]) if div[t + 1] > 0 else f[t + 1]
+    return raw * f
 
 
 def test_universe_has_unique_tickers_in_one_group_each():
@@ -50,6 +58,22 @@ def test_rows_returns_trend_and_risk():
     assert spy["name"] == "SPDR S&P 500" and xlk["name"] is None             # 정보 못 받은 칸은 None
     assert set(spy["cross"]) == {"daily", "weekly", "monthly"}
     assert spy["price"] == up[-1]                                            # 배당 0 이라 분할만 반영 = 받은 값
+
+
+def test_chart_price_columns_ignore_dividends_and_bil_has_no_trend():
+    """배당 큰 ETF: 200일선 · 52주 고점은 차트 가격(분할만 반영), 수익률은 배당 포함. BIL 은 12개월 배지 없음."""
+    raw = np.linspace(100, 95, len(DAYS))                                   # 가격은 조금씩 내림
+    div = np.zeros(len(DAYS))
+    div[20::21] = 0.8                                                        # 매달 0.8 (연 10% 쯤)
+    adj = _adjusted(raw, div)
+    prices = _frame({"TLT": adj, "BIL": np.linspace(100, 104.5, len(DAYS))}, divs={"TLT": div})
+    rows = {r["ticker"]: r for r in build_rows(prices, {}, {}, ["TLT", "BIL"])}
+    tlt = rows["TLT"]
+    assert abs(tlt["price"] - raw[-1]) < 1e-9
+    assert adj[-1] > adj[-200:].mean() and tlt["above_200"] is False        # 배당 포함 가격이면 '위'였다
+    assert abs(tlt["high_52w_gap"] - (raw[-1] / raw[-252:].max() - 1)) < 1e-9
+    assert tlt["ret"]["y1"] > 0                                              # 가격은 내렸어도 총수익은 +
+    assert rows["BIL"]["trend_12m"] is None
 
 
 def test_payload_is_strict_json_and_sheet_has_korean_columns():

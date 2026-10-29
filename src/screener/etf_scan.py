@@ -4,9 +4,10 @@
     PYTHONPATH=.:src python -m screener.etf_scan --out "$RUNNER_TEMP/web/etf.json" --sheet
     CI=1 PYTHONPATH=.:src python -m screener.etf_scan --out /tmp/etf.json        # 로컬 미리보기 (캐시 안 씀)
 
-- 수익률 · 변동성 · 낙폭 · 상관: 배당까지 넣은 가격(yfinance auto_adjust) — 총수익
-- 가격 · 교차 라벨: TradingView 차트와 같은 분할만 반영 가격 · 끝난 봉 (screener.chart_ma, 주식 화면과 같은 규칙)
-- 12개월 추세: 1년 수익이 단기 국채 ETF(BIL) 1년 수익보다 높으면 살아 있음 (lab_B 추세추종 규칙의 신호)
+- 수익률 · 변동성 · 낙폭 · 상관 · 12개월 추세: 배당까지 넣은 가격(yfinance auto_adjust) — 총수익
+- 가격 · 200일선 · 52주 고점 · 교차 라벨: TradingView 차트와 같은 분할만 반영 가격 (교차는 끝난 봉 — screener.chart_ma,
+  주식 화면과 같은 규칙). 10-28 종가로 보니 배당 포함 가격이면 52주 고점이 19개 ETF 에서 1%p 넘게 어긋났다 (BITO · 채권)
+- 12개월 추세: 1년 수익이 단기 국채 ETF(BIL) 1년 수익보다 높으면 살아 있음 (lab_B 추세추종 규칙의 신호, BIL 자신은 없음)
 - 정보(이름 · 운용사 · 보수 · 운용자산 · 배당률 · 설정일): yfinance Ticker.info — 못 받으면 빈칸
 """
 
@@ -142,21 +143,23 @@ def build_rows(prices: pd.DataFrame, chart_map: dict[str, ChartPrices], info: di
         if p.empty:
             continue
         c = p["Close"]
-        last = float(c.iloc[-1])
-        sma200 = float(c.tail(200).mean()) if len(c) >= 200 else math.nan
         y1 = _ret(c, YEAR_DAYS)
         split_close = split_only_ohlcv(p)["Close"].dropna()
+        chart = split_close if len(split_close) else c.dropna()   # 차트 가격 (분할만 반영)
+        last = float(chart.iloc[-1])
+        sma200 = float(chart.tail(200).mean()) if len(chart) >= 200 else math.nan
         rows.append({
             "ticker": t,
             "group": group_of.get(t, ""),
             **{k: None for k in ("name", "family", "category", "currency", "expense", "aum", "yield", "inception")},
             **info.get(t, {}),
             "date": c.index[-1].date().isoformat(),
-            "price": _num(split_close.iloc[-1]) if len(split_close) else _num(last),
+            "price": _num(last),
             "ret": {**{k: _ret(c, n) for k, n in WINDOWS.items()}, "ytd": _ytd(c)},
             "above_200": bool(last > sma200) if math.isfinite(sma200) else None,
-            "trend_12m": None if y1 is None else bool(y1 - (rf_y1 or 0.0) > 0),
-            "high_52w_gap": _num(last / c.tail(YEAR_DAYS).max() - 1),
+            # BIL 은 자기와 비교라 늘 꺼짐 → 없음
+            "trend_12m": None if y1 is None or t == RISK_FREE_ETF else bool(y1 - (rf_y1 or 0.0) > 0),
+            "high_52w_gap": _num(last / chart.tail(YEAR_DAYS).max() - 1),
             "vol": _ann_vol(c),
             "mdd_1y": _max_drawdown(c),
             "corr_spy": 1.0 if t == BENCHMARK_ETF else _corr(c, bench),
