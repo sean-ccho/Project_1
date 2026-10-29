@@ -1,35 +1,20 @@
 ============================================================
 [Unified Paper Trading] PT-1 실행 시작
 ============================================================
-2026-10-29 10:14:33,229 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+2026-10-29 22:11:41,745 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
 [Unified PT] SP500 snapshot 로드: 130개 종목
-2026-10-29 10:14:33,238 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 223개 종목
-[Unified PT] NASDAQ snapshot 로드: 223개 종목
-[Unified PT] 합산 완료: 346개 종목 (SP500 130 + NASDAQ 223개, 중복 제거 후)
-[Unified PT] 거래일(일봉 날짜): 2026-10-28
-[Unified PT] 골든크로스임박 종목: 95개
-2026-10-29 10:14:33,915 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 73 | 4.0~5.0: 39 | 5.0~5.5: 38 | 5.5~6.0: 36 | 6.0+: 157
-2026-10-29 10:14:33,945 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=28/346 | Selected: COST (CCS=0.6718)
-2026-10-29 10:14:33,952 [INFO] paper_trading.engine — [PaperTrading] 교체 기준 미달 — 매수 안 함
+2026-10-29 22:11:41,754 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 228개 종목
+[Unified PT] NASDAQ snapshot 로드: 228개 종목
+[Unified PT] 합산 완료: 349개 종목 (SP500 130 + NASDAQ 228개, 중복 제거 후)
+[Unified PT] 건너뜀: 스냅샷에 일봉 날짜(_bar_date)가 없음 — 매매 없이 일일 리포트만 발송
+[Unified PT] 거래일(일봉 날짜): None
+[Unified PT] 골든크로스임박 종목: 102개
 [Unified PT] 매도=0 매수=0 보유=3종목
-[Unified PT] 레짐=bull | 필터={'지수ETF': 3, '전략점수<6.0': 186, '바닥반등_52주과열': 2, '판단등급_미달': 103, '과열_차단': 12, '유동성_부족': 0, '어닝_임박': 4, '보유_중복': 0, '같은회사_중복': 0, '모멘텀_ADX부족': 3, '바닥_RSI데드존': 4, '섹터_집중': 1, '_통과': 28, '_전체': 346}
-[Unified PT] 스킵 사유: 교체_미달
-[Unified PT] Top5 후보:
-  COST   CCS=0.6718 전략=📈 모멘텀 섹터=Consumer Defensive
-  SBSW   CCS=0.6421 전략=📉 바닥반등 섹터=Basic Materials
-  PG     CCS=0.6268 전략=📈 모멘텀 섹터=Consumer Defensive
-  FIX    CCS=0.6144 전략=📉 바닥반등 섹터=Industrials
-  INOD   CCS=0.6142 전략=📉 바닥반등 섹터=Technology
-2026-10-29 10:14:35,770 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 다시 쓰기: 페이퍼_거래로그 115줄
-2026-10-29 10:14:36,880 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
-2026-10-29 10:14:38,033 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 56건 거래
-[Unified PT] 구글 시트 동기화 완료
 [OHLCV] 배치 다운로드 1/2 (50개 종목, period=2y)...
 [OHLCV] 배치 다운로드 2/2 (11개 종목, period=2y)...
 [DataValidator] 데이터 품질 경고 1건 — 정보용, 데이터는 그대로 씀
   최근 1년 하루 ±50% 넘는 변동 (대부분 실제 급등락, 스플릿/데이터 오류 가능) — 1종목: LRN -54%(2025-10-29)
-[Unified PT] $5,000 계좌 탭 '페이퍼_계좌' 동기화 완료
-[Email] 페이퍼 트레이딩 알림 발송 완료 (매도 0건, 매수 0건, 재평가 0건, 재평가실패 0건, 후보 5건) → chunghwan14@gmail.com
+[Email] 페이퍼 트레이딩 알림 발송 완료 (매도 0건, 매수 0건, 재평가 0건, 재평가실패 0건, 후보 0건) → chunghwan14@gmail.com
 ============================================================
 [Unified Paper Trading] 완료
 ============================================================
