@@ -1,14 +1,19 @@
 """ETF 탭 데이터 — 묶음별 ETF 의 정보 · 수익률 · 추세 · 위험 (사이트 /quant/etf 의 etf.json · 시트 [ETF], 2026-10-28).
 
 밤 실행(run-screener.yml 'ETF scan')이 부른다. 표시 전용 — 점수 · PT-1 에 안 쓴다.
-    PYTHONPATH=.:src python -m screener.etf_scan --out "$RUNNER_TEMP/web/etf.json" --sheet
-    CI=1 PYTHONPATH=.:src python -m screener.etf_scan --out /tmp/etf.json        # 로컬 미리보기 (캐시 안 씀)
+    PYTHONPATH=.:src python -m screener.etf_scan --out "$RUNNER_TEMP/web/etf.json" \
+        --detail-out "$RUNNER_TEMP/web/etf_detail.json" --sheet
+    CI=1 PYTHONPATH=.:src python -m screener.etf_scan --out /tmp/etf.json --detail-out /tmp/etf_detail.json  # 로컬 (캐시 안 씀)
 
 - 수익률 · 변동성 · 낙폭 · 상관 · 12개월 추세: 배당까지 넣은 가격(yfinance auto_adjust) — 총수익
 - 가격 · 200일선 · 52주 고점 · 교차 라벨: TradingView 차트와 같은 분할만 반영 가격 (교차는 끝난 봉 — screener.chart_ma,
   주식 화면과 같은 규칙). 10-28 종가로 보니 배당 포함 가격이면 52주 고점이 19개 ETF 에서 1%p 넘게 어긋났다 (BITO · 채권)
 - 12개월 추세: 1년 수익이 단기 국채 ETF(BIL) 1년 수익보다 높으면 살아 있음 (lab_B 추세추종 규칙의 신호, BIL 자신은 없음)
 - 정보(이름 · 운용사 · 보수 · 운용자산 · 배당률 · 설정일): yfinance Ticker.info — 못 받으면 빈칸
+- 상세(설명 · 상위 10개 보유 종목 · 섹터 비중 · 자산 구성 · 채권 등급, 2026-10-29): yfinance Ticker.funds_data → etf_detail.json
+  (사이트가 줄을 펼칠 때만 받는다). Yahoo 채권 듀레이션 · 만기는 틀린 값이 있어(TLT 듀레이션 3.6) 안 싣는다
+- 추천(2026-10-29): 역할별 기본 1개 = 같은 것을 담는 후보 중 운용자산 10억 이상에서 보수가 가장 싼 것 (근거 있는 기준),
+  요즘 강한 ETF = 6달 수익 순 참고 목록 (검증 안 됨 — rotation_v1 에서 섹터 ETF 6달 모멘텀은 SPY 와 같았다)
 """
 
 from __future__ import annotations
@@ -25,7 +30,8 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
-from data.etf_universe import BENCHMARK_ETF, ETF_GROUPS, RISK_FREE_ETF, etf_group_of, etf_tickers
+from data.etf_universe import (BENCHMARK_ETF, ETF_GROUPS, ETF_ROLES, ETF_TWINS, MOMENTUM_GROUPS, MOMENTUM_TOP,
+                               RISK_FREE_ETF, ROLE_FEE_TIE, ROLE_MIN_AUM, etf_group_of, etf_tickers, etf_twin_of)
 from screener.chart_ma import ChartPrices, chart_prices, chart_view, cross_label, extend_chart, split_only_ohlcv
 from screener.features import CROSS_KO
 
@@ -34,6 +40,14 @@ VOL_DAYS = 63
 YEAR_DAYS = 252
 SHEET_TAB = "ETF"
 ET = ZoneInfo("America/Toronto")
+# funds_data 섹터 키 → 주식 데이터와 같은 Yahoo 섹터 이름 (사이트가 한국어로 바꾼다)
+SECTOR_KEYS = {
+    "technology": "Technology", "financial_services": "Financial Services", "healthcare": "Healthcare",
+    "consumer_cyclical": "Consumer Cyclical", "consumer_defensive": "Consumer Defensive",
+    "communication_services": "Communication Services", "industrials": "Industrials", "energy": "Energy",
+    "basic_materials": "Basic Materials", "utilities": "Utilities", "realestate": "Real Estate",
+}
+RATING_KEYS = ("aaa", "aa", "a", "bbb", "bb", "b", "below_b", "other")
 
 
 def _num(v: Any) -> float | None:
@@ -127,8 +141,67 @@ def fetch_info(tickers: list[str], pause: float = 0.2) -> dict[str, dict[str, An
     return out
 
 
+def _text(v: Any) -> str | None:
+    s = str(v).strip() if v is not None else ""
+    return s if s and s.lower() not in ("nan", "none") else None
+
+
+def parse_funds(fd: Any) -> dict[str, Any]:
+    """yfinance FundsData → ETF 상세 한 개. 못 읽은 칸은 None (금 · 가상자산 ETF 는 보유 종목이 없다).
+
+    holdings: 상위 10개 [{s 티커, n 이름, w 비중}], sectors: {Yahoo 섹터 이름: 비중}, assets: {stock, bond, cash, other},
+    ratings: 채권 ETF(채권 50% 이상)만 신용등급 비중 + us_government(미국 국채 비중, 등급과 겹친다).
+    """
+    def get(name: str) -> Any:
+        try:
+            return getattr(fd, name)
+        except Exception:  # noqa: BLE001 — 칸 하나 실패로 나머지를 버리지 않는다
+            return None
+
+    holdings: list[dict[str, Any]] = []
+    top = get("top_holdings")
+    if isinstance(top, pd.DataFrame) and not top.empty:
+        for sym, r in top.iterrows():
+            w = _num(r.get("Holding Percent"))
+            if _text(sym) and w is not None and w > 0:
+                holdings.append({"s": _text(sym), "n": _text(r.get("Name")), "w": w})
+    sectors = {SECTOR_KEYS[k]: f for k, v in (get("sector_weightings") or {}).items()
+               if k in SECTOR_KEYS and (f := _num(v)) is not None and f > 0}
+    ac = get("asset_classes") or {}
+    parts = {"stock": _num(ac.get("stockPosition")), "bond": _num(ac.get("bondPosition")),
+             "cash": _num(ac.get("cashPosition")),
+             "other": sum(_num(ac.get(k)) or 0.0 for k in ("preferredPosition", "convertiblePosition", "otherPosition"))}
+    assets = {k: max(v or 0.0, 0.0) for k, v in parts.items()} if any(parts.values()) else None
+    ratings = None
+    if assets and assets["bond"] >= 0.5:
+        br = get("bond_ratings") or {}
+        got = {k: f for k in (*RATING_KEYS, "us_government") if (f := _num(br.get(k))) is not None}
+        ratings = got if any(got.values()) else None
+    return {"desc": _text(get("description")), "holdings": holdings, "sectors": sectors or None,
+            "assets": assets, "ratings": ratings}
+
+
+def fetch_holdings(tickers: list[str], pause: float = 0.2) -> dict[str, dict[str, Any]]:
+    """ETF 상세 (설명 · 상위 10개 · 섹터 · 자산 구성 · 채권 등급). 두 번 다 못 받은 ETF 는 빠진다."""
+    import yfinance as yf
+
+    out: dict[str, dict[str, Any]] = {}
+    for t in tickers:
+        for attempt in range(2):
+            try:
+                fd = yf.Ticker(t).funds_data
+                fd.description                              # 여기서 받아 온다 — 실패하면 다시
+                out[t] = parse_funds(fd)
+                break
+            except Exception:  # noqa: BLE001
+                time.sleep(1.0 + attempt)
+        time.sleep(pause)
+    return out
+
+
 def build_rows(prices: pd.DataFrame, chart_map: dict[str, ChartPrices], info: dict[str, dict[str, Any]],
-               tickers: list[str] | None = None) -> list[dict[str, Any]]:
+               tickers: list[str] | None = None,
+               holdings: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """ETF 한 줄씩. prices = fetch_ohlcv 결과 ((티커, 필드) 멀티인덱스, 배당 조정 + Dividends 칸)."""
     group_of = etf_group_of()
     have = set(prices.columns.get_level_values(0))
@@ -148,6 +221,7 @@ def build_rows(prices: pd.DataFrame, chart_map: dict[str, ChartPrices], info: di
         chart = split_close if len(split_close) else c.dropna()   # 차트 가격 (분할만 반영)
         last = float(chart.iloc[-1])
         sma200 = float(chart.tail(200).mean()) if len(chart) >= 200 else math.nan
+        held = ((holdings or {}).get(t) or {}).get("holdings") or []
         rows.append({
             "ticker": t,
             "group": group_of.get(t, ""),
@@ -164,8 +238,51 @@ def build_rows(prices: pd.DataFrame, chart_map: dict[str, ChartPrices], info: di
             "mdd_1y": _max_drawdown(c),
             "corr_spy": 1.0 if t == BENCHMARK_ETF else _corr(c, bench),
             "cross": cross_labels(p, chart_map.get(t)),
+            "top10_weight": _num(sum(h["w"] for h in held)) if held else None,   # 상위 10개 합 (쏠림 정도)
         })
     return rows
+
+
+def pick_roles(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """역할별 기본 1개 — 후보 중 운용자산 ROLE_MIN_AUM 이상 · 보수 아는 것에서 보수 최저 (차이가 아주 작으면 운용자산 큰 쪽).
+
+    고를 것이 없는 역할은 빠진다. alts = 나머지 후보 (보수 싼 순, 모르면 끝).
+    """
+    by = {r["ticker"]: r for r in rows}
+    out: list[dict[str, Any]] = []
+    for key, ko, en, cands in ETF_ROLES:
+        have = [by[t] for t in cands if t in by]
+        ok = [r for r in have if r.get("expense") is not None and (r.get("aum") or 0) >= ROLE_MIN_AUM]
+        if not ok:
+            continue
+        low = min(r["expense"] for r in ok)
+        pick = max((r for r in ok if r["expense"] - low < ROLE_FEE_TIE), key=lambda r: r["aum"])["ticker"]
+        alts = sorted((r for r in have if r["ticker"] != pick),
+                      key=lambda r: (r.get("expense") is None, r.get("expense") or 0.0))
+        out.append({"key": key, "ko": ko, "en": en, "pick": pick, "alts": [r["ticker"] for r in alts]})
+    return out
+
+
+def momentum_list(rows: list[dict[str, Any]]) -> list[str]:
+    """요즘 강한 ETF (참고) — 섹터 · 테마 · 나라 · 원자재 · 부동산 중 200일선 위 + 12개월 추세 살아 있는 것을 6달 수익 순으로.
+
+    같은 것 묶음(SMH · SOXX 등)에서는 하나만. 앞으로 오른다는 근거는 없다 (표시 전용).
+    """
+    twin_of = etf_twin_of()
+    cands = sorted((r for r in rows if r["group"] in MOMENTUM_GROUPS and r.get("above_200") is True
+                    and r.get("trend_12m") is True and r["ret"].get("m6") is not None),
+                   key=lambda r: r["ret"]["m6"], reverse=True)
+    out: list[str] = []
+    seen: set[str] = set()
+    for r in cands:
+        family = twin_of.get(r["ticker"], r["ticker"])
+        if family in seen:
+            continue
+        seen.add(family)
+        out.append(r["ticker"])
+        if len(out) == MOMENTUM_TOP:
+            break
+    return out
 
 
 def _rounded(obj: Any) -> Any:
@@ -182,7 +299,10 @@ def _rounded(obj: Any) -> Any:
 def payload(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """etf.json 내용."""
     present = {r["ticker"] for r in rows}
+    picks = {"roles": pick_roles(rows), "momentum": momentum_list(rows)}
     rows = _rounded(rows)
+    twins = [{"key": k, "ko": ko, "en": en, "kind": kind, "tickers": have}
+             for k, ko, en, kind, ts in ETF_TWINS if len(have := [t for t in ts if t in present]) >= 2]
     return {
         "generated_at": datetime.now(ET).isoformat(timespec="seconds"),
         "as_of": max((r["date"] for r in rows), default=None),
@@ -190,7 +310,17 @@ def payload(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "benchmark": BENCHMARK_ETF,
         "groups": [{"key": k, "ko": ko, "en": en, "tickers": [t for t in ts if t in present]}
                    for k, ko, en, ts in ETF_GROUPS],
+        "twins": twins,
+        "picks": picks,
         "items": rows,
+    }
+
+
+def detail_payload(holdings: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """etf_detail.json 내용 — 티커 → 상세 (사이트 /api/etf/[티커] 가 줄을 펼칠 때 읽는다)."""
+    return {
+        "generated_at": datetime.now(ET).isoformat(timespec="seconds"),
+        "items": {t: _rounded(d) for t, d in holdings.items()},
     }
 
 
@@ -215,9 +345,18 @@ def _money(v: Any) -> str:
     return f"{f:,.0f}"
 
 
-def sheet_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
-    """시트 [ETF] — 묶음 순서대로, 퍼센트는 글자로."""
+def _top_text(detail: dict[str, Any] | None, n: int = 3) -> str:
+    """상위 보유 'NVDA 8.4% · AAPL 7.4% · MSFT 5.8%'."""
+    return " · ".join(f"{h['s']} {h['w']:.1%}" for h in ((detail or {}).get("holdings") or [])[:n])
+
+
+def sheet_frame(rows: list[dict[str, Any]], holdings: dict[str, dict[str, Any]] | None = None) -> pd.DataFrame:
+    """시트 [ETF] — 묶음 순서대로, 퍼센트는 글자로. 추천 · 같은 것 · 상위 보유는 맨 끝 칸 (2026-10-29)."""
     names = {k: ko for k, ko, _en, _t in ETF_GROUPS}
+    role_of = {p["pick"]: f"⭐ {p['ko']}" for p in pick_roles(rows)}
+    role_of.update({t: f"요즘 강한 {i}위 (참고)" for i, t in enumerate(momentum_list(rows), 1) if t not in role_of})
+    present = {r["ticker"] for r in rows}
+    twins = {t: [x for x in ts if x != t and x in present] for _k, _ko, _en, _kind, ts in ETF_TWINS for t in ts}
     out = []
     for r in rows:
         ret = r["ret"]
@@ -235,6 +374,8 @@ def sheet_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
             "보수": _pct(r.get("expense"), sign=False).replace("%", "") + "%" if r.get("expense") is not None else "",
             "운용자산": _money(r.get("aum")), "배당률": _pct(r.get("yield"), sign=False),
             "설정일": r.get("inception") or "", "기준일": r["date"],
+            "추천": role_of.get(r["ticker"], ""), "같은 것": " · ".join(twins.get(r["ticker"], [])),
+            "상위 보유": _top_text((holdings or {}).get(r["ticker"])),
         })
     return pd.DataFrame(out)
 
@@ -244,6 +385,7 @@ def main(argv: list[str] | None = None) -> int:
 
     ap = argparse.ArgumentParser(description="ETF 탭 데이터 (etf.json · 시트 [ETF])")
     ap.add_argument("--out", type=Path, help="etf.json 경로")
+    ap.add_argument("--detail-out", type=Path, help="etf_detail.json 경로 (설명 · 보유 종목 · 섹터 비중)")
     ap.add_argument("--sheet", action="store_true", help="구글 시트 [ETF] 탭에도 쓴다")
     args = ap.parse_args(argv)
 
@@ -252,19 +394,24 @@ def main(argv: list[str] | None = None) -> int:
     prices = fetch_ohlcv(tickers, period="5y")
     chart_map = fetch_chart_prices(list(prices.columns.levels[0]))
     info = fetch_info(tickers)
-    rows = build_rows(prices, chart_map, info, tickers)
+    holdings = fetch_holdings(tickers)
+    rows = build_rows(prices, chart_map, info, tickers, holdings)
     data = payload(rows)
     missing = [t for t in tickers if t not in {r["ticker"] for r in rows}]
     print(f"[ETF] {len(rows)}/{len(tickers)}개 · 기준일 {data['as_of']} · 정보 없음 "
-          f"{sum(1 for r in rows if not r.get('name'))}개 · 가격 없음 {missing} · {time.time() - t0:.0f}초")
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(json.dumps(data, ensure_ascii=False, allow_nan=False, separators=(",", ":")), encoding="utf-8")
-        print(f"[ETF] {args.out} ({args.out.stat().st_size // 1024} KB)")
+          f"{sum(1 for r in rows if not r.get('name'))}개 · 가격 없음 {missing} · 상세 {len(holdings)}개 "
+          f"(보유 종목 {sum(1 for d in holdings.values() if d['holdings'])}) · {time.time() - t0:.0f}초")
+    print(f"[ETF] 역할별 기본: {' · '.join(p['key'] + '=' + p['pick'] for p in data['picks']['roles'])} · "
+          f"요즘 강한: {' · '.join(data['picks']['momentum'])}")
+    for path, body in ((args.out, data), (args.detail_out, detail_payload(holdings) if holdings else None)):
+        if path and body:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(body, ensure_ascii=False, allow_nan=False, separators=(",", ":")), encoding="utf-8")
+            print(f"[ETF] {path} ({path.stat().st_size // 1024} KB)")
     if args.sheet:
         from screener.exporter import export_to_google_sheet
 
-        ok = export_to_google_sheet(sheet_frame(rows), SHEET_TAB)
+        ok = export_to_google_sheet(sheet_frame(rows, holdings), SHEET_TAB)
         print(f"[ETF] 시트 [{SHEET_TAB}] {'업데이트 완료' if ok else '건너뜀'}")
     return 0 if rows else 1
 

@@ -281,7 +281,8 @@ jobs:
         if: always()
         run: |
           mkdir -p "$RUNNER_TEMP/web"
-          PYTHONPATH=.:src python -m screener.etf_scan --out "$RUNNER_TEMP/web/etf.json" --sheet \
+          PYTHONPATH=.:src python -m screener.etf_scan --out "$RUNNER_TEMP/web/etf.json" \
+            --detail-out "$RUNNER_TEMP/web/etf_detail.json" --sheet \
             || echo "::warning title=ETF 스캔 실패::etf.json · 시트 [ETF] 를 만들지 못했습니다 (파이프라인은 계속 진행)."
 
       - name: Export web dashboard data
@@ -353,6 +354,7 @@ jobs:
           git init -q -b dashboard-data
           git add dashboard.json
           [ -f etf.json ] && git add etf.json   # ETF 탭 (없으면 사이트가 'ETF 데이터 없음'을 보여 줌)
+          [ -f etf_detail.json ] && git add etf_detail.json   # ETF 줄을 펼치면 보이는 설명 · 보유 종목 (없으면 차트만)
           git commit -q -m "dashboard data $(date +%s) [skip ci]"
           if git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" dashboard-data; then
             date +%s > "$RUNNER_TEMP/web_pushed_at"
