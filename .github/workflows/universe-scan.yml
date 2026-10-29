@@ -56,6 +56,16 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      # 경기순환/방어 × 내수/글로벌 — SEC 10-K 미국 매출 비중 (geo-revenue.yml 이 매달 geo-data 브랜치에 올림). 없으면 업종 기준
+      - name: Get geo revenue (SEC)
+        run: |
+          if curl -sfL "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/geo-data/geo_revenue.csv" -o "$RUNNER_TEMP/geo_revenue.csv"; then
+            echo "GEO_REVENUE_FILE=$RUNNER_TEMP/geo_revenue.csv" >> "$GITHUB_ENV"
+            echo "✅ geo_revenue.csv $(wc -l < "$RUNNER_TEMP/geo_revenue.csv")줄"
+          else
+            echo "⏭️  geo_revenue.csv 없음 — 매출 지역은 업종 기준"
+          fi
+
       # Yahoo 종목 정보가 막힌 날 재무·섹터를 채울 전날 값 (없으면 실전 스냅샷 data/paper_trading 으로)
       - name: Restore previous universe snapshot
         run: |

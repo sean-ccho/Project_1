@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from data.etf_universe import ETF_GROUPS, ETF_ROLES, ETF_TWINS, etf_group_of, etf_tickers  # noqa: E402
 from screener.etf_scan import (build_rows, detail_payload, momentum_list, parse_funds, payload, pick_roles,  # noqa: E402
-                               sheet_frame)
+                               sheet_frame, style_mix)
 
 DAYS = pd.bdate_range("2024-12-02", periods=300)
 
@@ -172,6 +172,18 @@ def test_payload_has_picks_twins_and_sheet_extra_columns():
     assert data["picks"]["roles"][0]["pick"] == "VOO"
     assert {"key": "sp500", "ko": "S&P 500", "en": "S&P 500", "kind": "same", "tickers": ["SPY", "VOO"]} in data["twins"]
     sheet = sheet_frame(rows, holdings).set_index("티커")
-    assert list(sheet.columns[-3:]) == ["추천", "같은 것", "상위 보유"]
+    assert list(sheet.columns[-4:]) == ["추천", "같은 것", "상위 보유", "성격 (상위 10개)"]
     assert sheet.loc["VOO", "추천"].startswith("⭐") and sheet.loc["SPY", "같은 것"] == "VOO"
     assert sheet.loc["VOO", "상위 보유"] == "NVDA 8.4% · AAPL 7.4%"
+
+
+def test_style_mix_dominant_mixed_and_too_little_known():
+    d = {"holdings": [{"s": "NVDA", "w": 0.15}, {"s": "AAPL", "w": 0.13}, {"s": "MSFT", "w": 0.10}, {"s": "2330.TW", "w": 0.02}]}
+    gc = {"cycle": "cyclical", "region": "global"}
+    gd = {"cycle": "defensive", "region": "global"}
+    got = style_mix(d, {"NVDA": gc, "AAPL": gc, "MSFT": gd})
+    assert got["top"] == "cyclical_global" and abs(got["mix"]["cyclical_global"] - 0.28 / 0.38) < 1e-12
+    assert abs(got["covered"] - 0.38 / 0.40) < 1e-12
+    assert style_mix(d, {"NVDA": gc, "AAPL": gd, "MSFT": {"cycle": "defensive", "region": "domestic"}})["top"] == "mixed"
+    assert style_mix(d, {"MSFT": gd}) is None                                   # 아는 비중 25% < 50%
+    assert style_mix({"holdings": []}, {}) is None and style_mix(None, {}) is None

@@ -61,6 +61,7 @@ NEW_COLUMNS = [  # [신규상장] 시트 칸
 ]
 NEW_PERCENT = ("상장후수익률", "5일수익률", "20일수익률", "상장후위치")
 EXTRA_SHEET_COLUMNS = ("[공시]", "[공매도]", "ISB", "SQZ")
+STYLE_SHEET_COLUMNS = ("경기 성격", "매출 지역", "미국 매출 비중")   # 맨 끝 (2026-10-29 — data.industry_style)
 
 
 def _norm(t: Any) -> str:
@@ -322,8 +323,11 @@ def golden_list(ranked: pd.DataFrame) -> list[dict[str, Any]]:
 
 
 def sheet_frame(ranked: pd.DataFrame, isb: dict, sqz: dict) -> pd.DataFrame:
-    """분석 탭과 같은 칸 (prepare_export_dataframe) + [공시]·[공매도]·ISB·SQZ 를 [헬스체크] 뒤에."""
+    """분석 탭과 같은 칸 (prepare_export_dataframe) + [공시]·[공매도]·ISB·SQZ 를 [헬스체크] 뒤에,
+    경기 성격 · 매출 지역 · 미국 매출 비중을 맨 끝에 (사용자 수식이 앞 칸을 가리켜도 안 밀리게)."""
+    from data.industry_style import style_for, style_text
     from screener.exporter import prepare_export_dataframe
+    from web_export.dashboard import _industry
     from web_export.universe import isb_text, sqz_text
 
     out = prepare_export_dataframe(ranked)
@@ -337,6 +341,10 @@ def sheet_frame(ranked: pd.DataFrame, isb: dict, sqz: dict) -> pd.DataFrame:
     at = out.columns.get_loc("[헬스체크]") + 1 if "[헬스체크]" in out.columns else len(out.columns)
     for i, (col, vals) in enumerate(extra.items()):
         out.insert(at + i, col, vals)
+    inds = ranked.get("fund_industry", pd.Series(None, index=ranked.index)).tolist()
+    texts = [style_text(style_for(t, _industry(ind))) for t, ind in zip(tick, inds)]
+    for i, col in enumerate(STYLE_SHEET_COLUMNS):
+        out[col] = [x[i] for x in texts]
     return out
 
 
@@ -426,6 +434,7 @@ def main(argv: list[str] | None = None) -> int:
     bar_dates: list[str] = []
     market_of = {t: "sp500" for t in sp_tickers} | {t: "nasdaq" for t in rest}
     about: dict[str, str] = {}
+    sp_items: dict[str, dict[str, Any]] = {}       # [섹터 대표] 시트 — S&P 500 웹 정보
 
     for key, label, sheet, tickers in markets:
         res = analyze_market(tickers, sheet, names, strong, prev_dir)
@@ -460,6 +469,8 @@ def main(argv: list[str] | None = None) -> int:
                                            golden=golden))
             sheets.append((sheet, sheet_frame(ranked, isb, sqz)))
             bar_dates.append(res["bar_date"])
+            if key == "sp500":
+                sp_items = items
         if not young.empty:
             young = add_insider(add_short(add_sec(young, flags), sd), insider_df)
             young_parts.append(young)
@@ -477,6 +488,13 @@ def main(argv: list[str] | None = None) -> int:
         payloads.append(market_payload("new", "신규 상장", items, bar_date=max(bar_dates) if bar_dates else None,
                                        counts={"listed": len(young_all)}))
         sheets.append((SHEET_NEW, new_sheet_frame(young_all, young_sqz)))
+    if sp_items:
+        from screener.sector_reps import SHEET_TAB as REPS_TAB, sector_reps_frame
+
+        reps = sector_reps_frame(sp_items)
+        print(f"[전체분석] 섹터 대표 {len(reps)}행 (글로벌 {int((reps['구분'] == '글로벌 매출 중심').sum())})")
+        if len(reps):
+            sheets.append((REPS_TAB, reps))
 
     sizes = write_payloads(args.out_dir, payloads, about)
     print(f"[전체분석] 회사 소개 {len(about)}종목")

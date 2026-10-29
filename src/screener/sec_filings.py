@@ -187,6 +187,29 @@ class SecClient:
             self._cik = {_norm(v["ticker"]): int(v["cik_str"]) for v in data.values()}
         return self._cik
 
+    def get_json(self, url: str) -> Any | None:
+        """JSON 하나 (속도 제한 · 재시도). 없거나 실패면 None."""
+        return self._get_json(url)
+
+    def get_bytes(self, url: str) -> bytes:
+        """큰 파일 (XBRL 인스턴스 등) — 속도 제한 지킴, 한 번 다시 시도, 실패하면 b''."""
+        for attempt in range(2):
+            wait = MIN_INTERVAL - (time.monotonic() - self._last)
+            if wait > 0:
+                time.sleep(wait)
+            self._last = time.monotonic()
+            try:
+                r = self.session.get(url, headers={"User-Agent": self.ua, "Accept-Encoding": "gzip, deflate"}, timeout=60)
+            except requests.RequestException:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            if r.status_code == 200:
+                return r.content
+            if r.status_code == 404:
+                return b""
+            time.sleep(2.0 * (attempt + 1))
+        return b""
+
     def _get_text(self, url: str) -> str:
         wait = MIN_INTERVAL - (time.monotonic() - self._last)
         if wait > 0:

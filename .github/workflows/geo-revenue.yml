@@ -1,0 +1,63 @@
+name: Geo Revenue (SEC)
+
+# 회사별 미국 매출 비중 — SEC 10-K XBRL 지역별 매출 (src/data/geo_revenue.py, 표시 전용: 경기순환/방어 × 내수/글로벌).
+# 전체분석 종목(S&P 500 + NASDAQ/NYSE)을 받아 고아 브랜치 geo-data 에 geo_revenue.csv 로 올린다.
+# 10-K 는 1년에 한 번이라 매달 한 번 — 이전 파일과 10-K 번호가 같은 회사는 다시 받지 않는다 (첫 실행 ~40분, 그 뒤 ~15분).
+# run-screener.yml · universe-scan.yml 이 밤마다 이 파일을 GEO_REVENUE_FILE 로 받는다. 밤 실행과 안 겹치게 낮에.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 15 3 * *'  # 매달 3일 15:30 UTC = 11:30 AM EDT
+
+permissions:
+  contents: write
+
+concurrency:
+  group: geo-revenue
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+
+    env:
+      PYTHONUNBUFFERED: '1'
+      SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Get previous file
+        run: |
+          curl -sfL "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/geo-data/geo_revenue.csv" -o "$RUNNER_TEMP/prev.csv" \
+            && echo "이전 파일 $(wc -l < "$RUNNER_TEMP/prev.csv")줄" || echo "이전 파일 없음 — 전부 받는다"
+
+      - name: Build geo_revenue.csv
+        run: |
+          mkdir -p "$RUNNER_TEMP/geo"
+          PYTHONPATH=.:src python -m data.geo_revenue --prev "$RUNNER_TEMP/prev.csv" \
+            --out "$RUNNER_TEMP/geo/geo_revenue.csv" --budget-min 300
+
+      - name: Push geo data (orphan branch)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd "$RUNNER_TEMP/geo"
+          git init -q -b geo-data
+          git add geo_revenue.csv
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "geo revenue $(date +%F) [skip ci]"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" geo-data
+          echo "✅ geo-data 브랜치 업데이트 완료"

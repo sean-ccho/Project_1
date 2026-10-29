@@ -48,6 +48,8 @@ SECTOR_KEYS = {
     "basic_materials": "Basic Materials", "utilities": "Utilities", "realestate": "Real Estate",
 }
 RATING_KEYS = ("aaa", "aa", "a", "bbb", "bb", "b", "below_b", "other")
+STYLE_DOMINANT = 0.60        # 상위 10개 중 한 칸이 이 이상이면 그 칸, 아니면 '섞임'
+STYLE_COVERED = 0.50         # 성격을 아는 종목 비중이 상위 10개 합의 이 이상일 때만
 
 
 def _num(v: Any) -> float | None:
@@ -199,9 +201,57 @@ def fetch_holdings(tickers: list[str], pause: float = 0.2) -> dict[str, dict[str
     return out
 
 
+def holding_styles(holdings: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """보유 종목 → 4칸 성격 (전체분석 universe-data 의 업종 + GEO_REVENUE_FILE 의 SEC 미국 매출). 못 받으면 {}."""
+    import gzip
+    import urllib.request
+
+    from data.geo_revenue import UNIVERSE_BASE
+    from data.industry_style import style_for
+
+    syms = {h["s"] for d in holdings.values() for h in d.get("holdings") or []}
+    industry: dict[str, str | None] = {}
+    try:
+        for key in ("sp500", "nasdaq"):
+            with urllib.request.urlopen(f"{UNIVERSE_BASE}/{key}.json.gz", timeout=60) as r:
+                for t, v in json.loads(gzip.decompress(r.read())).get("items", {}).items():
+                    industry.setdefault(t, v.get("industry"))
+    except Exception as exc:  # noqa: BLE001 — 표시용, 없으면 성격 칸만 빈다
+        print(f"[ETF] 전체분석 업종 못 받음 — 성격 칸 건너뜀: {exc}")
+        return {}
+    out = {}
+    for t in syms:
+        key = t.upper().replace(".", "-")
+        if key in industry and (st := style_for(key, industry[key])):
+            out[t] = st
+    return out
+
+
+def style_mix(detail: dict[str, Any] | None, styles: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    """상위 10개 보유 종목의 4칸 비중 → {mix: {'cyclical_domestic': 0.4, …}, top: 칸 · 'mixed', covered: 아는 비중}.
+
+    성격을 아는 종목이 상위 10개 합의 절반이 안 되면 None (해외 · 채권 · 금 ETF).
+    """
+    held = (detail or {}).get("holdings") or []
+    total = sum(h["w"] for h in held)
+    mix: dict[str, float] = {}
+    for h in held:
+        st = styles.get(h["s"])
+        if st and st.get("cycle") and st.get("region"):
+            k = f"{st['cycle']}_{st['region']}"
+            mix[k] = mix.get(k, 0.0) + h["w"]
+    known = sum(mix.values())
+    if not total or known < STYLE_COVERED * total:
+        return None
+    shares = {k: v / known for k, v in sorted(mix.items(), key=lambda kv: -kv[1])}
+    top = next(iter(shares))
+    return {"mix": shares, "top": top if shares[top] >= STYLE_DOMINANT else "mixed", "covered": known / total}
+
+
 def build_rows(prices: pd.DataFrame, chart_map: dict[str, ChartPrices], info: dict[str, dict[str, Any]],
                tickers: list[str] | None = None,
-               holdings: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+               holdings: dict[str, dict[str, Any]] | None = None,
+               styles: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """ETF 한 줄씩. prices = fetch_ohlcv 결과 ((티커, 필드) 멀티인덱스, 배당 조정 + Dividends 칸)."""
     group_of = etf_group_of()
     have = set(prices.columns.get_level_values(0))
@@ -239,6 +289,7 @@ def build_rows(prices: pd.DataFrame, chart_map: dict[str, ChartPrices], info: di
             "corr_spy": 1.0 if t == BENCHMARK_ETF else _corr(c, bench),
             "cross": cross_labels(p, chart_map.get(t)),
             "top10_weight": _num(sum(h["w"] for h in held)) if held else None,   # 상위 10개 합 (쏠림 정도)
+            "style_mix": style_mix((holdings or {}).get(t), styles or {}),         # 경기순환/방어 × 내수/글로벌
         })
     return rows
 
@@ -350,6 +401,17 @@ def _top_text(detail: dict[str, Any] | None, n: int = 3) -> str:
     return " · ".join(f"{h['s']} {h['w']:.1%}" for h in ((detail or {}).get("holdings") or [])[:n])
 
 
+def _mix_text(mix: dict[str, Any] | None) -> str:
+    """'경기방어·글로벌 64%' · '섞임 (경기순환·글로벌 45%)'."""
+    from data.industry_style import CYCLE_KO, REGION_KO
+
+    if not mix:
+        return ""
+    name = lambda k: f"{CYCLE_KO[k.split('_')[0]]}·{REGION_KO[k.split('_')[1]]}"  # noqa: E731
+    first, share = next(iter(mix["mix"].items()))
+    return f"{name(first)} {share:.0%}" if mix["top"] != "mixed" else f"섞임 ({name(first)} {share:.0%})"
+
+
 def sheet_frame(rows: list[dict[str, Any]], holdings: dict[str, dict[str, Any]] | None = None) -> pd.DataFrame:
     """시트 [ETF] — 묶음 순서대로, 퍼센트는 글자로. 추천 · 같은 것 · 상위 보유는 맨 끝 칸 (2026-10-29)."""
     names = {k: ko for k, ko, _en, _t in ETF_GROUPS}
@@ -376,6 +438,7 @@ def sheet_frame(rows: list[dict[str, Any]], holdings: dict[str, dict[str, Any]] 
             "설정일": r.get("inception") or "", "기준일": r["date"],
             "추천": role_of.get(r["ticker"], ""), "같은 것": " · ".join(twins.get(r["ticker"], [])),
             "상위 보유": _top_text((holdings or {}).get(r["ticker"])),
+            "성격 (상위 10개)": _mix_text(r.get("style_mix")),
         })
     return pd.DataFrame(out)
 
@@ -395,7 +458,8 @@ def main(argv: list[str] | None = None) -> int:
     chart_map = fetch_chart_prices(list(prices.columns.levels[0]))
     info = fetch_info(tickers)
     holdings = fetch_holdings(tickers)
-    rows = build_rows(prices, chart_map, info, tickers, holdings)
+    styles = holding_styles(holdings)
+    rows = build_rows(prices, chart_map, info, tickers, holdings, styles)
     data = payload(rows)
     missing = [t for t in tickers if t not in {r["ticker"] for r in rows}]
     print(f"[ETF] {len(rows)}/{len(tickers)}개 · 기준일 {data['as_of']} · 정보 없음 "

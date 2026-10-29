@@ -25,6 +25,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from data.industry_style import style_for
 from screener.dividends import dividend_now
 
 SCHEMA_VERSION = 1
@@ -194,11 +195,14 @@ def ticker_info(row: pd.Series) -> dict[str, Any]:
     """랭킹 스냅샷 한 줄 → 웹에 보여 줄 요약."""
     earnings = _text(row.get("next_earnings_date"))
     days = _num(row.get("days_to_next_earnings"))
+    industry = _industry(row.get("fund_industry"))
     return {
         "company": _text(row.get("회사")),
         "market": _text(row.get("market")),
         "sector": _text(row.get("섹터")),
-        "industry": _industry(row.get("fund_industry")),  # yfinance 세부 업종 (영어 — 웹이 한국어로)
+        "industry": industry,  # yfinance 세부 업종 (영어 — 웹이 한국어로)
+        # 경기순환/방어 × 내수/글로벌 (업종 + SEC 10-K 미국 매출 비중 — data.industry_style, 표시 전용). 없으면 None
+        "style": style_for(str(row.get("티커", "")), industry),
         "price": _num(row.get("현재가격"), 2),
         "strategy": _label(row.get("전략구분")),
         "score": parse_score(row.get("매수적합도_표시")),
