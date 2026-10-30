@@ -7,6 +7,8 @@
   2) 새 알림이 있을 때만 ntfy(높은 우선순위) + Gmail 메일
      🛑 손절가 아래 (현재가 또는 장중 저가) · ⚠️ 손절가 3% 이내 · 🎯 목표가 (현재가 또는 장중 고가)
      🚀/📉 전날 종가 대비 ±5% · 👀 관심종목 목표가 (조건 이하/이상)
+     📅 보유 종목 실적 — 결정 마감 2거래일 전 · 당일 (2026-10-29, 밤 리포트가 시트에 쓴 실적일·실적 평균·최악·시간으로
+        '내 수량이면 보통 ±$ · 나쁜 경우 −$' + 실적대응을 정했는지)
 같은 알림은 하루 한 번만 보낸다 (state.json — CI 에서는 고아 브랜치 account-watch 에 보관).
 실행 신호는 Mac mini LaunchAgent 가 월~금 09:30~16:00 30분마다 workflow_dispatch 로 보낸다. GitHub 예약 실행은
 몇 시간씩 늦어서 예비로만 쓴다 (--backup: 45분 안에 체크한 적이 있으면 건너뜀 — Mac 이 꺼졌을 때만 실제로 돈다).
@@ -49,6 +51,7 @@ from screener.config import (
 )
 from screener.portfolio_report import (STOP_NEAR_PCT, WATCHLIST_WORKSHEET, _open_sheet, _to_float, is_closed,
                                        is_sample)
+from screener.earnings_moves import alert_stage, alert_text, decision_of, stats_from_sheet
 from screener.watch_news import Headline, headlines
 from screener.watch_sec import ICON as SEC_ICON
 from screener.watch_sec import Filing, fetch_new_filings
@@ -65,7 +68,7 @@ ACCOUNT_URL = "https://seancho.vercel.app/quant/account"
 CAD_EXCHANGES = ("TSX", "TSXV", "CSE")
 _CAD_SUFFIX = re.compile(r"\.(V|TO|CN|NE)$")
 
-_ICON = {"stop": "🛑", "near": "⚠️", "target": "🎯", "up": "🚀", "down": "📉", "watch": "👀"}
+_ICON = {"stop": "🛑", "near": "⚠️", "target": "🎯", "up": "🚀", "down": "📉", "watch": "👀", "earn": "📅"}
 
 
 # ---------------------------------------------------------------------------
@@ -332,6 +335,29 @@ def build_watch_alerts(rows: list[dict[str, str]], watch: list[dict[str, str]],
     return alerts
 
 
+def earnings_alerts(rows: list[dict[str, str]], quotes: dict[str, Quote], today: date) -> list[dict[str, str]]:
+    """보유 종목 실적 — 결정 마감(반응일 전 거래일) 2거래일 전(d2)·당일(d0)에만. 키에 실적일·단계가 있어 날마다 한 번."""
+    pos = positions(rows)
+    account = sum(p["qty"] * quotes[t].price for t, p in pos.items() if t in quotes and p["qty"]) or None
+    out: list[dict[str, str]] = []
+    for t, p in pos.items():
+        rec = next((r for r in p["rows"] if str(r.get("실적일", "")).strip()), None)
+        if rec is None:
+            continue
+        earn = str(rec["실적일"]).strip().lstrip("'")[:10]
+        st = stats_from_sheet(rec)
+        stage = alert_stage(today, earn, (st or {}).get("timing"))
+        if stage is None:
+            continue
+        q = quotes.get(t)
+        decision = next((d for d in (decision_of(r.get("실적대응"), earn) for r in p["rows"]) if d), None)
+        text = alert_text(t, earn, st, shares=p["qty"] or None, price=q.price if q else None, account=account,
+                          decision=decision, today=today)
+        out.append({"kind": "earn", "ticker": t, "key": f"earn:{t}:{earn}:{stage}",
+                    "text": f"{_ICON['earn']} {text}" + ("" if decision else f" — {ACCOUNT_URL}")})
+    return out
+
+
 def sec_alerts(filings: list[Filing], rows: list[dict[str, str]], quotes: dict[str, Quote]) -> list[dict[str, Any]]:
     """새 SEC 공시 → 알림. 키는 접수번호라 날짜가 바뀌어도 한 번만 (state.sec_sent). 실적(2.02)이면 오늘 갭을 붙인다."""
     held = positions(rows)
@@ -550,6 +576,7 @@ def run(state_path: Optional[Path] = None, force: bool = False, dry_run: bool = 
         print(f"[계좌감시] 시세 없음: {missing}")
 
     alerts = build_watch_alerts(rows, watch, quotes)
+    alerts += earnings_alerts(rows, quotes, today)
     sec_sent = set(state["sec_sent"])
     alerts += sec_alerts(fetch_new_filings(tickers, today, sec_sent), rows, quotes)  # 새 공시는 이미 안 알린 것만 온다
     sent = set(state["sent"])

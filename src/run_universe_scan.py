@@ -62,6 +62,7 @@ NEW_COLUMNS = [  # [신규상장] 시트 칸
 NEW_PERCENT = ("상장후수익률", "5일수익률", "20일수익률", "상장후위치")
 EXTRA_SHEET_COLUMNS = ("[공시]", "[공매도]", "ISB", "SQZ")
 STYLE_SHEET_COLUMNS = ("경기 성격", "매출 지역", "미국 매출 비중")   # 맨 끝 (2026-10-29 — data.industry_style)
+EARN_SHEET_COLUMN = "실적 움직임"   # 그 뒤 맨 끝 (2026-10-29 — screener.earnings_moves, 최근 8번 평균·최악·보통 시간)
 
 
 def _norm(t: Any) -> str:
@@ -322,9 +323,9 @@ def golden_list(ranked: pd.DataFrame) -> list[dict[str, Any]]:
 # ── 출력 ─────────────────────────────────────────────────────
 
 
-def sheet_frame(ranked: pd.DataFrame, isb: dict, sqz: dict) -> pd.DataFrame:
+def sheet_frame(ranked: pd.DataFrame, isb: dict, sqz: dict, earn: dict | None = None) -> pd.DataFrame:
     """분석 탭과 같은 칸 (prepare_export_dataframe) + [공시]·[공매도]·ISB·SQZ 를 [헬스체크] 뒤에,
-    경기 성격 · 매출 지역 · 미국 매출 비중을 맨 끝에 (사용자 수식이 앞 칸을 가리켜도 안 밀리게)."""
+    경기 성격 · 매출 지역 · 미국 매출 비중 · 실적 움직임을 맨 끝에 (사용자 수식이 앞 칸을 가리켜도 안 밀리게)."""
     from data.industry_style import style_for, style_text
     from screener.exporter import prepare_export_dataframe
     from web_export.dashboard import _industry
@@ -345,7 +346,18 @@ def sheet_frame(ranked: pd.DataFrame, isb: dict, sqz: dict) -> pd.DataFrame:
     texts = [style_text(style_for(t, _industry(ind))) for t, ind in zip(tick, inds)]
     for i, col in enumerate(STYLE_SHEET_COLUMNS):
         out[col] = [x[i] for x in texts]
+    out[EARN_SHEET_COLUMN] = [earn_text((earn or {}).get(t)) for t in tick]
     return out
+
+
+def earn_text(st: dict | None) -> str:
+    """'±8.8% · 최악 -17.8% · 장 마감 후 (8번)' — 실적 반응 요약 한 칸. 모르면 빈칸."""
+    from screener.earnings_moves import TIMING_KO
+
+    if not st:
+        return ""
+    when = TIMING_KO.get(st.get("timing") or "", "")
+    return f"±{st['avg']:.1%} · 최악 {st['worst']:+.1%}" + (f" · {when}" if when else "") + f" ({st['n']}번)"
 
 
 def new_sheet_frame(young: pd.DataFrame, sqz: dict) -> pd.DataFrame:
@@ -399,7 +411,7 @@ def main(argv: list[str] | None = None) -> int:
     from screener.sec_filings import fetch_flags
     from screener.short_squeeze import short_data
     from screener.insider import fetch_insider_market
-    from web_export.dashboard import daily_prices, insider_records, isb_block, sqz_block
+    from web_export.dashboard import daily_prices, earnings_moves_block, insider_records, isb_block, sqz_block
     from web_export.universe import item_info, market_payload, write_payloads
 
     start = time.perf_counter()
@@ -445,10 +457,13 @@ def main(argv: list[str] | None = None) -> int:
         all_t = ranked["티커"].astype(str).tolist() if not ranked.empty else []
         all_t += young["티커"].astype(str).tolist() if not young.empty else []
 
-        flags = fetch_flags(all_t, budget_sec=SEC_BUDGET_SEC)
+        accepts: dict[str, list[str]] = {}
+        flags = fetch_flags(all_t, budget_sec=SEC_BUDGET_SEC, earnings=accepts)
         prices = daily_prices(all_t)
         isb = isb_block(all_t, prices) if prices else {}
         sqz = sqz_block(all_t, prices) if prices else {}
+        earn = earnings_moves_block({t: accepts[_norm(t)] for t in all_t if accepts.get(_norm(t))}, prices)
+        print(f"[{sheet}] 실적 움직임 {len(earn)}종목 (실적 8-K {len(accepts)}종목)")
         del prices
         _log(f"{sheet} SEC·ISB·SQZ 끝", start)
 
@@ -463,11 +478,11 @@ def main(argv: list[str] | None = None) -> int:
                 t = str(row["티커"])
                 gold = {"rank": rank_of[t][0], "timeframes": rank_of[t][1]} if t in rank_of else None
                 items[t] = item_info(row, tv=tv_of(t, tv_map), insider=insider_map.get(_norm(t), no_trades),
-                                     isb=isb.get(t), sqz=sqz.get(t), golden=gold)
+                                     isb=isb.get(t), sqz=sqz.get(t), golden=gold, earnings_move=earn.get(t))
             counts = {"listed": len(tickers), "analyzed": len(ranked), "young": len(young), "no_data": len(res["no_data"])}
             payloads.append(market_payload(key, label, items, bar_date=res["bar_date"] or None, counts=counts,
                                            golden=golden))
-            sheets.append((sheet, sheet_frame(ranked, isb, sqz)))
+            sheets.append((sheet, sheet_frame(ranked, isb, sqz, earn)))
             bar_dates.append(res["bar_date"])
             if key == "sp500":
                 sp_items = items
@@ -477,7 +492,7 @@ def main(argv: list[str] | None = None) -> int:
             for _, row in young.iterrows():
                 t = str(row["티커"])
                 young_items[t] = item_info(row, tv=tv_of(t, tv_map), insider=insider_map.get(_norm(t), no_trades),
-                                           isb=isb.get(t), sqz=sqz.get(t))
+                                           isb=isb.get(t), sqz=sqz.get(t), earnings_move=earn.get(t))
                 young_sqz[t] = sqz.get(t)
         snapshots[key] = [ranked, res["young_fund"]]
         del res

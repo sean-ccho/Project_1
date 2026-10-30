@@ -215,6 +215,8 @@ def ticker_info(row: pd.Series) -> dict[str, Any]:
         "ret_20d": _num(row.get("20일수익률"), 4),
         "earnings_date": earnings[:10] if earnings else None,
         "days_to_earnings": int(days) if days is not None else None,
+        # 실적 때 움직임 (최근 8번 평균·최악·보통 시간, 2026-10-29) — 일봉이 있어야 해서 build_dashboard 가 나중에 채운다
+        "earnings_move": None,
         "patterns": {
             "daily": _patterns(row.get("일봉패턴")),
             "weekly": _patterns(row.get("주봉패턴")),
@@ -651,6 +653,34 @@ def isb_block(tickers: list[str], prices: dict[str, Any] | None = None) -> dict[
         return {}
 
 
+def earnings_accepts(ranked: pd.DataFrame, tickers: list[str]) -> dict[str, list[str]]:
+    """스냅샷 earn_accepts (SEC 실적 8-K 접수 시각 JSON, paper_trading/runner.py) → {티커: [UTC 글자…]}."""
+    if ranked.empty or "earn_accepts" not in ranked.columns:
+        return {}
+    want, out = set(tickers), {}
+    for t, raw in zip(ranked["티커"].astype(str), ranked["earn_accepts"]):
+        if t in want and isinstance(raw, str) and raw.startswith("["):
+            try:
+                out[t] = json.loads(raw)
+            except ValueError:
+                continue
+    return out
+
+
+def earnings_moves_block(accepts: dict[str, list[str]], prices: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """실적 때 움직임 (screener.earnings_moves — 최근 8번 평균·최악·보통 시간). 표시용이라 실패하면 빈 dict."""
+    from screener.earnings_moves import earnings_block
+    from web_export.isb_signals import yf_symbol
+
+    if not accepts or not prices:
+        return {}
+    try:
+        return earnings_block(accepts, prices, symbol=yf_symbol)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[web_export] 실적 움직임 계산 실패 (건너뜀): {exc}")
+        return {}
+
+
 def sqz_block(tickers: list[str], prices: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """SQZ 모멘텀(LazyBear 기본값) 일·주·월 상태 — 표시용이라 실패하면 빈 dict. 가격을 못 받은 종목은 빠진다."""
     from web_export.isb_signals import yf_symbol
@@ -729,9 +759,12 @@ def build_dashboard(data_dir: Path | None = None, *, charts_from_git: bool = Fal
         if with_sqz and prices:
             for t, rec in sqz_block(list(stocks), prices).items():
                 stocks[t]["sqzmom"] = rec
+        for t, rec in earnings_moves_block(earnings_accepts(ranked, list(stocks)), prices).items():
+            stocks[t]["earnings_move"] = rec
         for c in candidates:
             c["isb"] = infos[c["ticker"]]["isb"]
             c["sqzmom"] = infos[c["ticker"]]["sqzmom"]
+            c["earnings_move"] = infos[c["ticker"]]["earnings_move"]
 
     return {
         "schema": SCHEMA_VERSION,
@@ -778,8 +811,9 @@ def main(argv: list[str] | None = None) -> int:
     n_insider = sum(1 for s in data["stocks"].values() if s["insider"] is not None)
     n_isb = sum(1 for s in data["stocks"].values() if s["isb"] is not None)
     n_sqz = sum(1 for s in data["stocks"].values() if s["sqzmom"] is not None)
+    n_earn = sum(1 for s in data["stocks"].values() if s.get("earnings_move"))
     print(f"[web_export] {args.out} — 일봉 {data['bar_date']}, 보유 {n_pos}, 후보 {len(data['candidates'])}, "
-          f"차트 {n_charts}종목, 종목 정보 {len(data['stocks'])} (내부자 {n_insider}, ISB {n_isb}, SQZ {n_sqz}) "
+          f"차트 {n_charts}종목, 종목 정보 {len(data['stocks'])} (내부자 {n_insider}, ISB {n_isb}, SQZ {n_sqz}, 실적 움직임 {n_earn}) "
           f"({args.out.stat().st_size / 1024:.0f} KB)")
     return 0
 

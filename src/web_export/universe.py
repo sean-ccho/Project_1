@@ -87,10 +87,12 @@ def sqz_text(rec: dict[str, Any] | None) -> str:
 
 
 def item_info(row: pd.Series, *, tv: str | None, insider: dict[str, Any] | None, isb: dict[str, Any] | None,
-              sqz: dict[str, Any] | None, golden: dict[str, Any] | None = None) -> dict[str, Any]:
-    """분석 한 줄 → 웹 TickerInfo (ticker_info 와 같은 모양) + tv · 신규 상장 칸."""
+              sqz: dict[str, Any] | None, golden: dict[str, Any] | None = None,
+              earnings_move: dict[str, Any] | None = None) -> dict[str, Any]:
+    """분석 한 줄 → 웹 TickerInfo (ticker_info 와 같은 모양) + tv · 신규 상장 칸. earnings_move = 실적 때 움직임."""
     info = ticker_info(row)
-    info.update({"tv": tv, "insider": insider, "isb": isb, "sqzmom": sqz, "golden": golden})
+    info.update({"tv": tv, "insider": insider, "isb": isb, "sqzmom": sqz, "golden": golden,
+                 "earnings_move": earnings_move})
     first = _text(row.get("첫거래일"))
     if first:
         info["first_date"] = first

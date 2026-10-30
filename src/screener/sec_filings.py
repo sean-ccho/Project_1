@@ -240,8 +240,12 @@ class SecClient:
                 out.add(acc)
         return frozenset(out)
 
-    def flags(self, ticker: str, today: date) -> list[Flag] | None:
-        """한 종목 경고. SEC 에 없는 종목(캐나다 등)이면 None."""
+    def flags(self, ticker: str, today: date, earnings: dict[str, list[str]] | None = None) -> list[Flag] | None:
+        """한 종목 경고. SEC 에 없는 종목(캐나다 등)이면 None.
+
+        earnings 에 dict 를 넘기면 같은 공시 목록에서 실적 발표 8-K(2.02) 접수 시각도 채운다 (screener.earnings_moves —
+        최근 목록에 실적이 모자라면(공시가 아주 많은 은행 등) 옛 목록 한 쪽을 더 받는다).
+        """
         cik = self.cik_map().get(_norm(ticker))
         if cik is None:
             return None
@@ -249,12 +253,32 @@ class SecClient:
         if not sub:
             return None
         recent = sub.get("filings", {}).get("recent", {})
+        if earnings is not None:
+            earnings[_norm(ticker)] = self._earnings_accepts(sub)
         return flags_from_recent(recent, cik, today, self._transfers(recent, cik, today))
+
+    def _earnings_accepts(self, sub: dict[str, Any]) -> list[str]:
+        """실적 8-K 접수 시각 (UTC 글자, 오래된 순, 최근 KEEP_ACCEPTS 개)."""
+        from screener.earnings_moves import KEEP_ACCEPTS, LAST_N, accepts_from_filings
+
+        filings = sub.get("filings", {})
+        blocks = [filings.get("recent", {})]
+        acc = accepts_from_filings(blocks)
+        older = filings.get("files") or []
+        if len(acc) < LAST_N + 2 and older and older[0].get("name"):
+            more = self._get_json(f"https://data.sec.gov/submissions/{older[0]['name']}")
+            if more:
+                acc = accepts_from_filings([*blocks, more])
+        return acc[-KEEP_ACCEPTS:]
 
 
 def fetch_flags(tickers: Iterable[str], today: date | None = None, client: SecClient | None = None,
-                budget_sec: float = TIME_BUDGET_SEC) -> dict[str, list[Flag]]:
-    """티커별 경고 (SEC 에 없는 종목은 빠진다). SEC_USER_AGENT 가 없거나 SEC 가 안 되면 빈 dict — 호출한 쪽은 그냥 계속."""
+                budget_sec: float = TIME_BUDGET_SEC, earnings: dict[str, list[str]] | None = None
+                ) -> dict[str, list[Flag]]:
+    """티커별 경고 (SEC 에 없는 종목은 빠진다). SEC_USER_AGENT 가 없거나 SEC 가 안 되면 빈 dict — 호출한 쪽은 그냥 계속.
+
+    earnings 에 dict 를 넘기면 {정규화 티커: 실적 8-K 접수 시각 목록} 도 채운다 (같은 요청, 표시·알림용).
+    """
     client = client or SecClient()
     if not client.enabled:
         print("[SEC] SEC_USER_AGENT 없음 — 공시 경고 건너뜀")
@@ -273,7 +297,7 @@ def fetch_flags(tickers: Iterable[str], today: date | None = None, client: SecCl
             print(f"[SEC] 시간 한도 {budget_sec:.0f}초 — {len(todo) - i}종목 건너뜀")
             break
         try:
-            got = client.flags(t, today)
+            got = client.flags(t, today, earnings)
         except Exception:  # noqa: BLE001
             got = None
         if got is not None:

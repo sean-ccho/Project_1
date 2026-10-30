@@ -93,14 +93,19 @@ def save_ranked_snapshot(df: pd.DataFrame, source: str) -> bool:
             logger.warning(f"[Runner] 헬스체크/시총 계산 실패 (무시): {exc}")
 
         # SEC 공시 경고 (display-only) — [공시] = 🔴·🟠 한 줄 (메일·시트), sec_flags = 전체 JSON (웹)
+        # earn_accepts = 같은 요청에서 뽑은 실적 8-K 접수 시각 JSON (2026-10-29) — 웹 내보내기가 일봉으로 '실적 때 움직임'을 계산
         try:
+            import json
+
             from screener.sec_filings import fetch_flags, flags_json, format_flags
             if "티커" in df_save.columns:
-                flags = fetch_flags(df_save["티커"].astype(str).tolist())
+                accepts: dict[str, list[str]] = {}
+                flags = fetch_flags(df_save["티커"].astype(str).tolist(), earnings=accepts)
                 if flags:
                     keys = df_save["티커"].astype(str).str.strip().str.upper().str.replace(".", "-", regex=False)
                     df_save["[공시]"] = [format_flags(flags.get(k, [])) for k in keys]
                     df_save["sec_flags"] = [flags_json(flags[k]) if k in flags else "" for k in keys]
+                    df_save["earn_accepts"] = [json.dumps(accepts[k]) if accepts.get(k) else "" for k in keys]
         except Exception as exc:
             logger.warning(f"[Runner] SEC 공시 경고 실패 (무시): {exc}")
 

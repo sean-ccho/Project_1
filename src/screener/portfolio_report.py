@@ -14,12 +14,13 @@ Google Sheets '내계좌' 워크시트에 있는 종목들을 읽어
                             Weekly RSI, Weekly MACD, Weekly 거래량,
                             Monthly RSI, Monthly MACD, Monthly 거래량,
                             업데이트
-  [리스크 — 파이프라인 자동] ATR%, 베타(1년), 평균상관, 실적일, 공시
-  [입력 — 웹 내계좌] 손절가, 매수이유, 매도일, 매도가, 상태, 목표가
+  [리스크 — 파이프라인 자동] ATR%, 베타(1년), 평균상관, 실적일, 공시, 실적 평균, 실적 최악, 실적 시간
+  [입력 — 웹 내계좌] 손절가, 매수이유, 매도일, 매도가, 상태, 목표가, 실적대응
 한 줄 = 거래 하나 (2026-10-16 매매일지와 합침, Logan 탭처럼). 매도일이 비어 있으면 보유 중 → 분석·알림 대상,
 매도일이 있으면 매도 완료 → 분석 안 함 (남아 있던 분석 값은 지운다). '상태' 칸은 매일 밤 매도일 기준으로 맞춘다.
 '관심종목' 탭(웹에서 추가)이 있으면 현재가·목표까지·도달을 채우고, 메일 맨 위에 알림(손절가 아래·근접,
-실적 7일 이내, 보유 종목·관심종목 목표가 도달, 3일 안에 나온 SEC 🔴·🟠 공시, 관심종목의 🔴 공시)을 붙인다.
+실적 14일 이내 — 이 종목 실적 때 움직임·내 수량이면 얼마·결정 마감·실적대응, 보유 종목·관심종목 목표가 도달,
+3일 안에 나온 SEC 🔴·🟠 공시, 관심종목의 🔴 공시)을 붙인다.
 
 사용:
     python src/screener/portfolio_report.py
@@ -57,6 +58,8 @@ except ImportError:
     Credentials = None
     WorksheetNotFound = None
 
+from screener.earnings_moves import (WINDOW_DAYS, alert_text, days_to, decision_deadline, decision_of, move_stats,
+                                     reaction_moves, sessions_until, sheet_values, yf_accepts)
 from screener.sec_filings import fetch_flags, format_flags
 from screener.tv_symbol import tv_symbol
 from screener.config import (
@@ -110,12 +113,15 @@ ANALYSIS_HEADERS.append("업데이트")  # 마지막: 마지막 갱신 시각
 #   평균상관  = 최근 120거래일 일간수익률로 본 다른 보유 종목과의 상관 평균 (종목이 2개 이상일 때)
 #   실적일    = 다음 실적 발표일 (yfinance calendar)
 #   공시      = SEC 공시 경고 🔴·🟠 (screener.sec_filings — 상장폐지 경고·재작성·보고서 지연·자금 조달 등)
-RISK_HEADERS: list[str] = ["ATR%", "베타(1년)", "평균상관", "실적일", "공시"]
+#   실적 평균·실적 최악·실적 시간 (2026-10-29) = 최근 8번 실적 반응일 평균 |움직임| · 최악 · 보통 시간 (장 전/장 마감 후)
+#             — screener.earnings_moves. 웹 내계좌 '다음 2주 실적'과 장중 감시 알림이 읽는다
+RISK_HEADERS: list[str] = ["ATR%", "베타(1년)", "평균상관", "실적일", "공시", "실적 평균", "실적 최악", "실적 시간"]
 
 # ── 웹 내계좌에서 쓰는 입력 칸 (2026-10-16) — 손절가는 알림 메일, 매수이유는 매수이유별 성적,
 #    매도일·매도가가 있으면 판 거래 (상태 = 매도 완료). 상태는 매일 밤 매도일 기준으로 맞춘다.
-#    목표가(2026-10-20)는 넘으면 알림 메일 ──
-EXTRA_INPUT_HEADERS: list[str] = ["손절가", "매수이유", "매도일", "매도가", "상태", "목표가"]
+#    목표가(2026-10-20)는 넘으면 알림 메일. 실적대응(2026-10-29)은 '절반 · 2026-11-04' (팔기·절반·그대로 · 그 실적일) —
+#    날짜가 지금 실적일과 같을 때만 '정함'으로 본다 ──
+EXTRA_INPUT_HEADERS: list[str] = ["손절가", "매수이유", "매도일", "매도가", "상태", "목표가", "실적대응"]
 STATUS_OPEN, STATUS_CLOSED = "보유 중", "매도 완료"
 # ── 샘플 줄 (2026-10-22) — 메모가 '샘플'로 시작하면 예시 줄. 시트·웹에 보이기만 하고 분석·알림·합계에서 뺀다
 #    (처음 시트를 만들 때 넣는 줄이 이 메모로 시작한다). 상태 칸은 '샘플' ──
@@ -141,7 +147,7 @@ WATCH_ANALYSIS_HEADERS: list[str] = ["현재가", "목표까지", "도달", "업
 WATCH_HEADERS = WATCH_INPUT_HEADERS + WATCH_ANALYSIS_HEADERS
 
 STOP_NEAR_PCT = 0.03       # 손절가 위 3% 이내면 '손절가 근접' 알림
-EARNINGS_ALERT_DAYS = 7    # 실적 발표가 7일 안이면 알림
+EARNINGS_ALERT_DAYS = WINDOW_DAYS  # 실적 발표가 14일 안이면 알림 (2026-10-29 — 7일 → 14일, 연구 E1 = 10거래일)
 SEC_NEW_DAYS = 3           # 이 기간 안에 나온 🔴·🟠 공시는 메일 맨 위 알림으로도 올린다
 CORR_WINDOW = 120          # 평균상관 계산 거래일 수
 BETA_MIN_OBS = 120         # 베타 계산 최소 거래일 수
@@ -520,6 +526,10 @@ def analyze_ticker(ticker: str) -> dict[str, dict]:
 
     results["_price"] = current_price
     results["_earnings"] = _next_earnings(ticker)
+    # 실적 때 움직임 (최근 8번 ≈ 2년) — 일봉 1년으로는 모자라서 3년을 따로 받는다
+    d3 = _fetch_ohlcv(ticker, "1d", "3y")
+    results["_close_3y"] = d3["Close"] if not d3.empty else None
+    time.sleep(0.4)
     if current_price is not None:
         print(f"    현재가: ${current_price}")
 
@@ -617,6 +627,7 @@ def _analysis_values(tf_data: dict, now_str: str) -> dict[str, str]:
     vals["평균상관"] = f"{corr:.2f}" if corr is not None else ""
     vals["실적일"] = f"'{earn}" if earn else ""  # ' = 글자로 (시트 날짜 서식이 바꾸지 않게)
     vals["공시"] = format_flags(tf_data.get("_sec") or [])
+    vals.update(sheet_values(tf_data.get("_earn_stats")))
     return vals
 
 
@@ -777,6 +788,11 @@ def build_alerts(records: list[dict[str, str]], ticker_results: dict[str, dict],
     seen_earn: set[str] = set()
     seen_sec: set[str] = set()
     seen_target: set[tuple[str, float]] = set()
+    shares: dict[str, float] = {}
+    for rec in records:
+        t = str(rec.get("티커", "")).strip().upper()
+        shares[t] = shares.get(t, 0.0) + (_to_float(rec.get("수량")) or 0.0)
+    account = sum(q * (ticker_results.get(t, {}).get("_price") or 0.0) for t, q in shares.items()) or None
     for rec in records:
         ticker = str(rec.get("티커", "")).strip().upper()
         res = ticker_results.get(ticker, {})
@@ -809,11 +825,17 @@ def build_alerts(records: list[dict[str, str]], ticker_results: dict[str, dict],
                                    "text": f"{ticker} 새 공시: {format_flags([fd])} ({fd['form']}) — {fd['url']}"})
         earn = res.get("_earnings")
         if earn and ticker not in seen_earn:
-            days = (datetime.fromisoformat(earn).date() - today).days
-            if 0 <= days <= EARNINGS_ALERT_DAYS:
+            days = days_to(earn, today)
+            if days is not None and 0 <= days <= EARNINGS_ALERT_DAYS:
                 seen_earn.add(ticker)
+                st = res.get("_earn_stats")
+                decision = next((d for d in (decision_of(r.get("실적대응"), earn) for r in records
+                                             if str(r.get("티커", "")).strip().upper() == ticker) if d), None)
+                deadline = decision_deadline(date.fromisoformat(earn[:10]), (st or {}).get("timing"))
                 alerts.append({"kind": "earn", "ticker": ticker,
-                               "text": f"{ticker} 실적 발표 {earn} ({'오늘' if days == 0 else f'{days}일 후'}) — 발표 전후로 크게 움직일 수 있어요"})
+                               "urgent": "1" if not decision and 0 <= sessions_until(today, deadline) <= 2 else "",
+                               "text": alert_text(ticker, earn, st, shares=shares.get(ticker) or None, price=price,
+                                                  account=account, decision=decision, today=today)})
     return alerts, no_stop
 
 
@@ -842,7 +864,9 @@ def squeeze_alerts(tickers: list[str], watch=None) -> list[dict[str, str]]:
 def _alerts_html(alerts: list[dict[str, str]], no_stop: list[str]) -> str:
     if not alerts and not no_stop:
         return ""
-    items = "".join(f"<li style='margin:4px 0'>{_ALERT_ICON.get(a['kind'], '•')} {a['text']}</li>" for a in alerts)
+    # 실적 결정 마감이 2거래일 안인데 실적대응을 안 정했으면 빨갛게 (2026-10-29)
+    items = "".join(f"<li style='margin:4px 0{';color:#b91c1c;font-weight:600' if a.get('urgent') else ''}'>"
+                    f"{_ALERT_ICON.get(a['kind'], '•')} {a['text']}</li>" for a in alerts)
     tail = (f"<p style='margin:8px 0 0;color:#6b7280;font-size:12px'>손절가가 비어 있는 종목: {', '.join(no_stop)} "
             f"— 웹 내계좌에서 손절가를 적어 두면 근접 알림을 보내요</p>") if no_stop else ""
     head = f"⚠️ 알림 {len(alerts)}건" if alerts else "알림 없음"
@@ -1072,10 +1096,15 @@ def build_html_report(ticker_results: dict[str, dict[str, dict]], alerts: Option
         </thead>
         <tbody>
 """
+        es = tf_data.get("_earn_stats")
+        earn_txt = ""
+        if tf_data.get("_earnings"):
+            earn_txt = f"실적 {tf_data['_earnings']}" + (
+                f" (지난 {es['n']}번 평균 ±{es['avg']:.1%} · 최악 {es['worst']:+.1%})" if es else "")
         risk = [f"ATR {tf_data['_atr_pct']:.1%}" if tf_data.get("_atr_pct") is not None else "",
                 f"베타 {tf_data['_beta']:.2f}" if tf_data.get("_beta") is not None else "",
                 f"평균상관 {tf_data['_avg_corr']:.2f}" if tf_data.get("_avg_corr") is not None else "",
-                f"실적 {tf_data['_earnings']}" if tf_data.get("_earnings") else "",
+                earn_txt,
                 format_flags(tf_data.get("_sec") or [])]
         risk_line = " · ".join(x for x in risk if x)
         if risk_line:
@@ -1168,9 +1197,19 @@ def run_portfolio_report() -> bool:
         ticker_results[ticker] = analyze_ticker(ticker)
     spy = _fetch_ohlcv("SPY", "1d", "1y")
     add_risk_stats(ticker_results, spy["Close"] if not spy.empty else None)
-    sec = fetch_flags(tickers)  # SEC 공시 경고 (SEC_USER_AGENT 없으면 빈 dict)
+    accepts: dict[str, list[str]] = {}
+    sec = fetch_flags(tickers, earnings=accepts)  # SEC 공시 경고 + 실적 8-K 시각 (SEC_USER_AGENT 없으면 빈 dict)
     for t in tickers:
-        ticker_results[t]["_sec"] = sec.get(t.strip().upper().replace(".", "-"), [])
+        key = t.strip().upper().replace(".", "-")
+        ticker_results[t]["_sec"] = sec.get(key, [])
+        # 실적 때 움직임 — SEC 실적 8-K 시각, SEC 에 없는 종목(캐나다 등)은 yfinance 실적일
+        acc = accepts.get(key) or yf_accepts(t)
+        close = ticker_results[t].get("_close_3y")
+        st = move_stats(reaction_moves(acc, close)) if acc and close is not None else None
+        ticker_results[t]["_earn_stats"] = st
+        if st:
+            print(f"[내계좌] {t} 실적 때 움직임: 지난 {st['n']}번 평균 ±{st['avg']:.1%} · 최악 {st['worst']:+.1%} · "
+                  f"{st['timing'] or '시간 모름'}")
 
     # 3. 시트 분석 컬럼 업데이트 (같은 티커 여러 줄이면 모두)
     print("\n[내계좌] 시트 업데이트 중...")
