@@ -1,20 +1,5 @@
 [
   {
-    "ticker": "URBN",
-    "entry_price": 86.56999969482422,
-    "entry_date": "2026-10-16",
-    "strategy": "📈 모멘텀",
-    "star_rating": "★★★★★ (14.0)",
-    "ccs_score": 0.6334,
-    "sector": "Consumer Cyclical",
-    "highest_price": 90.7300033569336,
-    "defer_count": 0,
-    "trailing_stop_override": null,
-    "last_defer_date": null,
-    "defer_debug": null,
-    "entry_rsi": 69.94394811926509
-  },
-  {
     "ticker": "AA",
     "entry_price": 40.790000915527344,
     "entry_date": "2026-10-20",
@@ -43,5 +28,20 @@
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 54.1152919462766
+  },
+  {
+    "ticker": "EXPO",
+    "entry_price": 78.30999755859375,
+    "entry_date": "2026-10-29",
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (11.5)",
+    "ccs_score": 0.5917,
+    "sector": "Industrials",
+    "highest_price": 78.30999755859375,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 74.93250719184265
   }
 ]
