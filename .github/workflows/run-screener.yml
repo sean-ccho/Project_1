@@ -295,6 +295,15 @@ jobs:
             --detail-out "$RUNNER_TEMP/web/etf_detail.json" --sheet \
             || echo "::warning title=ETF 스캔 실패::etf.json · 시트 [ETF] 를 만들지 못했습니다 (파이프라인은 계속 진행)."
 
+      # 사이트 오늘 탭(/quant) '경기 상태 · 금리 결정'과 시트 [경제] — FRED 지표 · SPY · 순환/방어 ETF ·
+      # FOMC/BoC 일정과 지난 결정, 표시 전용 (2026-10-30)
+      - name: Macro scan
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/web"
+          PYTHONPATH=.:src python -m screener.macro_scan --out "$RUNNER_TEMP/web/macro.json" --sheet \
+            || echo "::warning title=경제 스캔 실패::macro.json · 시트 [경제] 를 만들지 못했습니다 (파이프라인은 계속 진행)."
+
       - name: Export web dashboard data
         if: always()
         run: |
@@ -365,6 +374,7 @@ jobs:
           git add dashboard.json
           [ -f etf.json ] && git add etf.json   # ETF 탭 (없으면 사이트가 'ETF 데이터 없음'을 보여 줌)
           [ -f etf_detail.json ] && git add etf_detail.json   # ETF 줄을 펼치면 보이는 설명 · 보유 종목 (없으면 차트만)
+          [ -f macro.json ] && git add macro.json   # 오늘 탭 경기 상태 · 금리 결정 (없으면 그 칸만 '데이터 없음')
           git commit -q -m "dashboard data $(date +%s) [skip ci]"
           if git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" dashboard-data; then
             date +%s > "$RUNNER_TEMP/web_pushed_at"
