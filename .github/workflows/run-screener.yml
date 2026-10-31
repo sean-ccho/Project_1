@@ -70,6 +70,16 @@ jobs:
             echo "⏭️  geo_revenue.csv 없음 — 매출 지역은 업종 기준"
           fi
 
+      # ETF 전체 보유 종목 — SEC N-PORT (etf-holdings.yml 이 매달 etf-data 브랜치에 올림). 없으면 ETF 성격은 상위 10개 기준
+      - name: Get ETF holdings (SEC)
+        run: |
+          if curl -sfL "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/etf-data/etf_holdings.csv" -o "$RUNNER_TEMP/etf_holdings.csv"; then
+            echo "ETF_HOLDINGS_FILE=$RUNNER_TEMP/etf_holdings.csv" >> "$GITHUB_ENV"
+            echo "✅ etf_holdings.csv $(wc -l < "$RUNNER_TEMP/etf_holdings.csv")줄"
+          else
+            echo "⏭️  etf_holdings.csv 없음 — ETF 성격은 상위 10개 기준"
+          fi
+
       - name: Set log date
         run: echo "LOG_DATE=$(TZ='America/Toronto' date +%Y-%m-%d)" >> $GITHUB_ENV
 

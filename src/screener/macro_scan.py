@@ -9,6 +9,7 @@
 - 시장 지표 (yfinance 배당 포함 가격): SPY 와 200일선 · 순환주(XLY · XLI · XLF · XLB) ÷ 방어주(XLP · XLU · XLV) 같은 비중
 - 판정(좋음 · 주의 · 나쁨)은 널리 쓰는 기준을 그대로 옮긴 참고값 — 우리가 검증한 매매 신호가 아니다.
   rotation_v1: Sahm 규칙으로 순환 ↔ 방어를 갈아타도 SPY 와 같았다 (ΔSharpe −0.00, 1950–2025).
+- 환율 USD/CAD (yfinance CAD=X): 사이트 내계좌 '쏠림' 칸이 USD · CAD 종목을 한 비율로 합칠 때 쓴다
 - 금리 결정: 일정은 data.rate_calendar, 결정(인상 · 동결 · 인하 · 폭)은 금리 숫자로 —
   FOMC = FRED DFEDTARU/DFEDTARL (발표 다음 날부터 새 범위), BoC = Valet V39079 (발표 다음 영업일부터)
 """
@@ -260,6 +261,8 @@ def build(today: date | None = None) -> dict[str, Any]:
             for sid in ("UNRATE", "ICSA", "T10Y3M", "BAMLH0A0HYM2", "DFEDTARU", "DFEDTARL")}
     start = (pd.Timestamp(today) - pd.DateOffset(years=3)).strftime("%Y-%m-%d")
     px = _try("yfinance ETF", lambda: fetch_prices(["SPY", *CYCLICAL_ETFS, *DEFENSIVE_ETFS], start), errors)
+    # 환율은 따로 — 외환은 미국 휴장일에도 값이 있어서 같이 받으면 ETF 날짜가 어긋난다
+    cad = _try("yfinance CAD=X", lambda: fetch_prices(["CAD=X"], start)["CAD=X"].dropna(), errors)
 
     indicators = []
     for label, fn, src in (("sahm", ind_sahm, fred["UNRATE"]), ("claims", ind_claims, fred["ICSA"]),
@@ -294,6 +297,8 @@ def build(today: date | None = None) -> dict[str, Any]:
         "indicators": indicators,
         "rates": rates,
         "calendar_scraped": {"fomc": bool(fomc_page), "boc": bool(boc_page)},
+        "fx": ({"usdcad": round(float(cad.iloc[-1]), 4), "date": cad.index[-1].strftime("%Y-%m-%d")}
+               if cad is not None and len(cad) else None),
         "errors": errors,
     }
 

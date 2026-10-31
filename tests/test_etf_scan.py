@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from data.etf_universe import ETF_GROUPS, ETF_ROLES, ETF_TWINS, etf_group_of, etf_tickers  # noqa: E402
 from screener.etf_scan import (build_rows, detail_payload, momentum_list, parse_funds, payload, pick_roles,  # noqa: E402
-                               sheet_frame, style_mix)
+                               fill_twins, load_full_holdings, sheet_frame, style_mix, style_mix_full)
 
 DAYS = pd.bdate_range("2024-12-02", periods=300)
 
@@ -172,7 +172,7 @@ def test_payload_has_picks_twins_and_sheet_extra_columns():
     assert data["picks"]["roles"][0]["pick"] == "VOO"
     assert {"key": "sp500", "ko": "S&P 500", "en": "S&P 500", "kind": "same", "tickers": ["SPY", "VOO"]} in data["twins"]
     sheet = sheet_frame(rows, holdings).set_index("티커")
-    assert list(sheet.columns[-4:]) == ["추천", "같은 것", "상위 보유", "성격 (상위 10개)"]
+    assert list(sheet.columns[-4:]) == ["추천", "같은 것", "상위 보유", "성격"]
     assert sheet.loc["VOO", "추천"].startswith("⭐") and sheet.loc["SPY", "같은 것"] == "VOO"
     assert sheet.loc["VOO", "상위 보유"] == "NVDA 8.4% · AAPL 7.4%"
 
@@ -187,3 +187,20 @@ def test_style_mix_dominant_mixed_and_too_little_known():
     assert style_mix(d, {"NVDA": gc, "AAPL": gd, "MSFT": {"cycle": "defensive", "region": "domestic"}})["top"] == "mixed"
     assert style_mix(d, {"MSFT": gd}) is None                                   # 아는 비중 25% < 50%
     assert style_mix({"holdings": []}, {}) is None and style_mix(None, {}) is None
+    assert got["basis"] == "top10"
+
+
+def test_full_holdings_mix_and_twins(tmp_path):
+    f = tmp_path / "etf_holdings.csv"
+    f.write_text("etf,accession,rep_date,ticker,name,cusip,weight,country\n"
+                 "VOO,a,2026-06-30,NVDA,NVIDIA Corp,x,0.40,US\n"
+                 "VOO,a,2026-06-30,JPM,JPMorgan,x,0.35,US\n"
+                 "VOO,a,2026-06-30,,Unknown Co,x,0.25,US\n", encoding="utf-8")
+    full = fill_twins(load_full_holdings(f))
+    assert set(full) >= {"VOO", "SPY", "VFV.TO"} and full["SPY"]["from"] == "VOO" and "from" not in full["VOO"]
+    styles = {"NVDA": {"cycle": "cyclical", "region": "global"}, "JPM": {"cycle": "cyclical", "region": "domestic"}}
+    m = style_mix_full(full["SPY"], styles)
+    assert m["basis"] == "full" and m["as_of"] == "2026-06-30" and m["from"] == "VOO"
+    assert m["top"] == "mixed" and abs(m["covered"] - 0.75) < 1e-12               # 0.40/0.75 = 53% < 60% → 섞임
+    assert abs(m["mix"]["cyclical_global"] - 0.40 / 0.75) < 1e-12
+    assert style_mix_full(full["VOO"], {}) is None and load_full_holdings(tmp_path / "none.csv") == {}

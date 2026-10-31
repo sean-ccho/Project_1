@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,8 +49,10 @@ SECTOR_KEYS = {
     "basic_materials": "Basic Materials", "utilities": "Utilities", "realestate": "Real Estate",
 }
 RATING_KEYS = ("aaa", "aa", "a", "bbb", "bb", "b", "below_b", "other")
-STYLE_DOMINANT = 0.60        # 상위 10개 중 한 칸이 이 이상이면 그 칸, 아니면 '섞임'
-STYLE_COVERED = 0.50         # 성격을 아는 종목 비중이 상위 10개 합의 이 이상일 때만
+STYLE_DOMINANT = 0.60        # 한 칸이 이 이상이면 그 칸, 아니면 '섞임'
+STYLE_COVERED = 0.50         # 성격을 아는 종목 비중이 (전체 또는 상위 10개) 합의 이 이상일 때만
+# N-PORT 가 없는 ETF(SPY 는 UIT, 캐나다 상장)는 같은 지수를 담는 쌍둥이의 전체 보유 종목을 빌린다 — 묶음 키끼리
+LOOKTHROUGH_TWIN = {"ca_sp500": "sp500", "ca_nasdaq100": "nasdaq100"}
 
 
 def _num(v: Any) -> float | None:
@@ -201,15 +204,16 @@ def fetch_holdings(tickers: list[str], pause: float = 0.2) -> dict[str, dict[str
     return out
 
 
-def holding_styles(holdings: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """보유 종목 → 4칸 성격 (전체분석 universe-data 의 업종 + GEO_REVENUE_FILE 의 SEC 미국 매출). 못 받으면 {}."""
+def holding_styles(holdings: dict[str, dict[str, Any]], extra: set[str] | None = None) -> dict[str, dict[str, Any]]:
+    """보유 종목(상위 10개 + extra = 전체 보유 종목 티커) → 4칸 성격 (전체분석 universe-data 의 업종 + GEO_REVENUE_FILE 의
+    SEC 미국 매출). 못 받으면 {}."""
     import gzip
     import urllib.request
 
     from data.geo_revenue import UNIVERSE_BASE
     from data.industry_style import style_for
 
-    syms = {h["s"] for d in holdings.values() for h in d.get("holdings") or []}
+    syms = {h["s"] for d in holdings.values() for h in d.get("holdings") or []} | (extra or set())
     industry: dict[str, str | None] = {}
     try:
         for key in ("sp500", "nasdaq"):
@@ -227,19 +231,16 @@ def holding_styles(holdings: dict[str, dict[str, Any]]) -> dict[str, dict[str, A
     return out
 
 
-def style_mix(detail: dict[str, Any] | None, styles: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
-    """상위 10개 보유 종목의 4칸 비중 → {mix: {'cyclical_domestic': 0.4, …}, top: 칸 · 'mixed', covered: 아는 비중}.
-
-    성격을 아는 종목이 상위 10개 합의 절반이 안 되면 None (해외 · 채권 · 금 ETF).
-    """
-    held = (detail or {}).get("holdings") or []
-    total = sum(h["w"] for h in held)
+def _mix_of(pairs: list[tuple[str, float]], styles: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    """(티커, 비중) → {mix: {'cyclical_domestic': 0.4, …}, top: 칸 · 'mixed', covered: 아는 비중}.
+    성격을 아는 종목이 합의 절반이 안 되면 None (해외 · 채권 · 금 ETF)."""
+    total = sum(w for _t, w in pairs)
     mix: dict[str, float] = {}
-    for h in held:
-        st = styles.get(h["s"])
+    for t, w in pairs:
+        st = styles.get(t)
         if st and st.get("cycle") and st.get("region"):
             k = f"{st['cycle']}_{st['region']}"
-            mix[k] = mix.get(k, 0.0) + h["w"]
+            mix[k] = mix.get(k, 0.0) + w
     known = sum(mix.values())
     if not total or known < STYLE_COVERED * total:
         return None
@@ -248,11 +249,62 @@ def style_mix(detail: dict[str, Any] | None, styles: dict[str, dict[str, Any]]) 
     return {"mix": shares, "top": top if shares[top] >= STYLE_DOMINANT else "mixed", "covered": known / total}
 
 
+def style_mix(detail: dict[str, Any] | None, styles: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    """상위 10개 보유 종목(Yahoo)의 4칸 비중 — 전체 보유 종목(N-PORT)이 없는 ETF 용. basis = 'top10'."""
+    out = _mix_of([(h["s"], h["w"]) for h in (detail or {}).get("holdings") or []], styles)
+    return {**out, "basis": "top10"} if out else None
+
+
+def load_full_holdings(path: str | Path | None) -> dict[str, dict[str, Any]]:
+    """ETF_HOLDINGS_FILE (data.etf_holdings 의 etf_holdings.csv) → {ETF: {rows: [(티커 · 못 찾으면 '', 비중)], as_of}}.
+    없거나 못 읽으면 {} — 그러면 성격은 상위 10개로."""
+    import csv
+
+    if not path or not Path(path).exists():
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    try:
+        with Path(path).open(newline="", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                e = out.setdefault(r["etf"], {"rows": [], "as_of": r.get("rep_date") or None})
+                e["rows"].append((r.get("ticker") or "", float(r["weight"])))
+    except Exception as exc:  # noqa: BLE001 — 표시용
+        print(f"[ETF] 전체 보유 종목 파일 못 읽음 — 상위 10개로: {exc}")
+        return {}
+    return out
+
+
+def fill_twins(full: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """같은 지수 쌍둥이(ETF_TWINS 의 same + LOOKTHROUGH_TWIN)에 전체 보유 종목이 없으면 있는 쪽 것을 빌린다 (from = 빌려준 ETF)."""
+    same = {key: ts for key, _ko, _en, kind, ts in ETF_TWINS if kind == "same"}
+    out = dict(full)
+    for key, ts in same.items():
+        donors = [t for t in ts + same.get(LOOKTHROUGH_TWIN.get(key, ""), []) if t in full]
+        if not donors:
+            continue
+        for t in ts:
+            if t not in out:
+                out[t] = {**full[donors[0]], "from": donors[0]}
+    return out
+
+
+def style_mix_full(entry: dict[str, Any] | None, styles: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    """전체 보유 종목(N-PORT)의 4칸 비중. basis = 'full', as_of = 공시 기준일, from = 빌려 온 쌍둥이 ETF."""
+    if not entry:
+        return None
+    out = _mix_of([(t, w) for t, w in entry["rows"]], styles)
+    if not out:
+        return None
+    return {**out, "basis": "full", "as_of": entry.get("as_of"), **({"from": entry["from"]} if entry.get("from") else {})}
+
+
 def build_rows(prices: pd.DataFrame, chart_map: dict[str, ChartPrices], info: dict[str, dict[str, Any]],
                tickers: list[str] | None = None,
                holdings: dict[str, dict[str, Any]] | None = None,
-               styles: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
-    """ETF 한 줄씩. prices = fetch_ohlcv 결과 ((티커, 필드) 멀티인덱스, 배당 조정 + Dividends 칸)."""
+               styles: dict[str, dict[str, Any]] | None = None,
+               full: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """ETF 한 줄씩. prices = fetch_ohlcv 결과 ((티커, 필드) 멀티인덱스, 배당 조정 + Dividends 칸).
+    full = 전체 보유 종목 (load_full_holdings + fill_twins) — 있는 ETF 는 성격을 그걸로, 없으면 상위 10개로."""
     group_of = etf_group_of()
     have = set(prices.columns.get_level_values(0))
     closes = {t: prices[t]["Close"].dropna() for t in have}
@@ -289,7 +341,9 @@ def build_rows(prices: pd.DataFrame, chart_map: dict[str, ChartPrices], info: di
             "corr_spy": 1.0 if t == BENCHMARK_ETF else _corr(c, bench),
             "cross": cross_labels(p, chart_map.get(t)),
             "top10_weight": _num(sum(h["w"] for h in held)) if held else None,   # 상위 10개 합 (쏠림 정도)
-            "style_mix": style_mix((holdings or {}).get(t), styles or {}),         # 경기순환/방어 × 내수/글로벌
+            # 경기순환/방어 × 내수/글로벌 — 전체 보유 종목이 있으면 그걸로 (아는 비중이 절반 안 되면 None, 상위 10개로 안 돌아감)
+            "style_mix": (style_mix_full(full[t], styles or {}) if full and t in full
+                          else style_mix((holdings or {}).get(t), styles or {})),
         })
     return rows
 
@@ -409,7 +463,10 @@ def _mix_text(mix: dict[str, Any] | None) -> str:
         return ""
     name = lambda k: f"{CYCLE_KO[k.split('_')[0]]}·{REGION_KO[k.split('_')[1]]}"  # noqa: E731
     first, share = next(iter(mix["mix"].items()))
-    return f"{name(first)} {share:.0%}" if mix["top"] != "mixed" else f"섞임 ({name(first)} {share:.0%})"
+    text = f"{name(first)} {share:.0%}" if mix["top"] != "mixed" else f"섞임 ({name(first)} {share:.0%})"
+    if mix.get("basis") == "full":
+        return f"{text} · 전체 보유 {mix.get('as_of') or ''}{' (' + mix['from'] + ' 기준)' if mix.get('from') else ''}"
+    return f"{text} · 상위 10개"
 
 
 def sheet_frame(rows: list[dict[str, Any]], holdings: dict[str, dict[str, Any]] | None = None) -> pd.DataFrame:
@@ -438,7 +495,7 @@ def sheet_frame(rows: list[dict[str, Any]], holdings: dict[str, dict[str, Any]] 
             "설정일": r.get("inception") or "", "기준일": r["date"],
             "추천": role_of.get(r["ticker"], ""), "같은 것": " · ".join(twins.get(r["ticker"], [])),
             "상위 보유": _top_text((holdings or {}).get(r["ticker"])),
-            "성격 (상위 10개)": _mix_text(r.get("style_mix")),
+            "성격": _mix_text(r.get("style_mix")),
         })
     return pd.DataFrame(out)
 
@@ -458,8 +515,12 @@ def main(argv: list[str] | None = None) -> int:
     chart_map = fetch_chart_prices(list(prices.columns.levels[0]))
     info = fetch_info(tickers)
     holdings = fetch_holdings(tickers)
-    styles = holding_styles(holdings)
-    rows = build_rows(prices, chart_map, info, tickers, holdings, styles)
+    full = fill_twins(load_full_holdings(os.environ.get("ETF_HOLDINGS_FILE")))
+    styles = holding_styles(holdings, {t for e in full.values() for t, _w in e["rows"] if t})
+    rows = build_rows(prices, chart_map, info, tickers, holdings, styles, full)
+    by_basis = [(r.get("style_mix") or {}).get("basis") for r in rows]
+    print(f"[ETF] 성격: 전체 보유 {by_basis.count('full')}개 · 상위 10개 {by_basis.count('top10')}개 · "
+          f"없음 {by_basis.count(None)}개 (전체 보유 파일 ETF {len(full)}개)")
     data = payload(rows)
     missing = [t for t in tickers if t not in {r["ticker"] for r in rows}]
     print(f"[ETF] {len(rows)}/{len(tickers)}개 · 기준일 {data['as_of']} · 정보 없음 "
