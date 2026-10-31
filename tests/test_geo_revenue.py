@@ -114,7 +114,7 @@ def test_stock_style_rules():
     sec = lambda share, **kw: GeoRow(ticker="X", us_share=share, method="geo_us", fy_end="2025-12-31", **kw)  # noqa: E731
     assert stock_style("Software - Application", sec(0.70))["region"] == "domestic"     # 70% 경계는 내수
     s = stock_style("Software - Application", sec(0.69))
-    assert s == {"cycle": "defensive", "region": "global", "us_share": 0.69, "foreign_min": None, "src": "sec",
+    assert s == {"cycle": "cyclical", "region": "global", "us_share": 0.69, "foreign_min": None, "src": "sec",
                  "fy": "2025-12-31"}
     assert stock_style("Banks - Regional", GeoRow(ticker="X", method="none"))["src"] == "sec_none"
     assert stock_style("Tobacco", GeoRow(ticker="X", method="geo_regions", foreign_min=0.42))["region"] == "global"
@@ -129,4 +129,4 @@ def test_stock_style_rules():
     assert stock_style(None, sec(0.9)) == {"cycle": None, "region": "domestic", "us_share": 0.9, "foreign_min": None,
                                           "src": "sec", "fy": "2025-12-31"}
     assert style_text(stock_style("Railroads", None)) == ("경기순환", "내수 (추정)", "")
-    assert style_text(stock_style("Software - Application", sec(0.51))) == ("경기방어", "글로벌", "51%")
+    assert style_text(stock_style("Software - Application", sec(0.51))) == ("경기순환", "글로벌", "51%")

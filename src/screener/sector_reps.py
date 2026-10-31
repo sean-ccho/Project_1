@@ -28,6 +28,20 @@ SECTORS: list[tuple[str, str]] = [
     ("Real Estate", "Real Estate (부동산)"),
     ("Utilities", "Utilities (유틸리티)"),
 ]
+# 섹터 전체 성격 — data.industry_style 업종 표를 섹터로 묶은 것 (S&P 500 종목 수 기준 다수 · 예외 업종). 사이트 lib/sectorMap.ts 와 같은 문구
+SECTOR_CYCLE: dict[str, str] = {
+    "Communication Services": "경기순환 · 통신만 방어",
+    "Consumer Cyclical": "경기순환 · 외식만 방어",
+    "Consumer Defensive": "경기방어",
+    "Energy": "경기순환",
+    "Financial Services": "경기순환 · 손해보험 · 보험중개는 방어",
+    "Healthcare": "경기방어",
+    "Industrials": "경기순환 · 폐기물만 방어",
+    "Technology": "경기순환",
+    "Basic Materials": "경기순환",
+    "Real Estate": "경기순환",
+    "Utilities": "경기방어",
+}
 
 
 def sector_reps(items: Mapping[str, Mapping[str, Any]], top: int = TOP_N) -> list[dict[str, Any]]:
@@ -55,18 +69,20 @@ def sector_reps(items: Mapping[str, Mapping[str, Any]], top: int = TOP_N) -> lis
 
 
 def sector_reps_frame(items: Mapping[str, Mapping[str, Any]], top: int = TOP_N) -> pd.DataFrame:
-    """시트 [섹터 대표] — 구분 · 섹터 · 회사명 · 거래소 · 티커 · 가격 · 미국 매출 비중 · 경기 성격 · 1달 수익."""
+    """시트 [섹터 대표] — 구분 · 섹터 · 섹터 성격 · 회사명 · 거래소 · 티커 · 가격 · 미국 매출 비중 · 경기 성격 · 1달 수익."""
     label = dict(SECTORS)
     rows = []
     for r in sector_reps(items, top):
         us = r["us_share"]
         rows.append({
             "구분": "글로벌 매출 중심" if r["region"] == "global" else "내수 매출 중심",
-            "섹터": label[r["sector"]], "회사명": r["company"] or "", "거래소": r["exchange"], "티커": r["ticker"],
+            "섹터": label[r["sector"]], "섹터 성격": SECTOR_CYCLE[r["sector"]], "회사명": r["company"] or "",
+            "거래소": r["exchange"], "티커": r["ticker"],
             "가격": r["price"],
             "미국 매출 비중": f"{us:.0%}" if us is not None else ("추정" if r["src"] in ("industry", "sec_none") else ""),
             "경기 성격": CYCLE_KO.get(r["cycle"] or "", ""),
             "1달 수익": "" if r["ret_20d"] is None else f"{r['ret_20d']:+.1%}",
         })
-    return pd.DataFrame(rows, columns=["구분", "섹터", "회사명", "거래소", "티커", "가격", "미국 매출 비중", "경기 성격", "1달 수익"])
+    return pd.DataFrame(rows, columns=["구분", "섹터", "섹터 성격", "회사명", "거래소", "티커", "가격", "미국 매출 비중", "경기 성격",
+                                       "1달 수익"])
 
