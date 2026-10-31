@@ -1,20 +1,5 @@
 [
   {
-    "ticker": "RTX",
-    "entry_price": 186.66000366210938,
-    "entry_date": "2026-10-12",
-    "strategy": "📉 바닥반등",
-    "star_rating": "★★★★★ (7.0)",
-    "ccs_score": 0.5581,
-    "sector": "Industrials",
-    "highest_price": 199.39999389648438,
-    "defer_count": 0,
-    "trailing_stop_override": null,
-    "last_defer_date": null,
-    "defer_debug": null,
-    "entry_rsi": 39.30833490679904
-  },
-  {
     "ticker": "MS",
     "entry_price": 182.10000610351562,
     "entry_date": "2026-10-15",
@@ -43,5 +28,20 @@
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 59.35172535106668
+  },
+  {
+    "ticker": "LIN",
+    "entry_price": 514.239990234375,
+    "entry_date": "2026-10-30",
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (14.5)",
+    "ccs_score": 0.6909,
+    "sector": "Basic Materials",
+    "highest_price": 514.239990234375,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 69.40096953988532
   }
 ]

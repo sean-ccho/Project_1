@@ -1,0 +1,27 @@
+============================================================
+[Unified Paper Trading] PT-1S (S&P 500만) 실행 시작
+============================================================
+[Unified PT] PT1_UNIVERSE=sp500 — S&P 500 스냅샷만 사용
+2026-10-31 10:15:33,134 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+[Unified PT] 거래일(일봉 날짜): 2026-10-30
+[Unified PT] 골든크로스임박 종목: 27개
+2026-10-31 10:15:33,856 [INFO] paper_trading.engine — [PaperTrading] DEFER SKIP RTX: volume_strong (RSI=60.8, ADX=28.7, vol_mult=1.14, vol_z=0.37, ret_5d=+4.60%, bb_pband=0.92)
+2026-10-31 10:15:33,856 [INFO] paper_trading.engine — [PaperTrading] SELL RTX @ 199.80 (시간익절(18일,+7.0%))
+2026-10-31 10:15:33,868 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 21 | 4.0~5.0: 14 | 5.0~5.5: 15 | 5.5~6.0: 14 | 6.0+: 63
+2026-10-31 10:15:33,890 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=neutral | Filtered=15/130 | Selected: LIN (CCS=0.6909)
+2026-10-31 10:15:33,892 [INFO] paper_trading.engine — [PaperTrading] BUY LIN @ 514.24 (CCS=0.6909, RSI=69)
+[Unified PT] 매도=1 매수=1 보유=3종목
+[Unified PT] 레짐=neutral | 필터={'지수ETF': 3, '전략점수<6.0': 64, '바닥반등_52주과열': 3, '판단등급_미달': 36, '과열_차단': 4, '유동성_부족': 0, '어닝_임박': 1, '보유_중복': 1, '같은회사_중복': 0, '모멘텀_ADX부족': 2, '바닥_RSI데드존': 1, '섹터_집중': 0, '_통과': 15, '_전체': 130}
+[Unified PT] Top5 후보:
+  LIN    CCS=0.6909 전략=📈 모멘텀 섹터=Basic Materials
+  COST   CCS=0.6750 전략=📈 모멘텀 섹터=Consumer Defensive
+  WMT    CCS=0.6712 전략=📈 모멘텀 섹터=Consumer Defensive
+  COP    CCS=0.6354 전략=📈 모멘텀 섹터=Energy
+  XOM    CCS=0.6321 전략=📈 모멘텀 섹터=Energy
+2026-10-31 10:15:35,404 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 다시 쓰기: 페이퍼S_거래로그 11줄
+2026-10-31 10:15:36,321 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-10-31 10:15:37,568 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 4건 거래
+[Unified PT] 구글 시트 동기화 완료
+[Unified PT] $5,000 계좌 탭 '페이퍼S_계좌' 동기화 완료
+[Unified PT] PT-1S (S&P 500만): 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)

@@ -52,5 +52,23 @@
     "defer_count": 0,
     "entry_rsi": 59.72707539058847,
     "actual_max_upside_pct": 0.0
+  },
+  {
+    "ticker": "RTX",
+    "entry_date": "2026-10-12",
+    "exit_date": "2026-10-30",
+    "entry_price": 186.66000366210938,
+    "exit_price": 199.8000030517578,
+    "return_pct": 0.0704,
+    "holding_days": 18,
+    "highest_price": 199.8000030517578,
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (7.0)",
+    "ccs_score": 0.5581,
+    "sector": "Industrials",
+    "exit_reason": "시간익절(18일,+7.0%)",
+    "defer_count": 0,
+    "entry_rsi": 39.30833490679904,
+    "actual_max_upside_pct": 0.0704
   }
 ]
