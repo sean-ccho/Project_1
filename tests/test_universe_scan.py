@@ -84,6 +84,17 @@ def test_young_row_simple_indicators() -> None:
     assert 0 < r["상장후위치"] <= 1
 
 
+def test_ret_k_and_item_info_long_returns() -> None:
+    close = pd.Series(np.linspace(100, 200, 300))
+    assert abs(rus._ret_k(close, 252) - (200 / close.iloc[-253] - 1)) < 1e-12
+    assert rus._ret_k(close.iloc[:252], 252) is None  # 일봉 252개 = 1년 전 종가 없음
+    assert rus._ret_k(pd.Series([0.0, 5.0]), 1) is None  # 0 원은 수익률을 못 낸다
+    info = wu.item_info(pd.Series({"티커": "AAPL", "63일수익률": 0.123456, "252일수익률": -0.2}),
+                        tv=None, insider=None, isb=None, sqz=None)
+    assert info["ret_63d"] == 0.1235 and info["ret_252d"] == -0.2
+    assert wu.item_info(pd.Series({"티커": "NEWCO"}), tv=None, insider=None, isb=None, sqz=None)["ret_252d"] is None
+
+
 def test_isb_and_sqz_text() -> None:
     isb = {"D": {"rev": {"date": "2026-10-14", "ago": 4}, "exit": {"date": "2026-09-01", "ago": 30}},
            "W": {"bottom": {"date": "2026-09-26", "ago": 3}}}

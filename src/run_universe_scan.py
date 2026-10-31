@@ -177,12 +177,22 @@ def analyze_market(tickers: list[str], label: str, names: dict[str, str], strong
         loc = ranked.columns.get_loc("티커")
         ranked.insert(loc, "회사", ranked["티커"].map(lambda t: names.get(t) or COMPANY_NAME_MAP.get(t) or _cached_name(t)))
         ranked.insert(loc + 1, "현재가격", ranked["티커"].map(last_close))
+        # 3달 · 1년 수익률 — 웹 섹터 지도 칸 중앙값용 (표시 전용, 시트 칸 아님 · 2026-10-30)
+        for k, col in ((63, "63일수익률"), (252, "252일수익률")):
+            ranked[col] = ranked["티커"].map(lambda t, k=k: _ret_k(price_map[t]["Close"].dropna(), k))
         ranked["_bar_date"] = bar_date
         ranked = add_health(ranked).reset_index(drop=True)
 
     young_fund = fund[fund["티커"].isin(list(young))] if not fund.empty else pd.DataFrame()
     return {"ranked": ranked, "young": young, "young_fund": young_fund, "bar_date": bar_date, "no_data": no_data,
             "fund": fund}
+
+
+def _ret_k(close: pd.Series, k: int) -> float | None:
+    """k 거래일 수익률 (features 의 pct_change(k) 와 같은 계산). 일봉이 k+1 개 미만이면 None."""
+    if len(close) <= k or not close.iloc[-1 - k] > 0:
+        return None
+    return float(close.iloc[-1] / close.iloc[-1 - k] - 1)
 
 
 _NAME_CACHE: dict[str, str] | None = None

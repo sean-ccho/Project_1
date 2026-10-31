@@ -92,7 +92,9 @@ def item_info(row: pd.Series, *, tv: str | None, insider: dict[str, Any] | None,
     """분석 한 줄 → 웹 TickerInfo (ticker_info 와 같은 모양) + tv · 신규 상장 칸. earnings_move = 실적 때 움직임."""
     info = ticker_info(row)
     info.update({"tv": tv, "insider": insider, "isb": isb, "sqzmom": sqz, "golden": golden,
-                 "earnings_move": earnings_move})
+                 "earnings_move": earnings_move,
+                 # 3달 · 1년 수익률 (run_universe_scan 이 붙인다 — 신규 상장 줄엔 없어서 None)
+                 "ret_63d": _num(row.get("63일수익률"), 4), "ret_252d": _num(row.get("252일수익률"), 4)})
     first = _text(row.get("첫거래일"))
     if first:
         info["first_date"] = first
