@@ -1,7 +1,7 @@
 """페이퍼 트레이딩 계좌 정의 (account_engine 으로 도는 계좌: PT-SPY).
 
-PT-1·PT-1S 는 engine.run_daily_trading 을 그대로 쓰고, PT-SPY 는 account_engine 을 쓴다.
-(PT-2 골든크로스 스윙·PT-3 일봉 단타는 2026-10-09 모두 제거)
+PT-1 은 engine.run_daily_trading 을 그대로 쓰고, PT-SPY 는 account_engine 을 쓴다.
+(PT-2 골든크로스 스윙·PT-3 일봉 단타는 2026-10-09, PT-1S·PT-1N 병행 계좌는 2026-10-31 제거)
 """
 
 from __future__ import annotations

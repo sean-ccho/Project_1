@@ -6,7 +6,7 @@ data/universe/sp500_changes.csv 에 쌓고 메일로 알린다. 한 번에 너�
 깨졌거나 훼손된 것으로 보고 반영하지 않고 확인 메일만 보낸다.
 
 2026-10-09: 손으로 한 번 긁어 둔 목록이 낡아서 현재 구성종목 29개가 빠지고 빠진 지 오래된 25개가 남아 있었다
-(가격도 없는 BK·EA·EQR 등). 실거래 스크리너와 PT-1S 가 새 편입 종목(VRT·CVNA·RDDT·SNDK 등)을 보지 못했다.
+(가격도 없는 BK·EA·EQR 등). 실거래 스크리너가 새 편입 종목(VRT·CVNA·RDDT·SNDK 등)을 보지 못했다.
 
 사용법: .venv/bin/python scripts/update_sp500_tickers.py [--dry-run] [--notify] [--force]
 """
@@ -34,7 +34,6 @@ TARGET = ROOT / "src" / "data" / "sp500_tickers.py"
 CHANGE_LOG = ROOT / "data" / "universe" / "sp500_changes.csv"
 POSITION_FILES = {
     "PT-1": ROOT / "data" / "paper_trading" / "positions.json",
-    "PT-1S": ROOT / "data" / "paper_trading" / "pt1s" / "positions.json",
 }
 URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 COUNT_RANGE = (495, 510)  # S&P 500 은 2주식 회사 때문에 503개 안팎 — 벗어나면 표 구조가 바뀐 것
@@ -112,7 +111,7 @@ def change_message(plan: Plan, today: str, held: dict[str, list[str]]) -> tuple[
     """반영한 변경을 알리는 메일 제목·본문."""
     lines = [f"S&P 500 구성종목이 바뀌어 목록을 갱신했습니다 (위키백과 기준, {today}).", ""]
     if plan.added:
-        lines.append(f"■ 추가 {len(plan.added)}개 — 다음 실행부터 S&P 스크리너·PT-1S 후보에 들어갑니다")
+        lines.append(f"■ 추가 {len(plan.added)}개 — 다음 실행부터 S&P 스크리너 후보에 들어갑니다")
         lines += [f"  - {a['티커']}  {a.get('회사', '')} ({a.get('섹터', '')}, 편입 {a.get('편입일', '')})"
                   for a in plan.added]
         lines.append("")

@@ -37,19 +37,13 @@ BAR_DATE_COL = "_bar_date"
 # 연구·백테스트로 검증한 범위는 S&P 500뿐이다. 환경변수 PT1_UNIVERSE 로 바꿀 수 있다.
 PT1_UNIVERSE = os.environ.get("PT1_UNIVERSE", "all")
 
-# PT-1 규칙 계좌들 (소형주가 값을 하는지 실거래로 비교하는 병행 계좌):
-#   pt1s = PT-1과 같은 규칙, 후보만 S&P 500 / pt1n = 같은 규칙, 후보만 S&P 500 밖 나스닥/NYSE 종목
-#   → PT-1 후보 = PT-1S 후보 ∪ PT-1N 후보 (서로 겹치지 않음)
+# PT-1 규칙 계좌. 2026-10-31: 병행 계좌 PT-1S(S&P 500만)·PT-1N(S&P 500 밖)은 제거 — 같은 비교를
+# shadow_v1(PT1S_TOP5·PT1N_TOP5, 2027-10-15 판정)이 하고 있고 3주에 3건씩이라 답이 안 나왔다.
+# universe("sp500"·"ex_sp500")는 그 그림자 기록이 load_and_merge_snapshots 로 쓴다.
 PT1_ACCOUNTS: dict[str, dict[str, Any]] = {
     "pt1": {"label": "PT-1", "subdir": "", "universe": None, "email": True,
             "tabs": None,  # None = config 기본 탭 (페이퍼_거래로그 등)
             "dollar_tab": "페이퍼_계좌"},  # $5,000 계좌 (pt1_account)
-    "pt1s": {"label": "PT-1S (S&P 500만)", "subdir": "pt1s", "universe": "sp500", "email": False,
-             "tabs": {"log": "페이퍼S_거래로그", "positions": "페이퍼S_포지션현황", "summary": "페이퍼S_성과요약"},
-             "dollar_tab": "페이퍼S_계좌"},
-    "pt1n": {"label": "PT-1N (S&P 500 밖)", "subdir": "pt1n", "universe": "ex_sp500", "email": False,
-             "tabs": {"log": "페이퍼N_거래로그", "positions": "페이퍼N_포지션현황", "summary": "페이퍼N_성과요약"},
-             "dollar_tab": "페이퍼N_계좌"},
 }
 
 
@@ -256,14 +250,14 @@ def _load_and_merge(universe: str) -> pd.DataFrame | None:
 
 
 def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None, account: str = "pt1") -> None:
-    """통합 paper trading 실행 진입점 (PT-1 규칙 계좌: pt1, pt1s).
+    """통합 paper trading 실행 진입점 (PT-1 규칙 계좌: pt1).
 
     GitHub Actions: main.py → run_full_scan.py → run_paper_trading.py 순으로 실행.
 
     Args:
         dry_run: True면 임시 폴더에서만 매매하고 시트·이메일·상태 기록을 하지 않는다.
         as_of: 거래일(YYYY-MM-DD) 강제 지정. 없으면 스냅샷의 일봉 날짜를 쓴다.
-        account: PT1_ACCOUNTS 키. pt1s는 S&P 500 후보만, 별도 폴더·시트 탭, 메일 없음.
+        account: PT1_ACCOUNTS 키.
     """
     acct = PT1_ACCOUNTS[account]
     logging.basicConfig(
@@ -366,18 +360,10 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None, a
     # ── $5,000 계좌: 같은 거래를 가상 자본으로 다시 계산 (매매와 무관, 표시만) ──
     dollar_html = ""
     dollar_holdings: list[dict] = []
-    account_positions: dict[str, list[dict]] = {acct["label"]: positions}  # 계좌 이름 → 보유 position dict
     try:
         from paper_trading.pt1_account import build_accounts, held_rows, section_html, sync_sheet
 
-        books = {acct["label"]: (trades, positions)}
-        if acct["email"]:  # PT-1 메일에는 PT-1S·PT-1N 계좌도 함께 보여 준다
-            for other_key in ("pt1s", "pt1n"):
-                other = PT1_ACCOUNTS[other_key]
-                other_dir = Path(PAPER_TRADING_DATA_DIR) / other["subdir"]
-                account_positions[other["label"]] = load_positions(other_dir)
-                books[other["label"]] = (load_trades(other_dir), account_positions[other["label"]])
-        dollars = build_accounts(books)
+        dollars = build_accounts({acct["label"]: (trades, positions)})
         if not report_only:
             sync_sheet(dollars[acct["label"]], acct["label"], acct["dollar_tab"])
             print(f"[Unified PT] $5,000 계좌 탭 '{acct['dollar_tab']}' 동기화 완료")
@@ -387,7 +373,7 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None, a
         print(f"[Unified PT] $5,000 계좌 계산 실패 (무시): {exc}")
 
     if not acct["email"]:
-        print(f"[Unified PT] {acct['label']}: 메일 없음 (PT-1 메일의 SPY 대비 표에 함께 표시)")
+        print(f"[Unified PT] {acct['label']}: 메일 없음")
         return
 
     # ── 이메일 알림 ──
@@ -398,9 +384,7 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None, a
 
     # ── 내부자 거래 90일 요약 (openinsider, 표시용) — 후보 / 매수 / 매도 / 보유 / 골든크로스 ──
     top5 = pt_result.get("selection_debug", {}).get("top5", [])
-    # PT-1S 보유 종목도 합친 보유 표에 나오므로 내부자·거래량을 함께 채운다
-    other_held = [p for label, ps in account_positions.items() if label != acct["label"] for p in ps]
-    shown = top5 + buys + sells + golden_cross + positions + other_held
+    shown = top5 + buys + sells + golden_cross + positions
     try:
         from screener.insider import fetch_insider_snapshots
 
@@ -433,16 +417,16 @@ def run_unified_paper_trading(dry_run: bool = False, as_of: str | None = None, a
             except (TypeError, ValueError):
                 return 0.0
 
-        for p in positions + other_held:
+        for p in positions:
             rows = merged_df[merged_df["티커"] == p.get("ticker", "")]
             if not rows.empty:
                 r = rows.iloc[0]
                 p["vol_ratio"] = _vol_float(r.get("거래량돌파배수"))
                 p["vol_ma20"] = _vol_float(r.get("volume_ma20"))
 
-    # 합친 보유 표: $5,000 계좌 줄마다 그 계좌 position 의 전략·섹터·고점·내부자·거래량을 붙인다
+    # 보유 표: $5,000 계좌 줄마다 그 position 의 전략·섹터·고점·내부자·거래량을 붙인다
     for row in dollar_holdings:
-        pos = next((p for p in account_positions.get(row["label"], [])
+        pos = next((p for p in positions
                     if p.get("ticker") == row["ticker"] and str(p.get("entry_date")) == row["entry_date"]), {})
         for key in ("strategy", "sector", "highest_price", "trailing_stop_override", "defer_count", "last_defer_date",
                     "insider", "vol_ratio", "vol_ma20"):

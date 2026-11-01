@@ -53,14 +53,14 @@ def _failed(result) -> list[str]:
 def test_healthy_run_passes_and_records_expected_state(tmp_path):
     r = _run(tmp_path)
     assert r["status"] == "healthy", _failed(r)
-    assert r["expected"] == {"pt1": "2026-10-09", "pt1s": "2026-10-09", "pt1n": "2026-10-09", "pt_spy": "2026-10-09"}
+    assert r["expected"] == {"pt1": "2026-10-09", "pt_spy": "2026-10-09"}
 
 
 def test_state_not_advanced_fails(tmp_path):
-    """10-10 ~ 10-11: 상태가 저장되지 않아 pt1·pt1s 가 10-08 에 머문 경우."""
-    r = _run(tmp_path, states={"pt1": "2026-10-08", "pt1s": "2026-10-08"})
+    """10-10 ~ 10-11: 상태가 저장되지 않아 pt1·pt_spy 가 10-08 에 머문 경우."""
+    r = _run(tmp_path, states={"pt1": "2026-10-08", "pt_spy": "2026-10-08"})
     assert r["status"] == "unhealthy"
-    assert _failed(r) == ["pt1 상태", "pt1s 상태"]
+    assert _failed(r) == ["pt1 상태", "pt_spy 상태"]
 
 
 def test_missing_state_file_fails(tmp_path):
@@ -70,9 +70,9 @@ def test_missing_state_file_fails(tmp_path):
 
 def test_own_error_line_fails(tmp_path):
     line = "2026-10-11 09:49:41,920 [ERROR] paper_trading.sheet_sync — [SheetSync] 거래로그 append 실패: list index out of range\n"
-    r = _run(tmp_path, logs={"paper_trading_pt1s.log": line})
+    r = _run(tmp_path, logs={"paper_trading_pt_spy.log": line})
     assert _failed(r) == ["에러 로그"]
-    assert "paper_trading_pt1s.log:1" in next(c["message"] for c in r["checks"] if c["name"] == "에러 로그")
+    assert "paper_trading_pt_spy.log:1" in next(c["message"] for c in r["checks"] if c["name"] == "에러 로그")
 
 
 def test_library_error_line_only_warns(tmp_path):
@@ -172,9 +172,9 @@ def test_missing_email_line_fails(tmp_path):
 def test_missing_step_log_and_account_file_fail(tmp_path):
     data, log_root = _layout(tmp_path)
     (log_root / "2026-10-12" / "full_scan.log").unlink()
-    (data / "pt1s" / "trades.json").unlink()
+    (data / "pt_spy" / "trades.json").unlink()
     r = hc.run_health_check(data, "2026-10-12", log_root=log_root, now=NOW)
-    assert _failed(r) == ["pt1s/trades.json", "스텝 로그"]
+    assert _failed(r) == ["pt_spy/trades.json", "스텝 로그"]
 
 
 def test_positions_schema_error_fails(tmp_path):
@@ -198,13 +198,13 @@ def _fake_git(remote_states: dict, fetch_ok: bool = True):
 
 def test_verify_pushed(tmp_path):
     expected = tmp_path / "expected.json"
-    want = {"pt1": "2026-10-09", "pt1s": "2026-10-09", "pt_spy": "2026-10-09"}
+    want = {"pt1": "2026-10-09", "pt_spy": "2026-10-09"}
     expected.write_text(json.dumps(want), encoding="utf-8")
 
     assert hc.verify_pushed(expected, git=_fake_git(want))["status"] == "healthy"
-    lost = hc.verify_pushed(expected, git=_fake_git({**want, "pt1": "2026-10-08", "pt1s": "2026-10-08"}))
-    assert _failed(lost) == ["pt1 상태 push", "pt1s 상태 push"]
-    missing = hc.verify_pushed(expected, git=_fake_git({"pt1": "2026-10-09", "pt1s": "2026-10-09"}))
+    lost = hc.verify_pushed(expected, git=_fake_git({**want, "pt1": "2026-10-08"}))
+    assert _failed(lost) == ["pt1 상태 push"]
+    missing = hc.verify_pushed(expected, git=_fake_git({"pt1": "2026-10-09"}))
     assert _failed(missing) == ["pt_spy 상태 push"]
     assert _failed(hc.verify_pushed(expected, git=_fake_git(want, fetch_ok=False))) == ["git fetch"]
     assert _failed(hc.verify_pushed(tmp_path / "nope.json", git=_fake_git(want))) == ["기대 상태"]

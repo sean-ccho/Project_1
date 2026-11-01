@@ -47,8 +47,7 @@ def test_pt1_universe_sp500_skips_nasdaq(tmp_path, monkeypatch):
     assert list(runner.load_and_merge_snapshots()["티커"]) == ["AAA"]
 
 
-def test_pt1s_account_config():
-    acct = runner.PT1_ACCOUNTS["pt1s"]
-    assert acct["universe"] == "sp500" and acct["subdir"] == "pt1s" and not acct["email"]
-    assert set(acct["tabs"]) == {"log", "positions", "summary"}
+def test_pt1_account_config():
+    # 병행 계좌 PT-1S·PT-1N 은 2026-10-31 제거 — PT-1 만 남는다
+    assert list(runner.PT1_ACCOUNTS) == ["pt1"]
     assert runner.PT1_ACCOUNTS["pt1"]["tabs"] is None  # PT-1은 기존 탭 그대로
