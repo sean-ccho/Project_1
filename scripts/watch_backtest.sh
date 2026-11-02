@@ -17,7 +17,7 @@ while true; do
   STAGE=$(grep -a "^=====" "$LOG" | tail -1)
   LAST=$(tr '\r' '\n' < "$LOG" | grep -a "%\]" | tail -1)
   if pgrep -f "scripts/${SCRIPT}.py" >/dev/null \
-     || pgrep -f "run_hypothesis_ab|warm_feature_cache|ccs_placebo|earnings_filter_check|validate_upside|fetch_insider_data|pt1_baseline_equity|idea_batch_research|wfo_structure" >/dev/null; then
+     || pgrep -f "warm_feature_cache|validate_upside|fetch_insider_data|pt1_baseline_equity|idea_batch_research" >/dev/null; then
     STATE="실행 중"
   else
     STATE="종료됨"

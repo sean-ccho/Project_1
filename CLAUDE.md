@@ -24,7 +24,6 @@
 | `docs/screener_filtering_guide.md` | 필터링 가이드 + 점수 계산 원리 |
 | `docs/paper_trading_candidate_selection.md` | 페이퍼 트레이딩 후보 선정 로직 |
 | `docs/patterns_reference.md` | 차트 패턴 25종 레퍼런스 |
-| `docs/Machine_Learning.md` | ML 통합 계획 (진행 중) |
 | `docs/archive/` | 과거 기록 (진행 상황·최적화 로그·사건 기록 등) |
 
 ### 언제 문서를 수정하나?

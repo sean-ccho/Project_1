@@ -9,13 +9,10 @@ yfinance 데이터를 활용하여 기술·수급·재무 지표를 종합 분�
 
 | 파일 | 설명 |
 |---|---|
-| [strategy_overview.md](docs/strategy_overview.md) | ⭐ 전략 소개서 — 작동 원리 & 백테스트 수치 (신규 사용자 시작점) |
-| [design_spec.md](docs/design_spec.md) | 전체 시스템 Design Specification |
 | [architecture.md](docs/architecture.md) | 스크리너 + 페이퍼 트레이딩 통합 아키텍처 |
 | [screener_filtering_guide.md](docs/screener_filtering_guide.md) | 필터링 가이드 + 점수 계산 원리 |
 | [paper_trading_candidate_selection.md](docs/paper_trading_candidate_selection.md) | 페이퍼 트레이딩 후보 선정 로직 |
 | [patterns_reference.md](docs/patterns_reference.md) | 차트 패턴 레퍼런스 (25종) |
-| [Machine_Learning.md](docs/Machine_Learning.md) | ML 통합 계획 |
 
 ---
 
