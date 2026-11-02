@@ -119,27 +119,3 @@ def test_system_position_enters_on_event_and_exits_on_first_fall() -> None:
                       "falling": [False, False, False, True, False, True, False, True]})
     pos = system_position(f, "fire")
     assert pos.tolist() == [False, True, True, False, True, False, True, False]
-
-
-def test_engine_books_map_weekly_bars_to_days() -> None:
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-    from sqz_vs_pt1 import ticker_books
-
-    df = _ohlc(700, 5)
-    books = ticker_books("X", df)
-    w = books["SQZ-W"].set_index("date")
-    f = squeeze_frame(df, "W", df.index[-1])
-    f = f[f["complete"]]
-    lime = (f["color"] == "lime") & f["valid"]
-    for day in df.index[300:340]:
-        last_bar = f.index[f.index <= day].max()
-        assert w.at[day, "hold_next"] == bool(lime.loc[last_bar])
-        is_bar_day = day in f.index
-        turn_down = is_bar_day and bool(f.at[day, "falling"]) and bool(f["rising"].shift(1, fill_value=False).at[day])
-        assert w.at[day, "exit_full"] == turn_down
-    s = books["SQZ-W-FIRE"].set_index("date")
-    assert not s.loc[~s.index.isin(f.index), "buy_ev"].any()
-    pos = system_position(f, "fire")
-    assert s.loc[f.index, "hold_next"].tolist() == pos.tolist()

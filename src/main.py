@@ -9,9 +9,6 @@ import time
 import pandas as pd
 
 from screener.config import (
-    BACKTEST_ENABLED,
-    BACKTEST_RUNS,
-    BACKTEST_WORKSHEET_NAME,
     COMPANY_NAME_MAP,
     EXTREME_MODEL_ENABLED,
     EXTREME_MODEL_TRAIN_PERIOD,
@@ -29,12 +26,10 @@ from data.fetch import (
     fetch_chart_prices,
 )
 from screener.exporter import (
-    export_backtest_results,
     export_to_google_sheet,
     fetch_tickers_from_sheet,
     prepare_export_dataframe,
 )
-from screener.backtest import run_backtest
 from screener.fundamentals_guard import compute_all_features_guarded
 from screener.processing import apply_neutralization, liquidity_filter
 from screener.signals import attach_signals_and_sort
@@ -167,7 +162,6 @@ def build_export_dataframe(
     
     # --- TradingView 차트 캡처 (CHARTS_ENABLED이고 capture_charts가 True일 때만) ---
     from screener.config import CHARTS_ENABLED, CHARTS_MIN_SCORE, CHARTS_TIMEFRAMES
-    from screener.config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, GOOGLE_SHEETS_CREDENTIALS_PATH
     from screener.config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME
     from screener.config import CHARTS_OUTPUT_DIR
     
@@ -176,10 +170,6 @@ def build_export_dataframe(
         import os
         import shutil
         from pathlib import Path
-        
-        # Drive 업로드 사용 시 모듈 import
-        if DRIVE_UPLOAD_ENABLED:
-            from charts.gdrive_uploader import upload_to_drive
         
         # 기존 차트 파일들 자동 삭제
         charts_dir = Path(CHARTS_OUTPUT_DIR)
@@ -245,25 +235,8 @@ def build_export_dataframe(
                             # Google Sheets에는 항상 로컬 경로 저장
                             ranked.loc[ranked["티커"] == ticker, col_name] = local_path
                             
-                            # Drive 업로드가 활성화되어 있으면 추가로 업로드
-                            if DRIVE_UPLOAD_ENABLED:
-                                from screener.config import DRIVE_SHARE_EMAIL
-                                drive_url = upload_to_drive(
-                                    local_path,
-                                    GOOGLE_SHEETS_CREDENTIALS_PATH,
-                                    DRIVE_FOLDER_NAME,
-                                    folder_id=DRIVE_FOLDER_ID,
-                                    share_email=DRIVE_SHARE_EMAIL
-                                )
-                                
-                                if drive_url:
-                                    # 업로드 성공 시 IMAGE() 함수로 교체
-                                    image_formula = f'=IMAGE("{drive_url}")'
-                                    ranked.loc[ranked["티커"] == ticker, col_name] = image_formula
-                                # 업로드 실패 시 로컬 경로 그대로 유지
-                            
                             # GitHub 호스팅 사용 (orphan 브랜치 Raw URL)
-                            elif GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
+                            if GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
                                 # screenshots-sp500 orphan 브랜치에서 이미지 참조
                                 # 구글 시트 캐싱 방지를 위해 쿼리 파라미터 추가 (?v=timestamp)
                                 cache_buster = int(time.time())
@@ -408,16 +381,12 @@ def main() -> None:
                 
                 # --- TradingView 차트 캡처 ---
                 from screener.config import CHARTS_ENABLED, CHARTS_TIMEFRAMES, CHARTS_OUTPUT_DIR
-                from screener.config import DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID, GOOGLE_SHEETS_CREDENTIALS_PATH
                 from screener.config import GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME
                 
                 if CHARTS_ENABLED:
                     from charts.tradingview_capture import capture_multiple_timeframes
                     import shutil
                     from pathlib import Path
-                    
-                    if DRIVE_UPLOAD_ENABLED:
-                        from charts.gdrive_uploader import upload_to_drive
                     
                     # 기존 차트 삭제
                     charts_dir = Path(CHARTS_OUTPUT_DIR)
@@ -445,19 +414,7 @@ def main() -> None:
                                     col_name = f"차트_{tf}"
                                     portfolio_export.loc[portfolio_export["티커"] == ticker, col_name] = local_path
                                     
-                                    if DRIVE_UPLOAD_ENABLED:
-                                        from screener.config import DRIVE_SHARE_EMAIL
-                                        drive_url = upload_to_drive(
-                                            local_path,
-                                            GOOGLE_SHEETS_CREDENTIALS_PATH,
-                                            DRIVE_FOLDER_NAME,
-                                            folder_id=DRIVE_FOLDER_ID,
-                                            share_email=DRIVE_SHARE_EMAIL
-                                        )
-                                        if drive_url:
-                                            image_formula = f'=IMAGE("{drive_url}")'
-                                            portfolio_export.loc[portfolio_export["티커"] == ticker, col_name] = image_formula
-                                    elif GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
+                                    if GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
                                         cache_buster = int(time.time())
                                         # screenshots-sp500 orphan 브랜치에서 이미지 참조 (GITHUB_BRANCH_NAME=main이 아님!)
                                         github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/screenshots-sp500/{local_path}?v={cache_buster}"
@@ -496,29 +453,6 @@ def main() -> None:
                 print(f"[{portfolio_label}] 워크시트에 티커가 없어 업데이트를 건너뜁니다.")
         else:
             print(f"[{portfolio_label}] 워크시트 업데이트가 비활성화되어 있습니다.")
-
-        backtest_results: dict[str, dict] = {}
-        if BACKTEST_ENABLED:
-            for run in BACKTEST_RUNS:
-                label = str(run.get("label", "Backtest"))
-                params = {k: v for k, v in run.items() if k != "label"}
-                try:
-                    backtest_results[label] = run_backtest(**params)
-                    print(f"[Backtest] '{label}' 실행 완료")
-                except Exception as exc:  # pragma: no cover - best effort
-                    print(f"[Backtest] '{label}' 실행 실패: {exc}")
-
-            if backtest_results:
-                if export_backtest_results(
-                    backtest_results, BACKTEST_WORKSHEET_NAME
-                ):
-                    print(
-                        f"[{BACKTEST_WORKSHEET_NAME}] 백테스트 결과 업데이트 완료"
-                    )
-                else:
-                    print(
-                        f"[{BACKTEST_WORKSHEET_NAME}] 백테스트 결과 업데이트를 건너뜁니다."
-                    )
 
         # ── Paper Trading: SP500 ranked_df 스냅샷 저장 ──
         # 실제 PT 실행은 run_paper_trading.py에서 NASDAQ 풀과 합산 후 통합 처리

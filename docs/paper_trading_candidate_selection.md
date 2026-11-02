@@ -14,122 +14,29 @@
 - 관련 파일: `src/paper_trading/engine.py`, `src/paper_trading/backtest.py`, `src/paper_trading/portfolio.py`, `src/paper_trading/upside_model.py` (신규), `src/paper_trading/report_generator.py`, `src/paper_trading/runner.py`, `src/screener/exporter.py`, `src/screener/config.py`
 
 ---
-*최근 변경: 2026-04-04 — 백테스트 달러 자본 추적 모드 추가 (`--capital`)*
-- `src/paper_trading/backtest.py` — `initial_capital` 파라미터 추가 (0이면 기존 수익률 % 모드)
-- `BtPosition`에 `shares` 필드 추가 — 보유 주식 수 추적
-- 매수 시 `현금 / 빈슬롯수` 로 포지션 배분 → 주식 수 계산 후 현금 차감
-- 매도 시 매도대금 현금 복귀 → 복리 재투자 자동 반영
-- 에쿼티 커브 달러 기준 전환, 결과 요약에 초기자본 / 최종자본 / 총수익금 출력
-- `scripts/run_sp500_backtest.py`, `scripts/paper_trading.py` — `--capital USD` 옵션 추가
-- 관련 파일: `src/paper_trading/backtest.py`, `scripts/run_sp500_backtest.py`, `scripts/paper_trading.py`
-
----
-*최근 변경: 2026-04-04 — S&P500 전용 백테스트 CLI 추가 및 기본 기간 2y 변경*
-- `scripts/run_sp500_backtest.py` 신규 생성 — S&P500 501개 전체 유니버스 전용 백테스트 CLI
-- `max_tickers=None`으로 전체 종목 사용 (기존 `paper_trading.py backtest`는 기본 100개 제한)
-- 기본 기간 `1y` → `2y` 변경 (이유: 1y는 워밍업 220일 제외 시 ~30거래일만 시뮬레이션, 거래 6건 수준으로 통계 신뢰 불가. 2y면 ~284거래일 / 50~80건 확보)
-- 관련 파일: `scripts/run_sp500_backtest.py`
-
----
-*최근 변경: 2026-04-03 — 백테스트 모듈 추가*
-- `src/paper_trading/backtest.py` 신규 생성 — 과거 데이터 기반 페이퍼 트레이딩 시뮬레이션 엔진
-- `scripts/paper_trading.py` — `backtest` 서브커맨드 추가 (`--period`, `--rebalance`, `--max-tickers`, `--no-sheets`, `--fundamentals` 옵션)
-- `src/paper_trading/sheet_sync.py` — `sync_backtest_result()` 함수 추가, Google Sheets `[백테스트_결과]` 탭 동기화
-- 관련 파일: `src/paper_trading/backtest.py`, `scripts/paper_trading.py`, `src/paper_trading/sheet_sync.py`
-- 문서 수정: 장기보유 청산 기준 14일→21일, 최소 수익률 3%→2%로 실제 코드(`config.py`)와 일치하도록 업데이트
-- 문서 수정: 손절 -7%→-5%, 트레일링 스탑 -8%→-5%, CCS 교체 마진 0.05→0.10, 전략 점수 기준 5.0→6.0 반영
+*최근 변경: 2026-10-31 — 옛 백테스트 CLI 삭제*
+- `scripts/paper_trading.py backtest`(`--period` · `--rebalance` · `--max-tickers` · `--fundamentals` · `--capital` · `--no-sheets`), `run_sp500_backtest.py`, 수동 워크플로 `run-backtest.yml`, 시트 `[백테스트_결과]` 동기화를 지웠다.
+  오늘의 S&P 앞 100개(생존 편향) · 5일 리밸런스 · 오늘 재무를 과거에 쓰는 `--fundamentals`(미래 정보) 라 실전과 달랐다.
+- PT-1 대안 계좌 PT-1S · PT-1N 도 지웠다 (같은 비교는 shadow_v1 이 한다).
 
 ---
 
-## 백테스트 실행 명령어
+## 백테스트 하는 법 (2026-10-31 기준)
 
-### S&P500 전체 전용 (권장)
+엔진은 `src/paper_trading/backtest.py` 의 `run_paper_trading_backtest()` — 실전 PT-1 규칙 그대로다. 연구 스크립트가 이 엔진을 부른다.
 
-```bash
-# S&P500 501개 전체 유니버스 (기본: 2y, 리밸런스 1일) — 권장
-python scripts/run_sp500_backtest.py
+| 항목 | 기준 |
+|------|------|
+| 기간 | 개발 구간 2016-01-04 ~ 2025-09-30 (`period="13y"`, 앞쪽은 워밍업). 2025-10-01 이후는 홀드아웃 — 마지막 판정에만 |
+| 종목 | 그날그날의 S&P 500 구성 (`pit_universe=True`, `max_tickers=1000`) |
+| 리밸런스 | 매일 (`rebalance_every=1`), `$5,000` 시작 |
+| 재무 | `BACKTEST_FUNDAMENTALS_PIT_SAFE=True` — 과거 날짜에 오늘 재무를 쓰지 않는다 |
+| 캐시 | 10년 피처 캐시 `data/cache/features/` (코드 지문별). `screener/backtest.py` · `config.py` 등을 고치면 `scripts/rename_feature_cache.py --apply` |
+| 기준선 | `scripts/pt1_baseline_equity.py` — 지금 규칙(BASE)이 기록과 똑같이 나오는지 먼저 확인 (2026-10-28 기준 거래 616 · Sharpe 0.46) |
+| 진행 보기 | `bash scripts/watch_backtest.sh` |
+| 기록 | 사전 등록 · 결과는 `docs/quant_improvement/tier3/` + `TRIAL_LOG.csv` |
 
-# 확실한 검증 (3년치, 거래 100~150건)
-python scripts/run_sp500_backtest.py --period 3y
-
-# $5,000 자본 기준 달러 시뮬레이션
-python scripts/run_sp500_backtest.py --period 3y --capital 5000
-
-# 빠른 확인 (1년치, 단 거래 건수 적어 통계 신뢰도 낮음)
-python scripts/run_sp500_backtest.py --period 1y
-
-# 2년치 + 펀더멘탈 포함
-python scripts/run_sp500_backtest.py --fundamentals
-```
-
-**옵션 요약 (`run_sp500_backtest.py`):**
-
-| 옵션 | 기본값 | 설명 |
-|------|--------|------|
-| `--period` | `2y` | 데이터 기간 (`1y`, `2y`, `3y`) |
-| `--rebalance` | `1` | 후보 선정 주기 (거래일) |
-| `--fundamentals` | off | ROE/부채비율 등 펀더멘탈 포함 |
-| `--capital` | `0` | 초기 자본금 (USD). 0이면 수익률 % 모드 |
-
-**기간별 통계 신뢰도:**
-
-| 기간 | 시뮬레이션 일수 | 예상 거래 건수 | 신뢰도 |
-|------|--------------|-------------|--------|
-| `1y` | ~30일 | ~6건 | ❌ 통계 불충분 |
-| `2y` | ~284일 | ~50~80건 | ✅ 충분 (기본값) |
-| `3y` | ~536일 | ~100~150건 | ✅✅ 확실한 검증 |
-
-> 워밍업: `min_history_days=220`이 기술 지표 계산에 필요. 전체 기간에서 220일을 제외한 구간이 실제 시뮬레이션 대상.
-
-> 유니버스: `SP500_TICKERS` 고정 501개, `max_tickers=None`으로 전체 사용. 구글 시트 동기화 없음 (터미널 출력만).
-
----
-
-### 유연한 옵션이 필요할 때
-
-```bash
-# 완벽한 백테스팅 — 실제 페이퍼 트레이딩과 100% 동일 (매일 후보 선정 + 펀더멘탈)
-# 1~2시간 소요
-python scripts/paper_trading.py backtest --rebalance 1 --fundamentals
-
-# $5,000 자본 기준 달러 시뮬레이션
-python scripts/paper_trading.py backtest --rebalance 1 --capital 5000
-
-# 빠른 검증용 (50종목, 구글 시트 포함)
-# 10~20분 소요
-python scripts/paper_trading.py backtest --max-tickers 50 --rebalance 1
-
-# 2년치 완벽한 백테스팅
-python scripts/paper_trading.py backtest --period 2y --rebalance 1 --fundamentals
-
-# 구글 시트 없이 터미널만
-python scripts/paper_trading.py backtest --rebalance 1 --fundamentals --no-sheets
-```
-
-**옵션 요약 (`paper_trading.py backtest`):**
-
-| 옵션 | 기본값 | 사용 가능한 값 | 설명 |
-|------|--------|---------------|------|
-| `--period` | `1y` | `1y`, `2y`, `5y`, `10y`, `max` | 데이터 기간 (yfinance 지원 기간, 길수록 실행 시간 증가) |
-| `--rebalance` | `5` | 아무 정수 (`1`=매일, `5`=주 1회 등) | 후보 선정 주기 (거래일) |
-| `--max-tickers` | `100` | `1` ~ `500`+ (S&P500 전체 ~500개) | 분석 종목 수 제한. 많을수록 실행 시간 증가 |
-| `--no-sheets` | off | 플래그 | 구글 시트 동기화 건너뜀 |
-| `--fundamentals` | off | 플래그 | ROE/부채비율 등 펀더멘탈 포함 (느림) |
-| `--capital` | `0` | `0`=수익률 모드, `5000`, `10000` 등 | 초기 자본금 (USD). 0이면 수익률 % 모드 |
-
-**GitHub Actions에서 실행 (수동):**
-- Actions 탭 → "Run Backtest" → "Run workflow" → 파라미터 입력 후 실행
-- 결과는 Job Summary + artifact 로그로 확인
-- 워크플로우 파일: `.github/workflows/run-backtest.yml`
-
-**출력 결과:**
-- 터미널: 요약 (승률/평균수익/Sharpe/MDD/SPY비교), 전략별 성과, 매도사유 분포
-- `--capital` 사용 시 추가 출력: 초기자본 / 최종자본 / 총수익금 (달러 기준)
-- Google Sheets (`paper_trading.py`만): `[백테스트_결과]` 탭 — 요약 + 전략별 + 매도사유 + 전체 거래 로그
-
-> **완벽한 백테스팅** (`--rebalance 1 --fundamentals`): 실제 페이퍼 트레이딩과 100% 동일. 1~2시간 소요.
-> **빠른 검증** (`--max-tickers 50 --rebalance 1`): 로직은 동일, 종목 수만 줄임. 10~20분 소요.
-> **참고:** GitHub Actions 무료 플랜 기준 job 당 최대 6시간 제한. 종목 500개 + 긴 기간은 타임아웃 가능.
+설정 예시는 `scripts/validate_upside_walkforward.py` 의 `RUN_KW` 가 표준이다.
 
 ---
 
@@ -345,17 +252,6 @@ score = max(0.0, min((raw + 1.0) / 2.0, 1.0))
 ```
 
 > 코드 출처: `config.CANDIDATE_ALPHA_WEIGHTS` (`candidate_selector._score_alpha_factor`). 이전 문서(2026-04 이전)에는 `0.35/0.30/0.20/0.10/0.05`로 기재됐으나 코드와 불일치 → 2026-05-24 정정.
-
-#### ML 알파 블렌딩 (옵션)
-
-`ML_ENABLED=True`이면 위 rule-based score와 ML 예측치를 가중 평균한다 (`_score_alpha_factor`):
-
-```python
-return ML_BLEND_WEIGHT_ALPHA * ml_score + (1 - ML_BLEND_WEIGHT_ALPHA) * rule_score
-# 기본 ML_BLEND_WEIGHT_ALPHA = 0.4
-```
-
-> 현재 prod는 `ML_ENABLED=False` (`config.py`) — 위 식은 사용되지 않는다.
 
 > 💡 모든 팩터가 +1이면 raw=1.0 → score=1.0 / 모든 팩터가 -1이면 raw=-1.0 → score=0.0
 
@@ -952,6 +848,3 @@ new_ccs > worst_ccs + 0.10  # 최약 종목 CCS + 0.10 이상이어야만 교체
 | `HOLD_WINNERS_MAX_DEFERS` | 2 | 최대 defer 횟수 |
 | `HOLD_WINNERS_TIGHT_TRAIL` | 0.035 (-3.5%) | defer 후 tight trailing 폭 |
 | `HOLD_WINNERS_DEFER_FREEZE_DAYS` | **0** | freeze 비활성 (defer 후에도 시간익절/목표가 즉시 재체크) |
-| **Machine Learning** | | |
-| `ML_ENABLED` | False | Phase B 알파 블렌딩 활성화 토글 |
-| `ML_BLEND_WEIGHT_ALPHA` | 0.4 | ML/rule-based 알파 점수 블렌드 비중 |

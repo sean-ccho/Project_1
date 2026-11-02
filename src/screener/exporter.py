@@ -271,57 +271,6 @@ def export_to_google_sheet(
         return False
 
 
-def export_backtest_results(
-    results: dict[str, dict], worksheet_name: str = "백테스트"
-) -> bool:
-    """백테스트 결과를 Google Sheets에 업로드한다."""
-
-    if not results:
-        return False
-
-    sheet = _open_sheet()
-    if sheet is None or not worksheet_name:
-        return False
-
-    try:
-        try:
-            worksheet = sheet.worksheet(worksheet_name)
-        except WorksheetNotFound:
-            worksheet = sheet.add_worksheet(title=worksheet_name, rows="4000", cols="20")
-
-        rows: list[list[str]] = []
-        for label, outcome in results.items():
-            summary = outcome.get("summary", {})
-            trades = outcome.get("trades")
-
-            rows.append([str(label)])
-            rows.append(["Metric", "Value"])
-            for key, value in summary.items():
-                if isinstance(value, float):
-                    rows.append([key, f"{value:.6f}"])
-                else:
-                    rows.append([key, str(value)])
-            rows.append([])
-
-            if isinstance(trades, pd.DataFrame) and not trades.empty:
-                rows.append(["Trades"])
-                rows.append(trades.columns.tolist())
-                rows.extend(trades.astype(str).values.tolist())
-            else:
-                rows.append(["Trades", "No trades generated."])
-
-            rows.append([])
-            rows.append([])
-
-        worksheet.clear()
-        worksheet.update(rows, value_input_option="USER_ENTERED")
-        _resize_worksheet_to_data(worksheet, rows)
-        return True
-    except Exception as exc:  # pragma: no cover - best effort
-        print(f"[Google Sheets] 백테스트 결과 업로드 실패: {exc}")
-        return False
-
-
 def fetch_tickers_from_sheet(
     worksheet_name: str | None = GOOGLE_SHEETS_PORTFOLIO_WORKSHEET,
     ticker_column: str | None = GOOGLE_SHEETS_PORTFOLIO_TICKER_COLUMN,

@@ -100,7 +100,7 @@
 
 ```
 매일 CI (Mac mini runner)
-  ├─ 기존 파이프라인 (스크리너 → PT-1/PT-1S/PT-SPY → 헬스체크)
+  ├─ 기존 파이프라인 (스크리너 → PT-1/PT-SPY → 헬스체크)
   ├─ Google Sheets + 이메일  ← 운영자(본인) 전용, 그대로 유지
   └─ [신규] 공개용 내보내기 → screener.json / pt.json / pipeline_status.json
         (허용 컬럼만 화이트리스트로) → Cloudflare Pages

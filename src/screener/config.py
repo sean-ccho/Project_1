@@ -173,12 +173,6 @@ TRADINGVIEW_TICKER_MAP = {
 # https://www.tradingview.com/chart/FeHr4sS7/ -> "FeHr4sS7"
 TRADINGVIEW_CHART_ID = "gr1tsHcA"  # None이면 기본값(TEMA 9) 사용
 
-# Google Drive 이미지 호스팅 설정
-DRIVE_UPLOAD_ENABLED = False  # Drive 업로드 on/off
-DRIVE_FOLDER_NAME = "Stock_Chart_Screenshots"
-DRIVE_FOLDER_ID = "1KbDahjFYZF0bPDwIAJ5soBmbOhxFznrU"
-DRIVE_SHARE_EMAIL = "chunghwan14@gmail.com"
-
 # GitHub 이미지 호스팅 설정 (Public Repo인 경우 사용)
 GITHUB_UPLOAD_ENABLED = True
 GITHUB_REPO_NAME = "sean-ccho/Project_1"  # "username/repo_name" 형식
@@ -211,22 +205,7 @@ INSIDER_CLUSTER_MIN_BUYERS = 2       # 매수 임원 수 ≥ 이 값이면 '클�
 INSIDER_REQUEST_DELAY_SEC = 0.4      # 티커 간 요청 지연(차단 방지)
 
 
-# 백테스트 자동 실행 설정
-BACKTEST_ENABLED = False
-BACKTEST_WORKSHEET_NAME = "백테스트"
-BACKTEST_RUNS = [
-    {
-        "label": "Core_1y",
-        "period": "1y",
-        "max_positions": 8,
-        "rebalance_every": 10,
-        "max_tickers": None,
-        "min_history_days": 220,
-        "include_fundamentals": True,
-    }
-]
-
-# 백테스트 진입 조건 (Entry Score 계산)
+# 진입 점수 (Entry Score) — 이름은 옛 스크리너 백테스트에서 왔지만 시그널(screener.signals)이 쓴다
 BACKTEST_ENTRY_SCORE_MIN = 4.0          # 최소 진입 스코어 (엄격하게 조정)
 BACKTEST_LOW_PROB_THRESHOLD = 0.4       # 저점확률 임계치
 BACKTEST_REVERSAL_SCORE_MIN = 3.0       # 반등스코어 최소값
@@ -236,21 +215,6 @@ BACKTEST_REVERSAL_WEIGHT = 2.0          # 반등스코어 가중치 (강화)
 BACKTEST_PATTERN_WEIGHT = 1.0           # 상승 패턴 가중치
 BACKTEST_SECTOR_WEIGHT = 0.5            # 강한 섹터 가중치
 BACKTEST_TREND_SCORE_WEIGHT = 1.0       # 트렌드점수 가중치 (대체 조건)
-
-# 백테스트 청산 조건
-BACKTEST_PROFIT_TARGET = 0.15           # 15% 수익 목표 (보수적)
-BACKTEST_TRAILING_STOP = 0.08           # 고점 대비 8% 하락 시 청산 (타이트하게)
-BACKTEST_STOP_LOSS = 0.07               # 7% 손절 (위험 관리)
-BACKTEST_HIGH_PROB_THRESHOLD = 0.70     # 고점확률 청산 임계치
-BACKTEST_MIN_HOLDING_DAYS = 3           # 최소 보유일 (3일로 단축)
-BACKTEST_SELL_SIGNAL_ENABLED = False    # 매도신호 청산 비활성화
-
-# 백테스트 리스크 관리
-BACKTEST_MAX_DAILY_LOSS = 0.03          # 일일 포트폴리오 최대 손실 3%
-BACKTEST_MAX_POSITION_LOSS = 0.10       # 개별 종목 최대 손실 10%
-BACKTEST_USE_ATR_SIZING = True          # ATR 기반 포지션 사이징 사용
-BACKTEST_BENCHMARK = "SPY"              # 비교 대상 벤치마크
-BACKTEST_INITIAL_CASH = 100_000         # 초기 자본금
 
 # 시그널 판정 임계치.
 BUY_SCORE_THRESHOLD = 0.20
@@ -889,18 +853,3 @@ CCS_V2_WEIGHTS: dict[str, float] = {
     "rel_strength": 0.20,   # 20일수익률 백분위
 }
 CCS_V2_MIN = 0.55           # v2 최소 점수 (v1의 0.40/0.45 대신)
-
-# ═══════════════════════════════════════════════════════════════
-# Machine Learning
-# ═══════════════════════════════════════════════════════════════
-ML_ENABLED = False                      # True로 바꾸면 Phase B+ 블렌딩 활성화
-ML_BLEND_WEIGHT_ALPHA = 0.4             # Phase B: alpha factor 블렌딩 비중
-ML_BLEND_WEIGHT_RISK = 0.5              # Phase C: risk quality 블렌딩 비중
-ML_BLEND_WEIGHT_STRATEGY = 0.5         # Phase C: strategy score 블렌딩 비중
-ML_MIN_TRAINING_SAMPLES = 200           # 최소 학습 거래 수
-ML_TIME_SERIES_N_SPLITS = 5             # walk-forward CV 폴드 수
-ML_MODEL_DIR = "data/ml_models"         # artifact 저장 경로
-ML_MODEL_MAX_AGE_DAYS = 14              # 이보다 오래되면 stale 경고
-ML_FALLBACK_ON_MISSING = True           # 모델 없으면 rule-based 폴백
-ML_DRIFT_ROLLING_WINDOW = 30            # 드리프트 감지 최근 N거래
-ML_DRIFT_ACCURACY_THRESHOLD = 0.45     # 이하로 떨어지면 재학습 경보

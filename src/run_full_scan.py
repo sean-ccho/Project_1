@@ -412,8 +412,6 @@ def main() -> None:
 
                 from screener.config import (
                     CHARTS_ENABLED, CHARTS_TIMEFRAMES, CHARTS_SIGNALS2_OUTPUT_DIR,
-                    DRIVE_UPLOAD_ENABLED, DRIVE_FOLDER_NAME, DRIVE_FOLDER_ID,
-                    GOOGLE_SHEETS_CREDENTIALS_PATH,
                     GITHUB_UPLOAD_ENABLED, GITHUB_REPO_NAME, GITHUB_BRANCH_NAME,
                 )
 
@@ -421,9 +419,6 @@ def main() -> None:
                     from charts.tradingview_capture import capture_multiple_timeframes
                     import shutil
                     from pathlib import Path
-
-                    if DRIVE_UPLOAD_ENABLED:
-                        from charts.gdrive_uploader import upload_to_drive
 
                     charts_dir = Path(CHARTS_SIGNALS2_OUTPUT_DIR)
                     if charts_dir.exists():
@@ -450,16 +445,7 @@ def main() -> None:
                                     col_name = f"차트_{tf}"
                                     chart_export.loc[chart_export["티커"] == ticker, col_name] = local_path
 
-                                    if DRIVE_UPLOAD_ENABLED:
-                                        from screener.config import DRIVE_SHARE_EMAIL
-                                        drive_url = upload_to_drive(
-                                            local_path, GOOGLE_SHEETS_CREDENTIALS_PATH,
-                                            DRIVE_FOLDER_NAME, folder_id=DRIVE_FOLDER_ID,
-                                            share_email=DRIVE_SHARE_EMAIL,
-                                        )
-                                        if drive_url:
-                                            chart_export.loc[chart_export["티커"] == ticker, col_name] = f'=IMAGE("{drive_url}")'
-                                    elif GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
+                                    if GITHUB_UPLOAD_ENABLED and GITHUB_REPO_NAME:
                                         cache_buster = int(time.time())
                                         github_url = f"https://raw.githubusercontent.com/{GITHUB_REPO_NAME}/screenshots-nasdaq/{local_path}?v={cache_buster}"
                                         chart_export.loc[chart_export["티커"] == ticker, col_name] = f'=IMAGE("{github_url}")'

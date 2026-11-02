@@ -321,7 +321,6 @@ nasdaq_ranked.parquet ┘
 | `src/screener/config.py` | 모든 파라미터 |
 | `src/analytics/extremes.py` | `score_extremes_for_snapshot()` — walk-forward 극단 예측 (`EXTREME_MODEL_ENABLED` opt-in) |
 | `charts/tradingview_capture.py` | `capture_multiple_timeframes()` (1H/4H/D/W/M) |
-| `charts/gdrive_uploader.py` | Google Drive 차트 호스팅 (옵션) |
 
 ### 페이퍼 트레이딩
 
@@ -339,15 +338,16 @@ nasdaq_ranked.parquet ┘
 | `data/paper_trading/sp500_ranked.parquet` | SP500 스냅샷 |
 | `data/paper_trading/nasdaq_ranked.parquet` | NASDAQ 스냅샷 |
 
-### 백테스팅 CLI
+### 백테스팅
 
 | 파일 | 역할 |
 |------|------|
-| `scripts/run_sp500_backtest.py` | SP500 501개 전용 백테스트 |
-| `scripts/paper_trading.py backtest` | 임의 유니버스 백테스트 |
-| `scripts/run_backtest_only.py` | 스크리너 백테스트 (`BACKTEST_RUNS` 기반) |
-| `src/paper_trading/backtest.py` | 페이퍼 트레이딩 백테스트 엔진 |
-| `src/screener/backtest.py` | 스크리너 시그널 백테스트 엔진 |
+| `src/paper_trading/backtest.py` | PT-1 백테스트 엔진 (`run_paper_trading_backtest`) — 연구 스크립트가 부른다 |
+| `src/screener/backtest.py` | 날짜별 순위표 (`_compute_ranked_snapshot`) — 엔진이 쓴다 |
+| `scripts/pt1_baseline_equity.py` | 지금 규칙 그대로 10년 개발 구간 한 번 (기준선) |
+| `scripts/watch_backtest.sh` | 백그라운드 백테스트 진행 보기 |
+
+옛 CLI(`scripts/paper_trading.py backtest`, `run_sp500_backtest.py`, `run_backtest_only.py`)와 스크리너 자체 백테스트는 2026-10-31 지웠다.
 
 ---
 
@@ -392,8 +392,5 @@ HOLD_WINNERS_VOLUME_Z_MIN      = 1.0
 HOLD_WINNERS_BB_PBAND_MAX      = 0.95
 HOLD_WINNERS_MIN_CHECKS        = 5      # 5개 전부 통과해야 defer
 
-# Machine Learning
-ML_ENABLED                     = False  # Phase B 코드 통합, 기본 비활성
-ML_BLEND_WEIGHT_ALPHA          = 0.4
 EXTREME_MODEL_ENABLED          = False  # walk-forward extreme prediction opt-in
 ```

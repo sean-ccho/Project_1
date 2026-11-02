@@ -285,7 +285,7 @@ def _score_entry_timing(row: pd.Series) -> float:
 
 
 def _score_alpha_factor(row: pd.Series) -> float:
-    """C. Alpha Factor [0, 1] — 전략별 다른 팩터 가중치. ML_ENABLED 시 블렌딩."""
+    """C. Alpha Factor [0, 1] — 전략별 다른 팩터 가중치."""
     mom = _safe_float(row.get("팩터_모멘텀"))
     trend = _safe_float(row.get("팩터_추세"))
     vol = _safe_float(row.get("팩터_거래량"))
@@ -297,32 +297,7 @@ def _score_alpha_factor(row: pd.Series) -> float:
     raw = w["mom"] * mom + w["trend"] * trend + w["vol"] * vol + w["volat"] * volat + w["mr"] * mr
 
     # [-1, 1] → [0, 1]
-    rule_score = max(0.0, min((raw + 1.0) / 2.0, 1.0))
-
-    # Phase B: ML 블렌딩 (ML_ENABLED=False면 즉시 반환)
-    from screener.config import ML_ENABLED, ML_BLEND_WEIGHT_ALPHA
-    if not ML_ENABLED:
-        return rule_score
-    try:
-        from ml.prediction import predict_entry_quality
-        features = {
-            "factor_momentum": mom, "factor_trend": trend,
-            "factor_volume": vol, "factor_volatility": volat,
-            "factor_mean_reversion": mr,
-            "alpha_score": _safe_float(row.get("알파점수")),
-            "RSI": _safe_float(row.get("RSI")),
-            "adx": _safe_float(row.get("adx")),
-            "ret_5d": _safe_float(row.get("5일수익률")),
-            "ret_20d": _safe_float(row.get("20일수익률")),
-            "vol_z20": _safe_float(row.get("거래량Z(20)")),
-            "sector": row.get("섹터"),
-            "regime": row.get("regime"),
-        }
-        ml_score = predict_entry_quality(features, target="y_win")
-        return ML_BLEND_WEIGHT_ALPHA * ml_score + (1 - ML_BLEND_WEIGHT_ALPHA) * rule_score
-    except Exception as e:
-        logger.warning(f"ML alpha blend 실패, rule-based 폴백: {e}")
-        return rule_score
+    return max(0.0, min((raw + 1.0) / 2.0, 1.0))
 
 
 def _score_risk_quality(row: pd.Series) -> float:
