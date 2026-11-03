@@ -15,6 +15,45 @@ except ImportError:
 
 import os
 import json
+import re
+
+# TradingView 안내 말풍선·팝업의 닫기 버튼 이름. 2026-11-02 — "Indicator templates moved here … Got it" 말풍선이
+# 모든 캡처의 차트 위쪽을 가리고 있었다 (예전 'close' 클래스 버튼 클릭으로는 안 닫힘).
+_DISMISS_NAMES = re.compile(r"^\s*(got it|ok,? got it|dismiss|no,? thanks|not now)\s*$", re.IGNORECASE)
+
+
+def dismiss_tv_popups(page, close_selector: str, rounds: int = 3) -> int:
+    """
+    차트를 가리는 TradingView 안내 말풍선·광고를 닫는다.
+
+    말풍선을 닫으면 다음 말풍선이 이어서 뜰 수 있어 몇 번 돈다. 그다음 예전처럼 close_selector 버튼도 눌러 본다.
+
+    Args:
+        page: Playwright 페이지
+        close_selector: 광고·팝업 닫기 버튼 셀렉터 (차트 페이지 'button[class*="close"]', 위젯 'button[aria-label="Close"]')
+        rounds: 말풍선을 몇 번까지 닫아 볼지
+
+    Returns:
+        닫은 개수
+    """
+    closed = 0
+    for _ in range(rounds):
+        button = page.get_by_role("button", name=_DISMISS_NAMES).first
+        try:
+            if not button.is_visible():
+                break
+            button.click(timeout=1000)
+        except Exception:
+            break
+        closed += 1
+        page.wait_for_timeout(400)  # 말풍선이 사라지는 애니메이션
+    try:
+        page.click(close_selector, timeout=1000)
+        closed += 1
+    except Exception:
+        pass
+    return closed
+
 
 # TradingView 타임프레임 코드 매핑
 TIMEFRAME_MAP = {
@@ -130,11 +169,8 @@ def capture_tradingview_chart(
                 except:
                     print(f"[TradingView] 차트 로딩 시간이 길어짐")
                 
-                # 팝업/광고 닫기 시도
-                try:
-                    page.click('button[class*="close"]', timeout=2000)
-                except:
-                    pass
+                # 안내 말풍선 · 팝업/광고 닫기 시도
+                dismiss_tv_popups(page, 'button[class*="close"]')
 
                 # 스크린샷 영역 지정 (레이아웃 중심부)
                 # .layout__area--center 또는 canvas 컨테이너
@@ -196,12 +232,9 @@ def capture_tradingview_chart(
             
             print(f"[TradingView] TEMA 인디케이터 로딩 완료")
             
-            # 광고/팝업 닫기 (있다면)
-            try:
-                page.click('button[aria-label="Close"]', timeout=2000)
-            except:
-                pass
-            
+            # 안내 말풍선 · 광고/팝업 닫기 (있다면)
+            dismiss_tv_popups(page, 'button[aria-label="Close"]')
+
             # 차트 영역만 스크린샷
             chart_selector = 'div[data-role="chart"]'
             try:
@@ -337,12 +370,9 @@ def capture_multiple_timeframes(
                             # 인디케이터 로딩 등 추가 대기 (첫 로딩때만 길게, 이후엔 캐시 효과 기대)
                             time.sleep(3 if len(results) > 0 else 5)
                             
-                            # 팝업 닫기 시도
-                            try:
-                                page.click('button[class*="close"]', timeout=1000)
-                            except:
-                                pass
-                                
+                            # 안내 말풍선 · 팝업 닫기 시도
+                            dismiss_tv_popups(page, 'button[class*="close"]')
+
                             # 캡처
                             chart_element = page.query_selector('.layout__area--center')
                             if not chart_element:
@@ -357,12 +387,9 @@ def capture_multiple_timeframes(
                             # 위젯 모드
                             time.sleep(2 if len(results) > 0 else 5) # 첫 로딩 이후엔 조금 더 짧게
                             
-                            # 광고 닫기
-                            try:
-                                page.click('button[aria-label="Close"]', timeout=1000)
-                            except:
-                                pass
-                                
+                            # 안내 말풍선 · 광고 닫기
+                            dismiss_tv_popups(page, 'button[aria-label="Close"]')
+
                             chart_selector = 'div[data-role="chart"]'
                             chart_element = page.query_selector(chart_selector)
                             if chart_element:
