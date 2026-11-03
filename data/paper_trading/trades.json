@@ -1350,5 +1350,41 @@
     "defer_count": 0,
     "entry_rsi": 41.54433627910399,
     "actual_max_upside_pct": 0.1377
+  },
+  {
+    "ticker": "ABT",
+    "entry_date": "2026-10-09",
+    "exit_date": "2026-11-02",
+    "entry_price": 99.5999984741211,
+    "exit_price": 110.16000366210938,
+    "return_pct": 0.106,
+    "holding_days": 24,
+    "highest_price": 110.16000366210938,
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (7.5)",
+    "ccs_score": 0.5392,
+    "sector": "Healthcare",
+    "exit_reason": "시간익절(24일,+10.6%)",
+    "defer_count": 0,
+    "entry_rsi": 42.281785737541696,
+    "actual_max_upside_pct": 0.106
+  },
+  {
+    "ticker": "INSP",
+    "entry_date": "2026-10-23",
+    "exit_date": "2026-11-02",
+    "entry_price": 71.11000061035156,
+    "exit_price": 67.20999908447266,
+    "return_pct": -0.0548,
+    "holding_days": 10,
+    "highest_price": 71.30000305175781,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (12.0)",
+    "ccs_score": 0.5805,
+    "sector": "Healthcare",
+    "exit_reason": "트레일링(-5.7%)",
+    "defer_count": 0,
+    "entry_rsi": 54.1152919462766,
+    "actual_max_upside_pct": 0.0027
   }
 ]

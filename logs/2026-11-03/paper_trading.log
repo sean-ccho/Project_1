@@ -1,0 +1,35 @@
+============================================================
+[Unified Paper Trading] PT-1 실행 시작
+============================================================
+2026-11-03 11:06:56,862 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+2026-11-03 11:06:56,872 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 241개 종목
+[Unified PT] NASDAQ snapshot 로드: 241개 종목
+[Unified PT] 합산 완료: 356개 종목 (SP500 130 + NASDAQ 241개, 중복 제거 후)
+[Unified PT] 거래일(일봉 날짜): 2026-11-02
+[Unified PT] 골든크로스임박 종목: 84개
+2026-11-03 11:06:57,666 [INFO] paper_trading.engine — [PaperTrading] DEFER SKIP ABT: volume_strong, adx_trending, bb_not_peaked (RSI=67.7, ADX=17.6, vol_mult=0.90, vol_z=-0.26, ret_5d=+5.03%, bb_pband=1.13)
+2026-11-03 11:06:57,667 [INFO] paper_trading.engine — [PaperTrading] SELL ABT @ 110.16 (시간익절(24일,+10.6%))
+2026-11-03 11:06:57,667 [INFO] paper_trading.engine — [PaperTrading] SELL INSP @ 67.21 (트레일링(-5.7%))
+2026-11-03 11:06:57,677 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 102 | 4.0~5.0: 29 | 5.0~5.5: 22 | 5.5~6.0: 38 | 6.0+: 162
+2026-11-03 11:06:57,696 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=neutral | Filtered=11/356 | Selected: XOM (CCS=0.6700)
+2026-11-03 11:06:57,699 [INFO] paper_trading.engine — [PaperTrading] BUY XOM @ 179.67 (CCS=0.6700, RSI=57)
+[Unified PT] 매도=2 매수=1 보유=2종목
+[Unified PT] 레짐=neutral | 필터={'지수ETF': 3, '전략점수<6.0': 191, '바닥반등_52주과열': 2, '판단등급_미달': 107, '과열_차단': 27, '유동성_부족': 0, '어닝_임박': 8, '보유_중복': 0, '같은회사_중복': 0, '모멘텀_ADX부족': 5, '바닥_RSI데드존': 2, '섹터_집중': 0, '_통과': 11, '_전체': 356}
+[Unified PT] Top5 후보:
+  XOM    CCS=0.6700 전략=📈 모멘텀 섹터=Energy
+  CVX    CCS=0.6301 전략=📈 모멘텀 섹터=Energy
+  BRK-B  CCS=0.6252 전략=📈 모멘텀 섹터=Financial Services
+  CSCO   CCS=0.5691 전략=📉 바닥반등 섹터=Technology
+  ABBV   CCS=0.5668 전략=📈 모멘텀 섹터=Healthcare
+2026-11-03 11:06:59,424 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 다시 쓰기: 페이퍼_거래로그 118줄
+2026-11-03 11:07:00,353 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 2개 종목
+2026-11-03 11:07:01,202 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 58건 거래
+[Unified PT] 구글 시트 동기화 완료
+[OHLCV] 배치 다운로드 1/2 (50개 종목, period=2y)...
+[OHLCV] 배치 다운로드 2/2 (7개 종목, period=2y)...
+[Unified PT] $5,000 계좌 탭 '페이퍼_계좌' 동기화 완료
+[Email] 페이퍼 트레이딩 알림 발송 완료 (매도 2건, 매수 1건, 재평가 0건, 재평가실패 1건, 후보 5건) → chunghwan14@gmail.com
+============================================================
+[Unified Paper Trading] 완료
+============================================================

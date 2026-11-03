@@ -1,35 +1,5 @@
 [
   {
-    "ticker": "ABT",
-    "entry_price": 99.5999984741211,
-    "entry_date": "2026-10-09",
-    "strategy": "📉 바닥반등",
-    "star_rating": "★★★★★ (7.5)",
-    "ccs_score": 0.5392,
-    "sector": "Healthcare",
-    "highest_price": 106.19999694824219,
-    "defer_count": 0,
-    "trailing_stop_override": null,
-    "last_defer_date": null,
-    "defer_debug": null,
-    "entry_rsi": 42.281785737541696
-  },
-  {
-    "ticker": "INSP",
-    "entry_price": 71.11000061035156,
-    "entry_date": "2026-10-23",
-    "strategy": "📈 모멘텀",
-    "star_rating": "★★★★★ (12.0)",
-    "ccs_score": 0.5805,
-    "sector": "Healthcare",
-    "highest_price": 71.30000305175781,
-    "defer_count": 0,
-    "trailing_stop_override": null,
-    "last_defer_date": null,
-    "defer_debug": null,
-    "entry_rsi": 54.1152919462766
-  },
-  {
     "ticker": "URBN",
     "entry_price": 90.58999633789062,
     "entry_date": "2026-10-26",
@@ -43,5 +13,20 @@
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 72.06684132888748
+  },
+  {
+    "ticker": "XOM",
+    "entry_price": 179.6699981689453,
+    "entry_date": "2026-11-02",
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (14.0)",
+    "ccs_score": 0.67,
+    "sector": "Energy",
+    "highest_price": 179.6699981689453,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 57.09204747108399
   }
 ]
