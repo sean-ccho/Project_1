@@ -10,29 +10,66 @@
 [OHLCV] 배치 다운로드 10/11 (50개 종목, period=5y)...
 [OHLCV] 배치 다운로드 11/11 (21개 종목, period=5y)...
 [DataValidator] 데이터 품질 경고 2건 — 정보용, 데이터는 그대로 씀
+  상장 이후 종가 빈 값 30% 넘음 — 1종목: KVUE 67%
   최근 1년 하루 ±50% 넘는 변동 (대부분 실제 급등락, 스플릿/데이터 오류 가능) — 1종목: MRNA +177%(2026-08-19)
-  상장 이후 종가 빈 값 30% 넘음 — 1종목: KVUE 50%
+[[SP500 분석]] 2026-11-03 일봉은 장중 데이터 → 페이퍼 트레이딩 대상 아님
 [차트 가격] 분할만 반영 · 상장 이후 전체: 521종목 받음 · 못 받음 0개
-[[SP500 분석]] 전날 스냅샷으로 채움: 재무·섹터 3개 · 실적일 1개
-[[SP500 분석]] 강한 섹터: {'Materials', 'Health Care', 'Financials', 'Consumer Staples', 'Energy', 'Utilities', 'Real Estate', 'Consumer Discretionary', 'Industrials'}
+[[SP500 분석]] 전날 스냅샷으로 채움: 재무·섹터 3개 · 실적일 0개
+[[SP500 분석]] 강한 섹터: {'Health Care', 'Real Estate', 'Financials', 'Industrials', 'Utilities', 'Materials', 'Energy', 'Consumer Discretionary', 'Consumer Staples'}
 [OHLCV] 배치 다운로드 1/3 (50개 종목, period=2y)...
 [OHLCV] 배치 다운로드 2/3 (50개 종목, period=2y)...
 [OHLCV] 배치 다운로드 3/3 (30개 종목, period=2y)...
 [DataValidator] 데이터 품질 경고 1건 — 정보용, 데이터는 그대로 씀
   최근 1년 하루 ±50% 넘는 변동 (대부분 실제 급등락, 스플릿/데이터 오류 가능) — 1종목: MRNA +177%(2026-08-19)
-[[SP500 분석]] Extreme model 'label_low' walk-forward ROC 0.68, AP 0.49
-[[SP500 분석]] Extreme model 'label_high' walk-forward ROC 0.64, AP 0.37
+[[SP500 분석]] Extreme model 'label_low' walk-forward ROC 0.68, AP 0.48
+[[SP500 분석]] Extreme model 'label_high' walk-forward ROC 0.63, AP 0.36
 [[SP500 분석]] Google Sheets 업데이트 완료
 [[SP500 분석]] Signals 결과 기반 차트분석 종목 리스트 생성 중...
-[Dynamic Portfolio] 생성된 차트분석 종목 리스트(92개): ['NBM.V', 'ABT', 'INSP', 'URBN', 'COHR', 'T', 'IWM', 'ABBV', 'DHR', 'ADI', 'COF', 'PLTR', 'MRNA', 'MA', 'ANET', 'ASML', 'UBER', 'LLY', 'META', 'AMGN', 'TER', 'PG', 'GEV', 'DELL', 'APH', 'TXN', 'NVDA', 'VRTX', 'AMZN', 'TMO', 'KLAC', 'MRK', 'SNDK', 'COP', 'V', 'TSLA', 'LIN', 'BKNG', 'IBM', 'NXPI', 'GILD', 'MU', 'LITE', 'HPE', 'MDT', 'ISRG', 'VLO', 'LRCX', 'MPC', 'XOM', 'PM', 'SNPS', 'LMT', 'SCHW', 'FTNT', 'SPY', 'NEE', 'MELI', 'AAPL', 'BLK', 'AXP', 'GE', 'CSCO', 'INTC', 'BE', 'DIS', 'ORCL', 'PANW', 'PFE', 'ACN', 'INTU', 'BRK-B', 'CRWD', 'TJX', 'MSFT', 'UNH', 'HOOD', 'CDNS', 'CVX', 'JNJ', 'HD', 'COST', 'BAC', 'SMCI', 'SBUX', 'FIX', 'WMT', 'KO', 'CRM', 'RTX', 'BA', 'SPGI']
-[[SP500 차트분석]] [SP500 분석] 결과 기반 [SP500 차트분석] 시트 생성 중 (92개 종목)...
-[[SP500 차트분석]] [SP500 분석]에 없는 종목은 별도 분석: ['NBM.V', 'INSP', 'URBN']
-[차트 가격] 분할만 반영 · 상장 이후 전체: 3종목 받음 · 못 받음 0개
-[[SP500 차트분석]] 강한 섹터: {'Materials', 'Health Care', 'Financials', 'Consumer Staples', 'Energy', 'Utilities', 'Real Estate', 'Consumer Discretionary', 'Industrials'}
+[Dynamic Portfolio] 생성된 차트분석 종목 리스트(95개): ['NBM.V', 'URBN', 'XOM', 'BLK', 'CRWD', 'ORCL', 'WMT', 'COST', 'TER', 'LITE', 'APP', 'MELI', 'SPY', 'INTU', 'CIEN', 'SYK', 'UBER', 'DDOG', 'SCHW', 'LMT', 'RTX', 'WDC', 'CRM', 'PG', 'TSLA', 'NEE', 'FTNT', 'QQQ', 'ANET', 'ACN', 'V', 'ASML', 'NOW', 'GLW', 'VLO', 'VRTX', 'AMZN', 'IBM', 'FIX', 'AAPL', 'DHR', 'SBUX', 'ABBV', 'HOOD', 'PEP', 'BE', 'MU', 'HD', 'JNJ', 'AMGN', 'RDDT', 'DIS', 'LIN', 'AMAT', 'SNDK', 'GILD', 'TJX', 'SMCI', 'ISRG', 'COIN', 'PFE', 'T', 'TXN', 'GE', 'HPE', 'CVX', 'COHR', 'AMD', 'BKNG', 'SPGI', 'LLY', 'NVDA', 'KO', 'BRK-B', 'ADI', 'PANW', 'MDT', 'TMO', 'MA', 'BA', 'CDNS', 'KLAC', 'MPC', 'DELL', 'MRNA', 'COP', 'LRCX', 'CSCO', 'NXPI', 'META', 'PM', 'MRK', 'MSFT', 'UNH', 'PLTR']
+[[SP500 차트분석]] [SP500 분석] 결과 기반 [SP500 차트분석] 시트 생성 중 (95개 종목)...
+[[SP500 차트분석]] [SP500 분석]에 없는 종목은 별도 분석: ['NBM.V', 'URBN']
+[[SP500 차트분석]] 2026-11-03 일봉은 장중 데이터 → 페이퍼 트레이딩 대상 아님
+[차트 가격] 분할만 반영 · 상장 이후 전체: 2종목 받음 · 못 받음 0개
+[[SP500 차트분석]] 강한 섹터: {'Health Care', 'Real Estate', 'Financials', 'Industrials', 'Utilities', 'Materials', 'Energy', 'Consumer Discretionary', 'Consumer Staples'}
 [[SP500 차트분석]] Extreme model 'global' skipped: insufficient_tickers
 [[SP500 차트분석]] 차트 저장 디렉토리 준비 완료: charts/screenshots_sp500
 [[SP500 차트분석]] TradingView 차트 캡처 시작...
-[[SP500 차트분석]] 92개 종목 차트 캡처 중...
+[[SP500 차트분석]] 95개 종목 차트 캡처 중...
+[TradingView] MRK 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] MRK 차트 5개 처리 완료
+[TradingView] VRTX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] VRTX 차트 5개 처리 완료
+[TradingView] MPC 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] MPC 차트 5개 처리 완료
+[TradingView] LIN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] LIN 차트 5개 처리 완료
+[TradingView] WMT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] WMT 차트 5개 처리 완료
 [TradingView] PFE 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -40,14 +77,27 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] PFE 차트 5개 처리 완료
-[TradingView] 티커 매핑 적용: BRK-B -> BRK.B
-[TradingView] BRK-B 브라우저 세션 시작...
+[TradingView] PG 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
 [TradingView] Daily 캡처 완료 (D)
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] BRK-B 차트 5개 처리 완료
+[[SP500 차트분석]] PG 차트 5개 처리 완료
+[TradingView] COST 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] COST 차트 5개 처리 완료
+[TradingView] GILD 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] GILD 차트 5개 처리 완료
 [TradingView] ABBV 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -55,6 +105,20 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] ABBV 차트 5개 처리 완료
+[TradingView] MRNA 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] MRNA 차트 5개 처리 완료
+[TradingView] V 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] V 차트 5개 처리 완료
 [TradingView] AMGN 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -83,48 +147,6 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] KO 차트 5개 처리 완료
-[TradingView] XOM 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] XOM 차트 5개 처리 완료
-[TradingView] LIN 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] LIN 차트 5개 처리 완료
-[TradingView] COST 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] COST 차트 5개 처리 완료
-[TradingView] GILD 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] GILD 차트 5개 처리 완료
-[TradingView] VRTX 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] VRTX 차트 5개 처리 완료
-[TradingView] WMT 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] WMT 차트 5개 처리 완료
 [TradingView] MA 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -132,48 +154,20 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] MA 차트 5개 처리 완료
-[TradingView] LLY 브라우저 세션 시작...
+[TradingView] XOM 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
 [TradingView] Daily 캡처 완료 (D)
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] LLY 차트 5개 처리 완료
-[TradingView] MPC 브라우저 세션 시작...
+[[SP500 차트분석]] XOM 차트 5개 처리 완료
+[TradingView] SPGI 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
 [TradingView] Daily 캡처 완료 (D)
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] MPC 차트 5개 처리 완료
-[TradingView] MRK 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] MRK 차트 5개 처리 완료
-[TradingView] PG 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] PG 차트 5개 처리 완료
-[TradingView] MRNA 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] MRNA 차트 5개 처리 완료
-[TradingView] TMO 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] TMO 차트 5개 처리 완료
+[[SP500 차트분석]] SPGI 차트 5개 처리 완료
 [TradingView] DHR 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -181,27 +175,13 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] DHR 차트 5개 처리 완료
-[TradingView] JNJ 브라우저 세션 시작...
+[TradingView] VLO 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
 [TradingView] Daily 캡처 완료 (D)
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] JNJ 차트 5개 처리 완료
-[TradingView] TXN 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] TXN 차트 5개 처리 완료
-[TradingView] AAPL 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] AAPL 차트 5개 처리 완료
+[[SP500 차트분석]] VLO 차트 5개 처리 완료
 [TradingView] PM 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -216,13 +196,20 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] BLK 차트 5개 처리 완료
-[TradingView] SBUX 브라우저 세션 시작...
+[TradingView] JNJ 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
 [TradingView] Daily 캡처 완료 (D)
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] SBUX 차트 5개 처리 완료
+[[SP500 차트분석]] JNJ 차트 5개 처리 완료
+[TradingView] TMO 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] TMO 차트 5개 처리 완료
 [TradingView] ACN 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -230,6 +217,41 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] ACN 차트 5개 처리 완료
+[TradingView] MSFT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] MSFT 차트 5개 처리 완료
+[TradingView] CDNS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] CDNS 차트 5개 처리 완료
+[TradingView] SPY 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] SPY 차트 5개 처리 완료
+[TradingView] AAPL 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] AAPL 차트 5개 처리 완료
+[TradingView] TJX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] TJX 차트 5개 처리 완료
 [TradingView] IBM 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -244,6 +266,42 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] LMT 차트 5개 처리 완료
+[TradingView] 티커 매핑 적용: BRK-B -> BRK.B
+[TradingView] BRK-B 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] BRK-B 차트 5개 처리 완료
+[TradingView] UNH 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] UNH 차트 5개 처리 완료
+[TradingView] PLTR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] PLTR 차트 5개 처리 완료
+[TradingView] HPE 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] HPE 차트 5개 처리 완료
+[TradingView] PANW 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] PANW 차트 5개 처리 완료
 [TradingView] TSLA 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -251,27 +309,6 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] TSLA 차트 5개 처리 완료
-[TradingView] SPGI 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] SPGI 차트 5개 처리 완료
-[TradingView] V 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] V 차트 5개 처리 완료
-[TradingView] MSFT 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] MSFT 차트 5개 처리 완료
 [TradingView] HD 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -279,6 +316,90 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] HD 차트 5개 처리 완료
+[TradingView] SBUX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] SBUX 차트 5개 처리 완료
+[TradingView] ISRG 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] ISRG 차트 5개 처리 완료
+[TradingView] ADI 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] ADI 차트 5개 처리 완료
+[TradingView] CRM 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] CRM 차트 5개 처리 완료
+[TradingView] TXN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] TXN 차트 5개 처리 완료
+[TradingView] NXPI 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] NXPI 차트 5개 처리 완료
+[TradingView] PEP 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] PEP 차트 5개 처리 완료
+[TradingView] LLY 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] LLY 차트 5개 처리 완료
+[TradingView] FTNT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] FTNT 차트 5개 처리 완료
+[TradingView] CRWD 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] CRWD 차트 5개 처리 완료
+[TradingView] META 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] META 차트 5개 처리 완료
+[TradingView] QQQ 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] QQQ 차트 5개 처리 완료
 [TradingView] MDT 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -300,209 +421,6 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] DIS 차트 5개 처리 완료
-[TradingView] IWM 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] IWM 차트 5개 처리 완료
-[TradingView] ADI 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] ADI 차트 5개 처리 완료
-[TradingView] ISRG 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] ISRG 차트 5개 처리 완료
-[TradingView] CRM 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] CRM 차트 5개 처리 완료
-[TradingView] TJX 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] TJX 차트 5개 처리 완료
-[TradingView] UNH 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] UNH 차트 5개 처리 완료
-[TradingView] RTX 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] RTX 차트 5개 처리 완료
-[TradingView] PLTR 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] PLTR 차트 5개 처리 완료
-[TradingView] VLO 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] VLO 차트 5개 처리 완료
-[TradingView] SPY 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] SPY 차트 5개 처리 완료
-[TradingView] NXPI 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] NXPI 차트 5개 처리 완료
-[TradingView] NEE 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] NEE 차트 5개 처리 완료
-[TradingView] APH 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] APH 차트 5개 처리 완료
-[TradingView] MU 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] MU 차트 5개 처리 완료
-[TradingView] SNPS 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] SNPS 차트 5개 처리 완료
-[TradingView] CDNS 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] CDNS 차트 5개 처리 완료
-[TradingView] AXP 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] AXP 차트 5개 처리 완료
-[TradingView] COF 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] COF 차트 5개 처리 완료
-[TradingView] FTNT 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] FTNT 차트 5개 처리 완료
-[TradingView] HPE 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] HPE 차트 5개 처리 완료
-[TradingView] PANW 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] PANW 차트 5개 처리 완료
-[TradingView] CRWD 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] CRWD 차트 5개 처리 완료
-[TradingView] TER 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] TER 차트 5개 처리 완료
-[TradingView] KLAC 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] KLAC 차트 5개 처리 완료
-[TradingView] META 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] META 차트 5개 처리 완료
-[TradingView] GE 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] GE 차트 5개 처리 완료
-[TradingView] LITE 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] LITE 차트 5개 처리 완료
-[TradingView] BE 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] BE 차트 5개 처리 완료
-[TradingView] FIX 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] FIX 차트 5개 처리 완료
 [TradingView] ANET 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -510,34 +428,76 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] ANET 차트 5개 처리 완료
-[TradingView] CSCO 브라우저 세션 시작...
+[TradingView] FIX 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
 [TradingView] Daily 캡처 완료 (D)
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] CSCO 차트 5개 처리 완료
-[TradingView] AMZN 브라우저 세션 시작...
+[[SP500 차트분석]] FIX 차트 5개 처리 완료
+[TradingView] BE 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
 [TradingView] Daily 캡처 완료 (D)
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] AMZN 차트 5개 처리 완료
-[TradingView] UBER 브라우저 세션 시작...
+[[SP500 차트분석]] BE 차트 5개 처리 완료
+[TradingView] MU 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
 [TradingView] Daily 캡처 완료 (D)
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] UBER 차트 5개 처리 완료
-[TradingView] ABT 브라우저 세션 시작...
+[[SP500 차트분석]] MU 차트 5개 처리 완료
+[TradingView] SYK 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
 [TradingView] Daily 캡처 완료 (D)
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] ABT 차트 5개 처리 완료
+[[SP500 차트분석]] SYK 차트 5개 처리 완료
+[TradingView] NEE 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] NEE 차트 5개 처리 완료
+[TradingView] RTX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] RTX 차트 5개 처리 완료
+[TradingView] TER 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] TER 차트 5개 처리 완료
+[TradingView] WDC 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] WDC 차트 5개 처리 완료
+[TradingView] AMAT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] AMAT 차트 5개 처리 완료
+[TradingView] KLAC 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] KLAC 차트 5개 처리 완료
 [TradingView] LRCX 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -545,6 +505,34 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] LRCX 차트 5개 처리 완료
+[TradingView] NOW 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] NOW 차트 5개 처리 완료
+[TradingView] GLW 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] GLW 차트 5개 처리 완료
+[TradingView] DDOG 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] DDOG 차트 5개 처리 완료
+[TradingView] AMD 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] AMD 차트 5개 처리 완료
 [TradingView] DELL 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -552,6 +540,13 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] DELL 차트 5개 처리 완료
+[TradingView] LITE 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] LITE 차트 5개 처리 완료
 [TradingView] ASML 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -559,13 +554,13 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] ASML 차트 5개 처리 완료
-[TradingView] INTC 브라우저 세션 시작...
+[TradingView] CSCO 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
 [TradingView] Daily 캡처 완료 (D)
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] INTC 차트 5개 처리 완료
+[[SP500 차트분석]] CSCO 차트 5개 처리 완료
 [TradingView] NVDA 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -573,13 +568,27 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] NVDA 차트 5개 처리 완료
-[TradingView] COHR 브라우저 세션 시작...
+[TradingView] AMZN 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
 [TradingView] Daily 캡처 완료 (D)
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] COHR 차트 5개 처리 완료
+[[SP500 차트분석]] AMZN 차트 5개 처리 완료
+[TradingView] CIEN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] CIEN Monthly 로딩 타임아웃
+[[SP500 차트분석]] CIEN 차트 4개 처리 완료
+[TradingView] COIN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] COIN 차트 5개 처리 완료
 [TradingView] HOOD 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -587,20 +596,6 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] HOOD 차트 5개 처리 완료
-[TradingView] BAC 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] BAC 차트 5개 처리 완료
-[TradingView] BA 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] BA 차트 5개 처리 완료
 [TradingView] SCHW 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -608,13 +603,20 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] SCHW 차트 5개 처리 완료
-[TradingView] BKNG 브라우저 세션 시작...
+[TradingView] BA 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
 [TradingView] Daily 캡처 완료 (D)
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] BKNG 차트 5개 처리 완료
+[[SP500 차트분석]] BA 차트 5개 처리 완료
+[TradingView] GE 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] GE 차트 5개 처리 완료
 [TradingView] ORCL 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -622,13 +624,20 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] ORCL 차트 5개 처리 완료
-[TradingView] GEV 브라우저 세션 시작...
+[TradingView] APP 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
 [TradingView] Daily 캡처 완료 (D)
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] GEV 차트 5개 처리 완료
+[[SP500 차트분석]] APP 차트 5개 처리 완료
+[TradingView] COHR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] COHR 차트 5개 처리 완료
 [TradingView] SNDK 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -643,6 +652,20 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] T 차트 5개 처리 완료
+[TradingView] UBER 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] UBER 차트 5개 처리 완료
+[TradingView] BKNG 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] BKNG 차트 5개 처리 완료
 [TradingView] MELI 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -650,6 +673,13 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] MELI 차트 5개 처리 완료
+[TradingView] RDDT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[SP500 차트분석]] RDDT 차트 5개 처리 완료
 [TradingView] SMCI 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -664,13 +694,6 @@
 [TradingView] Weekly 캡처 완료 (W)
 [TradingView] Monthly 캡처 완료 (M)
 [[SP500 차트분석]] URBN 차트 5개 처리 완료
-[TradingView] INSP 브라우저 세션 시작...
-[TradingView] 1H 캡처 완료 (60)
-[TradingView] 4H 캡처 완료 (240)
-[TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
-[TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] INSP 차트 5개 처리 완료
 [TradingView] 티커 매핑 적용: NBM.V -> NBM
 [TradingView] NBM.V 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
@@ -685,4 +708,4 @@
 [공매도] FINRA 2026-10-15 기준 22,537종목
 [Paper Trading] SP500 ranked_df 스냅샷 저장 완료 (130개 종목)
 
-[요약] 파이프라인 완료 – 총 4576.3초 (76.27분) 소요
+[요약] 파이프라인 완료 – 총 4646.1초 (77.43분) 소요
