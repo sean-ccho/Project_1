@@ -20,6 +20,7 @@ google-auth-httplib2==0.3.0
 
 # TradingView chart screenshots
 playwright==1.58.0
+pillow==12.3.0  # 차트 캡처 → 사이트용 WebP (charts/webp_convert.py)
 
 # Machine Learning
 joblib==1.5.2

@@ -1,4 +1,4 @@
-"""전체차트 — 차트분석에 없는 분석 시트 종목만, 점수 순, WebP 로 (브라우저 없이)."""
+"""전체차트 — 차트분석에 없는 분석 시트 종목만, 점수 순 (브라우저 없이). WebP 변환은 다음 단계 charts.webp_convert."""
 import sys
 import types
 from pathlib import Path
@@ -15,7 +15,7 @@ def _png(path: Path, w: int = 3000, h: int = 2000) -> Path:
     return path
 
 
-def test_selection_and_webp(monkeypatch, tmp_path):
+def test_selection_keeps_png(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     d = Path("data/paper_trading")
     d.mkdir(parents=True)
@@ -31,13 +31,11 @@ def test_selection_and_webp(monkeypatch, tmp_path):
         calls.append(ticker)
         if ticker == "DDD":
             raise RuntimeError("boom")             # 한 종목 실패해도 계속
-        return {"Daily": str(_png(Path(output_dir) / ticker / f"{ticker}_Daily_20261016_070000.png"))}
+        return {"Daily": str(_png(Path(output_dir) / ticker / f"{ticker}_Daily_20261016_070000.png", 30, 20))}
 
     monkeypatch.setitem(sys.modules, "charts.tradingview_capture",
                         types.SimpleNamespace(capture_multiple_timeframes=fake_capture))
     assert cr.main(["--budget-min", "5"]) == 0
     assert calls == ["BBB", "AAA", "DDD", "SPY"]                 # 점수 순, CCC 는 건너뜀
-    webp = Path("charts/screenshots_all/BBB/BBB_Daily_20261016_070000.webp")
-    assert webp.exists() and not webp.with_suffix(".png").exists()
-    with Image.open(webp) as im:
-        assert im.width == cr.WEBP_WIDTH                          # 3000px → 1920px
+    png = Path("charts/screenshots_all/BBB/BBB_Daily_20261016_070000.png")
+    assert png.exists() and not png.with_suffix(".webp").exists()   # 바꾸는 건 다음 단계 (시간 한도는 캡처에만)

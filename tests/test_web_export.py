@@ -205,6 +205,20 @@ def test_all_charts_merges_sources_and_orders_by_score(monkeypatch, tmp_path) ->
     assert nq["items"][0]["images"] == {"Weekly": nq["items"][0]["images"]["Weekly"]}
 
 
+def test_list_chart_files_prefers_webp_copy(monkeypatch, tmp_path) -> None:
+    """같은 이름의 .png · .webp 사본(charts.webp_convert)이 있으면 WebP, 더 새 캡처는 PNG 뿐이어도 그쪽."""
+    monkeypatch.chdir(tmp_path)
+    d = Path("charts/sp500x/AAA")
+    d.mkdir(parents=True)
+    for f in ("AAA_Daily_20261103_074630.png", "AAA_Daily_20261103_074630.webp",
+              "AAA_Weekly_20261102_074630.webp", "AAA_Weekly_20261103_074630.png"):
+        (d / f).write_bytes(b"x")
+    assert wd.list_chart_files("charts/sp500x", "screenshots-sp500") == {"AAA": {
+        "Daily": "charts/sp500x/AAA/AAA_Daily_20261103_074630.webp",
+        "Weekly": "charts/sp500x/AAA/AAA_Weekly_20261103_074630.png",
+    }}
+
+
 def test_trade_log_with_spy() -> None:
     """거래로그 = $5,000 계좌 기준 (3자리 나눠 정수 주식, 편도 0.1%) + 같은 기간 SPY. 시트 줄(sheet_log)도 같은 숫자."""
     idx = pd.to_datetime(["2026-10-01", "2026-10-08", "2026-10-15"])

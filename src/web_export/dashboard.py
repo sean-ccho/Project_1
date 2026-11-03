@@ -521,7 +521,10 @@ def build_account(key: str, cfg: dict[str, Any], positions: list[dict[str, Any]]
 
 
 def list_chart_files(chart_dir: str, branch: str, *, from_git: bool = False) -> dict[str, dict[str, str]]:
-    """{티커: {타임프레임: 저장소 안 경로}} — 같은 타임프레임 파일이 여럿이면 가장 최근 것."""
+    """{티커: {타임프레임: 저장소 안 경로}} — 같은 타임프레임 파일이 여럿이면 가장 최근 것.
+
+    같은 이름의 .png 와 .webp 사본(charts.webp_convert)이 같이 있으면 이름순으로 뒤인 .webp — 사이트는 WebP 를 받는다.
+    """
     prefix = chart_dir.rstrip("/") + "/"
     if from_git:
         out = subprocess.run(["git", "ls-tree", "-r", "--name-only", f"origin/{branch}"],
@@ -541,7 +544,7 @@ def list_chart_files(chart_dir: str, branch: str, *, from_git: bool = False) -> 
 
 def build_all_charts(ranked: pd.DataFrame, held: dict[str, int], repo: str, *,
                      from_git: bool = False) -> list[dict[str, Any]]:
-    """웹 '전체차트' — 두 분석 시트의 모든 종목 (매수적합도 순). 이미지는 차트분석(PNG) 먼저, 없으면 전체차트(WebP).
+    """웹 '전체차트' — 두 분석 시트의 모든 종목 (매수적합도 순). 이미지는 차트분석(WebP 사본) 먼저, 없으면 전체차트(WebP).
 
     종목 정보는 stocks 맵에서 찾는다 (크기를 줄이려고 여기엔 안 넣는다). 아직 캡처가 없으면 images 가 빈 dict.
     """
