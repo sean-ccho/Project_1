@@ -1386,5 +1386,23 @@
     "defer_count": 0,
     "entry_rsi": 54.1152919462766,
     "actual_max_upside_pct": 0.0027
+  },
+  {
+    "ticker": "URBN",
+    "entry_date": "2026-10-26",
+    "exit_date": "2026-11-03",
+    "entry_price": 90.58999633789062,
+    "exit_price": 86.72000122070312,
+    "return_pct": -0.0427,
+    "holding_days": 8,
+    "highest_price": 92.19000244140625,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (14.0)",
+    "ccs_score": 0.6343,
+    "sector": "Consumer Cyclical",
+    "exit_reason": "트레일링(-5.9%)",
+    "defer_count": 0,
+    "entry_rsi": 72.06684132888748,
+    "actual_max_upside_pct": 0.0177
   }
 ]
