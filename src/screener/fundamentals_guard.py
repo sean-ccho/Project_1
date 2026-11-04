@@ -37,7 +37,7 @@ CHUNK_SIZE = 50                   # 이만큼씩 받으며 막혔는지 본다
 BLOCK_RATIO = 0.8                 # 한 묶음에서 이 비율 넘게 실패하면 막혔는지 대형주로 확인 (평소 실패 0~2%)
 RETRY_WAITS = (60, 120, 300, 600)  # 막혔을 때 다시 확인하기 전 쉬는 초 (누적 최대 약 18분)
 PROBE_TICKERS = ("AAPL", "MSFT", "JPM")  # 막혔는지 확인용 — 평소 정보가 늘 받히는 대형주. 하나라도 받히면 풀린 것
-TEXT_COLS = ("fund_industry", "fund_summary")  # 웹 표시 전용 글자 칸 (업종 · 회사 소개)
+TEXT_COLS = ("fund_industry", "fund_summary", "fund_rec_key")  # 웹 표시 전용 글자 칸 (업종 · 회사 소개 · 애널리스트 의견)
 
 Fetch = Callable[[list[str]], pd.DataFrame]
 

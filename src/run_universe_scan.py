@@ -43,6 +43,7 @@ from screener.features import compute_features_snapshot
 from screener.fundamentals_guard import SNAPSHOT_DIR, fetch_with_retry, fill_from_previous_snapshot
 from screener.processing import apply_neutralization
 from screener.signals import attach_signals_and_sort
+from web_export.market_summary import price_stats
 
 SHEET_SP500 = "[SP500 전체]"
 SHEET_NASDAQ = "[NASDAQ/NYSE 전체]"
@@ -180,12 +181,19 @@ def analyze_market(tickers: list[str], label: str, names: dict[str, str], strong
         # 3달 · 1년 수익률 — 웹 섹터 지도 칸 중앙값용 (표시 전용, 시트 칸 아님 · 2026-10-30)
         for k, col in ((63, "63일수익률"), (252, "252일수익률")):
             ranked[col] = ranked["티커"].map(lambda t, k=k: _ret_k(price_map[t]["Close"].dropna(), k))
+        # 하루 수익률 · 52주 최저/최고(차트 가격) · 50/200일선 · 신고가 — 웹 '투자자 한눈에' (표시 전용, 시트 칸 아님 · 2026-11-03)
+        stats = {t: price_stats(price_map[t], getattr(chart_map.get(t), "daily", None)) for t in analyzed}
+        ranked["1일수익률"] = ranked["티커"].map(lambda t: stats[t]["ret_1d"])
+        ranked["52주최저"] = ranked["티커"].map(lambda t: (stats[t]["range_52w"] or {}).get("low"))
+        ranked["52주최고"] = ranked["티커"].map(lambda t: (stats[t]["range_52w"] or {}).get("high"))
         ranked["_bar_date"] = bar_date
         ranked = add_health(ranked).reset_index(drop=True)
+    else:
+        stats = {}
 
     young_fund = fund[fund["티커"].isin(list(young))] if not fund.empty else pd.DataFrame()
     return {"ranked": ranked, "young": young, "young_fund": young_fund, "bar_date": bar_date, "no_data": no_data,
-            "fund": fund}
+            "fund": fund, "stats": stats}
 
 
 def _ret_k(close: pd.Series, k: int) -> float | None:
@@ -408,6 +416,58 @@ def snapshot_frame(frames: list[pd.DataFrame]) -> pd.DataFrame:
     return out
 
 
+DETAIL_BUDGET_SEC = 1500  # 분기 실적 · 의견 수 받는 시간 한도 (첫 밤 약 2천 종목 중 일부, 나머지는 다음 밤)
+
+
+def web_extras(ranked_frames: list[pd.DataFrame], items: dict[str, dict[str, Any]],
+               stats: dict[str, dict[str, Any]], sp_tickers: list[str], bar_date: str | None,
+               cache_dir: Path | None, out_dir: Path,
+               budget_sec: float = DETAIL_BUDGET_SEC) -> tuple[dict[str, dict[str, Any]], dict[str, Any] | None]:
+    """웹 '투자자 한눈에' (2026-11-03, 표시 전용) → (종목 상세 {티커: detail}, market.json 내용).
+
+    밸류에이션 업종 중앙값 · 목표주가는 이미 받은 종목 정보로, 분기 실적 · 의견 수는 S&P 500 + 시총 $2B 이상만
+    stock_detail 캐시(cache_dir/detail.json.gz → out_dir/snapshot/)로 시간 한도 안에서 조금씩 받는다.
+    """
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from web_export import stock_detail
+    from web_export.dashboard import _industry
+    from web_export.market_summary import (
+        MOVER_MIN_CAP, analyst_block, industry_medians, market_summary, valuation_block, valuation_values,
+    )
+
+    frames = [f for f in ranked_frames if f is not None and not f.empty]
+    recs = pd.concat(frames, ignore_index=True).drop_duplicates("티커").to_dict("records") if frames else []
+    med = industry_medians({"industry": _industry(r.get("fund_industry")), "cap": r.get("fund_market_cap"),
+                            **valuation_values(r)} for r in recs)
+
+    now = datetime.now(ZoneInfo("America/New_York"))
+    sp_set = set(sp_tickers)
+    scope = [t for t, v in items.items()
+             if t in sp_set or ((v.get("fundamentals") or {}).get("market_cap") or 0) >= MOVER_MIN_CAP]
+    cache = stock_detail.load_cache(cache_dir / stock_detail.CACHE_NAME if cache_dir else None)
+    last_report = {t: (((items[t].get("earnings_move") or {}).get("last") or [[None]])[-1] or [None])[0] for t in scope}
+    stock_detail.refresh(scope, cache, now.date(), last_report, budget_sec=budget_sec)
+    stock_detail.save_cache(out_dir / "snapshot" / stock_detail.CACHE_NAME, cache, keep=set(scope))
+
+    details: dict[str, dict[str, Any]] = {}
+    for r in recs:
+        t = str(r["티커"])
+        if t not in items:
+            continue
+        ent = cache.get(t)
+        d = {"as_of": bar_date,
+             "valuation": valuation_block(r, _industry(r.get("fund_industry")), med),
+             "analyst": analyst_block(r, (ent or {}).get("rec")),
+             "quarters": stock_detail.quarters_block(ent, items[t].get("earnings_date"))}
+        if d["valuation"] or d["analyst"] or d["quarters"]:
+            details[t] = d
+    market = market_summary(items, sp_tickers, stats, bar_date, (stats.get("SPY") or {}).get("ret_1d"),
+                            now.isoformat(timespec="seconds"))
+    return details, market
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="전체 분석 (필터 없음, 표시 전용)")
     ap.add_argument("--out-dir", type=Path, required=True, help="웹 JSON·스냅샷을 쓸 폴더")
@@ -416,6 +476,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-sheet", action="store_true", help="구글 시트에 쓰지 않는다 (로컬 확인용)")
     ap.add_argument("--limit", type=int, default=0, help="시장마다 앞에서 N종목만 (빠른 확인)")
     ap.add_argument("--market", choices=("all", "sp500", "nasdaq"), default="all")
+    ap.add_argument("--detail-budget", type=float, default=DETAIL_BUDGET_SEC,
+                    help="분기 실적 · 의견 수를 받는 초 (0 = 안 받고 캐시만)")
     args = ap.parse_args(argv)
 
     from screener.sec_filings import fetch_flags
@@ -457,6 +519,8 @@ def main(argv: list[str] | None = None) -> int:
     market_of = {t: "sp500" for t in sp_tickers} | {t: "nasdaq" for t in rest}
     about: dict[str, str] = {}
     sp_items: dict[str, dict[str, Any]] = {}       # [섹터 대표] 시트 — S&P 500 웹 정보
+    web_items: dict[str, dict[str, Any]] = {}      # 두 시장 웹 정보 (지수 빼고) — market.json · 종목 상세
+    web_stats: dict[str, dict[str, Any]] = {}      # price_stats (SPY 포함) — 시장 폭
 
     for key, label, sheet, tickers in markets:
         res = analyze_market(tickers, sheet, names, strong, prev_dir)
@@ -492,6 +556,9 @@ def main(argv: list[str] | None = None) -> int:
             counts = {"listed": len(tickers), "analyzed": len(ranked), "young": len(young), "no_data": len(res["no_data"])}
             payloads.append(market_payload(key, label, items, bar_date=res["bar_date"] or None, counts=counts,
                                            golden=golden))
+            for t, v in payloads[-1]["items"].items():   # 지수(SPY 등)는 빠진 목록
+                web_items.setdefault(t, v)
+            web_stats.update(res["stats"])
             sheets.append((sheet, sheet_frame(ranked, isb, sqz, earn)))
             bar_dates.append(res["bar_date"])
             if key == "sp500":
@@ -521,8 +588,13 @@ def main(argv: list[str] | None = None) -> int:
         if len(reps):
             sheets.append((REPS_TAB, reps))
 
-    sizes = write_payloads(args.out_dir, payloads, about)
-    print(f"[전체분석] 회사 소개 {len(about)}종목")
+    real_dates = [d for d in bar_dates if d]
+    details, market = web_extras([f[0] for f in snapshots.values()], web_items, web_stats, sp_tickers,
+                                 max(real_dates) if real_dates else None, args.prev_dir, args.out_dir,
+                                 budget_sec=args.detail_budget)
+    _log("투자자 한눈에 끝", start)
+    sizes = write_payloads(args.out_dir, payloads, about, details, market)
+    print(f"[전체분석] 회사 소개 {len(about)}종목 · 종목 상세 {len(details)}종목 · market.json {'있음' if market else '없음'}")
     snap_dir = args.out_dir / "snapshot"
     snap_dir.mkdir(parents=True, exist_ok=True)
     for key, frames in snapshots.items():

@@ -94,7 +94,11 @@ def item_info(row: pd.Series, *, tv: str | None, insider: dict[str, Any] | None,
     info.update({"tv": tv, "insider": insider, "isb": isb, "sqzmom": sqz, "golden": golden,
                  "earnings_move": earnings_move,
                  # 3달 · 1년 수익률 (run_universe_scan 이 붙인다 — 신규 상장 줄엔 없어서 None)
-                 "ret_63d": _num(row.get("63일수익률"), 4), "ret_252d": _num(row.get("252일수익률"), 4)})
+                 "ret_63d": _num(row.get("63일수익률"), 4), "ret_252d": _num(row.get("252일수익률"), 4),
+                 # 하루 수익률 · 52주 최저/최고 (2026-11-03, 웹 '한눈에' — market_summary.price_stats)
+                 "ret_1d": _num(row.get("1일수익률"), 4)})
+    lo, hi = _num(row.get("52주최저"), 2), _num(row.get("52주최고"), 2)
+    info["range_52w"] = {"low": lo, "high": hi} if lo is not None and hi is not None else None
     first = _text(row.get("첫거래일"))
     if first:
         info["first_date"] = first
@@ -120,10 +124,14 @@ def market_payload(key: str, label: str, items: dict[str, dict[str, Any]], *, ba
 
 
 def write_payloads(out_dir: Path, payloads: list[dict[str, Any]],
-                   about: Mapping[str, str | None] | None = None) -> dict[str, int]:
+                   about: Mapping[str, str | None] | None = None,
+                   details: Mapping[str, dict[str, Any]] | None = None,
+                   market: dict[str, Any] | None = None) -> dict[str, int]:
     """{key}.json 과 stocks/{티커}.json 을 쓴다 → {파일: 바이트}. 같은 티커가 두 시장에 있으면 앞의 것.
 
     about: 티커 → 회사 소개(영어, yfinance). 종목 파일에만 싣는다 (시장 파일에 넣으면 목록이 몇 MB 커진다).
+    details: 티커 → 밸류에이션 · 애널리스트 · 분기 실적 (종목 파일의 detail, 2026-11-03). 없는 종목은 키를 안 쓴다.
+    market: 오늘 탭 '시장 한눈에' · '실적 발표 일정' (market.json, 2026-11-03). None 이면 안 쓴다.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     stocks_dir = out_dir / "stocks"
@@ -143,7 +151,13 @@ def write_payloads(out_dir: Path, payloads: list[dict[str, Any]],
             written.add(ticker)
             one = {"schema": SCHEMA_VERSION, "bar_date": p["bar_date"], "market": p["key"], "ticker": ticker, "info": info,
                    "about": _text((about or {}).get(ticker))}
+            if details and details.get(ticker):
+                one["detail"] = details[ticker]
             (stocks_dir / f"{ticker}.json").write_text(
                 json.dumps(one, ensure_ascii=False, separators=(",", ":"), allow_nan=False), encoding="utf-8")
     sizes["stocks/"] = len(written)
+    if market:
+        body = json.dumps(market, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+        (out_dir / "market.json").write_text(body, encoding="utf-8")
+        sizes["market.json"] = len(body.encode())
     return sizes

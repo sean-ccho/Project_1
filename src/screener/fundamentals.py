@@ -98,6 +98,23 @@ def _extract_earnings_date(info: Dict, today: Optional[date] = None) -> tuple[st
     return nxt.strftime("%Y-%m-%d"), float((nxt - today).days)
 
 
+# 웹 종목 상세 전용 숫자 칸 (2026-11-03, web_export.market_summary) — 밸류에이션 배수 · 애널리스트 목표주가 · 의견
+_WEB_INFO_NUMS = {
+    "fund_pe": "trailingPE",
+    "fund_forward_pe": "forwardPE",
+    "fund_peg": "trailingPegRatio",
+    "fund_ps": "priceToSalesTrailing12Months",
+    "fund_pb": "priceToBook",
+    "fund_ev_ebitda": "enterpriseToEbitda",
+    "fund_target_mean": "targetMeanPrice",
+    "fund_target_median": "targetMedianPrice",
+    "fund_target_high": "targetHighPrice",
+    "fund_target_low": "targetLowPrice",
+    "fund_analyst_n": "numberOfAnalystOpinions",
+    "fund_rec_mean": "recommendationMean",
+}
+
+
 def fetch_fundamental_snapshots(tickers: List[str], use_cache: bool = False) -> pd.DataFrame:
     """ROE, 부채비율 등 간단한 재무 상태 지표를 내려받아 표 형식으로 반환한다.
 
@@ -160,6 +177,9 @@ def fetch_fundamental_snapshots(tickers: List[str], use_cache: bool = False) -> 
             "fund_institutional_holders_pct": inst_holders_pct,
             "next_earnings_date": next_earnings_date,
             "days_to_next_earnings": days_to_next_earnings,
+            # 웹 표시 전용 (2026-11-03) — 종목 상세 밸류에이션 · 애널리스트 카드. 점수 · 필터에 안 쓴다 (같은 info 호출, 추가 요청 없음)
+            **{k: _safe_float(info.get(src)) for k, src in _WEB_INFO_NUMS.items()},
+            "fund_rec_key": info.get("recommendationKey") or None,
         }
 
         records.append(record)
@@ -186,6 +206,7 @@ def fetch_fundamental_snapshots(tickers: List[str], use_cache: bool = False) -> 
         "fund_institutional_holders_pct",
         "fund_dividend_rate",
         "days_to_next_earnings",
+        *_WEB_INFO_NUMS,
     ]
     for col in numeric_cols:
         if col in df.columns:

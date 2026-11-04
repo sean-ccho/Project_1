@@ -67,11 +67,12 @@ jobs:
           fi
 
       # Yahoo 종목 정보가 막힌 날 재무·섹터를 채울 전날 값 (없으면 실전 스냅샷 data/paper_trading 으로)
+      # + 종목 상세 분기 실적 · 의견 수 캐시 (detail.json.gz — 매일 조금씩 받아 쌓는다, web_export/stock_detail.py)
       - name: Restore previous universe snapshot
         run: |
           mkdir -p "$RUNNER_TEMP/prev"
           if git fetch -q --depth 1 origin universe-data 2>/dev/null; then
-            for f in sp500_ranked.parquet nasdaq_ranked.parquet; do
+            for f in sp500_ranked.parquet nasdaq_ranked.parquet detail.json.gz; do
               git show "FETCH_HEAD:snapshot/$f" > "$RUNNER_TEMP/prev/$f" 2>/dev/null || rm -f "$RUNNER_TEMP/prev/$f"
             done
           fi
