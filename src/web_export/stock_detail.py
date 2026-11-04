@@ -26,6 +26,8 @@ EPS_QUARTERS = 8
 REV_QUARTERS = 8
 WORKERS = 4
 MAX_FAIL_STREAK = 30     # 연속으로 이만큼 실패하면 (막힘) 그날은 그만 받는다
+PARTIAL_RETRIES = 3      # 4개 요청 중 일부만 실패한 종목은 다음 밤에 다시 — 연속 이 횟수까지 (그 뒤는 14일 주기로)
+DETAIL_KEYS = ("rec", "eps", "revenue", "next")  # fetch_one 이 채우는 칸 (실패한 칸은 결과에 없다)
 
 Fetch = Callable[[str], dict[str, Any]]
 
@@ -104,7 +106,7 @@ def fetch_one(ticker: str) -> dict[str, Any]:
     tk = yf.Ticker(ticker.replace(".", "-"))
     out: dict[str, Any] = {}
     errors = 0
-    for key, get in (("rec", lambda: parse_rec(tk.recommendations_summary)),
+    for key, get in (("rec", lambda: parse_rec(tk.recommendations_summary)),  # 키 = DETAIL_KEYS
                      ("eps", lambda: parse_eps(tk.get_earnings_dates(limit=16))),
                      ("revenue", lambda: parse_revenue(tk.quarterly_income_stmt)),
                      ("next", lambda: parse_next(tk.earnings_estimate, tk.revenue_estimate))):
@@ -121,7 +123,8 @@ def fetch_one(ticker: str) -> dict[str, Any]:
 
 def refresh_order(tickers: list[str], cache: Mapping[str, Mapping[str, Any]], today: date,
                   last_report: Mapping[str, str | None]) -> list[str]:
-    """다시 받을 종목 — ① 캐시에 없음 ② 최근 실적 발표 뒤 AFTER_REPORT_DAYS 일이 지나기 전에 받음 ③ MAX_AGE_DAYS 일 넘음.
+    """다시 받을 종목 — ① 캐시에 없음 ② 최근 실적 발표 뒤 AFTER_REPORT_DAYS 일이 지나기 전에 받음
+    · 지난번에 일부 칸만 받음(missing, 연속 PARTIAL_RETRIES 번까지 · 오늘 받은 건 빼고) ③ MAX_AGE_DAYS 일 넘음.
     같은 묶음 안에서는 오래 받은 순. 이미 충분히 새것이면 빠진다."""
     tiers: list[tuple[int, str, str]] = []
     for t in tickers:
@@ -136,6 +139,9 @@ def refresh_order(tickers: list[str], cache: Mapping[str, Mapping[str, Any]], to
             if fetched < settle:
                 tiers.append((1, fetched, t))
                 continue
+        if ent.get("missing") and int(ent.get("tries", 0)) < PARTIAL_RETRIES and fetched < today.isoformat():
+            tiers.append((1, fetched, t))
+            continue
         if fetched <= (today - timedelta(days=MAX_AGE_DAYS)).isoformat():
             tiers.append((2, fetched, t))
     return [t for _, _, t in sorted(tiers)]
@@ -144,7 +150,8 @@ def refresh_order(tickers: list[str], cache: Mapping[str, Mapping[str, Any]], to
 def refresh(tickers: list[str], cache: dict[str, dict[str, Any]], today: date, last_report: Mapping[str, str | None],
             *, budget_sec: float, fetch: Fetch = fetch_one, workers: int = WORKERS,
             log: Callable[[str], None] = print) -> dict[str, int]:
-    """시간 한도 안에서 cache 를 고쳐 쓴다 → {"want", "ok", "fail", "left"}. 받은 종목은 fetched = today."""
+    """시간 한도 안에서 cache 를 고쳐 쓴다 → {"want", "ok", "fail", "left"}. 받은 종목은 fetched = today.
+    일부 칸만 받으면 못 받은 칸은 전에 받은 값을 그대로 두고 missing · tries 를 적는다 (→ 다음 밤에 다시, refresh_order)."""
     order = refresh_order(tickers, cache, today, last_report)
     start = time.monotonic()
     ok = fail = streak = 0
@@ -170,7 +177,7 @@ def refresh(tickers: list[str], cache: dict[str, dict[str, Any]], today: date, l
             t = running.pop(fut)
             done += 1
             try:
-                cache[t] = {**fut.result(), "fetched": today.isoformat()}
+                cache[t] = merge_entry(cache.get(t), fut.result(), today)
                 ok += 1
                 streak = 0
             except Exception:  # noqa: BLE001
@@ -183,6 +190,19 @@ def refresh(tickers: list[str], cache: dict[str, dict[str, Any]], today: date, l
     log(f"[종목 상세] 받을 {stats['want']} · 받음 {ok} · 실패 {fail} · 다음 밤으로 {stats['left']} "
         f"({(time.monotonic() - start) / 60:.1f}분)")
     return stats
+
+
+def merge_entry(old: Mapping[str, Any] | None, new: Mapping[str, Any], today: date) -> dict[str, Any]:
+    """새로 받은 칸 + 이번에 못 받은 칸은 전 값 (없으면 비움). 빠진 칸이 있으면 missing · tries(연속 횟수)."""
+    old = old or {}
+    ent: dict[str, Any] = {k: old[k] for k in DETAIL_KEYS if k in old}
+    ent.update({k: v for k, v in new.items() if k in DETAIL_KEYS})
+    ent["fetched"] = today.isoformat()
+    missing = [k for k in DETAIL_KEYS if k not in new]
+    if missing:
+        ent["missing"] = missing
+        ent["tries"] = int(old.get("tries", 0)) + 1 if old.get("missing") else 1
+    return ent
 
 
 def quarters_block(ent: Mapping[str, Any] | None, earnings_date: str | None) -> dict[str, Any] | None:

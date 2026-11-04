@@ -181,6 +181,43 @@ def test_refresh_budget_failures_and_cache_roundtrip(tmp_path: Path) -> None:
     assert stats0["ok"] == 0 and stats0["left"] == 1
 
 
+def test_partial_fetch_keeps_old_values_and_retries_next_night() -> None:
+    """4개 요청 중 일부만 실패 → 못 받은 칸은 전 값 유지, 다음 밤 다시 (연속 3번까지), 다 받으면 표시가 지워진다."""
+    old = {"fetched": "2026-10-01", "rec": {"buy": 5}, "eps": [1], "revenue": [{"q": "2026-06"}], "next": {"eps_est": 1.0}}
+    cache: dict = {"MRK": dict(old)}
+
+    def partial(_t: str) -> dict:
+        return {"rec": {"buy": 7}, "eps": [2], "next": {"eps_est": 1.3}}  # 매출만 실패
+
+    day1 = date(2026, 11, 3)
+    sd.refresh(["MRK"], cache, day1, {}, budget_sec=60, fetch=partial, workers=1, log=lambda _m: None)
+    ent = cache["MRK"]
+    assert ent["revenue"] == [{"q": "2026-06"}] and ent["rec"] == {"buy": 7} and ent["eps"] == [2]
+    assert ent["missing"] == ["revenue"] and ent["tries"] == 1 and ent["fetched"] == "2026-11-03"
+    # 같은 날 다시 돌려도 안 받고, 다음 날은 다시 받는다 (14일을 기다리지 않음)
+    assert sd.refresh_order(["MRK"], cache, day1, {}) == []
+    assert sd.refresh_order(["MRK"], cache, date(2026, 11, 4), {}) == ["MRK"]
+
+    # 연속 3번 실패하면 그 뒤는 14일 주기로
+    for d in (4, 5):
+        sd.refresh(["MRK"], cache, date(2026, 11, d), {}, budget_sec=60, fetch=partial, workers=1, log=lambda _m: None)
+    assert cache["MRK"]["tries"] == 3
+    assert sd.refresh_order(["MRK"], cache, date(2026, 11, 6), {}) == []
+    assert sd.refresh_order(["MRK"], cache, date(2026, 11, 19), {}) == ["MRK"]
+
+    # 다 받으면 missing · tries 가 지워진다
+    def full(_t: str) -> dict:
+        return {"rec": None, "eps": [3], "revenue": [{"q": "2026-09"}], "next": {}}
+
+    sd.refresh(["MRK"], cache, date(2026, 11, 19), {}, budget_sec=60, fetch=full, workers=1, log=lambda _m: None)
+    assert cache["MRK"] == {"fetched": "2026-11-19", "rec": None, "eps": [3], "revenue": [{"q": "2026-09"}], "next": {}}
+
+    # 처음 받는 종목이 일부만 받혀도 받은 칸은 남고 다음 밤에 다시
+    new: dict = {}
+    sd.refresh(["NEW"], new, day1, {}, budget_sec=60, fetch=partial, workers=1, log=lambda _m: None)
+    assert "revenue" not in new["NEW"] and new["NEW"]["missing"] == ["revenue"]
+
+
 # ── 전체분석 연결
 
 def test_item_info_adds_ret_1d_and_range() -> None:
