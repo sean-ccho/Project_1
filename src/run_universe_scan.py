@@ -24,7 +24,7 @@ from __future__ import annotations
 import argparse
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
@@ -182,10 +182,8 @@ def analyze_market(tickers: list[str], label: str, names: dict[str, str], strong
         for k, col in ((63, "63일수익률"), (252, "252일수익률")):
             ranked[col] = ranked["티커"].map(lambda t, k=k: _ret_k(price_map[t]["Close"].dropna(), k))
         # 하루 수익률 · 52주 최저/최고(차트 가격) · 50/200일선 · 신고가 — 웹 '투자자 한눈에' (표시 전용, 시트 칸 아님 · 2026-11-03)
-        stats = {t: price_stats(price_map[t], getattr(chart_map.get(t), "daily", None)) for t in analyzed}
-        ranked["1일수익률"] = ranked["티커"].map(lambda t: stats[t]["ret_1d"])
-        ranked["52주최저"] = ranked["티커"].map(lambda t: (stats[t]["range_52w"] or {}).get("low"))
-        ranked["52주최고"] = ranked["티커"].map(lambda t: (stats[t]["range_52w"] or {}).get("high"))
+        stats = {t: price_stats(price_map[t], chart_map.get(t)) for t in analyzed}
+        add_web_stats(ranked, stats)
         ranked["_bar_date"] = bar_date
         ranked = add_health(ranked).reset_index(drop=True)
     else:
@@ -194,6 +192,21 @@ def analyze_market(tickers: list[str], label: str, names: dict[str, str], strong
     young_fund = fund[fund["티커"].isin(list(young))] if not fund.empty else pd.DataFrame()
     return {"ranked": ranked, "young": young, "young_fund": young_fund, "bar_date": bar_date, "no_data": no_data,
             "fund": fund, "stats": stats}
+
+
+def add_web_stats(ranked: pd.DataFrame, stats: Mapping[str, Mapping[str, Any]]) -> pd.DataFrame:
+    """price_stats 결과 → 웹 표시 칸 (표시 전용, 시트 칸 아님 — universe.item_info 가 읽는다). ranked 를 고쳐서 돌려준다.
+
+    1일수익률 · 52주최저/최고 (2026-11-03), 52주신고가/신저가 (2026-11-04 — market.json 숫자와 같은 표시라
+    오늘 탭 숫자를 누르면 사이트가 이 표시로 그 종목들을 거른다).
+    """
+    tick = ranked["티커"]
+    ranked["1일수익률"] = tick.map(lambda t: stats[t]["ret_1d"])
+    ranked["52주최저"] = tick.map(lambda t: (stats[t]["range_52w"] or {}).get("low"))
+    ranked["52주최고"] = tick.map(lambda t: (stats[t]["range_52w"] or {}).get("high"))
+    ranked["52주신고가"] = tick.map(lambda t: stats[t]["new_high"])
+    ranked["52주신저가"] = tick.map(lambda t: stats[t]["new_low"])
+    return ranked
 
 
 def _ret_k(close: pd.Series, k: int) -> float | None:

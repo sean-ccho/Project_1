@@ -16,7 +16,11 @@ from typing import Any, Iterable, Mapping
 
 import pandas as pd
 
+from screener.chart_ma import ChartPrices, extend_chart, split_only_ohlcv
+
 SCHEMA_VERSION = 1
+# 목록 행(universe.item_info)에도 실리는 price_stats 표시 — market.json 에 적어 두면 사이트가 숫자를 목록 링크로 켠다 (2026-11-04)
+ROW_FLAGS = ("new_high", "new_low")
 VAL_COLS = {  # 웹 키 → 종목 정보 칸 (screener.fundamentals, yfinance info)
     "pe": "fund_pe",
     "fpe": "fund_forward_pe",
@@ -49,9 +53,29 @@ def _r(v: Any, digits: int) -> float | None:
     return None if x is None else round(x, digits)
 
 
-def price_stats(adj: pd.DataFrame, chart_daily: pd.DataFrame | None = None) -> dict[str, Any]:
-    """한 종목 일봉 → 웹 숫자. adj = 배당 조정 OHLCV (수익률 · 이동평균선 · 신고가), chart_daily = 분할만 반영 일봉
-    (52주 최저/최고 — 차트 · Yahoo 화면과 같은 값, 없으면 adj). 일봉이 모자라면 그 칸은 None."""
+def chart_daily_as_of(adj: pd.DataFrame, chart: ChartPrices | None) -> pd.DataFrame:
+    """adj 마지막 날까지의 차트 일봉 (분할만 반영 = TradingView · Yahoo 화면 가격) — features 차트 패턴과 같은 방법.
+
+    - 장중에 돌면 차트 일봉(period="max")에만 그날 장중 봉이 들어올 수 있어서 adj 마지막 날까지 자른다.
+    - 전체 기록은 가장 최근 봉이 하루 늦게 들어오기도 해서, 모자란 날은 받은 일봉을 분할만 반영으로 되돌려 채운다 (extend_chart).
+    - 차트 가격이 없으면 받은 일봉을 되돌린 것 (split_only_ohlcv).
+    """
+    as_of = adj.index[-1]
+    if chart is None or chart.daily.empty:
+        return split_only_ohlcv(adj)
+    if as_of > chart.daily.index[-1]:
+        chart = extend_chart(chart, split_only_ohlcv(adj))
+    daily = chart.daily.loc[:as_of]
+    return daily if not daily.empty else split_only_ohlcv(adj)
+
+
+def price_stats(adj: pd.DataFrame, chart: ChartPrices | None = None) -> dict[str, Any]:
+    """한 종목 일봉 → 웹 숫자. adj = 배당 조정 OHLCV + Dividends (수익률 · 이동평균선), chart = 분할만 반영 차트 가격.
+
+    52주 최저/최고 · 신고가/신저가는 차트 가격(chart_daily_as_of — 차트 · Yahoo 화면과 같은 값)으로 본다.
+    신고가 = 마지막 봉 고가 ≥ 직전 251봉 최고 (신저가는 저가 ≤ 최저, 같으면 포함) — 2026-11-04 부터 차트 가격
+    (전에는 배당 조정 가격이라 배당 많은 종목이 차트로는 신고가가 아닌데 신고가로 잡혔다). 일봉이 모자라면 그 칸은 None.
+    """
     out: dict[str, Any] = {"ret_1d": None, "above50": None, "above200": None, "new_high": None, "new_low": None,
                            "range_52w": None}
     if adj is None or adj.empty or "Close" not in adj.columns:
@@ -63,17 +87,14 @@ def price_stats(adj: pd.DataFrame, chart_daily: pd.DataFrame | None = None) -> d
         out["above50"] = bool(close.iloc[-1] > close.iloc[-50:].mean())
     if len(close) >= 200:
         out["above200"] = bool(close.iloc[-1] > close.iloc[-200:].mean())
-    hi = adj["High"].dropna().iloc[-252:] if "High" in adj.columns else pd.Series(dtype=float)
-    lo = adj["Low"].dropna().iloc[-252:] if "Low" in adj.columns else pd.Series(dtype=float)
-    if len(hi) > 20:
-        out["new_high"] = bool(hi.iloc[-1] >= hi.iloc[:-1].max())
-    if len(lo) > 20:
-        out["new_low"] = bool(lo.iloc[-1] <= lo.iloc[:-1].min())
-    src = chart_daily if chart_daily is not None and not chart_daily.empty and {"High", "Low"} <= set(chart_daily.columns) \
-        else adj
-    if {"High", "Low"} <= set(src.columns):
-        h = src["High"].dropna().iloc[-252:]
-        l_ = src["Low"].dropna().iloc[-252:]
+    daily = chart_daily_as_of(adj, chart)
+    if {"High", "Low"} <= set(daily.columns):
+        h = daily["High"].dropna().iloc[-252:]
+        l_ = daily["Low"].dropna().iloc[-252:]
+        if len(h) > 20:
+            out["new_high"] = bool(h.iloc[-1] >= h.iloc[:-1].max())
+        if len(l_) > 20:
+            out["new_low"] = bool(l_.iloc[-1] <= l_.iloc[:-1].min())
         if len(h) and len(l_) and h.max() > 0:
             out["range_52w"] = {"low": round(float(l_.min()), 2), "high": round(float(h.max()), 2)}
     return out
@@ -156,7 +177,8 @@ def market_summary(items: Mapping[str, Mapping[str, Any]], sp500: Iterable[str],
                    breadth_flags: Mapping[str, Mapping[str, Any]], bar_date: str | None,
                    spy_ret_1d: float | None, generated_at: str) -> dict[str, Any] | None:
     """오늘 탭 market.json. items = 전체분석 종목 정보(TickerInfo, 두 시장), sp500 = 시장 폭에 쓸 S&P 500 티커,
-    breadth_flags = {티커: price_stats 결과} (50/200일선 · 신고가/신저가 — 목록에는 안 싣는 칸). bar_date 가 없으면 None."""
+    breadth_flags = {티커: price_stats 결과} (50/200일선 · 신고가/신저가). 신고가/신저가는 목록 행에도 같은 표시가 실려서
+    (ROW_FLAGS → row_flags) 사이트가 숫자를 누르면 그 종목들을 거른다. bar_date 가 없으면 None."""
     if not bar_date:
         return None
     sp = [t for t in sp500 if t in items and _f(items[t].get("ret_1d")) is not None]
@@ -208,6 +230,7 @@ def market_summary(items: Mapping[str, Mapping[str, Any]], sp500: Iterable[str],
         "generated_at": generated_at,
         "bar_date": bar_date,
         "breadth": breadth,
+        "row_flags": list(ROW_FLAGS),
         "min_cap": MOVER_MIN_CAP,
         "pool": len(pool),
         "gainers": [_mover(t, items[t]) for t in by_chg[::-1][:MOVERS_N]],

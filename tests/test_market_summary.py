@@ -12,6 +12,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import run_universe_scan as rus  # noqa: E402
+from screener.chart_ma import chart_prices  # noqa: E402
 from web_export import market_summary as ms  # noqa: E402
 from web_export import stock_detail as sd  # noqa: E402
 from web_export import universe as wu  # noqa: E402
@@ -38,10 +39,53 @@ def test_price_stats_rising_series() -> None:
 def test_price_stats_uses_chart_prices_for_range_and_handles_short_history() -> None:
     adj = _ohlcv([10.0] * 30)
     chart = _ohlcv([12.0] * 30)
-    st = ms.price_stats(adj, chart)
+    st = ms.price_stats(adj, chart_prices(chart))
     assert st["range_52w"] == {"low": round(12 * 0.99, 2), "high": round(12 * 1.01, 2)}
     assert st["above50"] is None and st["above200"] is None  # 일봉이 모자람
     assert ms.price_stats(pd.DataFrame())["ret_1d"] is None
+    short = ms.price_stats(_ohlcv([10.0] * 15))
+    assert short["new_high"] is None and short["new_low"] is None  # 21봉 미만
+
+
+def _with_dividend(raw: pd.DataFrame, at: int, amount: float) -> pd.DataFrame:
+    """분할만 반영 일봉 → Yahoo 식 배당 조정 일봉 + Dividends (at 번째 날 배당락: 그 전 날들 × (1 − 배당 / 전날 종가))."""
+    f = pd.Series(1.0, index=raw.index)
+    f.iloc[:at] = 1 - amount / raw["Close"].iloc[at - 1]
+    adj = raw.copy()
+    for col in ("Open", "High", "Low", "Close"):
+        adj[col] = raw[col] * f
+    adj["Dividends"] = 0.0
+    adj.iloc[at, adj.columns.get_loc("Dividends")] = amount
+    return adj
+
+
+def test_price_stats_new_high_uses_chart_prices_not_dividend_adjusted() -> None:
+    """배당 조정 가격으로는 신고가지만 차트(분할만 반영)로는 아님 → 신고가 아님 (2026-11-04, 배당 많은 종목)."""
+    close = [100.0] * 260
+    raw = _ohlcv(close)
+    raw.iloc[100, raw.columns.get_loc("High")] = 104.0   # 예전 고점 104
+    for col, v in (("Open", 101.5), ("High", 102.5), ("Low", 101.0), ("Close", 102.0)):
+        raw.iloc[-1, raw.columns.get_loc(col)] = v       # 오늘 고가 102.5 — 차트로는 신고가 아님
+    adj = _with_dividend(raw, at=200, amount=3.0)        # 배당 3% → 예전 고점이 조정 가격으로 100.9
+    assert adj["High"].iloc[-1] >= adj["High"].iloc[-252:-1].max()  # 배당 조정이면 신고가로 잡혔다
+    for chart in (None, chart_prices(raw)):              # 차트 가격이 없으면 받은 일봉을 되돌려서
+        st = ms.price_stats(adj, chart)
+        assert st["new_high"] is False and st["new_low"] is False
+        assert st["range_52w"]["high"] == 104.0
+
+
+def test_price_stats_cuts_intraday_chart_bar_and_fills_lagging_day() -> None:
+    raw = _ohlcv(list(np.linspace(50, 100, 260)))
+    adj = raw.iloc[:-1]                                  # 받은 일봉은 어제까지 (오늘은 장중)
+    intraday = raw.copy()
+    intraday.iloc[-1, intraday.columns.get_loc("High")] = 500.0
+    st = ms.price_stats(adj, chart_prices(intraday))     # 차트에만 오늘 장중 봉 → 잘라서 어제 기준
+    assert st["range_52w"]["high"] == round(adj["High"].iloc[-252:].max(), 2)
+    assert st["new_high"] is True
+
+    lagging = chart_prices(raw.iloc[:-2])                # 전체 기록이 하루 늦음 → 받은 일봉으로 채워 어제 기준
+    st2 = ms.price_stats(adj, lagging)
+    assert st2["new_high"] is True and st2["range_52w"]["high"] == round(adj["High"].iloc[-252:].max(), 2)
 
 
 # ── 업종 중앙값 · 카드
@@ -98,6 +142,7 @@ def test_market_summary_breadth_movers_sectors_calendar() -> None:
     b = m["breadth"]
     assert (b["n"], b["adv"], b["dec"]) == (2, 1, 1)
     assert b["above50"] == 0.5 and b["above200"] == 1.0 and b["new_high"] == 1 and b["new_low"] == 1
+    assert m["row_flags"] == ["new_high", "new_low"]
     assert b["spy"] == 0.003 and b["equal"] == pytest.approx(0.015)
     assert [g["t"] for g in m["gainers"]] == ["AAA", "BBB", "DDD"]
     assert [g["t"] for g in m["losers"]][0] == "DDD"
@@ -221,11 +266,34 @@ def test_partial_fetch_keeps_old_values_and_retries_next_night() -> None:
 # ── 전체분석 연결
 
 def test_item_info_adds_ret_1d_and_range() -> None:
-    row = pd.Series({"티커": "AAA", "현재가격": 10.0, "1일수익률": 0.0123456, "52주최저": 8.0, "52주최고": 12.5})
+    row = pd.Series({"티커": "AAA", "현재가격": 10.0, "1일수익률": 0.0123456, "52주최저": 8.0, "52주최고": 12.5,
+                     "52주신고가": True, "52주신저가": np.bool_(False)})
     info = wu.item_info(row, tv=None, insider=None, isb=None, sqz=None)
     assert info["ret_1d"] == 0.0123 and info["range_52w"] == {"low": 8.0, "high": 12.5}
-    info2 = wu.item_info(pd.Series({"티커": "B", "52주최저": np.nan}), tv=None, insider=None, isb=None, sqz=None)
+    assert info["new_high"] is True and info["new_low"] is False
+    info2 = wu.item_info(pd.Series({"티커": "B", "52주최저": np.nan, "52주신고가": None}), tv=None, insider=None,
+                         isb=None, sqz=None)
     assert info2["range_52w"] is None and info2["ret_1d"] is None
+    assert info2["new_high"] is None and info2["new_low"] is None  # 일봉 모자람 · 신규 상장
+    json.dumps(info, allow_nan=False)
+
+
+def test_row_flags_match_breadth_counts() -> None:
+    """오늘 탭 숫자(market.json) = 목록 행 표시 수 — 같은 price_stats 결과에서 (숫자를 누르면 그 종목들)."""
+    up = list(np.linspace(50, 100, 260))
+    frames = {"UP": _ohlcv(up), "DOWN": _ohlcv(up[::-1]),
+              "FLAT": _ohlcv([50.0] * 100 + [70.0] * 30 + [40.0] * 30 + [55.0] * 100),  # 고점 · 저점 사이
+              "SHORT": _ohlcv([10.0] * 15)}
+    stats = {t: ms.price_stats(f) for t, f in frames.items()}
+    ranked = rus.add_web_stats(pd.DataFrame({"티커": list(frames)}), stats)
+    items = {str(r["티커"]): {**wu.item_info(r, tv=None, insider=None, isb=None, sqz=None),
+                              "fundamentals": {"market_cap": 5e9}} for _, r in ranked.iterrows()}
+    m = ms.market_summary(items, list(frames), stats, "2026-11-03", None, "t")
+    assert (m["breadth"]["new_high"], m["breadth"]["new_low"]) == (1, 1)
+    for flag in m["row_flags"]:
+        assert m["breadth"][flag] == sum(1 for v in items.values() if v[flag])
+    assert items["UP"]["new_high"] is True and items["DOWN"]["new_low"] is True
+    assert items["FLAT"]["new_high"] is False and items["SHORT"]["new_high"] is None
 
 
 def test_web_extras_and_write_payloads(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
