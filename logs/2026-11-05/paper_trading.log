@@ -1,0 +1,32 @@
+============================================================
+[Unified Paper Trading] PT-1 실행 시작
+============================================================
+2026-11-05 10:51:44,393 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+2026-11-05 10:51:44,402 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 255개 종목
+[Unified PT] NASDAQ snapshot 로드: 255개 종목
+[Unified PT] 합산 완료: 366개 종목 (SP500 130 + NASDAQ 255개, 중복 제거 후)
+[Unified PT] 거래일(일봉 날짜): 2026-11-04
+[Unified PT] 골든크로스임박 종목: 105개
+2026-11-05 10:51:44,922 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 73 | 4.0~5.0: 32 | 5.0~5.5: 10 | 5.5~6.0: 36 | 6.0+: 212
+2026-11-05 10:51:44,937 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=bull | Filtered=20/366 | Selected: LMT (CCS=0.7022)
+2026-11-05 10:51:44,938 [INFO] paper_trading.engine — [PaperTrading] BUY LMT @ 595.04 (CCS=0.7022, RSI=55)
+[Unified PT] 매도=0 매수=1 보유=3종목
+[Unified PT] 레짐=bull | 필터={'지수ETF': 3, '전략점수<6.0': 151, '바닥반등_52주과열': 3, '판단등급_미달': 115, '과열_차단': 60, '유동성_부족': 0, '어닝_임박': 1, '보유_중복': 2, '같은회사_중복': 0, '모멘텀_ADX부족': 5, '바닥_RSI데드존': 6, '섹터_집중': 0, '_통과': 20, '_전체': 366}
+[Unified PT] Top5 후보:
+  LMT    CCS=0.7022 전략=📈 모멘텀 섹터=Industrials
+  FTNT   CCS=0.6745 전략=📉 바닥반등 섹터=Technology
+  RDW    CCS=0.6125 전략=📉 바닥반등 섹터=Industrials
+  AMD    CCS=0.5896 전략=📉 바닥반등 섹터=Technology
+  FDS    CCS=0.5759 전략=📈 모멘텀 섹터=Financial Services
+2026-11-05 10:51:47,091 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 다시 쓰기: 페이퍼_거래로그 121줄
+2026-11-05 10:51:48,276 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-11-05 10:51:49,641 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 59건 거래
+[Unified PT] 구글 시트 동기화 완료
+[OHLCV] 배치 다운로드 1/2 (50개 종목, period=2y)...
+[OHLCV] 배치 다운로드 2/2 (9개 종목, period=2y)...
+[Unified PT] $5,000 계좌 탭 '페이퍼_계좌' 동기화 완료
+[Email] 페이퍼 트레이딩 알림 발송 완료 (매도 0건, 매수 1건, 재평가 0건, 재평가실패 0건, 후보 5건) → chunghwan14@gmail.com
+============================================================
+[Unified Paper Trading] 완료
+============================================================

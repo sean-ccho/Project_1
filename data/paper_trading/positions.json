@@ -22,11 +22,26 @@
     "star_rating": "★★★★★ (12.0)",
     "ccs_score": 0.5972,
     "sector": "Healthcare",
-    "highest_price": 30.0,
+    "highest_price": 30.790000915527344,
     "defer_count": 0,
     "trailing_stop_override": null,
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 58.02112549331335
+  },
+  {
+    "ticker": "LMT",
+    "entry_price": 595.0399780273438,
+    "entry_date": "2026-11-04",
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (14.0)",
+    "ccs_score": 0.7022,
+    "sector": "Industrials",
+    "highest_price": 595.0399780273438,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 55.01343113604785
   }
 ]
