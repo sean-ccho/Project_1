@@ -53,6 +53,11 @@ def _r(v: Any, digits: int) -> float | None:
     return None if x is None else round(x, digits)
 
 
+def price_round(v: float) -> float:
+    """주가 반올림 — 1달러 이상은 소수 2자리, 미만은 4자리 (0.115 같은 동전주가 0.12 로 뭉개지지 않게 · 2026-11-05)."""
+    return round(float(v), 2 if abs(v) >= 1 else 4)
+
+
 def chart_daily_as_of(adj: pd.DataFrame, chart: ChartPrices | None) -> pd.DataFrame:
     """adj 마지막 날까지의 차트 일봉 (분할만 반영 = TradingView · Yahoo 화면 가격) — features 차트 패턴과 같은 방법.
 
@@ -96,7 +101,7 @@ def price_stats(adj: pd.DataFrame, chart: ChartPrices | None = None) -> dict[str
         if len(l_) > 20:
             out["new_low"] = bool(l_.iloc[-1] <= l_.iloc[:-1].min())
         if len(h) and len(l_) and h.max() > 0:
-            out["range_52w"] = {"low": round(float(l_.min()), 2), "high": round(float(h.max()), 2)}
+            out["range_52w"] = {"low": price_round(float(l_.min())), "high": price_round(float(h.max()))}
     return out
 
 

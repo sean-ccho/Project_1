@@ -47,9 +47,13 @@ def _engine() -> Any:
     return isb_engine
 
 
+_CAD_SUFFIX = (".V", ".TO", ".CN", ".NE")  # 캐나다 상장 접미사 — 야후도 점 그대로 (ABC.V 등, 전체분석 번외)
+
+
 def yf_symbol(ticker: str) -> str:
-    """yfinance 표기로 (BRK.B → BRK-B)."""
-    return ticker.strip().upper().replace(".", "-")
+    """yfinance 표기로 (BRK.B → BRK-B). 캐나다 접미사(.V·.TO·.CN·.NE)는 점을 그대로 둔다 (account_watch._yf_symbol 과 같다)."""
+    t = ticker.strip().upper()
+    return t if t.endswith(_CAD_SUFFIX) else t.replace(".", "-")
 
 
 def _frame(raw: pd.DataFrame, sym: str) -> pd.DataFrame | None:

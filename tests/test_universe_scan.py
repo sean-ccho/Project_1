@@ -211,3 +211,135 @@ def test_sheet_dividend_cells_go_last() -> None:
     assert list(out.columns[-2:]) == ["배당수익률(%)", "연 배당금($/주)"]
     assert out["배당수익률(%)"].tolist() == [6.56, 0.5, 0.0] and out["연 배당금($/주)"].tolist() == [2.832, 1.0, 0.0]
     assert out.columns.tolist().index("RSI") < out.columns.tolist().index("배당수익률(%)")
+
+
+# ── 번외 (2026-11-05) — 두 시장 밖 종목을 따로 분석해 extra.json 에만 ─────────────
+
+
+def test_yf_symbol_keeps_canadian_suffix() -> None:
+    from web_export.isb_signals import yf_symbol
+
+    assert yf_symbol("abc.v") == "ABC.V" and yf_symbol("XY.TO") == "XY.TO" and yf_symbol("Q.CN") == "Q.CN"
+    assert yf_symbol("BRK.B") == "BRK-B" and yf_symbol("BRK-B") == "BRK-B"  # 종류주는 그대로 하이픈
+
+
+def test_extra_tv_symbol_and_foreign(monkeypatch) -> None:
+    monkeypatch.setattr(rus, "TRADINGVIEW_TICKER_MAP", {"ABC.V": "ABCD"})
+    assert rus.extra_tv("ABC.V", {}) == "TSXV:ABCD"               # 이름이 다르면 매핑 이름 + 거래소
+    assert rus.extra_tv("XYZ.V", {}) == "TSXV:XYZ"
+    assert rus.extra_tv("XY-B.TO", {}) == "TSX:XY.B" and rus.extra_tv("Q.CN", {}) == "CSE:Q"
+    assert rus.extra_tv("AAPL", {"AAPL": "NASDAQ:AAPL"}) == "NASDAQ:AAPL"   # 미국은 두 시장과 같은 규칙
+    assert rus.is_foreign("abc.v") and rus.is_foreign("XY.NE") and not rus.is_foreign("AAPL")
+    assert not rus.is_foreign("BRK-B")
+
+
+def test_penny_prices_keep_four_digits() -> None:
+    from web_export.market_summary import price_round
+
+    assert price_round(0.11499) == 0.115 and price_round(0.123456) == 0.1235 and price_round(12.3456) == 12.35
+    info = wu.item_info(pd.Series({"티커": "ABC.V", "현재가격": 0.11500000208, "52주최저": 0.1149, "52주최고": 0.82}),
+                        tv=None, insider=None, isb=None, sqz=None)
+    assert info["price"] == 0.115 and info["range_52w"] == {"low": 0.1149, "high": 0.82}
+    big = wu.item_info(pd.Series({"티커": "AAPL", "현재가격": 250.4567, "52주최저": 160.0, "52주최고": 260.123}),
+                       tv=None, insider=None, isb=None, sqz=None)
+    assert big["price"] == 250.46 and big["range_52w"] == {"low": 160.0, "high": 260.12}   # 1달러 이상은 예전처럼
+
+
+def _extra_ranked(tickers: list[str]) -> pd.DataFrame:
+    return pd.DataFrame({"티커": tickers, "회사": [f"{t} Corp" for t in tickers], "현재가격": [0.115] * len(tickers),
+                         "섹터": ["Basic Materials"] * len(tickers), "매수적합도_표시": ["★★★☆☆ (3.5)"] * len(tickers),
+                         "일봉패턴": [""] * len(tickers), "주봉패턴": ["골든크로스임박"] * len(tickers),
+                         "주봉_MA갭": [-0.01] * len(tickers), "fund_short_pct_float": [0.0004] * len(tickers)})
+
+
+def test_extra_market_payload(monkeypatch, tmp_path: Path) -> None:
+    import screener.sec_filings as sec
+    import web_export.dashboard as dash
+
+    def fake_analyze(tickers, label, names, strong, prev_dir):
+        assert label == "[번외]"
+        return {"ranked": _extra_ranked(tickers), "young": {}, "young_fund": pd.DataFrame(), "bar_date": "2026-11-05",
+                "no_data": [], "fund": pd.DataFrame({"티커": tickers, "fund_summary": ["Makes batteries."] * len(tickers)})}
+
+    sec_calls: list[list[str]] = []
+    monkeypatch.setattr(rus, "analyze_market", fake_analyze)
+    monkeypatch.setattr(sec, "fetch_flags", lambda tickers, **kw: sec_calls.append(list(tickers)) or {})
+    monkeypatch.setattr(dash, "daily_prices", lambda tickers: {})
+    rec = {"buys": 1, "sells": 0, "net_value": 1000.0, "last_date": "2026-10-01", "signal": "buy"}
+    none = {"buys": 0, "sells": 0, "net_value": 0.0, "last_date": None, "signal": None}
+    class FakeShort:  # FINRA 잔고 — 미국 종목만 있다
+        settle = "2026-10-15"
+
+        def get(self, t):
+            return {"si": 1e6, "dtc": 3.0, "si_change": 0.1} if t == "XYZ" else None
+
+    payload, about = rus.extra_market(["ABC.V", "XYZ"], {}, {"XYZ": "NYSE:XYZ"}, None, tmp_path, FakeShort(),
+                                      {"XYZ": rec}, none)
+
+    assert sec_calls == [["XYZ"]]                                   # 캐나다 상장은 SEC 를 안 찾는다
+    assert payload["key"] == "extra" and payload["label"] == "번외" and payload["bar_date"] == "2026-11-05"
+    assert payload["counts"] == {"listed": 2, "analyzed": 2, "young": 0, "no_data": 0}
+    a, x = payload["items"]["ABC.V"], payload["items"]["XYZ"]
+    assert a["market"] == "extra" and a["tv"] == "TSXV:ABC" and a["price"] == 0.115 and a["score"] == 3.5
+    assert a["insider"] is None and x["insider"] == rec              # 정보 없음 vs 미국 종목은 시장 전체 조회 결과
+    assert a["short"] is None                                        # 야후 값 + FINRA 날짜를 붙이지 않는다
+    assert x["short"]["dtc"] == 3.0 and x["short"]["settle"] == "2026-10-15"
+    assert a["golden"]["timeframes"] == [{"tf": "weekly", "gap": -0.01}] and [g["ticker"] for g in payload["golden"]] == ["ABC.V", "XYZ"]
+    assert about == {"ABC.V": "Makes batteries.", "XYZ": "Makes batteries."}
+    sizes = wu.write_payloads(tmp_path / "out", [payload], about)
+    one = json.loads((tmp_path / "out" / "stocks" / "ABC.V.json").read_text())
+    assert one["market"] == "extra" and one["about"] == "Makes batteries." and sizes["stocks/"] == 2
+    assert (tmp_path / "out" / "extra.json.gz").exists()
+
+
+def test_extra_market_without_data_returns_none(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(rus, "analyze_market", lambda *a: {"ranked": pd.DataFrame(), "young": {}, "young_fund": pd.DataFrame(),
+                                                           "bar_date": "", "no_data": ["ABC.V"], "fund": pd.DataFrame()})
+    assert rus.extra_market(["ABC.V"], {}, {}, None, tmp_path, None, {}, None) == (None, {})
+
+
+def _fake_listings() -> pd.DataFrame:
+    return pd.DataFrame({"ticker": ["AAPL"], "name": ["Apple Inc."], "tv": ["NASDAQ:AAPL"]})
+
+
+def _patch_main_inputs(monkeypatch) -> None:
+    import screener.insider as insider_mod
+    import screener.short_squeeze as sq
+
+    monkeypatch.setattr(rus, "fetch_listings", _fake_listings)
+    monkeypatch.setattr(rus, "strong_sectors", lambda: None)
+    monkeypatch.setattr(insider_mod, "fetch_insider_market", lambda: pd.DataFrame())
+    monkeypatch.setattr(sq, "short_data", lambda: None)
+
+
+def test_main_extra_only_writes_extra_file(monkeypatch, tmp_path: Path) -> None:
+    from web_export.universe import item_info, market_payload
+
+    _patch_main_inputs(monkeypatch)
+    seen: list[list[str]] = []
+
+    def fake_extra(tickers, *a):
+        seen.append(list(tickers))
+        info = item_info(pd.Series({"티커": tickers[0], "market": "extra", "현재가격": 0.115}), tv="TSXV:ABC",
+                         insider=None, isb=None, sqz=None)
+        return market_payload("extra", "번외", {tickers[0]: info}, bar_date="2026-11-05", counts={"listed": 1}), {}
+
+    monkeypatch.setattr(rus, "extra_market", fake_extra)
+    monkeypatch.setattr(rus, "EXTRA_TICKERS", ("ABC.V", "AAPL"))     # 이미 두 시장에 있는 AAPL 은 건너뛴다
+    out = tmp_path / "u"
+    assert rus.main(["--out-dir", str(out), "--no-sheet", "--market", "extra"]) == 0
+    assert seen == [["ABC.V"]]
+    assert json.loads((out / "extra.json").read_text())["items"]["ABC.V"]["price"] == 0.115
+    assert not (out / "market.json").exists() and not (out / "sp500.json").exists()   # 시장 숫자 · 두 시장은 안 쓴다
+
+
+def test_main_survives_extra_failure(monkeypatch, tmp_path: Path) -> None:
+    _patch_main_inputs(monkeypatch)
+
+    def boom(*a):
+        raise RuntimeError("yahoo down")
+
+    monkeypatch.setattr(rus, "extra_market", boom)
+    out = tmp_path / "u"
+    assert rus.main(["--out-dir", str(out), "--no-sheet", "--market", "extra"]) == 0   # 번외가 실패해도 계속
+    assert not (out / "extra.json").exists()

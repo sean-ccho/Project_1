@@ -5,6 +5,7 @@
 - [SP500 전체]       S&P 500 전 종목 + SPY·QQQ·IWM (SPY 는 시장 레짐 판단용, 웹 목록에는 안 보임)
 - [NASDAQ/NYSE 전체] 나스닥·NYSE 상장 보통주 전부에서 S&P 500 을 뺀 것 (두 탭이 시장을 나눈다)
 - [신규상장]          일봉 120개 미만이라 점수를 못 내는 종목 — 간단 지표만
+- 번외 (웹만)        두 시장 밖이지만 늘 보고 싶은 종목 (EXTRA_TICKERS) — 같은 계산을 따로 돌려 extra.json 에만 싣는다
 계산은 분석 탭과 같은 함수(피처 → 중립화 → 신호·적합도)이고 유동성 필터만 뺀다. 다만 중립화 z-score·IC 가중치가
 비교 종목 집합에 따라 달라서, 같은 종목도 분석 탭과 점수가 조금 다를 수 있다.
 극점 모델(저점·고점확률)은 돌리지 않는다 — 분석 탭에서도 점수를 매긴 뒤에 붙어 점수·시트·웹에 안 쓰이고, 종목마다 과거 2년을
@@ -64,6 +65,13 @@ NEW_PERCENT = ("상장후수익률", "5일수익률", "20일수익률", "상장�
 EXTRA_SHEET_COLUMNS = ("[공시]", "[공매도]", "ISB", "SQZ")
 STYLE_SHEET_COLUMNS = ("경기 성격", "매출 지역", "미국 매출 비중")   # 맨 끝 (2026-10-29 — data.industry_style)
 EARN_SHEET_COLUMN = "실적 움직임"   # 그 뒤 맨 끝 (2026-10-29 — screener.earnings_moves, 최근 8번 평균·최악·보통 시간)
+# 번외 — S&P 500 · 나스닥·NYSE 밖이지만 늘 보고 싶은 종목 (main.py [SP500 차트분석] 고정 종목과 같다 · 2026-11-05).
+# 웹 전체분석 '번외' 탭 · 전체 탭에만 싣는다 (extra.json · stocks/). 시트 · 오늘 탭 시장 숫자(market.json) · 종목 상세 카드 ·
+# 다음 날 보충 스냅샷에는 넣지 않는다. 이미 두 시장에 있는 티커는 거기서 보이니 건너뛴다.
+EXTRA_TICKERS = ("NBM.V",)
+EXTRA_KEY, EXTRA_LABEL = "extra", "번외"
+# 캐나다 상장 접미사 → TradingView 거래소 (실시간 차트 심볼 — 접두어 없이 'ABC' 만이면 다른 거래소 종목이 열릴 수 있다)
+CA_TV_EXCHANGE = {".V": "TSXV", ".TO": "TSX", ".CN": "CSE", ".NE": "NEO"}
 
 
 def _norm(t: Any) -> str:
@@ -90,6 +98,21 @@ def tv_of(ticker: str, tv_map: dict[str, str]) -> str:
     from screener.tv_symbol import tv_symbol
 
     return tv_map.get(ticker) or tv_symbol(ticker, TRADINGVIEW_TICKER_MAP)
+
+
+def is_foreign(ticker: str) -> bool:
+    """미국 밖 상장 (캐나다 접미사 .V·.TO·.CN·.NE) — SEC 공시 · openinsider 내부자 · FINRA 공매도가 없는 종목."""
+    return str(ticker).strip().upper().endswith(tuple(CA_TV_EXCHANGE))
+
+
+def extra_tv(ticker: str, tv_map: dict[str, str]) -> str:
+    """번외 종목 TradingView 심볼 — 캐나다 상장은 거래소를 붙인다 (ABC.V → TSXV:ABC, 이름이 다르면 TRADINGVIEW_TICKER_MAP)."""
+    t = str(ticker).strip().upper()
+    for suffix, exch in CA_TV_EXCHANGE.items():
+        if t.endswith(suffix):
+            base = TRADINGVIEW_TICKER_MAP.get(t) or t[: -len(suffix)]
+            return base if ":" in base else f"{exch}:{base.replace('-', '.')}"
+    return tv_of(t, tv_map)
 
 
 # ── 분석 ─────────────────────────────────────────────────────
@@ -481,6 +504,70 @@ def web_extras(ranked_frames: list[pd.DataFrame], items: dict[str, dict[str, Any
     return details, market
 
 
+def extra_market(tickers: list[str], names: dict[str, str], tv_map: dict[str, str], strong: set[str] | None,
+                 prev_dir: Path, sd: Any, insider_map: Mapping[str, dict[str, Any]],
+                 no_trades: dict[str, Any] | None) -> tuple[dict[str, Any] | None, dict[str, str]]:
+    """번외 종목 → (시장 JSON 'extra', 회사 소개). 두 시장과 같은 함수로 이 종목들만 따로 분석한다 (EXTRA_TICKERS).
+
+    중립화 비교 집단이 이 종목들뿐이라 점수는 [SP500 차트분석] 시트의 고정 종목처럼 참고용이다.
+    미국 밖 상장(.V 등)은 SEC 공시 · openinsider 내부자 · FINRA 공매도가 없다 — 공시는 안 찾고, 내부자는 '정보 없음'(None,
+    '거래 없음'이 아니라). 분석된 종목이 없으면 (None, {}).
+    """
+    from screener.sec_filings import fetch_flags
+    from web_export.dashboard import daily_prices, earnings_moves_block, isb_block, sqz_block
+    from web_export.universe import item_info, market_payload
+
+    res = analyze_market(list(tickers), f"[{EXTRA_LABEL}]", names, strong, prev_dir)
+    ranked = res["ranked"]
+    young = young_listings(res["young"], res["young_fund"], names, {})
+    all_t = [str(t) for df in (ranked, young) if not df.empty for t in df["티커"]]
+    if not all_t:
+        print(f"[{EXTRA_LABEL}] 분석된 종목 없음 (가격 없음 {res['no_data']})")
+        return None, {}
+    us = [t for t in all_t if not is_foreign(t)]
+    accepts: dict[str, list[str]] = {}
+    flags = fetch_flags(us, budget_sec=120, earnings=accepts) if us else {}
+    prices = daily_prices(all_t)
+    isb = isb_block(all_t, prices) if prices else {}
+    sqz = sqz_block(all_t, prices) if prices else {}
+    earn = earnings_moves_block({t: accepts[_norm(t)] for t in us if accepts.get(_norm(t))}, prices)
+    del prices
+
+    def info(row: pd.Series, gold: dict[str, Any] | None = None) -> dict[str, Any]:
+        t = str(row["티커"])
+        insider = None if is_foreign(t) else insider_map.get(_norm(t), no_trades)
+        return item_info(row, tv=extra_tv(t, tv_map), insider=insider, isb=isb.get(t), sqz=sqz.get(t), golden=gold,
+                         earnings_move=earn.get(t))
+
+    def extras(df: pd.DataFrame) -> pd.DataFrame:
+        """공시 · 공매도 칸. 미국 밖 상장은 공매도를 비운다 (FINRA 잔고가 없어 야후 값에 FINRA 날짜가 붙는다 — '정보 없음'으로)."""
+        out = add_short(add_sec(df.assign(market=EXTRA_KEY), flags), sd)
+        foreign = out["티커"].map(is_foreign)
+        for col in ("short_pct", "short_dtc", "short_change"):
+            if col in out.columns:
+                out[col] = out[col].astype(object).where(~foreign, None)
+        return out
+
+    items: dict[str, dict[str, Any]] = {}
+    golden: list[dict[str, Any]] = []
+    if not ranked.empty:
+        ranked = extras(ranked)
+        golden = golden_list(ranked)
+        rank_of = {g["ticker"]: (i, g["timeframes"]) for i, g in enumerate(golden)}
+        for _, row in ranked.iterrows():
+            t = str(row["티커"])
+            items[t] = info(row, {"rank": rank_of[t][0], "timeframes": rank_of[t][1]} if t in rank_of else None)
+    if not young.empty:
+        young = extras(young)
+        for _, row in young.iterrows():
+            items[str(row["티커"])] = info(row)
+    counts = {"listed": len(tickers), "analyzed": len(ranked), "young": len(young), "no_data": len(res["no_data"])}
+    print(f"[{EXTRA_LABEL}] {', '.join(items)} — 분석 {len(ranked)} · 신규 상장 {len(young)} · 가격 없음 {len(res['no_data'])}")
+    payload = market_payload(EXTRA_KEY, EXTRA_LABEL, items, bar_date=res["bar_date"] or None, counts=counts,
+                             golden=golden)
+    return payload, company_about(res["fund"])
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="전체 분석 (필터 없음, 표시 전용)")
     ap.add_argument("--out-dir", type=Path, required=True, help="웹 JSON·스냅샷을 쓸 폴더")
@@ -488,7 +575,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="전날 전체분석 스냅샷 폴더 (종목 정보가 막혔을 때 보충). 없으면 data/paper_trading")
     ap.add_argument("--no-sheet", action="store_true", help="구글 시트에 쓰지 않는다 (로컬 확인용)")
     ap.add_argument("--limit", type=int, default=0, help="시장마다 앞에서 N종목만 (빠른 확인)")
-    ap.add_argument("--market", choices=("all", "sp500", "nasdaq"), default="all")
+    ap.add_argument("--market", choices=("all", "sp500", "nasdaq", EXTRA_KEY), default="all",
+                    help=f"{EXTRA_KEY} = 번외 종목만 (로컬 확인용 — 시트 · market.json 없이 {EXTRA_KEY}.json 만)")
     ap.add_argument("--detail-budget", type=float, default=DETAIL_BUDGET_SEC,
                     help="분기 실적 · 의견 수를 받는 초 (0 = 안 받고 캐시만)")
     args = ap.parse_args(argv)
@@ -534,6 +622,20 @@ def main(argv: list[str] | None = None) -> int:
     sp_items: dict[str, dict[str, Any]] = {}       # [섹터 대표] 시트 — S&P 500 웹 정보
     web_items: dict[str, dict[str, Any]] = {}      # 두 시장 웹 정보 (지수 빼고) — market.json · 종목 상세
     web_stats: dict[str, dict[str, Any]] = {}      # price_stats (SPY 포함) — 시장 폭
+
+    # 번외 먼저 — 몇 종목뿐이라 금방이고, 5천 종목 뒤에는 Yahoo 종목 정보가 막혀 있을 수 있다. 표시 전용이라 실패해도 계속
+    extra_payload: dict[str, Any] | None = None
+    if args.market in ("all", EXTRA_KEY):
+        todo = [t for t in EXTRA_TICKERS if _norm(t) not in market_of]
+        try:
+            if todo:
+                extra_payload, extra_about = extra_market(todo, names, tv_map, strong, prev_dir, sd, insider_map,
+                                                          no_trades)
+                about.update(extra_about)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[{EXTRA_LABEL}] 실패 (건너뜀): {exc}")
+            extra_payload = None
+        _log(f"{EXTRA_LABEL} 끝", start)
 
     for key, label, sheet, tickers in markets:
         res = analyze_market(tickers, sheet, names, strong, prev_dir)
@@ -601,11 +703,17 @@ def main(argv: list[str] | None = None) -> int:
         if len(reps):
             sheets.append((REPS_TAB, reps))
 
+    if extra_payload:
+        payloads.append(extra_payload)
+
     real_dates = [d for d in bar_dates if d]
-    details, market = web_extras([f[0] for f in snapshots.values()], web_items, web_stats, sp_tickers,
-                                 max(real_dates) if real_dates else None, args.prev_dir, args.out_dir,
-                                 budget_sec=args.detail_budget)
-    _log("투자자 한눈에 끝", start)
+    details: dict[str, dict[str, Any]] = {}
+    market: dict[str, Any] | None = None
+    if snapshots:  # 두 시장 중 하나라도 돌았을 때만 (--market extra 는 번외 파일만)
+        details, market = web_extras([f[0] for f in snapshots.values()], web_items, web_stats, sp_tickers,
+                                     max(real_dates) if real_dates else None, args.prev_dir, args.out_dir,
+                                     budget_sec=args.detail_budget)
+        _log("투자자 한눈에 끝", start)
     sizes = write_payloads(args.out_dir, payloads, about, details, market)
     print(f"[전체분석] 회사 소개 {len(about)}종목 · 종목 상세 {len(details)}종목 · market.json {'있음' if market else '없음'}")
     snap_dir = args.out_dir / "snapshot"

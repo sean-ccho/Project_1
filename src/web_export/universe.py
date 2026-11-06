@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from web_export.dashboard import _num, _text, ticker_info
+from web_export.market_summary import price_round
 
 SCHEMA_VERSION = 1
 ET = ZoneInfo("America/Toronto")
@@ -87,6 +88,12 @@ def sqz_text(rec: dict[str, Any] | None) -> str:
     return " | ".join(parts)
 
 
+def _price(v: Any) -> float | None:
+    """주가 칸 → 숫자 (1달러 미만은 소수 4자리 — market_summary.price_round). 없으면 None."""
+    x = _num(v)
+    return None if x is None else price_round(x)
+
+
 def _flag(v: Any) -> bool | None:
     """참/거짓 표시 (numpy bool 포함) → bool, 모르면 (None · NaN · 그 밖) None."""
     return bool(v) if isinstance(v, (bool, np.bool_)) else None
@@ -103,8 +110,9 @@ def item_info(row: pd.Series, *, tv: str | None, insider: dict[str, Any] | None,
                  "ret_63d": _num(row.get("63일수익률"), 4), "ret_252d": _num(row.get("252일수익률"), 4),
                  # 하루 수익률 · 52주 최저/최고 (2026-11-03, 웹 '한눈에' — market_summary.price_stats)
                  "ret_1d": _num(row.get("1일수익률"), 4)})
-    lo, hi = _num(row.get("52주최저"), 2), _num(row.get("52주최고"), 2)
+    lo, hi = _price(row.get("52주최저")), _price(row.get("52주최고"))
     info["range_52w"] = {"low": lo, "high": hi} if lo is not None and hi is not None else None
+    info["price"] = _price(row.get("현재가격"))  # 1달러 미만은 소수 4자리 (ticker_info 는 2자리 — 0.115 가 0.12 로)
     # 52주 신고가 · 신저가 (2026-11-04) — market.json 숫자와 같은 표시 (일봉 모자람 · 신규 상장은 None)
     info["new_high"] = _flag(row.get("52주신고가"))
     info["new_low"] = _flag(row.get("52주신저가"))
