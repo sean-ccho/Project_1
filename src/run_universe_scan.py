@@ -6,6 +6,8 @@
 - [NASDAQ/NYSE 전체] 나스닥·NYSE 상장 보통주 전부에서 S&P 500 을 뺀 것 (두 탭이 시장을 나눈다)
 - [신규상장]          일봉 120개 미만이라 점수를 못 내는 종목 — 간단 지표만
 - 번외 (웹만)        두 시장 밖이지만 늘 보고 싶은 종목 (EXTRA_TICKERS) — 같은 계산을 따로 돌려 extra.json 에만 싣는다
+- [캐나다 전체]       TSX · TSX Venture 상장 보통주 전부 (--market ca, 별도 워크플로 canada-scan.yml → canada-data 브랜치 ·
+                     2026-11-05). 미국 두 시장과 따로 돌고 ca.json 에 싣는다 — 아래 canada_market 참고
 계산은 분석 탭과 같은 함수(피처 → 중립화 → 신호·적합도)이고 유동성 필터만 뺀다. 다만 중립화 z-score·IC 가중치가
 비교 종목 집합에 따라 달라서, 같은 종목도 분석 탭과 점수가 조금 다를 수 있다.
 극점 모델(저점·고점확률)은 돌리지 않는다 — 분석 탭에서도 점수를 매긴 뒤에 붙어 점수·시트·웹에 안 쓰이고, 종목마다 과거 2년을
@@ -54,7 +56,8 @@ SEC_BUDGET_SEC = 1500  # 5천 종목 × 0.13초 ≈ 11분 + 여유 (실전 스�
 # Yahoo 종목 정보가 막혔을 때 쉬는 초 — 실전(누적 약 18분)보다 길게 (누적 약 88분, 잡 한도 300분 안).
 # 2026-10-20 로컬: 약 1,500건마다 막히고 5~10분 쉬면 풀렸다 → 5천 종목이면 서너 번 막힌다 (한 번 쓴 대기는 다시 안 쓴다)
 INFO_RETRY_WAITS = (60, 120, 300, 600, 600, 900, 900, 900, 900)
-SNAPSHOT_NAMES = {"sp500": "sp500_ranked.parquet", "nasdaq": "nasdaq_ranked.parquet"}  # fundamentals_guard 가 읽는 이름
+# fundamentals_guard 가 읽는 이름 (SNAPSHOT_FILES)
+SNAPSHOT_NAMES = {"sp500": "sp500_ranked.parquet", "nasdaq": "nasdaq_ranked.parquet", "ca": "ca_ranked.parquet"}
 SNAPSHOT_EXTRA = ("티커", "섹터", "next_earnings_date")
 NEW_COLUMNS = [  # [신규상장] 시트 칸
     "티커", "회사", "시장", "현재가격", "첫거래일", "상장후거래일", "상장후수익률", "5일수익률", "20일수익률", "RSI",
@@ -72,6 +75,11 @@ EXTRA_TICKERS = ("NBM.V",)
 EXTRA_KEY, EXTRA_LABEL = "extra", "번외"
 # 캐나다 상장 접미사 → TradingView 거래소 (실시간 차트 심볼 — 접두어 없이 'ABC' 만이면 다른 거래소 종목이 열릴 수 있다)
 CA_TV_EXCHANGE = {".V": "TSXV", ".TO": "TSX", ".CN": "CSE", ".NE": "NEO"}
+# 캐나다 — TSX · TSXV 상장 보통주 전부 (data.ca_listings, 2026-11-05). 웹 ca.json 의 종목 market 은 'tsx' · 'tsxv'
+CA_KEY, CA_LABEL, SHEET_CA = "ca", "캐나다", "[캐나다 전체]"
+# 캐나다 시트에서 빼는 칸 — 미국 제도 · 미국 자료라 늘 비어 있다 (SEC 공시 · SEC 10-K 미국 매출 비중 · SEC 8-K 실적 반응)
+CA_SHEET_DROP = ("[공시]", "미국 매출 비중", EARN_SHEET_COLUMN)
+CA_DTC_DAYS = 20  # 되사기 일수 = 공매도 잔고 ÷ 최근 이만큼 거래일 평균 거래량
 
 
 def _norm(t: Any) -> str:
@@ -354,6 +362,37 @@ def add_short(df: pd.DataFrame, sd: Any) -> pd.DataFrame:
     return out
 
 
+def add_yahoo_short(df: pd.DataFrame, prices: Mapping[str, pd.DataFrame] | None) -> pd.DataFrame:
+    """미국 밖 상장(캐나다) 공매도 칸 — FINRA 잔고가 없어서 Yahoo 종목 정보로 (add_short 와 같은 칸).
+
+    비중 = Yahoo 공매도 잔고(fund_short_interest — 캐나다는 CIRO 보름 집계) ÷ 유통주식 (없으면 Yahoo 비중).
+    되사기 = 잔고 ÷ 최근 20거래일 평균 거래량 (ISB · SQZ 와 같은 일봉 — Yahoo 는 상장 거래소 거래량만이라 다른 거래 시장까지
+    합친 FINRA 되사기보다 길게 나올 수 있다). Yahoo 는 집계 기준일을 종목 정보에 안 줘서 기준일은 비운다.
+    """
+    from screener.short_squeeze import is_high, short_line
+    from web_export.isb_signals import yf_symbol
+
+    out = df.copy()
+    pcts, dtcs, lines, highs = [], [], [], []
+    for _, r in out.iterrows():
+        si = pd.to_numeric(r.get("fund_short_interest"), errors="coerce")
+        fl = pd.to_numeric(r.get("fund_float_shares"), errors="coerce")
+        pct = si / fl if pd.notna(si) and pd.notna(fl) and fl > 0 else pd.to_numeric(r.get("fund_short_pct_float"),
+                                                                                     errors="coerce")
+        pct = float(pct) if pd.notna(pct) and 0 <= pct < 3 else None
+        frame = (prices or {}).get(yf_symbol(str(r["티커"])))
+        vol = float(frame["Volume"].tail(CA_DTC_DAYS).mean()) if frame is not None and len(frame) else float("nan")
+        dtc = float(si / vol) if pd.notna(si) and np.isfinite(vol) and vol > 0 else None
+        pcts.append(pct)
+        dtcs.append(dtc)
+        lines.append(short_line(pct, dtc, None))
+        highs.append(is_high(pct, dtc))
+    out["short_pct"], out["short_dtc"] = pcts, dtcs
+    out["short_change"], out["short_settle"] = None, None
+    out["[공매도]"], out["short_high"] = lines, highs
+    return out
+
+
 def add_insider(df: pd.DataFrame, insider: pd.DataFrame) -> pd.DataFrame:
     """내부자(90일) 한 줄. 시장 전체 조회에 거래가 없던 종목은 '—'."""
     out = df.copy()
@@ -511,7 +550,8 @@ def extra_market(tickers: list[str], names: dict[str, str], tv_map: dict[str, st
 
     중립화 비교 집단이 이 종목들뿐이라 점수는 [SP500 차트분석] 시트의 고정 종목처럼 참고용이다.
     미국 밖 상장(.V 등)은 SEC 공시 · openinsider 내부자 · FINRA 공매도가 없다 — 공시는 안 찾고, 내부자는 '정보 없음'(None,
-    '거래 없음'이 아니라). 분석된 종목이 없으면 (None, {}).
+    '거래 없음'이 아니라 — 웹은 ceo.ca 링크를 보여 준다), 공매도는 Yahoo 잔고(add_yahoo_short — 캐나다 탭과 같다).
+    분석된 종목이 없으면 (None, {}).
     """
     from screener.sec_filings import fetch_flags
     from web_export.dashboard import daily_prices, earnings_moves_block, isb_block, sqz_block
@@ -531,7 +571,6 @@ def extra_market(tickers: list[str], names: dict[str, str], tv_map: dict[str, st
     isb = isb_block(all_t, prices) if prices else {}
     sqz = sqz_block(all_t, prices) if prices else {}
     earn = earnings_moves_block({t: accepts[_norm(t)] for t in us if accepts.get(_norm(t))}, prices)
-    del prices
 
     def info(row: pd.Series, gold: dict[str, Any] | None = None) -> dict[str, Any]:
         t = str(row["티커"])
@@ -540,13 +579,12 @@ def extra_market(tickers: list[str], names: dict[str, str], tv_map: dict[str, st
                          earnings_move=earn.get(t))
 
     def extras(df: pd.DataFrame) -> pd.DataFrame:
-        """공시 · 공매도 칸. 미국 밖 상장은 공매도를 비운다 (FINRA 잔고가 없어 야후 값에 FINRA 날짜가 붙는다 — '정보 없음'으로)."""
-        out = add_short(add_sec(df.assign(market=EXTRA_KEY), flags), sd)
-        foreign = out["티커"].map(is_foreign)
-        for col in ("short_pct", "short_dtc", "short_change"):
-            if col in out.columns:
-                out[col] = out[col].astype(object).where(~foreign, None)
-        return out
+        """공시 · 공매도 칸. 미국 밖 상장은 Yahoo 잔고로 (FINRA 잔고가 없어 add_short 는 야후 값에 FINRA 날짜를 붙인다)."""
+        out = add_sec(df.assign(market=EXTRA_KEY), flags)
+        foreign = out["티커"].map(is_foreign).astype(bool)
+        parts = [add_short(out[~foreign], sd)] if (~foreign).any() else []
+        parts += [add_yahoo_short(out[foreign], prices)] if foreign.any() else []
+        return pd.concat(parts).loc[out.index]
 
     items: dict[str, dict[str, Any]] = {}
     golden: list[dict[str, Any]] = []
@@ -568,6 +606,146 @@ def extra_market(tickers: list[str], names: dict[str, str], tv_map: dict[str, st
     return payload, company_about(res["fund"])
 
 
+def local_details(ranked: pd.DataFrame, items: Mapping[str, dict[str, Any]],
+                  bar_date: str | None) -> dict[str, dict[str, Any]]:
+    """종목 상세 '밸류에이션' · '애널리스트' 카드 — 이미 받은 종목 정보만으로 (web_extras 의 앞 두 칸과 같은 계산).
+
+    업종 중앙값은 이 시장 안에서 낸다 (캐나다 종목을 미국 업종과 섞지 않게). 분기 실적 · 이번 달 의견 수(stock_detail 캐시)는
+    따로 받아야 해서 없다 — 사이트는 그 카드만 안 보여 준다.
+    """
+    from web_export.dashboard import _industry
+    from web_export.market_summary import analyst_block, industry_medians, valuation_block, valuation_values
+
+    if ranked.empty:
+        return {}
+    recs = ranked.to_dict("records")
+    med = industry_medians({"industry": _industry(r.get("fund_industry")), "cap": r.get("fund_market_cap"),
+                            **valuation_values(r)} for r in recs)
+    out: dict[str, dict[str, Any]] = {}
+    for r in recs:
+        t = str(r["티커"])
+        if t not in items:
+            continue
+        d = {"as_of": bar_date, "valuation": valuation_block(r, _industry(r.get("fund_industry")), med),
+             "analyst": analyst_block(r, None), "quarters": None}
+        if d["valuation"] or d["analyst"]:
+            out[t] = d
+    return out
+
+
+def ca_sheet_frame(ranked: pd.DataFrame, isb: dict, sqz: dict) -> pd.DataFrame:
+    """[캐나다 전체] 시트 — 미국 전체 탭과 같은 칸 + '거래소'(TSX · TSXV)를 티커 뒤에, 늘 비는 미국 자료 칸(CA_SHEET_DROP)은 뺀다."""
+    out = sheet_frame(ranked, isb, sqz).drop(columns=list(CA_SHEET_DROP), errors="ignore")
+    exch = ranked["market"].astype(str).str.upper().tolist() if "market" in ranked.columns else [""] * len(ranked)
+    at = out.columns.get_loc("티커") + 1 if "티커" in out.columns else 0
+    out.insert(at, "거래소", exch)
+    return out
+
+
+def canada_market(listings: pd.DataFrame, prev_dir: Path) -> dict[str, Any] | None:
+    """캐나다 상장 보통주(TSX · TSXV) 전부 → {payload(ca.json), about, details, sheet, snapshot}. 분석된 종목이 없으면 None.
+
+    미국 두 시장과 같은 함수(analyze_market — 피처 → 중립화 → 신호 · 적합도)를 캐나다 종목끼리 돌린다. 다른 점:
+    - 강한 섹터 표시는 없다 — 미국 섹터 ETF 로 정하는 규칙이라 캐나다 시장에는 맞지 않는다 (섹터강도 칸 없음 · 점수 가산 없음).
+    - SEC 공시 · 실적 반응(SEC 8-K) 없음 — 캐나다는 SEDAR+ 라서.
+    - 내부자: 칸을 비운다 (None) — Yahoo 의 SEDI 자료가 TSXV 소형주에서 빠지는 거래가 있다 (2026-11-05 사용자 확인 —
+      ceo.ca 에 Yahoo 보다 거래가 많았다). 틀린 '거래 없음' 대신 웹은 그 종목 ceo.ca 페이지 링크를 보여 준다.
+    - 공매도: Yahoo 잔고 (add_yahoo_short).
+    - 신규 상장(일봉 120개 미만)도 같은 파일에 (번외처럼 — 미국 [신규상장] 탭 · 시트와 섞지 않는다).
+    가격 · 시총은 C$ (Yahoo 가 캐나다 종목을 CAD 로 준다 — 웹은 티커 접미사로 C$ 를 붙인다).
+    """
+    from web_export.dashboard import daily_prices, isb_block, sqz_block
+    from web_export.universe import item_info, market_payload
+
+    tickers = listings["ticker"].astype(str).tolist()
+    names = dict(zip(listings["ticker"], listings["name"]))
+    tv_map = dict(zip(listings["ticker"], listings["tv"]))
+    board = {t: str(x).lower() for t, x in zip(listings["ticker"], listings["exchange"])}   # 'tsx' · 'tsxv'
+
+    res = analyze_market(tickers, SHEET_CA, names, None, prev_dir)
+    ranked = res["ranked"]
+    young = young_listings(res["young"], res["young_fund"], names, {})
+    all_t = [str(t) for df in (ranked, young) if not df.empty for t in df["티커"]]
+    if not all_t:
+        print(f"[{CA_LABEL}] 분석된 종목 없음 (가격 없음 {len(res['no_data'])})")
+        return None
+    prices = daily_prices(all_t)
+    isb = isb_block(all_t, prices) if prices else {}
+    sqz = sqz_block(all_t, prices) if prices else {}
+
+    def tag(df: pd.DataFrame) -> pd.DataFrame:
+        return add_yahoo_short(df.assign(market=df["티커"].map(board)), prices)
+
+    def info(row: pd.Series, gold: dict[str, Any] | None = None) -> dict[str, Any]:
+        t = str(row["티커"])
+        return item_info(row, tv=tv_map.get(t) or extra_tv(t, {}), insider=None, isb=isb.get(t), sqz=sqz.get(t),
+                         golden=gold)
+
+    items: dict[str, dict[str, Any]] = {}
+    golden: list[dict[str, Any]] = []
+    if not ranked.empty:
+        ranked = tag(ranked)
+        golden = golden_list(ranked)
+        rank_of = {g["ticker"]: (i, g["timeframes"]) for i, g in enumerate(golden)}
+        for _, row in ranked.iterrows():
+            t = str(row["티커"])
+            items[t] = info(row, {"rank": rank_of[t][0], "timeframes": rank_of[t][1]} if t in rank_of else None)
+    if not young.empty:
+        young = tag(young)
+        for _, row in young.iterrows():
+            items[str(row["티커"])] = info(row)
+    del prices
+    counts = {"listed": len(tickers), "analyzed": len(ranked), "young": len(young), "no_data": len(res["no_data"])}
+    n_short = sum(1 for v in items.values() if v.get("short"))
+    print(f"[{CA_LABEL}] 분석 {len(ranked)} · 신규 상장 {len(young)} · 가격 없음 {len(res['no_data'])} · "
+          f"골든 {len(golden)} · 공매도 {n_short}")
+    bar_date = res["bar_date"] or None
+    return {"payload": market_payload(CA_KEY, CA_LABEL, items, bar_date=bar_date, counts=counts, golden=golden),
+            "about": company_about(res["fund"]),
+            "details": local_details(ranked, items, bar_date),
+            "sheet": ca_sheet_frame(ranked, isb, sqz) if not ranked.empty else None,
+            "snapshot": snapshot_frame([ranked, res["young_fund"]])}
+
+
+def _prev_snapshot_dir(prev_dir: Path | None) -> Path:
+    """전날 스냅샷 폴더 — 아는 이름(SNAPSHOT_NAMES)의 파일이 하나라도 있으면 그 폴더, 없으면 실전 스냅샷(data/paper_trading)."""
+    if prev_dir and any((prev_dir / n).exists() for n in SNAPSHOT_NAMES.values()):
+        return prev_dir
+    return SNAPSHOT_DIR
+
+
+def canada_main(args: argparse.Namespace) -> int:
+    """--market ca — 캐나다만 (별도 워크플로 canada-scan.yml). 분석된 종목이 없으면 1 (CI 가 빈 브랜치를 올리지 않게)."""
+    from data.ca_listings import fetch_ca_listings
+    from web_export.universe import write_payloads
+
+    start = time.perf_counter()
+    listings = fetch_ca_listings()
+    if args.limit:
+        listings = listings.groupby("exchange", sort=False).head(args.limit).reset_index(drop=True)
+    prev_dir = _prev_snapshot_dir(args.prev_dir)
+    print(f"[{CA_LABEL}] 종목 정보 보충 스냅샷: {prev_dir}")
+    res = canada_market(listings, prev_dir)
+    _log(f"{CA_LABEL} 분석 끝", start)
+    if res is None:
+        return 1
+    sizes = write_payloads(args.out_dir, [res["payload"]], res["about"], res["details"], None)
+    print(f"[{CA_LABEL}] 회사 소개 {len(res['about'])}종목 · 종목 상세 {len(res['details'])}종목 · 웹 파일: {sizes}")
+    if not res["snapshot"].empty:
+        snap_dir = args.out_dir / "snapshot"
+        snap_dir.mkdir(parents=True, exist_ok=True)
+        res["snapshot"].to_parquet(snap_dir / SNAPSHOT_NAMES[CA_KEY], index=False)
+    if args.no_sheet:
+        print("[전체분석] --no-sheet: 시트는 건너뜀")
+    elif res["sheet"] is not None:
+        from screener.exporter import export_to_google_sheet
+
+        ok = export_to_google_sheet(res["sheet"], SHEET_CA)
+        print(f"[{SHEET_CA}] 구글 시트 {'업데이트 완료' if ok else '업데이트 실패'} ({len(res['sheet'])}행)")
+    _log("완료", start)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="전체 분석 (필터 없음, 표시 전용)")
     ap.add_argument("--out-dir", type=Path, required=True, help="웹 JSON·스냅샷을 쓸 폴더")
@@ -575,11 +753,14 @@ def main(argv: list[str] | None = None) -> int:
                     help="전날 전체분석 스냅샷 폴더 (종목 정보가 막혔을 때 보충). 없으면 data/paper_trading")
     ap.add_argument("--no-sheet", action="store_true", help="구글 시트에 쓰지 않는다 (로컬 확인용)")
     ap.add_argument("--limit", type=int, default=0, help="시장마다 앞에서 N종목만 (빠른 확인)")
-    ap.add_argument("--market", choices=("all", "sp500", "nasdaq", EXTRA_KEY), default="all",
-                    help=f"{EXTRA_KEY} = 번외 종목만 (로컬 확인용 — 시트 · market.json 없이 {EXTRA_KEY}.json 만)")
+    ap.add_argument("--market", choices=("all", "sp500", "nasdaq", EXTRA_KEY, CA_KEY), default="all",
+                    help=f"all = 미국 두 시장 + 번외 · {EXTRA_KEY} = 번외 종목만 (로컬 확인용 — 시트 · market.json 없이 "
+                         f"{EXTRA_KEY}.json 만) · {CA_KEY} = 캐나다만 ({CA_KEY}.json · [캐나다 전체], 별도 워크플로)")
     ap.add_argument("--detail-budget", type=float, default=DETAIL_BUDGET_SEC,
                     help="분기 실적 · 의견 수를 받는 초 (0 = 안 받고 캐시만)")
     args = ap.parse_args(argv)
+    if args.market == CA_KEY:
+        return canada_main(args)
 
     from screener.sec_filings import fetch_flags
     from screener.short_squeeze import short_data
@@ -598,8 +779,7 @@ def main(argv: list[str] | None = None) -> int:
     markets = [m for m in (("sp500", "S&P 500", SHEET_SP500, sp_tickers), ("nasdaq", "나스닥·NYSE", SHEET_NASDAQ, rest))
                if args.market in ("all", m[0])]
     print(f"[전체분석] S&P 500 {len(sp_tickers)} · NASDAQ/NYSE(S&P 제외) {len(rest)}")
-    prev_dir = args.prev_dir if args.prev_dir and any((args.prev_dir / n).exists() for n in SNAPSHOT_NAMES.values()) \
-        else SNAPSHOT_DIR
+    prev_dir = _prev_snapshot_dir(args.prev_dir)
     print(f"[전체분석] 종목 정보 보충 스냅샷: {prev_dir}")
 
     strong = strong_sectors()

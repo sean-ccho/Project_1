@@ -32,7 +32,8 @@ from screener.features import compute_features_snapshot
 from screener.fundamentals import fetch_fundamental_snapshots
 
 SNAPSHOT_DIR = Path("data/paper_trading")
-SNAPSHOT_FILES = ("sp500_ranked.parquet", "nasdaq_ranked.parquet")
+# ca_ranked = 전체분석 캐나다 (run_universe_scan --market ca, canada-data 브랜치 — 실전 폴더에는 없어서 실전과 무관)
+SNAPSHOT_FILES = ("sp500_ranked.parquet", "nasdaq_ranked.parquet", "ca_ranked.parquet")
 CHUNK_SIZE = 50                   # 이만큼씩 받으며 막혔는지 본다
 BLOCK_RATIO = 0.8                 # 한 묶음에서 이 비율 넘게 실패하면 막혔는지 대형주로 확인 (평소 실패 0~2%)
 RETRY_WAITS = (60, 120, 300, 600)  # 막혔을 때 다시 확인하기 전 쉬는 초 (누적 최대 약 18분)

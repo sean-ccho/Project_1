@@ -1,0 +1,117 @@
+name: Canada Scan
+
+# 전체분석 '캐나다' (표시 전용) — TSX · TSX Venture 상장 보통주 전부 (src/run_universe_scan.py --market ca, 2026-11-05).
+# 미국 전체분석(universe-scan.yml)이 이미 2시간 넘게 걸려서 따로 돈다 — 다른 러너라 Yahoo 요청 한도도 따로 쓰고,
+# 실패해도 미국 전체분석 · 매매 · 메일 · 상태와 무관하다.
+# 결과: 구글 시트 [캐나다 전체] + 웹 '전체분석 · 캐나다' 데이터(canada-data 고아 브랜치 — universe-data 는 미국 작업이
+# 밤마다 통째로 덮어써서 같이 못 쓴다).
+# push 로는 돌지 않는다 — 예약 실행 또는 Actions 화면의 Run workflow.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '45 0 * * *'  # 00:45 UTC = 7:45 PM EST (TSX 4시 마감 뒤 · GitHub 이 몇 시간 늦게 시작시키는 일이 많다)
+
+permissions:
+  contents: write
+
+concurrency:
+  group: canada-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install tenacity
+
+      - name: Restore Google service account credentials
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then
+            echo "GOOGLE_SERVICE_ACCOUNT_JSON secret is not set" >&2
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > gspread-service-account.json
+
+      - name: Configure git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # Yahoo 종목 정보가 막힌 날 재무 · 섹터를 채울 전날 값 (첫 실행엔 없다 — 그날은 못 받은 종목만 비고 다음 날부터 채워진다)
+      - name: Restore previous Canada snapshot
+        run: |
+          mkdir -p "$RUNNER_TEMP/prev"
+          if git fetch -q --depth 1 origin canada-data 2>/dev/null; then
+            git show "FETCH_HEAD:snapshot/ca_ranked.parquet" > "$RUNNER_TEMP/prev/ca_ranked.parquet" 2>/dev/null \
+              || rm -f "$RUNNER_TEMP/prev/ca_ranked.parquet"
+          fi
+          ls -la "$RUNNER_TEMP/prev"
+
+      - name: Run Canada scan
+        run: |
+          set -o pipefail
+          PYTHONPATH=.:src python src/run_universe_scan.py --market ca \
+            --out-dir "$RUNNER_TEMP/canada" --prev-dir "$RUNNER_TEMP/prev" | tee "$RUNNER_TEMP/canada_scan.log"
+
+      - name: Upload Canada scan log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canada-scan-log
+          path: ${{ runner.temp }}/canada_scan.log
+          retention-days: 7
+
+      - name: Push Canada data (orphan branch)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd "$RUNNER_TEMP/canada"
+          git init -q -b canada-data
+          git add -A
+          git commit -q -m "canada data $(date +%s) [skip ci]"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" canada-data
+          date +%s > "$RUNNER_TEMP/web_pushed_at"
+          echo "✅ canada-data 브랜치 업데이트 완료 ($(git ls-files | wc -l) 파일)"
+
+      # 웹사이트 캐시를 비운다 — 목록은 브라우저가 raw 에서 바로 받지만, 종목 상세 페이지 · 탭 표시는 서버 캐시를 쓴다.
+      # raw.githubusercontent 는 최대 5분 캐시라서 push 후 5분이 지난 뒤에 부른다 (universe-scan.yml 과 같다).
+      - name: Refresh personal website
+        env:
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
+          SITE_URL: https://seancho.vercel.app
+        run: |
+          if [ -z "$REVALIDATE_SECRET" ]; then
+            echo "⏭️  REVALIDATE_SECRET 없음, 건너뜀 (사이트는 30분 자동 갱신)"
+            exit 0
+          fi
+          wait=$(( $(cat "$RUNNER_TEMP/web_pushed_at") + 310 - $(date +%s) ))
+          if [ "$wait" -gt 0 ]; then
+            echo "⏳ GitHub raw 캐시가 빠지도록 ${wait}초 기다림"
+            sleep "$wait"
+          fi
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -X POST \
+            -H "Authorization: Bearer ${REVALIDATE_SECRET}" "$SITE_URL/api/revalidate" || true)
+          if [ "$code" = "200" ]; then
+            echo "✅ 웹사이트 갱신 요청 완료"
+          else
+            echo "::warning title=웹사이트 갱신 실패::HTTP $code — 사이트는 30분 자동 갱신으로 늦게 반영됩니다."
+          fi

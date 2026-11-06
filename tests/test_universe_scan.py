@@ -282,7 +282,8 @@ def test_extra_market_payload(monkeypatch, tmp_path: Path) -> None:
     a, x = payload["items"]["ABC.V"], payload["items"]["XYZ"]
     assert a["market"] == "extra" and a["tv"] == "TSXV:ABC" and a["price"] == 0.115 and a["score"] == 3.5
     assert a["insider"] is None and x["insider"] == rec              # 정보 없음 vs 미국 종목은 시장 전체 조회 결과
-    assert a["short"] is None                                        # 야후 값 + FINRA 날짜를 붙이지 않는다
+    # 캐나다 상장은 Yahoo 잔고 (FINRA 날짜를 붙이지 않는다 — 기준일 없음), 미국은 FINRA
+    assert a["short"] == {"pct": 0.0004, "dtc": None, "change": None, "settle": None, "high": False}
     assert x["short"]["dtc"] == 3.0 and x["short"]["settle"] == "2026-10-15"
     assert a["golden"]["timeframes"] == [{"tf": "weekly", "gap": -0.01}] and [g["ticker"] for g in payload["golden"]] == ["ABC.V", "XYZ"]
     assert about == {"ABC.V": "Makes batteries.", "XYZ": "Makes batteries."}
@@ -343,3 +344,134 @@ def test_main_survives_extra_failure(monkeypatch, tmp_path: Path) -> None:
     out = tmp_path / "u"
     assert rus.main(["--out-dir", str(out), "--no-sheet", "--market", "extra"]) == 0   # 번외가 실패해도 계속
     assert not (out / "extra.json").exists()
+
+
+# ── 캐나다 (2026-11-05) — TSX · TSXV 상장 보통주 전부를 따로 분석해 ca.json 에 ─────────────
+
+
+def _directory(*companies: tuple[str, list[str]]) -> dict:
+    return {"results": [{"symbol": syms[0], "name": name, "instruments": [{"symbol": s, "name": name} for s in syms]}
+                        for name, syms in companies]}
+
+
+def test_ca_listing_filters_and_symbols() -> None:
+    from data.ca_listings import fetch_ca_listings, is_fund_name, keep_symbol, yahoo_ticker
+
+    assert is_fund_name("iShares S&P/TSX 60 Index ETF") and is_fund_name("Capital Group Equity Select ETFTM (Canada)")
+    assert is_fund_name("Apple (CAD Hedged) CDR") and is_fund_name("Dividend 15 Split Corp.")
+    assert not is_fund_name("Getfit Brands Inc.") and not is_fund_name("RioCan Real Estate Investment Trust")
+    for fund in ("Sprott Physical Gold Trust", "Royal Canadian Mint - Canadian Gold Reserves", "Manulife Canadian Equity Class",
+                 "Canadian Banc Corp.", "Premium Income Corporation"):
+        assert is_fund_name(fund), fund
+    assert not is_fund_name("Decisive Dividend Corporation") and not is_fund_name("Exchange Income Corporation")
+    assert keep_symbol("BBD.B", "tsx") and keep_symbol("REI.UN", "tsx") and keep_symbol("ABC", "tsxv")
+    for bad in ("BCE.PR.A", "FFH.U", "XYZ.DB", "ABC.WT", "AEM.CV", "ZST.F"):
+        assert not keep_symbol(bad, "tsx")
+    assert not keep_symbol("AAAJ.P", "tsxv") and keep_symbol("AAAJ", "tsxv")      # 상장용 껍데기 회사(CPC)
+    assert yahoo_ticker("BBD.B", ".TO") == "BBD-B.TO" and yahoo_ticker("rei.un", ".TO") == "REI-UN.TO"
+
+    pages = {
+        "tsx": _directory(("Bombardier Inc.", ["BBD.A", "BBD.B"]), ("BMO Equal Weight Banks Index ETF", ["ZEB"]),
+                          ("BCE Inc.", ["BCE", "BCE.PR.A"]), ("Fairfax Financial Holdings", ["FFH", "FFH.U"]),
+                          ("RioCan Real Estate Investment Trust", ["REI.UN"])),
+        "tsxv": _directory(("Abc Minerals Ltd.", ["ABC"]), ("AAJ Capital 3 Corp.", ["AAAJ.P"])),
+    }
+    out = fetch_ca_listings(lambda url: pages["tsxv" if "/tsxv/" in url else "tsx"])
+    assert out["ticker"].tolist() == ["BBD-A.TO", "BBD-B.TO", "BCE.TO", "FFH.TO", "REI-UN.TO", "ABC.V"]
+    assert out["tv"].tolist() == ["TSX:BBD.A", "TSX:BBD.B", "TSX:BCE", "TSX:FFH", "TSX:REI.UN", "TSXV:ABC"]
+    assert out["exchange"].tolist() == ["TSX"] * 5 + ["TSXV"] and out.loc[5, "name"] == "Abc Minerals Ltd."
+
+
+def test_yahoo_short_uses_interest_float_and_volume() -> None:
+    idx = pd.date_range("2026-10-01", periods=25, freq="B")
+    prices = {"ABC.V": pd.DataFrame({"Volume": [1e5] * 5 + [2e5] * 20}, index=idx)}   # 최근 20일 평균 200,000주
+    df = pd.DataFrame({"티커": ["ABC.V", "XY-B.TO", "Q.TO"],
+                       "fund_short_interest": [1.2e6, np.nan, 5.0], "fund_float_shares": [4e6, 1e7, 0.0],
+                       "fund_short_pct_float": [np.nan, 0.03, np.nan]})
+    out = rus.add_yahoo_short(df, prices)
+    assert out["short_pct"].tolist()[:2] == [0.3, 0.03] and pd.isna(out.loc[2, "short_pct"])  # 잔고 ÷ 유통주식, 없으면 Yahoo 비중
+    assert out.loc[0, "short_dtc"] == 6.0 and pd.isna(out.loc[1, "short_dtc"])   # 1.2M ÷ 20만 주 = 6일분
+    assert out.loc[0, "[공매도]"] == "공매도 30% · 되사기 6.0일분" and bool(out.loc[0, "short_high"])  # 기준일 없음
+    assert out["short_settle"].isna().all() and out.loc[2, "[공매도]"] == ""
+
+
+def _ca_listings() -> pd.DataFrame:
+    return pd.DataFrame({"ticker": ["BBD-B.TO", "ABC.V", "NEW.V"], "name": ["Bombardier Inc.", "Abc Minerals", "Newco"],
+                         "tv": ["TSX:BBD.B", "TSXV:ABC", "TSXV:NEW"], "exchange": ["TSX", "TSXV", "TSXV"]})
+
+
+def _fake_ca_analyze(tickers, label, names, strong, prev_dir):
+    assert label == "[캐나다 전체]" and strong is None          # 미국 섹터 ETF 강한 섹터는 안 쓴다
+    ranked = _extra_ranked(tickers[:2]).assign(
+        fund_industry=["Aerospace & Defense", "Specialty Chemicals"], fund_market_cap=[2e10, 2e7],
+        fund_pe=[25.0, None], fund_target_mean=[30.0, None], fund_analyst_n=[12, None], fund_short_interest=[1e6, None],
+        fund_float_shares=[1e8, None])
+    close = pd.Series([1.0, 1.1, 1.2], index=pd.date_range("2026-11-03", periods=3, freq="B"))
+    young = {"NEW.V": pd.DataFrame({"Open": close, "High": close, "Low": close, "Close": close, "Volume": [1e4] * 3})}
+    return {"ranked": ranked, "young": young, "young_fund": pd.DataFrame({"티커": ["NEW.V"], "fund_sector": ["Technology"]}),
+            "bar_date": "2026-11-05", "no_data": ["DEAD.V"],
+            "fund": pd.DataFrame({"티커": tickers[:2], "fund_summary": ["Makes jets.", "Mines copper."]})}
+
+
+def test_canada_market_payload(monkeypatch, tmp_path: Path) -> None:
+    import web_export.dashboard as dash
+
+    monkeypatch.setattr(rus, "analyze_market", _fake_ca_analyze)
+    monkeypatch.setattr(dash, "daily_prices", lambda tickers: {})
+    res = rus.canada_market(_ca_listings(), tmp_path)
+
+    p = res["payload"]
+    assert p["key"] == "ca" and p["label"] == "캐나다" and p["bar_date"] == "2026-11-05"
+    assert p["counts"] == {"listed": 3, "analyzed": 2, "young": 1, "no_data": 1}
+    assert list(p["items"]) == ["BBD-B.TO", "ABC.V", "NEW.V"]                 # 점수 순 + 신규 상장은 뒤에
+    b, n, y = (p["items"][t] for t in ("BBD-B.TO", "ABC.V", "NEW.V"))
+    assert b["market"] == "tsx" and n["market"] == "tsxv" and y["market"] == "tsxv"   # 웹 시장 버튼 TSX · TSXV
+    assert b["tv"] == "TSX:BBD.B" and n["tv"] == "TSXV:ABC" and y["first_date"] == "2026-11-03"
+    assert all(v["insider"] is None for v in p["items"].values())              # 내부자 칸은 비운다 (웹은 ceo.ca 링크)
+    assert all(not v["sec_flags"] for v in p["items"].values())
+    assert b["short"]["pct"] == 0.01 and b["short"]["settle"] is None          # Yahoo 잔고 1M ÷ 유통 100M
+    assert [g["ticker"] for g in p["golden"]] == ["BBD-B.TO", "ABC.V"]
+    assert res["about"] == {"BBD-B.TO": "Makes jets.", "ABC.V": "Mines copper."}
+    assert res["details"]["BBD-B.TO"]["analyst"]["mean"] == 30.0 and res["details"]["BBD-B.TO"]["quarters"] is None
+    assert "ABC.V" not in res["details"]                                       # 밸류에이션 · 목표주가 둘 다 없음
+    cols = res["sheet"].columns.tolist()
+    assert cols[cols.index("티커") + 1] == "거래소" and res["sheet"]["거래소"].tolist() == ["TSX", "TSXV"]
+    assert not {"[공시]", "미국 매출 비중", "실적 움직임"} & set(cols) and "[공매도]" in cols
+    assert set(res["snapshot"]["티커"]) == {"BBD-B.TO", "ABC.V", "NEW.V"}
+
+
+def test_main_canada_writes_ca_files(monkeypatch, tmp_path: Path) -> None:
+    import data.ca_listings as cal
+    import web_export.dashboard as dash
+
+    monkeypatch.setattr(cal, "fetch_ca_listings", _ca_listings)
+    monkeypatch.setattr(rus, "fetch_listings", lambda: (_ for _ in ()).throw(AssertionError("미국 목록은 안 받는다")))
+    monkeypatch.setattr(rus, "analyze_market", _fake_ca_analyze)
+    monkeypatch.setattr(dash, "daily_prices", lambda tickers: {})
+    out = tmp_path / "c"
+    assert rus.main(["--out-dir", str(out), "--no-sheet", "--market", "ca"]) == 0
+    assert json.loads((out / "ca.json").read_text())["key"] == "ca" and (out / "ca.json.gz").exists()
+    assert json.loads((out / "stocks" / "BBD-B.TO.json").read_text())["market"] == "ca"
+    assert (out / "snapshot" / "ca_ranked.parquet").exists()
+    assert not (out / "market.json").exists() and not (out / "sp500.json").exists()
+
+
+def test_main_canada_without_data_fails(monkeypatch, tmp_path: Path) -> None:
+    import data.ca_listings as cal
+
+    monkeypatch.setattr(cal, "fetch_ca_listings", _ca_listings)
+    monkeypatch.setattr(rus, "analyze_market", lambda *a: {"ranked": pd.DataFrame(), "young": {}, "young_fund": pd.DataFrame(),
+                                                           "bar_date": "", "no_data": ["BBD-B.TO"], "fund": pd.DataFrame()})
+    out = tmp_path / "c"
+    assert rus.main(["--out-dir", str(out), "--no-sheet", "--market", "ca"]) == 1   # 빈 브랜치를 올리지 않게 실패
+    assert not (out / "ca.json").exists()
+
+
+def test_previous_snapshot_reads_canada_file(tmp_path: Path) -> None:
+    from screener.fundamentals_guard import fill_from_previous_snapshot
+
+    pd.DataFrame({"티커": ["BBD-B.TO"], "섹터": ["Industrials"], "fund_pe": [21.0]}).to_parquet(tmp_path / "ca_ranked.parquet")
+    assert rus._prev_snapshot_dir(tmp_path) == tmp_path
+    fund = pd.DataFrame({"티커": ["BBD-B.TO"], "fund_sector": ["Unknown"], "fund_market_cap": [np.nan], "fund_pe": [np.nan]})
+    got = fill_from_previous_snapshot(fund, "[캐나다]", snapshot_dir=tmp_path)
+    assert got.loc[0, "fund_pe"] == 21.0 and got.loc[0, "fund_sector"] == "Industrials"
