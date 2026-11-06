@@ -63,3 +63,35 @@ def test_big_moves_and_squeeze_evaluation():
     fire = next(r for r in out if r["test_id"] == "SQ_FIRE|up30")
     assert fire["n_obs"] == 20 and fire["up"] > fire["pool_up"]
     assert next(r for r in out if r["test_id"] == "SQ_FUEL|up30")["판정(참고)"] == "표본 없음"
+
+
+def test_congress_rows_fresh_buys_dedupe_and_marker(tmp_path, monkeypatch):
+    """국회의원 신고 (congress_v1, 2026-11-06) — 7일 안 주식 매수만, 지도부 · $50,001+ 따로, 같은 신고는 한 번."""
+    monkeypatch.setattr(st, "DAYS_DIR", tmp_path / "days")
+    feed = {"as_of": "2026-11-06", "recent": [
+        {"doc": "20035551", "ticker": "DDOG", "type": "buy", "atype": "ST", "filed": "2026-11-05", "low": 50001, "leader": "Chair"},
+        {"doc": "20035552", "ticker": "AAPL", "type": "buy", "atype": "ST", "filed": "2026-11-04", "low": 1001, "leader": None},
+        {"doc": "20035553", "ticker": "MSFT", "type": "sell", "atype": "ST", "filed": "2026-11-05", "low": 250001, "leader": "X"},
+        {"doc": "20035554", "ticker": "NVDA", "type": "buy", "atype": "OP", "filed": "2026-11-05", "low": 50001, "leader": None},
+        {"doc": "20035555", "ticker": "OLD", "type": "buy", "atype": "ST", "filed": "2026-10-20", "low": 99999, "leader": "Y"},
+    ]}
+    rows = st.congress_rows("2026-11-06", st.congress_seen(), feed)
+    got = sorted((r["signal"], r["ticker"]) for r in rows)
+    assert got == [("CONG_BIG", "DDOG"), ("CONG_LEAD", "DDOG"), ("POOL_CONG", "SPY")]   # 매도 · 옵션 · 오래된 신고 빠짐
+    st.save_day("2026-11-06", rows)
+    again = st.congress_rows("2026-11-09", st.congress_seen(), {**feed, "recent": feed["recent"][:1]})
+    assert [r["signal"] for r in again] == ["POOL_CONG"]                                 # 이미 기록한 신고
+
+
+def test_evaluate_congress_vs_spy():
+    o = _opens()
+    rows = []
+    for i, d in enumerate(o.index[:30]):
+        rows.append({"date": d, "signal": "POOL_CONG", "ticker": "SPY", "rank": None, "value": np.nan, "flag": False, "price": np.nan})
+        if i % 3 == 0:
+            rows.append({"date": d, "signal": "CONG_BIG", "ticker": "AAA", "rank": None, "value": 1.0 + i, "flag": True, "price": np.nan})
+    out = st.evaluate_v3(pd.DataFrame(rows), o)
+    big = next(r for r in out if r["test_id"] == "CONG_BIG|h63")
+    assert big["checked"] == 30 and big["empty_days"] == 20 and big["picks"] == 10
+    assert big["n_obs"] == 10 and np.isclose(big["mean_ex"], 1.003 ** 63 - 1.001 ** 63)
+    assert next(r for r in out if r["test_id"] == "CONG_LEAD|h63")["판정(참고)"] == "표본 없음"

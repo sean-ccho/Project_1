@@ -297,9 +297,12 @@ jobs:
             || echo "::warning title=ETF 스캔 실패::etf.json · 시트 [ETF] 를 만들지 못했습니다 (파이프라인은 계속 진행)."
 
       # 사이트 오늘 탭(/quant) '경기 상태 · 금리 결정'과 시트 [경제] — FRED 지표 · SPY · 순환/방어 ETF ·
-      # FOMC/BoC 일정과 지난 결정, 표시 전용 (2026-10-30)
+      # FOMC/BoC 일정과 지난 결정, 표시 전용 (2026-10-30). + 주요 일정 (2026-11-06, data/event_calendar.py) —
+      # FRED_API_KEY(선택, 무료)가 있으면 CPI · 고용 등 미국 지표에도 '평소 대비 변동' 표시를 붙인다
       - name: Macro scan
         if: always()
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
           mkdir -p "$RUNNER_TEMP/web"
           PYTHONPATH=.:src python -m screener.macro_scan --out "$RUNNER_TEMP/web/macro.json" --sheet \

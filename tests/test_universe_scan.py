@@ -151,6 +151,25 @@ def test_company_about_goes_to_stock_files_only(tmp_path: Path) -> None:
     assert "Boston Scientific develops" not in (tmp_path / "sp500.json").read_text()
 
 
+def test_congress_summary_on_rows_and_trades_in_stock_files(tmp_path: Path) -> None:
+    """국회의원 거래 (2026-11-06) — congress_tickers.json 이 있으면 목록에 90일 요약, 종목 파일에 12개월 거래."""
+    info = wu.item_info(pd.Series({"티커": "BRK-B", "market": "sp500"}), tv=None, insider=None, isb=None, sqz=None)
+    other = wu.item_info(pd.Series({"티커": "AAPL", "market": "sp500"}), tv=None, insider=None, isb=None, sqz=None)
+    p = wu.market_payload("sp500", "S&P 500", {"BRK-B": info, "AAPL": other}, bar_date=None, counts={})
+    assert rus.load_congress(tmp_path) == ({}, {})                                  # 파일이 없으면 칩 없이
+    summ = {"BRK-B": {"buys": 0, "sells": 1, "members": 1, "last": "2026-10-19", "leader": False, "big_buy": False}}
+    trades = {"BRK-B": [{"filed": "2026-10-19", "type": "sell", "member": "Pete Sessions"}]}
+    (tmp_path / "congress_tickers.json").write_text(json.dumps({"summary": summ, "tickers": trades}))
+    s, t = rus.load_congress(tmp_path)
+    assert rus.attach_congress([p], s) == 1 and p["items"]["BRK-B"]["congress"]["sells"] == 1
+    assert "congress" not in p["items"]["AAPL"]
+    wu.write_payloads(tmp_path / "out", [p], congress=t)
+    assert json.loads((tmp_path / "out" / "stocks" / "BRK-B.json").read_text())["congress"][0]["member"] == "Pete Sessions"
+    assert "congress" not in json.loads((tmp_path / "out" / "stocks" / "AAPL.json").read_text())
+    (tmp_path / "congress_tickers.json").write_text("{broken")
+    assert rus.load_congress(tmp_path) == ({}, {})
+
+
 def test_snapshot_frame_keeps_fallback_columns_without_nan_text() -> None:
     f = pd.DataFrame({"티커": ["A", "B"], "섹터": ["Tech", None], "fund_roe": [0.1, np.nan],
                       "next_earnings_date": ["2026-11-01", None], "RSI": [50, 60]})
@@ -405,20 +424,34 @@ def _fake_ca_analyze(tickers, label, names, strong, prev_dir):
     ranked = _extra_ranked(tickers[:2]).assign(
         fund_industry=["Aerospace & Defense", "Specialty Chemicals"], fund_market_cap=[2e10, 2e7],
         fund_pe=[25.0, None], fund_target_mean=[30.0, None], fund_analyst_n=[12, None], fund_short_interest=[1e6, None],
-        fund_float_shares=[1e8, None])
+        fund_float_shares=[1e8, None], **{"1일수익률": [-0.021, 0.15]})
     close = pd.Series([1.0, 1.1, 1.2], index=pd.date_range("2026-11-03", periods=3, freq="B"))
     young = {"NEW.V": pd.DataFrame({"Open": close, "High": close, "Low": close, "Close": close, "Volume": [1e4] * 3})}
+    stats = {"BBD-B.TO": {"ret_1d": -0.021, "above50": True, "above200": False, "new_high": False, "new_low": True},
+             "ABC.V": {"ret_1d": 0.15, "above50": True, "above200": True, "new_high": True, "new_low": False}}
     return {"ranked": ranked, "young": young, "young_fund": pd.DataFrame({"티커": ["NEW.V"], "fund_sector": ["Technology"]}),
-            "bar_date": "2026-11-05", "no_data": ["DEAD.V"],
+            "bar_date": "2026-11-05", "no_data": ["DEAD.V"], "stats": stats,
             "fund": pd.DataFrame({"티커": tickers[:2], "fund_summary": ["Makes jets.", "Mines copper."]})}
+
+
+def _fake_index(symbols, bar_date):
+    assert symbols[0] == "^GSPTSE" and bar_date == "2026-11-05"
+    return "^GSPTSE", -0.0123
 
 
 def test_canada_market_payload(monkeypatch, tmp_path: Path) -> None:
     import web_export.dashboard as dash
 
     monkeypatch.setattr(rus, "analyze_market", _fake_ca_analyze)
+    monkeypatch.setattr(rus, "index_return", _fake_index)
     monkeypatch.setattr(dash, "daily_prices", lambda tickers: {})
     res = rus.canada_market(_ca_listings(), tmp_path)
+
+    # 오늘 탭 캐나다 판 (2026-11-06) — 시장 폭은 TSX C$1B 이상(BBD-B.TO)만, ABC.V(C$2천만)는 목록에서도 빠진다
+    mk = res["market"]
+    assert mk["market"] == "ca" and mk["index_label"] == "S&P/TSX" and mk["breadth"]["spy"] == -0.0123
+    assert (mk["breadth"]["n"], mk["breadth"]["dec"], mk["breadth"]["new_low"]) == (1, 1, 1)
+    assert [g["t"] for g in mk["gainers"]] == ["BBD-B.TO"] and mk["min_cap"] == 1e9
 
     p = res["payload"]
     assert p["key"] == "ca" and p["label"] == "캐나다" and p["bar_date"] == "2026-11-05"
@@ -447,13 +480,15 @@ def test_main_canada_writes_ca_files(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(cal, "fetch_ca_listings", _ca_listings)
     monkeypatch.setattr(rus, "fetch_listings", lambda: (_ for _ in ()).throw(AssertionError("미국 목록은 안 받는다")))
     monkeypatch.setattr(rus, "analyze_market", _fake_ca_analyze)
+    monkeypatch.setattr(rus, "index_return", _fake_index)
     monkeypatch.setattr(dash, "daily_prices", lambda tickers: {})
     out = tmp_path / "c"
     assert rus.main(["--out-dir", str(out), "--no-sheet", "--market", "ca"]) == 0
     assert json.loads((out / "ca.json").read_text())["key"] == "ca" and (out / "ca.json.gz").exists()
     assert json.loads((out / "stocks" / "BBD-B.TO.json").read_text())["market"] == "ca"
     assert (out / "snapshot" / "ca_ranked.parquet").exists()
-    assert not (out / "market.json").exists() and not (out / "sp500.json").exists()
+    assert json.loads((out / "market.json").read_text())["market"] == "ca"   # canada-data/market.json (오늘 탭 캐나다)
+    assert not (out / "sp500.json").exists()
 
 
 def test_main_canada_without_data_fails(monkeypatch, tmp_path: Path) -> None:

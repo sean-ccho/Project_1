@@ -3,6 +3,8 @@ numpy>=1.24
 pyarrow>=14.0
 yfinance>=1.7.0
 beautifulsoup4>=4.12
+# 하원 국회의원 거래 신고(PTR) PDF 글자 (data/congress_trades.py, 2026-11-06)
+pypdf>=5.0
 ta>=0.10
 scikit-learn>=1.3
 scipy>=1.10

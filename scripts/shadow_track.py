@@ -24,6 +24,12 @@ PT 후보표는 CI 가 커밋한 origin/main 의 data/paper_trading/*_ranked.par
                         종목이 기록일 다음 거래일 시가부터 21거래일 안에 고가로 +30% 이상 찍은 비율 − 같은 날 무작위 표본(pool,
                         같은 대상 조건의 일반 종목 200개)의 같은 비율. 기록일별 차이 → NW t. 비용은 빼지 않는다 (비율 비교).
   참고: 같은 기간 저가로 −30% 이하 찍은 비율의 차이 (위·아래 모두 크게 움직이는지), 평균 수익 − SPY
+사전 등록 3 (TRIAL_LOG family congress_v1, 2026-11-06, 2건 → z = 2.24, **판정 2027-11-06 한 번**) — 국회의원 거래 신고:
+  CONG_LEAD|h63 · CONG_BIG|h63  universe-data 의 congress.json (data.congress_trades — 하원 PTR) 에서 기록일 기준 7일 안에
+                        신고된 주식(ST) 매수 중 당 지도부 의원(CONG_LEAD) · 금액 구간 하한 $50,001 이상(CONG_BIG) 종목 →
+                        기록일 다음 거래일 시가부터 63거래일 시가, 동일가중 − SPY. 같은 신고(문서 번호 · 티커)는 한 번만.
+                        기록일별 평균 → NW t. 근거: Wei & Zhou NBER w34524 (지도부, 거래일 기준) — 여기선 신고 뒤 들어가는 실제 조건.
+                        지도부 거래는 드물어 1년 뒤에도 표본이 모자랄 수 있다 (보고서에 기록일 수를 적는다).
   판정 = idea_batch_v2.judge (buy: 후보 = t ≥ z · 비용 후 > 0 · 앞/뒤 반 + · 연도 2/3 +; avoid 는 부호를 뒤집어 같은 기준).
   약세장(SPY < EMA200)이라 PT 규칙이 신규 진입을 막은 날은 TOP5 가 비어 그날은 관측에서 빠진다 (날짜 수를 보고서에 적는다).
 
@@ -84,6 +90,13 @@ SQUEEZE_SNAPSHOT = "data/paper_trading/squeeze_watch.parquet"
 BIG_MOVE, BIG_H = 0.30, 21
 TESTS_V2: list[tuple[str, str]] = [("SQ_FIRE|up30", "SQ_FIRE"), ("SQ_FUEL|up30", "SQ_FUEL")]
 SQ_SIGNAL = {"fire": "SQ_FIRE", "fuel": "SQ_FUEL", "pool": "POOL_SQ"}
+FAMILY_V3 = "congress_v1"
+JUDGE_DATE_V3 = "2027-11-06"
+CONGRESS_URL = "https://raw.githubusercontent.com/sean-ccho/Project_1/universe-data/congress.json"
+CONG_H = 63
+CONG_BIG_MIN = 50_001
+CONG_FRESH_DAYS = 7      # 기록일 기준 이만큼 안에 신고된 거래만 (늦게 알게 된 신고로 들어가지 않게)
+TESTS_V3: list[tuple[str, str]] = [("CONG_LEAD|h63", "CONG_LEAD"), ("CONG_BIG|h63", "CONG_BIG")]
 PT_UNIVERSES = {"PT1S_TOP5": "sp500", "PT1N_TOP5": "ex_sp500", "PT1_TOP5": "all"}
 POOL_SIGNAL = {"PT1S_TOP5": "POOL_S", "PT1N_TOP5": "POOL_N", "PT1_TOP5": "POOL_ALL"}
 EPS_EVERY_DAYS = 6       # eps_trend · SEC 매출은 6일 넘게 지났을 때만 다시 받는다 (주 1회)
@@ -361,6 +374,41 @@ def squeeze_rows(day: str, rev: str = "origin/main") -> list[dict[str, Any]]:
     return rows
 
 
+def congress_seen() -> set[tuple[str, str, int]]:
+    """이미 기록한 국회의원 신고 (신호, 티커, 문서 번호) — 같은 신고를 다른 날 또 넣지 않게."""
+    seen: set[tuple[str, str, int]] = set()
+    for p in sorted(DAYS_DIR.glob("*.parquet")):
+        d = pd.read_parquet(p, columns=["signal", "ticker", "value"])
+        d = d[d["signal"].isin([s for _t, s in TESTS_V3]) & d["value"].notna()]
+        seen |= {(s, t, int(v)) for s, t, v in zip(d["signal"], d["ticker"], d["value"])}
+    return seen
+
+
+def congress_rows(day: str, seen: set[tuple[str, str, int]], feed: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """congress.json 의 최근 신고 → CONG_LEAD · CONG_BIG 줄 (value = 문서 번호) + 확인 표시 POOL_CONG 한 줄.
+    기록일 기준 CONG_FRESH_DAYS 일 안에 신고된 주식(ST) 매수만."""
+    if feed is None:
+        r = requests.get(CONGRESS_URL, timeout=30)
+        r.raise_for_status()
+        feed = r.json()
+    lo = (pd.Timestamp(day) - pd.Timedelta(days=CONG_FRESH_DAYS)).strftime("%Y-%m-%d")
+    rows: list[dict[str, Any]] = [{"date": day, "signal": "POOL_CONG", "ticker": "SPY", "rank": None, "value": NAN,
+                                   "flag": False, "price": NAN}]
+    for x in feed.get("recent", []):
+        if x.get("type") != "buy" or x.get("atype") != "ST" or not (lo < str(x.get("filed", "")) <= day):
+            continue
+        doc = int(str(x.get("doc", "0")) or 0)
+        t = _norm(x.get("ticker", ""))
+        for sig, ok in (("CONG_LEAD", bool(x.get("leader"))), ("CONG_BIG", (x.get("low") or 0) >= CONG_BIG_MIN)):
+            if ok and (sig, t, doc) not in seen:
+                seen.add((sig, t, doc))
+                rows.append({"date": day, "signal": sig, "ticker": t, "rank": None, "value": float(doc), "flag": True,
+                             "price": NAN})
+    n = pd.Series([r["signal"] for r in rows[1:]]).value_counts().to_dict() if len(rows) > 1 else {}
+    print(f"[shadow] 국회의원 신고 ({feed.get('as_of', '-')} 기준, 최근 {CONG_FRESH_DAYS}일): {n or '새 매수 없음'}", flush=True)
+    return rows
+
+
 def save_day(day: str, rows: list[dict[str, Any]]) -> Path:
     DAYS_DIR.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(rows, columns=COLUMNS)
@@ -409,6 +457,11 @@ def record() -> int:
             rows += runner_rows(day, pool_n)
         except Exception as exc:  # noqa: BLE001
             print(f"[shadow] RUNNER 실패: {exc}", flush=True)
+    if "POOL_CONG" not in have:
+        try:
+            rows += congress_rows(day, congress_seen())
+        except Exception as exc:  # noqa: BLE001 — congress.json 이 아직 없으면 (기능이 켜지기 전) 저녁에 다시
+            print(f"[shadow] 국회의원 신고 실패: {exc}", flush=True)
     if not rows:
         print(f"[shadow] {day} 더 채울 신호 없음", flush=True)
         return 0
@@ -562,6 +615,7 @@ def report() -> None:
     px = load_prices(tickers, days["date"].min())
     rows, _ = evaluate(days, px["Open"])
     rows_v2 = evaluate_v2(days, px)
+    rows_v3 = evaluate_v3(days, px["Open"])
     first, last = days["date"].min().date(), days["date"].max().date()
     n_days = days["date"].nunique()
     lines = [
@@ -588,6 +642,14 @@ def report() -> None:
     for r in rows_v2:
         lines.append(f"| {r['test_id']} | {r['n_obs']} | {pct(r['up'])} | {pct(r['pool_up'])} | {pct(r.get('mean_ex'))} | "
                      f"{r.get('t_nw', NAN):+.2f} | {pct(r['down'])} | {pct(r['pool_down'])} | {pct(r['vs_spy'])} | {r['판정(참고)']} |")
+    lines += ["", f"## 국회의원 거래 신고 ({FAMILY_V3}, {len(TESTS_V3)}건, z = {bonferroni_z(len(TESTS_V3)):.2f}, "
+                  f"판정 {JUDGE_DATE_V3})", "",
+              f"신고 {CONG_FRESH_DAYS}일 안의 주식 매수 → 다음 거래일 시가부터 {CONG_H}거래일, 동일가중 − SPY.", "",
+              "| test | 확인한 날 | 매수 잡힌 줄 | 끝난 관측 | 평균 초과 | t_nw | 빈 날 | 지금 판정(참고) |",
+              "|---|---|---|---|---|---|---|---|"]
+    for r in rows_v3:
+        lines.append(f"| {r['test_id']} | {r['checked']} | {r['picks']} | {r['n_obs']} | {pct(r.get('mean_ex'))} | "
+                     f"{r.get('t_nw', NAN):+.2f} | {r['empty_days']} | {r['판정(참고)']} |")
     (SHADOW_DIR / "SHADOW_REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
 
@@ -627,8 +689,42 @@ def evaluate_v2(days: pd.DataFrame, px: dict[str, pd.DataFrame]) -> list[dict[st
     return out
 
 
+def evaluate_v3(days: pd.DataFrame, opens: pd.DataFrame) -> list[dict[str, Any]]:
+    """국회의원 거래: 기록일마다 (그날 새로 잡힌 매수 종목 63거래일 동일가중 − SPY) → NW t. 매수 종목이 없던 날은 빈 날."""
+    from idea_batch_v2 import _summ, judge  # noqa: PLC0415
+
+    z = bonferroni_z(len(TESTS_V3))
+    checked = sorted(days.loc[days["signal"] == "POOL_CONG", "date"].unique())
+    out = []
+    for tid, sig in TESTS_V3:
+        obs, empty = [], 0
+        for d in checked:
+            picks = days.loc[(days["date"] == d) & (days["signal"] == sig), "ticker"].tolist()
+            if not picks:
+                empty += 1
+                continue
+            r = fwd(opens, d, CONG_H)
+            if r is None or "SPY" not in r:
+                continue
+            pr = r.reindex(picks).dropna()
+            if pr.empty:
+                continue
+            obs.append({"date": d, "ex": pr.mean() - r["SPY"], "spread": NAN, "ic": NAN, "n": len(pr)})
+        res, _ = _summ(pd.DataFrame(obs), CONG_H)
+        out.append({"test_id": tid, "n_obs": res.get("n_obs", 0) if res else 0, **(res or {}), "checked": len(checked),
+                    "empty_days": empty, "picks": int((days["signal"] == sig).sum()),
+                    "판정(참고)": judge(res, z, "buy") if res else "표본 없음"})
+    return out
+
+
 def register() -> None:
     log = pd.read_csv(TRIAL_LOG, encoding="utf-8-sig") if TRIAL_LOG.exists() else pd.DataFrame(columns=["family", "판정"])
+    if not ((log["family"] == FAMILY_V3) & (log["판정"] == "등록")).any():
+        log_trials(STEP, FAMILY_V3, len(TESTS_V3), [{"test_id": "(등록)", "판정": "등록", "메모": (
+            f"국회의원 거래 신고 {len(TESTS_V3)}건 (CONG_LEAD 지도부 매수 · CONG_BIG $50,001+ 매수: 신고 7일 안 → 다음 거래일 "
+            f"시가부터 {CONG_H}거래일 − SPY), z={bonferroni_z(len(TESTS_V3)):.2f}, 판정 {JUDGE_DATE_V3} 한 번. "
+            "표시 전용 기능(data/congress_trades.py)의 검증 — 정의는 scripts/shadow_track.py 머리말")}])
+        print(f"[등록] {FAMILY_V3} {len(TESTS_V3)}건, 판정 {JUDGE_DATE_V3}")
     if not ((log["family"] == FAMILY_V2) & (log["판정"] == "등록")).any():
         log_trials(STEP, FAMILY_V2, len(TESTS_V2), [{"test_id": "(등록)", "판정": "등록", "메모": (
             f"숏스퀴즈 감시 {len(TESTS_V2)}건 (SQ_FIRE·SQ_FUEL: 21거래일 안 고가 +30% 비율 − 같은 날 무작위 표본), "

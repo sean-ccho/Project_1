@@ -290,17 +290,39 @@ def build(today: date | None = None) -> dict[str, Any]:
     for k in ("fomc", "boc"):
         if k in rates and rates[k]["next"] is None:
             errors.append(f"{k}: 다음 일정이 목록에 없음 — data.rate_calendar 를 새 해 일정으로 고쳐야 함")
+    events = build_event_list(today, merge_fomc(fomc_page or []), merge_boc(boc_page or []), errors)
     return {
         "schema": 1,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "as_of": today.isoformat(),
         "indicators": indicators,
         "rates": rates,
+        "events": events,
         "calendar_scraped": {"fomc": bool(fomc_page), "boc": bool(boc_page)},
         "fx": ({"usdcad": round(float(cad.iloc[-1]), 4), "date": cad.index[-1].strftime("%Y-%m-%d")}
                if cad is not None and len(cad) else None),
         "errors": errors,
     }
+
+
+def _event_get(url: str) -> bytes:
+    """주요 일정 자료 받기 — FRED 는 직접 만든 User-Agent 에 응답을 안 줘서 requests 기본 헤더 (fetch_fred 와 같은 이유)."""
+    return _get(url, timeout=20, headers=None if "stlouisfed.org" in url else UA)
+
+
+def build_event_list(today: date, fomc: list[tuple[str, str, bool]], boc: list[tuple[str, bool]],
+                     errors: list[str]) -> list[dict[str, Any]]:
+    """오늘 탭 '이번 주 일정' · '다가오는 큰 일정' (2026-11-06) — data.event_calendar. 평소 대비 변동은 SPY · XIC.TO
+    1993년부터 (못 받으면 배지 없이). CPI · 고용 등 미국 지표 배지는 FRED_API_KEY 가 있을 때만. 실패하면 빈 목록."""
+    import os
+
+    from data.event_calendar import IMPACT_START, build_events
+
+    px = _try("yfinance 일정 영향(SPY · XIC.TO)", lambda: fetch_prices(["SPY", "XIC.TO"], IMPACT_START), errors)
+    events = _try("주요 일정", lambda: build_events(today, fomc, boc, get=_event_get, prices=px,
+                                                  fred_key=os.environ.get("FRED_API_KEY") or None, errors=errors),
+                  errors)
+    return events or []
 
 
 def _clean(obj: Any) -> Any:
@@ -383,8 +405,27 @@ def rate_rows(name: str, block: dict[str, Any], today: date) -> list[dict[str, s
     return rows
 
 
+EVENT_SHEET_DAYS = 60   # 시트 [경제] '주요 일정' — 오늘부터 이만큼
+
+
+def event_rows(events: list[dict[str, Any]], today: date) -> list[dict[str, str]]:
+    """시트 [경제] '주요 일정' — 오늘부터 EVENT_SHEET_DAYS 일 (휴장 · 조기 폐장 포함, 날짜 · 중요도 순)."""
+    from data.event_calendar import impact_text_ko
+
+    end = (today + timedelta(days=EVENT_SHEET_DAYS)).isoformat()
+    rows = []
+    for e in events:
+        if not today.isoformat() <= e["date"] <= end:
+            continue
+        flag = "미국" if e["country"] == "US" else "캐나다"
+        rows.append({"구분": "주요 일정", "항목": e["ko"], "날짜": e["date"],
+                     "값": f"{e['time']} ET" if e.get("time") else "", "비교": "★" * int(e["tier"]),
+                     "판정": impact_text_ko(e.get("impact")), "설명": " · ".join(x for x in (flag, e.get("note_ko")) if x)})
+    return rows
+
+
 def sheet_frame(data: dict[str, Any]) -> pd.DataFrame:
-    """시트 [경제] — 지표 6줄 → 빈 줄 → FOMC → 빈 줄 → BoC."""
+    """시트 [경제] — 지표 6줄 → 빈 줄 → FOMC → 빈 줄 → BoC → 빈 줄 → 주요 일정 (2026-11-06)."""
     cols = ["구분", "항목", "날짜", "값", "비교", "판정", "설명"]
     today = date.fromisoformat(data["as_of"])
     rows: list[dict[str, str]] = [{**indicator_row(i), "날짜": i["date"]} for i in data.get("indicators", [])]
@@ -392,6 +433,10 @@ def sheet_frame(data: dict[str, Any]) -> pd.DataFrame:
         if key in data.get("rates", {}):
             rows.append({c: "" for c in cols})
             rows += rate_rows(name, data["rates"][key], today)
+    ev = event_rows(data.get("events") or [], today)
+    if ev:
+        rows.append({c: "" for c in cols})
+        rows += ev
     return pd.DataFrame(rows, columns=cols).fillna("")
 
 
@@ -406,6 +451,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[경제] {ind['key']}: {ind['value']} ({ind['status']}, {ind['date']})")
     for k, b in data["rates"].items():
         print(f"[경제] {k}: 지금 {b['current']} · 다음 {(b['next'] or {}).get('date')} · 회의 {len(b['meetings'])}개")
+    ev = data.get("events") or []
+    impacts = {e["key"]: e["impact"]["x"] for e in ev if e.get("impact")}
+    print(f"[경제] 주요 일정 {len(ev)}건 · 평소 대비 변동 {impacts}")
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

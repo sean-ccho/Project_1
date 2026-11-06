@@ -68,15 +68,24 @@ jobs:
 
       # Yahoo 종목 정보가 막힌 날 재무·섹터를 채울 전날 값 (없으면 실전 스냅샷 data/paper_trading 으로)
       # + 종목 상세 분기 실적 · 의견 수 캐시 (detail.json.gz — 매일 조금씩 받아 쌓는다, web_export/stock_detail.py)
+      # + 이미 읽은 국회의원 거래 신고 (congress_state.json.gz — 다음 밤엔 새 신고 PDF 만 받는다, data/congress_trades.py)
       - name: Restore previous universe snapshot
         run: |
           mkdir -p "$RUNNER_TEMP/prev"
           if git fetch -q --depth 1 origin universe-data 2>/dev/null; then
-            for f in sp500_ranked.parquet nasdaq_ranked.parquet detail.json.gz; do
+            for f in sp500_ranked.parquet nasdaq_ranked.parquet detail.json.gz congress_state.json.gz; do
               git show "FETCH_HEAD:snapshot/$f" > "$RUNNER_TEMP/prev/$f" 2>/dev/null || rm -f "$RUNNER_TEMP/prev/$f"
             done
           fi
           ls -la "$RUNNER_TEMP/prev"
+
+      # 국회의원 거래 신고 (하원 PTR, 2026-11-06 · 표시 전용) — 스캔이 같은 폴더의 congress_tickers.json 을 읽어 목록 칩 ·
+      # 종목 파일에 붙인다. 실패해도 스캔은 계속 (칩 · 카드 · 오늘 탭 칸만 없다)
+      - name: Congress trades (House PTR)
+        run: |
+          PYTHONPATH=.:src python -m data.congress_trades --out-dir "$RUNNER_TEMP/universe" --prev-dir "$RUNNER_TEMP/prev" \
+            | tee "$RUNNER_TEMP/congress.log" \
+            || echo "::warning title=국회의원 거래 실패::하원 PTR 을 받지 못했습니다 (전체분석은 계속 진행)."
 
       - name: Run universe scan
         run: |

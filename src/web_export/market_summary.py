@@ -3,12 +3,14 @@
 - price_stats      종목 일봉 → 하루 수익률 · 52주 최저/최고 · 50/200일선 위 · 52주 신고가/신저가
 - industry_medians 세부 업종별 밸류에이션 중앙값 (시총 $1B+, 적자 · 500배 넘는 값 제외)
 - valuation_block / analyst_block  종목 상세 카드 (stocks/{티커}.json 의 detail)
-- market_summary   오늘 탭 '시장 한눈에' · '실적 발표 일정' (market.json, 약 10KB)
+- market_summary   오늘 탭 '시장 한눈에' · '실적 발표 일정' (market.json, 약 10KB) — 미국(universe-data)과
+                   캐나다(canada-data, 2026-11-06 — TSX 시총 C$1B 이상으로 시장 폭, 지수는 S&P/TSX) 각각 한 파일
 """
 
 from __future__ import annotations
 
 import math
+import re
 import statistics
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -37,6 +39,14 @@ MOVERS_N = 6
 CAL_DAYS = 5            # 실적 발표 일정 — 거래일 수
 CAL_PER_DAY = 8
 CAL_BIG_CAP = 10e9
+# 캐나다 (2026-11-06) — TSXV 동전주를 넣으면 신저가 · 하락 수가 숫자를 흐려서(11-05 신저가 331개 중 273개가 TSXV)
+# 시장 폭 · 섹터는 TSX 시총 C$1B 이상(약 310종목 — S&P/TSX 종합지수 규모)만, 목록은 두 거래소 C$1B 이상
+CA_MIN_CAP = 1e9
+CA_INDEX = ("^GSPTSE", "XIC.TO")                       # 앞 기호부터 — 지수를 못 받으면 그 지수를 따르는 ETF
+INDEX_LABEL = {"^GSPTSE": "S&P/TSX", "XIC.TO": "S&P/TSX (XIC)", "SPY": "SPY"}
+# 오늘 탭 '다가오는 큰 일정'의 대형주 실적 (2026-11-06) — 그 시장 시총 상위(같은 회사 종류주는 하나) 중 이 기간 안에 발표
+MEGA_N = 15
+MEGA_DAYS = 60
 
 
 def _f(v: Any) -> float | None:
@@ -173,17 +183,63 @@ def _cap(info: Mapping[str, Any]) -> float:
     return _f((info.get("fundamentals") or {}).get("market_cap")) or 0.0
 
 
+def item_cap(info: Mapping[str, Any]) -> float:
+    """웹 종목 정보(TickerInfo)의 시가총액 — 없으면 0 (그 시장 통화)."""
+    return _cap(info)
+
+
+def day_return(close: pd.Series, bar_date: str | None) -> float | None:
+    """bar_date 종가 ÷ 전 거래일 종가 − 1. bar_date 봉이 없으면 None (하루 늦은 지수를 다른 날 값으로 쓰지 않게)."""
+    if not bar_date or close is None or close.empty:
+        return None
+    s = close.dropna()
+    s = s[~s.index.duplicated(keep="last")]
+    days = [str(pd.Timestamp(d).date()) for d in s.index]
+    if bar_date not in days:
+        return None
+    i = days.index(bar_date)
+    if i == 0 or not s.iloc[i - 1] > 0:
+        return None
+    return _f(s.iloc[i] / s.iloc[i - 1] - 1)
+
+
 def _mover(t: str, info: Mapping[str, Any]) -> dict[str, Any]:
     return {"t": t, "name": info.get("company"), "px": _r(info.get("price"), 2), "chg": _r(info.get("ret_1d"), 4),
             "vr": _r(info.get("vol_ratio"), 2), "cap": _cap(info), "sector": info.get("sector")}
 
 
+def mega_earnings(items: Mapping[str, Mapping[str, Any]], bar_date: str) -> list[dict[str, Any]]:
+    """시총 상위 MEGA_N 회사(같은 회사 이름은 한 번 — GOOGL · GOOG) 중 bar_date 다음 날부터 MEGA_DAYS 일 안에 실적 발표 →
+    날짜 순 [{t, name, cap, date, timing}]. 실적일은 Yahoo 예정일이라 회사가 바꾸면 하루 늦게 반영된다."""
+    seen: set[str] = set()
+    tops: list[tuple[str, Mapping[str, Any]]] = []
+    for t, v in sorted(items.items(), key=lambda x: -_cap(x[1])):
+        # 같은 회사 종류주 — 이름(GOOGL · GOOG 'Alphabet Inc.')이나 티커 뿌리(BRK-A 'Berkshire Hathaway Inc.' ·
+        # BRK-B '… Inc. New', CCL-A.TO · CCL-B.TO)가 같으면 하나만
+        name = re.sub(r"[^a-z0-9 ]", "", str(v.get("company") or t).lower()).strip()
+        root = t.split("-")[0] if "-" in t else t
+        if name in seen or root in seen or _cap(v) <= 0:
+            continue
+        seen.update({name, root})
+        tops.append((t, v))
+        if len(tops) >= MEGA_N:
+            break
+    limit = (datetime.strptime(bar_date, "%Y-%m-%d").date() + timedelta(days=MEGA_DAYS)).isoformat()
+    rows = [{"t": t, "name": v.get("company"), "cap": _cap(v), "date": str(v["earnings_date"])[:10],
+             "timing": (v.get("earnings_move") or {}).get("timing")}
+            for t, v in tops if v.get("earnings_date") and bar_date < str(v["earnings_date"])[:10] <= limit]
+    return sorted(rows, key=lambda r: (r["date"], -r["cap"]))
+
+
 def market_summary(items: Mapping[str, Mapping[str, Any]], sp500: Iterable[str],
                    breadth_flags: Mapping[str, Mapping[str, Any]], bar_date: str | None,
-                   spy_ret_1d: float | None, generated_at: str) -> dict[str, Any] | None:
-    """오늘 탭 market.json. items = 전체분석 종목 정보(TickerInfo, 두 시장), sp500 = 시장 폭에 쓸 S&P 500 티커,
-    breadth_flags = {티커: price_stats 결과} (50/200일선 · 신고가/신저가). 신고가/신저가는 목록 행에도 같은 표시가 실려서
-    (ROW_FLAGS → row_flags) 사이트가 숫자를 누르면 그 종목들을 거른다. bar_date 가 없으면 None."""
+                   spy_ret_1d: float | None, generated_at: str, *, market: str = "us", index_label: str = "SPY",
+                   min_cap: float = MOVER_MIN_CAP) -> dict[str, Any] | None:
+    """오늘 탭 market.json. items = 전체분석 종목 정보(TickerInfo), sp500 = 시장 폭 · 섹터에 쓸 티커(미국 = S&P 500,
+    캐나다 = TSX 시총 C$1B 이상), breadth_flags = {티커: price_stats 결과} (50/200일선 · 신고가/신저가).
+    신고가/신저가는 목록 행에도 같은 표시가 실려서 (ROW_FLAGS → row_flags) 사이트가 숫자를 누르면 그 종목들을 거른다.
+    spy_ret_1d = 그 시장 지수 하루 수익률 (breadth.spy — 이름은 예전 그대로, 무슨 지수인지는 index_label),
+    min_cap = 많이 오른 · 내린 · 거래량 급증 목록 하한 (그 시장 통화). bar_date 가 없으면 None."""
     if not bar_date:
         return None
     sp = [t for t in sp500 if t in items and _f(items[t].get("ret_1d")) is not None]
@@ -206,7 +262,7 @@ def market_summary(items: Mapping[str, Mapping[str, Any]], sp500: Iterable[str],
         "equal": round(statistics.mean(c for c in chg if c is not None), 4) if chg else None,
     }
     sp_set = set(sp500)
-    pool = [t for t, v in items.items() if _f(v.get("ret_1d")) is not None and (t in sp_set or _cap(v) >= MOVER_MIN_CAP)]
+    pool = [t for t, v in items.items() if _f(v.get("ret_1d")) is not None and (t in sp_set or _cap(v) >= min_cap)]
     by_chg = sorted(pool, key=lambda t: _f(items[t]["ret_1d"]) or 0.0)
     surge = sorted((t for t in pool if _f(items[t].get("vol_ratio")) is not None),
                    key=lambda t: -(_f(items[t]["vol_ratio"]) or 0.0))
@@ -233,10 +289,13 @@ def market_summary(items: Mapping[str, Mapping[str, Any]], sp500: Iterable[str],
     return {
         "schema": SCHEMA_VERSION,
         "generated_at": generated_at,
+        "mega": mega_earnings(items, bar_date),
+        "market": market,
+        "index_label": index_label,
         "bar_date": bar_date,
         "breadth": breadth,
         "row_flags": list(ROW_FLAGS),
-        "min_cap": MOVER_MIN_CAP,
+        "min_cap": min_cap,
         "pool": len(pool),
         "gainers": [_mover(t, items[t]) for t in by_chg[::-1][:MOVERS_N]],
         "losers": [_mover(t, items[t]) for t in by_chg[:MOVERS_N]],

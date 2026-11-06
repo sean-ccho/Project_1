@@ -90,6 +90,60 @@ def _log(msg: str, start: float) -> None:
     print(f"[전체분석] {msg} ({(time.perf_counter() - start) / 60:.1f}분)", flush=True)
 
 
+def load_congress(out_dir: Path) -> tuple[dict[str, dict[str, Any]], dict[str, list[dict[str, Any]]]]:
+    """같은 폴더의 congress_tickers.json (universe-scan.yml 이 스캔 앞에 data.congress_trades 로 만든다, 2026-11-06)
+    → (티커별 90일 요약 — 목록 칩, 티커별 12개월 거래 — 종목 파일). 없거나 못 읽으면 둘 다 빈 dict (칩 · 카드 없이)."""
+    import json
+
+    path = out_dir / "congress_tickers.json"
+    if not path.exists():
+        return {}, {}
+    try:
+        d = json.loads(path.read_text(encoding="utf-8"))
+        return dict(d.get("summary") or {}), dict(d.get("tickers") or {})
+    except Exception as exc:  # noqa: BLE001
+        print(f"[전체분석] 국회의원 거래 파일 읽기 실패 (건너뜀): {exc}")
+        return {}, {}
+
+
+def attach_congress(payloads: list[dict[str, Any]], summary: Mapping[str, dict[str, Any]]) -> int:
+    """시장 파일 종목 정보에 국회의원 거래 90일 요약(info.congress)을 붙인다 → 붙인 종목 수. 표시 전용."""
+    done: set[str] = set()
+    for p in payloads:
+        for t, info in p["items"].items():
+            s = summary.get(_norm(t)) or summary.get(t)
+            if s:
+                info["congress"] = s
+                done.add(t)
+    return len(done)
+
+
+def index_return(symbols: tuple[str, ...], bar_date: str | None) -> tuple[str | None, float | None]:
+    """지수 하루 수익률 (bar_date 종가 ÷ 전 거래일 − 1) — 앞 기호부터 받고, 못 받거나 그날 봉이 없으면 다음 기호.
+    다 안 되면 (None, None) — 오늘 탭은 지수 칸만 '—'. 디스크 캐시를 안 쓰는 yfinance 직접 호출 (몇 줄뿐)."""
+    if not bar_date:
+        return None, None
+    import yfinance as yf
+
+    from web_export.market_summary import day_return
+
+    day = pd.Timestamp(bar_date)
+    for sym in symbols:
+        try:
+            px = yf.download(sym, start=(day - pd.Timedelta(days=14)).date().isoformat(),
+                             end=(day + pd.Timedelta(days=1)).date().isoformat(),
+                             auto_adjust=True, progress=False, threads=False)["Close"]
+            if isinstance(px, pd.DataFrame):
+                px = px.iloc[:, 0]
+            ret = day_return(px, bar_date)
+            if ret is not None:
+                return sym, ret
+            print(f"[전체분석] 지수 {sym}: {bar_date} 봉 없음")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[전체분석] 지수 {sym} 실패: {exc}")
+    return None, None
+
+
 # ── 종목 ─────────────────────────────────────────────────────
 
 
@@ -703,8 +757,31 @@ def canada_market(listings: pd.DataFrame, prev_dir: Path) -> dict[str, Any] | No
     return {"payload": market_payload(CA_KEY, CA_LABEL, items, bar_date=bar_date, counts=counts, golden=golden),
             "about": company_about(res["fund"]),
             "details": local_details(ranked, items, bar_date),
+            "market": canada_summary(items, res.get("stats") or {}, bar_date),
             "sheet": ca_sheet_frame(ranked, isb, sqz) if not ranked.empty else None,
             "snapshot": snapshot_frame([ranked, res["young_fund"]])}
+
+
+def canada_summary(items: Mapping[str, Mapping[str, Any]], stats: Mapping[str, Mapping[str, Any]],
+                   bar_date: str | None) -> dict[str, Any] | None:
+    """오늘 탭 '시장 한눈에' · '실적 발표 일정' 캐나다 판 (canada-data/market.json, 2026-11-06, 표시 전용).
+    시장 폭 · 섹터 = TSX 시총 C$1B 이상, 목록 = 두 거래소 C$1B 이상, 실적 일정 = 캐나다 전 종목, 지수 = S&P/TSX."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from web_export.market_summary import CA_INDEX, CA_MIN_CAP, INDEX_LABEL, item_cap, market_summary
+
+    breadth = [t for t, v in items.items() if v.get("market") == "tsx" and item_cap(v) >= CA_MIN_CAP]
+    sym, ret = index_return(CA_INDEX, bar_date)
+    m = market_summary(items, breadth, stats, bar_date, ret,
+                       datetime.now(ZoneInfo("America/New_York")).isoformat(timespec="seconds"),
+                       market=CA_KEY, index_label=INDEX_LABEL.get(sym or CA_INDEX[0], "S&P/TSX"), min_cap=CA_MIN_CAP)
+    if m:
+        b = m["breadth"]
+        print(f"[{CA_LABEL}] 시장 한눈에: TSX C$1B+ {b['n']}종목 · 오른 {b['adv']} · 내린 {b['dec']} · "
+              f"신고가 {b['new_high']} · 신저가 {b['new_low']} · 지수 {sym or '없음'}"
+              f"{f' {ret:+.2%}' if ret is not None else ''}")
+    return m
 
 
 def _prev_snapshot_dir(prev_dir: Path | None) -> Path:
@@ -729,8 +806,9 @@ def canada_main(args: argparse.Namespace) -> int:
     _log(f"{CA_LABEL} 분석 끝", start)
     if res is None:
         return 1
-    sizes = write_payloads(args.out_dir, [res["payload"]], res["about"], res["details"], None)
-    print(f"[{CA_LABEL}] 회사 소개 {len(res['about'])}종목 · 종목 상세 {len(res['details'])}종목 · 웹 파일: {sizes}")
+    sizes = write_payloads(args.out_dir, [res["payload"]], res["about"], res["details"], res.get("market"))
+    print(f"[{CA_LABEL}] 회사 소개 {len(res['about'])}종목 · 종목 상세 {len(res['details'])}종목 · "
+          f"market.json {'있음' if res.get('market') else '없음'} · 웹 파일: {sizes}")
     if not res["snapshot"].empty:
         snap_dir = args.out_dir / "snapshot"
         snap_dir.mkdir(parents=True, exist_ok=True)
@@ -894,8 +972,11 @@ def main(argv: list[str] | None = None) -> int:
                                      max(real_dates) if real_dates else None, args.prev_dir, args.out_dir,
                                      budget_sec=args.detail_budget)
         _log("투자자 한눈에 끝", start)
-    sizes = write_payloads(args.out_dir, payloads, about, details, market)
-    print(f"[전체분석] 회사 소개 {len(about)}종목 · 종목 상세 {len(details)}종목 · market.json {'있음' if market else '없음'}")
+    cong_sum, cong_tx = load_congress(args.out_dir)
+    n_cong = attach_congress(payloads, cong_sum)
+    sizes = write_payloads(args.out_dir, payloads, about, details, market, congress=cong_tx)
+    print(f"[전체분석] 회사 소개 {len(about)}종목 · 종목 상세 {len(details)}종목 · market.json {'있음' if market else '없음'} · "
+          f"국회의원 거래 칩 {n_cong}종목")
     snap_dir = args.out_dir / "snapshot"
     snap_dir.mkdir(parents=True, exist_ok=True)
     for key, frames in snapshots.items():

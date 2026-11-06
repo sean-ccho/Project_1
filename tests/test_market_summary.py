@@ -153,7 +153,55 @@ def test_market_summary_breadth_movers_sectors_calendar() -> None:
     assert m["calendar"][0]["items"][0]["timing"] == "amc" and m["calendar"][0]["n_big"] == 1
     assert m["calendar"][1]["n"] == 1
     assert ms.market_summary(items, [], {}, None, None, "t") is None
+    assert m["market"] == "us" and m["index_label"] == "SPY" and m["min_cap"] == ms.MOVER_MIN_CAP
     json.dumps(m, allow_nan=False)
+
+
+def test_market_summary_canada_params() -> None:
+    """캐나다 판 (2026-11-06) — 시장 폭은 넘긴 TSX 목록만, 목록 하한 C$1B, 지수 이름 · 시장 표시."""
+    items = {
+        "RY.TO": {**_item(-0.02, 3.9e11, sector="Financial Services", ed="2026-11-06"), "market": "tsx"},
+        "SMALL.TO": {**_item(0.30, 5e8), "market": "tsx"},          # C$1B 미만 → 시장 폭 · 목록 둘 다 빠짐
+        "MID.V": {**_item(0.08, 1.5e9), "market": "tsxv"},          # TSXV C$1B 이상 → 목록에만
+    }
+    m = ms.market_summary(items, ["RY.TO"], {"RY.TO": {"above50": False, "new_low": True}}, "2026-11-05", -0.012, "t",
+                          market="ca", index_label="S&P/TSX", min_cap=ms.CA_MIN_CAP)
+    assert m["market"] == "ca" and m["index_label"] == "S&P/TSX" and m["min_cap"] == 1e9
+    assert m["breadth"]["n"] == 1 and m["breadth"]["spy"] == -0.012 and m["breadth"]["new_low"] == 1
+    assert [g["t"] for g in m["gainers"]] == ["MID.V", "RY.TO"] and m["pool"] == 2
+    assert m["calendar"][0]["date"] == "2026-11-06" and m["calendar"][0]["items"][0]["t"] == "RY.TO"
+    assert ms.item_cap(items["RY.TO"]) == 3.9e11 and ms.item_cap({}) == 0.0
+
+
+def test_mega_earnings_top_caps_dedup_and_window() -> None:
+    items = {
+        "GOOGL": {**_item(0.01, 3.0e12, ed="2027-02-03"), "company": "Alphabet Inc."},
+        "GOOG": {**_item(0.01, 3.0e12, ed="2027-02-03"), "company": "Alphabet Inc."},   # 같은 회사 → 한 번
+        "BRK-B": {**_item(0.01, 0.9e12, ed="2026-11-07"), "company": "Berkshire Hathaway Inc. New"},
+        "BRK-A": {**_item(0.01, 0.9e12, ed="2026-11-07"), "company": "Berkshire Hathaway Inc."},  # 티커 뿌리가 같다
+        "NVDA": {**_item(0.01, 4.5e12, ed="2026-11-19", timing="amc"), "company": "NVIDIA"},
+        "FAR": {**_item(0.01, 2.0e12, ed="2027-03-30"), "company": "Far Co"},           # 60일 밖
+        "PAST": {**_item(0.01, 1.0e12, ed="2026-11-05"), "company": "Past Co"},         # 기준일 이전
+        "TINY": {**_item(0.01, 1e8, ed="2026-11-20"), "company": "Tiny"},
+    }
+    old = ms.MEGA_N
+    try:
+        ms.MEGA_N = 4                                                                    # 상위 4 → TINY 는 밖
+        mega = ms.mega_earnings(items, "2026-11-05")
+    finally:
+        ms.MEGA_N = old
+    assert [m["t"] for m in mega] == ["NVDA"] and mega[0]["timing"] == "amc" and mega[0]["date"] == "2026-11-19"
+    assert [m["t"] for m in ms.mega_earnings(items, "2026-12-20")] == ["GOOGL"]
+    assert [m["t"] for m in ms.mega_earnings(items, "2026-11-06")] == ["BRK-B", "NVDA", "TINY"]   # BRK-A 는 빠진다
+
+
+def test_day_return_needs_the_bar_date_row() -> None:
+    idx = pd.to_datetime(["2026-11-03", "2026-11-04", "2026-11-05"])
+    close = pd.Series([100.0, 102.0, 99.96], index=idx)
+    assert ms.day_return(close, "2026-11-05") == pytest.approx(-0.02)
+    assert ms.day_return(close, "2026-11-06") is None      # 지수가 하루 늦으면 다른 날 값을 쓰지 않는다
+    assert ms.day_return(close, "2026-11-03") is None      # 전날이 없음
+    assert ms.day_return(pd.Series(dtype=float), "2026-11-05") is None and ms.day_return(close, None) is None
 
 
 # ── stock_detail
