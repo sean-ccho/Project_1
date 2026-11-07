@@ -4,65 +4,69 @@
 [내계좌] 보유 중 6개 종목: ['HUBS', 'CELH', 'NOW', 'PEP', 'DOCS', 'HII'] · 판 거래 0줄 · 샘플 1줄 (제외)
 
 [내계좌] ▶ HUBS 분석 중...
-    1H     : RSI=26.6     MACD=-1.25688      Vol=1.2x   ✅
-    4H     : RSI=24.9     MACD=-3.75069      Vol=0.76x  ✅
-    Daily  : RSI=35.3     MACD=-4.97408      Vol=2.79x  ✅
-    Weekly : RSI=43.9     MACD=+3.85122      Vol=1.69x  ✅
-    Monthly: RSI=35.3     MACD=-9.67546      Vol=0.5x   ✅
-    현재가: $204.96
+    1H     : RSI=37.7     MACD=-0.11801      Vol=1.3x   ✅
+    4H     : RSI=27.7     MACD=-3.46527      Vol=0.83x  ✅
+    Daily  : RSI=33.8     MACD=-5.86909      Vol=1.66x  ✅
+    Weekly : RSI=43.2     MACD=+3.57361      Vol=1.8x   ✅
+    Monthly: RSI=35.0     MACD=-9.95307      Vol=0.53x  ✅
+    현재가: $200.61
 
 [내계좌] ▶ CELH 분석 중...
-    1H     : RSI=48.4     MACD=-0.13699      Vol=1.75x  ✅
-    4H     : RSI=54.5     MACD=+0.02674      Vol=0.85x  ✅
-    Daily  : RSI=58.4     MACD=+0.26043      Vol=2.65x  ✅
-    Weekly : RSI=47.4     MACD=+0.57496      Vol=1.15x  ✅
-    Monthly: RSI=43.3     MACD=-1.66186      Vol=0.31x  ✅
-    현재가: $30.04
+    1H     : RSI=66.2     MACD=+0.12735      Vol=0.86x  ✅
+    4H     : RSI=67.6     MACD=+0.17386      Vol=0.48x  ✅
+    Daily  : RSI=68.0     MACD=+0.36893      Vol=1.43x  ✅
+    Weekly : RSI=51.8     MACD=+0.71026      Vol=1.21x  ✅
+    Monthly: RSI=45.0     MACD=-1.52656      Vol=0.32x  ✅
+    현재가: $32.16
 
 [내계좌] ▶ NOW 분석 중...
-    1H     : RSI=28.8     MACD=-0.02613      Vol=1.23x  ✅
-    4H     : RSI=24.3     MACD=-0.36990      Vol=0.29x  ✅
-    Daily  : RSI=27.8     MACD=-5.53062      Vol=1.32x  ✅
-    Weekly : RSI=41.3     MACD=-1.57038      Vol=1.19x  ✅
-    Monthly: RSI=41.3     MACD=-4.09216      Vol=0.35x  ✅
-    현재가: $102.36
+    1H     : RSI=33.9     MACD=+0.27075      Vol=0.73x  ✅
+    4H     : RSI=25.7     MACD=+0.26035      Vol=0.18x  ✅
+    Daily  : RSI=27.7     MACD=-5.24952      Vol=0.77x  ✅
+    Weekly : RSI=41.1     MACD=-1.59527      Vol=1.25x  ✅
+    Monthly: RSI=41.3     MACD=-4.11705      Vol=0.36x  ✅
+    현재가: $101.97
 
 [내계좌] ▶ PEP 분석 중...
-    1H     : RSI=59.8     MACD=-0.10641      Vol=1.72x  ✅
-    4H     : RSI=65.4     MACD=+0.32261      Vol=0.64x  ✅
-    Daily  : RSI=65.9     MACD=+1.07648      Vol=1.27x  ✅
-    Weekly : RSI=56.3     MACD=+0.94429      Vol=1.29x  ✅
-    Monthly: RSI=50.0     MACD=-0.27574      Vol=0.32x  ✅
-    현재가: $142.71
+    1H     : RSI=51.2     MACD=-0.40504      Vol=1.4x   ✅
+    4H     : RSI=59.3     MACD=-0.14248      Vol=0.57x  ✅
+    Daily  : RSI=62.5     MACD=+0.97191      Vol=0.88x  ✅
+    Weekly : RSI=54.8     MACD=+0.85686      Vol=1.38x  ✅
+    Monthly: RSI=49.3     MACD=-0.36317      Vol=0.34x  ✅
+    현재가: $141.34
 
 [내계좌] ▶ DOCS 분석 중...
-    1H     : RSI=43.4     MACD=-0.11242      Vol=2.86x  ✅
-    4H     : RSI=50.3     MACD=-0.10657      Vol=1.04x  ✅
-    Daily  : RSI=58.8     MACD=-0.14934      Vol=0.92x  ✅
-    Weekly : RSI=64.5     MACD=+1.45053      Vol=0.62x  ✅
-    Monthly: RSI=46.6     MACD=-1.19421      Vol=0.19x  ✅
-    현재가: $33.18
+    1H     : RSI=44.9     MACD=-0.14296      Vol=2.03x  ✅
+    4H     : RSI=46.2     MACD=-0.26269      Vol=1.0x   ✅
+    Daily  : RSI=54.9     MACD=-0.23353      Vol=1.56x  ✅
+    Weekly : RSI=62.8     MACD=+1.40777      Vol=0.92x  ✅
+    Monthly: RSI=46.0     MACD=-1.23697      Vol=0.29x  ✅
+    현재가: $32.51
 
 [내계좌] ▶ HII 분석 중...
-    1H     : RSI=31.4     MACD=-2.18258      Vol=1.84x  ✅
-    4H     : RSI=43.9     MACD=-3.72514      Vol=0.52x  ✅
-    Daily  : RSI=52.0     MACD=+2.73004      Vol=1.18x  ✅
-    Weekly : RSI=47.3     MACD=+3.12083      Vol=1.3x   ✅
-    Monthly: RSI=50.0     MACD=-8.36616      Vol=0.29x  ✅
-    현재가: $289.41
+    1H     : RSI=34.7     MACD=-0.22629      Vol=1.68x  ✅
+    4H     : RSI=44.0     MACD=-3.81687      Vol=0.52x  ✅
+    Daily  : RSI=51.6     MACD=+1.26188      Vol=0.86x  ✅
+    Weekly : RSI=47.2     MACD=+3.07807      Vol=1.43x  ✅
+    Monthly: RSI=49.9     MACD=-8.40892      Vol=0.32x  ✅
+    현재가: $288.74
 [SEC] 공시 경고: 6/6종목 확인 · 🔴 0 · 🟠 0 (1초)
 [내계좌] HUBS 실적 때 움직임: 지난 8번 평균 ±10.9% · 최악 -19.1% · amc
 [내계좌] CELH 실적 때 움직임: 지난 8번 평균 ±13.4% · 최악 -24.8% · bmo
 [내계좌] NOW 실적 때 움직임: 지난 8번 평균 ±11.5% · 최악 -27.0% · amc
 [내계좌] PEP 실적 때 움직임: 지난 8번 평균 ±4.4% · 최악 -4.9% · amc
-[내계좌] DOCS 실적 때 움직임: 지난 8번 평균 ±22.4% · 최악 -23.0% · amc
+[내계좌] DOCS 실적 때 움직임: 지난 8번 평균 ±18.4% · 최악 -23.0% · amc
 [내계좌] HII 실적 때 움직임: 지난 8번 평균 ±10.3% · 최악 -18.3% · bmo
 
 [내계좌] 시트 업데이트 중...
     [시트] 6종목 분석 값 업데이트 완료 (150칸)
-[SEC] 공시 경고: 1/1종목 확인 · 🔴 0 · 🟠 0 (0초)
-[관심종목] 1종목 갱신 · 목표가 도달 0
-[내계좌] 알림: HUBS 현재 $204.96 — 손절가 $215.86 아래로 내려왔어요
+[SEC] 공시 경고: 2/2종목 확인 · 🔴 0 · 🟠 0 (0초)
+[관심종목] 2종목 갱신 · 목표가 도달 2
+[내계좌] 알림: HUBS 현재 $200.61 — 손절가 $215.86 아래로 내려왔어요
+[내계좌] 알림: 관심종목 URBN 목표가 $86.57 이하 도달 — 현재 $84.70 · 메모: 차트에서 매수 (일봉 보고) · ★14.0 · 모멘텀 · 주봉 정배열(완전) · 월봉 정배열(완전) · RSI 70 · 20D +15.4%
+
+지켜보기
+[내계좌] 알림: 관심종목 FLY 목표가 $20.76 이하 도달 — 현재 $20.76 · 메모: 실적(11월 10일) 뒤에 다시 보기 · 차트에서 관심 (일봉 보고) · ★3.2 · 일봉 골든크로스임박·차트반전 · 주봉 강세잉걸핑 · RSI 56 · 20D +3.8%
 [내계좌] ✅ 이메일 발송 → chunghwan14@gmail.com (6개 종목)
 
 ============================================================
