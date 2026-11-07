@@ -240,3 +240,14 @@ def test_trade_log_with_spy() -> None:
         ("2026-10-15", "sell", "B"), ("2026-10-15", "buy", "C")]      # 같은 날: 다른 종목 매도 → 매수
     assert sheet[1]["pnl"] == a["pnl"] and sheet[1]["strategy"] == "모멘텀"
     assert wd.trade_log(trades)[0]["spy_return"] is None
+
+
+def test_spark_block_weekly_shape_for_dashboard_stocks() -> None:
+    """매수 후보 · 차트 목록 미니 차트 — 받은 일봉(yfinance 심볼: BRK.B → BRK-B)에서 주봉 1년 모양 (2026-11-06)."""
+    from web_export.market_summary import SPARK_WEEKS
+
+    idx = pd.bdate_range("2025-01-01", periods=300)
+    up = pd.DataFrame({"Close": [float(i + 1) for i in range(300)]}, index=idx)
+    out = wd.spark_block(["BRK.B", "NONE"], {"BRK-B": up})
+    assert list(out) == ["BRK.B"] and len(out["BRK.B"]) == SPARK_WEEKS
+    assert wd.spark_block(["BRK.B"], {}) == {}

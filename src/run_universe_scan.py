@@ -291,6 +291,7 @@ def add_web_stats(ranked: pd.DataFrame, stats: Mapping[str, Mapping[str, Any]]) 
     ranked["52주최고"] = tick.map(lambda t: (stats[t]["range_52w"] or {}).get("high"))
     ranked["52주신고가"] = tick.map(lambda t: stats[t]["new_high"])
     ranked["52주신저가"] = tick.map(lambda t: stats[t]["new_low"])
+    ranked["주봉흐름"] = tick.map(lambda t: stats[t].get("spark_w"))  # 목록 미니 차트 (2026-11-06, 웹 전용)
     return ranked
 
 

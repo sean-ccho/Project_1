@@ -1,6 +1,7 @@
 """웹 '투자자 한눈에' 숫자 (2026-11-03) — 전체분석(src/run_universe_scan.py)이 같이 만든다. 표시 전용 (점수 · 필터 · PT-1 무관).
 
-- price_stats      종목 일봉 → 하루 수익률 · 52주 최저/최고 · 50/200일선 위 · 52주 신고가/신저가
+- price_stats      종목 일봉 → 하루 수익률 · 52주 최저/최고 · 50/200일선 위 · 52주 신고가/신저가 · 주봉 흐름
+- weekly_spark     일봉 종가 → 목록 미니 차트용 주봉 52개 모양 글자 (2026-11-06)
 - industry_medians 세부 업종별 밸류에이션 중앙값 (시총 $1B+, 적자 · 500배 넘는 값 제외)
 - valuation_block / analyst_block  종목 상세 카드 (stocks/{티커}.json 의 detail)
 - market_summary   오늘 탭 '시장 한눈에' · '실적 발표 일정' (market.json, 약 10KB) — 미국(universe-data)과
@@ -47,6 +48,11 @@ INDEX_LABEL = {"^GSPTSE": "S&P/TSX", "XIC.TO": "S&P/TSX (XIC)", "SPY": "SPY"}
 # 오늘 탭 '다가오는 큰 일정'의 대형주 실적 (2026-11-06) — 그 시장 시총 상위(같은 회사 종류주는 하나) 중 이 기간 안에 발표
 MEGA_N = 15
 MEGA_DAYS = 60
+# 목록 미니 차트 (2026-11-06) — 주봉 종가 SPARK_WEEKS 개를 그 기간 최저 0 ~ 최고 63 단계로 나눠 한 글자씩.
+# 값이 아니라 모양만 싣는다 (종목당 52바이트 — 나스닥 목록 약 4,500줄에도 수백 KB). 사이트 components/Spark.tsx 가 푼다.
+SPARK_WEEKS = 52
+SPARK_MIN_WEEKS = 8
+SPARK_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_"
 
 
 def _f(v: Any) -> float | None:
@@ -84,15 +90,38 @@ def chart_daily_as_of(adj: pd.DataFrame, chart: ChartPrices | None) -> pd.DataFr
     return daily if not daily.empty else split_only_ohlcv(adj)
 
 
+def weekly_spark(close: pd.Series | None, weeks: int = SPARK_WEEKS) -> str | None:
+    """일봉 종가 → 주봉(금요일 마감 · 마지막 주는 마지막 봉까지) 종가 최근 weeks 개의 모양 글자.
+
+    글자 하나 = 한 주, SPARK_ALPHABET 순서로 그 기간 최저 0 ~ 최고 63. 모두 같으면 가운데(32).
+    상장이 짧아 주봉이 weeks 개보다 적으면 있는 만큼 (사이트가 오른쪽에 붙여 그린다), SPARK_MIN_WEEKS 개 미만이면 None.
+    """
+    if close is None or not isinstance(close.index, pd.DatetimeIndex):
+        return None
+    s = pd.to_numeric(close, errors="coerce").dropna()
+    s = s[s > 0]
+    if s.empty:
+        return None
+    w = s.resample("W-FRI").last().dropna().iloc[-weeks:]
+    if len(w) < SPARK_MIN_WEEKS:
+        return None
+    lo, hi = float(w.min()), float(w.max())
+    top = len(SPARK_ALPHABET) - 1
+    if hi <= lo:
+        return SPARK_ALPHABET[top // 2 + 1] * len(w)
+    return "".join(SPARK_ALPHABET[int(round((float(v) - lo) / (hi - lo) * top))] for v in w)
+
+
 def price_stats(adj: pd.DataFrame, chart: ChartPrices | None = None) -> dict[str, Any]:
     """한 종목 일봉 → 웹 숫자. adj = 배당 조정 OHLCV + Dividends (수익률 · 이동평균선), chart = 분할만 반영 차트 가격.
 
     52주 최저/최고 · 신고가/신저가는 차트 가격(chart_daily_as_of — 차트 · Yahoo 화면과 같은 값)으로 본다.
     신고가 = 마지막 봉 고가 ≥ 직전 251봉 최고 (신저가는 저가 ≤ 최저, 같으면 포함) — 2026-11-04 부터 차트 가격
     (전에는 배당 조정 가격이라 배당 많은 종목이 차트로는 신고가가 아닌데 신고가로 잡혔다). 일봉이 모자라면 그 칸은 None.
+    spark_w = 목록 미니 차트 주봉 모양 (weekly_spark, 차트 가격 종가 — 2026-11-06).
     """
     out: dict[str, Any] = {"ret_1d": None, "above50": None, "above200": None, "new_high": None, "new_low": None,
-                           "range_52w": None}
+                           "range_52w": None, "spark_w": None}
     if adj is None or adj.empty or "Close" not in adj.columns:
         return out
     close = adj["Close"].dropna()
@@ -112,6 +141,8 @@ def price_stats(adj: pd.DataFrame, chart: ChartPrices | None = None) -> dict[str
             out["new_low"] = bool(l_.iloc[-1] <= l_.iloc[:-1].min())
         if len(h) and len(l_) and h.max() > 0:
             out["range_52w"] = {"low": price_round(float(l_.min())), "high": price_round(float(h.max()))}
+    if "Close" in daily.columns:
+        out["spark_w"] = weekly_spark(daily["Close"])
     return out
 
 
@@ -205,7 +236,8 @@ def day_return(close: pd.Series, bar_date: str | None) -> float | None:
 
 def _mover(t: str, info: Mapping[str, Any]) -> dict[str, Any]:
     return {"t": t, "name": info.get("company"), "px": _r(info.get("price"), 2), "chg": _r(info.get("ret_1d"), 4),
-            "vr": _r(info.get("vol_ratio"), 2), "cap": _cap(info), "sector": info.get("sector")}
+            "vr": _r(info.get("vol_ratio"), 2), "cap": _cap(info), "sector": info.get("sector"),
+            "sp": info.get("spark_w")}  # 주봉 모양 (2026-11-06 — 오늘 탭 목록 미니 차트)
 
 
 def mega_earnings(items: Mapping[str, Mapping[str, Any]], bar_date: str) -> list[dict[str, Any]]:

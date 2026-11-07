@@ -116,6 +116,8 @@ def item_info(row: pd.Series, *, tv: str | None, insider: dict[str, Any] | None,
     # 52주 신고가 · 신저가 (2026-11-04) — market.json 숫자와 같은 표시 (일봉 모자람 · 신규 상장은 None)
     info["new_high"] = _flag(row.get("52주신고가"))
     info["new_low"] = _flag(row.get("52주신저가"))
+    # 주봉 1년 모양 (2026-11-06, market_summary.weekly_spark) — 목록 미니 차트. 신규 상장 · 일봉 모자람은 None
+    info["spark_w"] = _text(row.get("주봉흐름"))
     first = _text(row.get("첫거래일"))
     if first:
         info["first_date"] = first

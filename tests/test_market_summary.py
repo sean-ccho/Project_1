@@ -36,6 +36,31 @@ def test_price_stats_rising_series() -> None:
     assert st["range_52w"] == {"low": round(last252["Low"].min(), 2), "high": round(last252["High"].max(), 2)}
 
 
+def test_weekly_spark_shape_levels_and_short_history() -> None:
+    """주봉 금요일 마감 종가 → 최저 0 ~ 최고 63 글자 한 주에 하나, 최근 52주만 (2026-11-06)."""
+    a = ms.SPARK_ALPHABET
+    up = ms.weekly_spark(_ohlcv(list(np.linspace(50, 100, 400)))["Close"])
+    assert up is not None and len(up) == ms.SPARK_WEEKS
+    assert up[0] == a[0] and up[-1] == a[-1]  # 오르기만 — 첫 주 최저, 마지막 주 최고
+    assert [a.index(ch) for ch in up] == sorted(a.index(ch) for ch in up)
+    down = ms.weekly_spark(_ohlcv(list(np.linspace(100, 50, 400)))["Close"])
+    assert down is not None and down[0] == a[-1] and down[-1] == a[0]
+    flat = ms.weekly_spark(_ohlcv([10.0] * 100)["Close"])
+    assert flat is not None and set(flat) == {a[32]} and len(flat) == 21  # 2025-01-01(수) 부터 100 거래일 = 걸친 주 21개
+    assert ms.weekly_spark(_ohlcv([10.0] * 30)["Close"]) is None  # 6주 < 8주
+    assert ms.weekly_spark(None) is None
+    assert ms.weekly_spark(pd.Series([1.0, 2.0])) is None  # 날짜 인덱스 아님
+
+
+def test_weekly_spark_last_partial_week_uses_last_bar() -> None:
+    """마지막 주는 금요일 전이라도 마지막 봉 종가 (수요일 밤 실행)."""
+    idx = pd.bdate_range("2026-01-05", "2026-03-11")  # 3-11 = 수요일
+    c = pd.Series(np.linspace(10, 20, len(idx)), index=idx)
+    c.iloc[-1] = 5.0  # 마지막 날 폭락 → 마지막 글자 = 최저
+    sp = ms.weekly_spark(c)
+    assert sp is not None and sp[-1] == ms.SPARK_ALPHABET[0] and len(sp) == 10
+
+
 def test_price_stats_uses_chart_prices_for_range_and_handles_short_history() -> None:
     adj = _ohlcv([10.0] * 30)
     chart = _ohlcv([12.0] * 30)
@@ -323,7 +348,22 @@ def test_item_info_adds_ret_1d_and_range() -> None:
                          isb=None, sqz=None)
     assert info2["range_52w"] is None and info2["ret_1d"] is None
     assert info2["new_high"] is None and info2["new_low"] is None  # 일봉 모자람 · 신규 상장
+    assert info2["spark_w"] is None
     json.dumps(info, allow_nan=False)
+
+
+def test_spark_flows_from_price_stats_to_rows_and_movers() -> None:
+    """price_stats spark_w → add_web_stats '주봉흐름' → item_info spark_w → market.json 목록 sp (2026-11-06)."""
+    frames = {"UP": _ohlcv(list(np.linspace(50, 100, 300))), "SHORT": _ohlcv([10.0] * 15)}
+    stats = {t: ms.price_stats(f) for t, f in frames.items()}
+    assert stats["SHORT"]["spark_w"] is None
+    ranked = rus.add_web_stats(pd.DataFrame({"티커": list(frames)}), stats)
+    items = {str(r["티커"]): {**wu.item_info(r, tv=None, insider=None, isb=None, sqz=None),
+                              "fundamentals": {"market_cap": 5e9}} for _, r in ranked.iterrows()}
+    assert items["UP"]["spark_w"] == stats["UP"]["spark_w"] and len(items["UP"]["spark_w"]) == ms.SPARK_WEEKS
+    assert items["SHORT"]["spark_w"] is None
+    assert ms._mover("UP", items["UP"])["sp"] == items["UP"]["spark_w"]
+    json.dumps(items, allow_nan=False)
 
 
 def test_row_flags_match_breadth_counts() -> None:

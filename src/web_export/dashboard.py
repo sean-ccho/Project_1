@@ -696,6 +696,25 @@ def sqz_block(tickers: list[str], prices: dict[str, Any]) -> dict[str, dict[str,
         return {}
 
 
+def spark_block(tickers: list[str], prices: dict[str, Any]) -> dict[str, str]:
+    """목록 미니 차트 — 주봉 1년 모양 글자 (market_summary.weekly_spark, 분할만 반영 종가 · 2026-11-06).
+    표시용이라 실패하면 빈 dict, 가격을 못 받았거나 주봉이 모자란 종목은 빠진다."""
+    from web_export.isb_signals import yf_symbol
+    from web_export.market_summary import weekly_spark
+
+    out: dict[str, str] = {}
+    try:
+        for t in tickers:
+            df = prices.get(yf_symbol(t)) if prices else None
+            sp = weekly_spark(df["Close"]) if df is not None and "Close" in df.columns else None
+            if sp:
+                out[t] = sp
+    except Exception as exc:  # noqa: BLE001
+        print(f"[web_export] 주봉 미니 차트 계산 실패 (건너뜀): {exc}")
+        return {}
+    return out
+
+
 def build_dashboard(data_dir: Path | None = None, *, charts_from_git: bool = False,
                     with_prices: bool = True, with_insider: bool = True, with_isb: bool = True,
                     with_sqz: bool = True) -> dict[str, Any]:
@@ -764,10 +783,13 @@ def build_dashboard(data_dir: Path | None = None, *, charts_from_git: bool = Fal
                 stocks[t]["sqzmom"] = rec
         for t, rec in earnings_moves_block(earnings_accepts(ranked, list(stocks)), prices).items():
             stocks[t]["earnings_move"] = rec
+        for t, rec in spark_block(list(stocks), prices).items():
+            stocks[t]["spark_w"] = rec
         for c in candidates:
             c["isb"] = infos[c["ticker"]]["isb"]
             c["sqzmom"] = infos[c["ticker"]]["sqzmom"]
             c["earnings_move"] = infos[c["ticker"]]["earnings_move"]
+            c["spark_w"] = infos[c["ticker"]].get("spark_w")
 
     return {
         "schema": SCHEMA_VERSION,
