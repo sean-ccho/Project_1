@@ -5,10 +5,12 @@ name: Universe Scan
 # 결과: 구글 시트 [SP500 전체]·[NASDAQ/NYSE 전체]·[신규상장] + 웹 '전체분석' 데이터(universe-data 고아 브랜치).
 # push 로는 돌지 않는다 (코드만 바꾼 push 가 장중 데이터로 덮어쓰지 않게) — 예약 실행 또는 Actions 화면의 Run workflow.
 
+# 실행 신호: Mac mini LaunchAgent(com.seancho.nightly-universe, scripts/launchagent/)가 매일 6:30 PM ET 에 workflow_dispatch API 를 부른다.
+# schedule 은 예비 — 'gate' 잡이 최근 20시간 안에 workflow_dispatch 실행이 있으면 조용히 끝난다.
 on:
   workflow_dispatch:
   schedule:
-    - cron: '15 1 * * *'  # 01:15 UTC = 9:15 PM EDT (GitHub 이 몇 시간 늦게 시작시키는 일이 많다)
+    - cron: '10 3 * * *'  # 예비 — 03:10 UTC = 10:10 PM EST (Mac 신호보다 뒤)
 
 permissions:
   contents: write
@@ -18,7 +20,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    steps:
+      - id: g
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != "schedule" ]; then echo "run=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          since=$(date -u -d '20 hours ago' '+%Y-%m-%dT%H:%M:%SZ')
+          n=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/universe-scan.yml/runs?event=workflow_dispatch&created=%3E%3D${since}&per_page=1" --jq '.total_count') || n=0
+          if [ "${n:-0}" -gt 0 ]; then
+            echo "⏭️  최근 20시간 안에 Mac 신호 실행이 있음 — 예비 실행 건너뜀"
+            echo "run=0" >> "$GITHUB_OUTPUT"
+          else
+            echo "▶️  Mac 신호 실행 없음 — 예비로 실행"
+            echo "run=1" >> "$GITHUB_OUTPUT"
+          fi
+
   scan:
+    needs: gate
+    if: needs.gate.outputs.run == '1'
     runs-on: ubuntu-latest
     timeout-minutes: 300
 

@@ -10,7 +10,7 @@
 ```mermaid
 flowchart TD
     %% ========== TRIGGER ==========
-    TRIGGER["⏰ GitHub Actions\ncron 00:45 UTC 매일\n(보통 새벽 1~2시 ET 시작)"]
+    TRIGGER["⏰ GitHub Actions\nMac LaunchAgent 신호 매일 6PM ET\n(cron 03:00 UTC 는 예비)"]
 
     TRIGGER --> SPLIT
 
@@ -124,7 +124,7 @@ flowchart TD
 | 트레일링 스탑 | 바닥반등 -6% / 모멘텀 -5% / 기본 -5% | 고점 대비 (고점이 매수가를 넘은 적이 있을 때만) |
 | 최대 보유 기간 | 바닥반등 25일 / 모멘텀 18일 / 기본 21일 (달력일) | 이후 stale_min_return(+2%) 미달이면 매도 |
 | Hold-Winners Defer | 5개 체크 모두 통과 시 매도 보류 (최대 2회) | 보류 중 트레일링 -3.5%로 타이트닝 (`engine._should_defer_sell`) |
-| 실행 시각 | cron 00:45 UTC 매일 (보통 새벽 1~2시 ET 시작) | 마지막으로 확정된 일봉만 매매, 같은 일봉은 한 번만 (`market_date.check_run_guard`) |
+| 실행 시각 | 매일 6PM ET — Mac mini LaunchAgent 가 workflow_dispatch(nightly=true) 로 실행, cron 03:00 UTC 는 Mac 이 꺼진 날만 도는 예비 (2026-11-07) | 마지막으로 확정된 일봉만 매매, 같은 일봉은 한 번만 (`market_date.check_run_guard`) |
 | 후보 선정 방식 | CCS (Composite Conviction Score) | 5개 컴포넌트 × 레짐 가중치 |
 | 교체 조건 | 새 후보 CCS > 최약 종목(약함 기준)의 매수 당시 CCS + 0.10 | `CCS_REPLACE_MARGIN = 0.10` |
 | 약세장 | 보유 한도 3 → 2 · RSI 기준 70 · buy_signal 필수 · 모멘텀 제외 | SPY < EMA200 |

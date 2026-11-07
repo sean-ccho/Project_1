@@ -296,8 +296,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.verify_pushed:
         result = verify_pushed(Path(args.verify_pushed))
     else:
-        result = run_health_check(Path(args.data_dir), args.log_date,
-                                  manual=os.environ.get("GITHUB_EVENT_NAME", "") in MANUAL_EVENTS)
+        # Mac LaunchAgent 야간 신호(workflow_dispatch + nightly=true)는 정기 실행과 같으므로 엄격하게 본다
+        manual = (os.environ.get("GITHUB_EVENT_NAME", "") in MANUAL_EVENTS
+                  and os.environ.get("NIGHTLY_DISPATCH", "") != "1")
+        result = run_health_check(Path(args.data_dir), args.log_date, manual=manual)
         if args.expected_out:
             Path(args.expected_out).write_text(json.dumps(result["expected"], indent=2), encoding="utf-8")
     print_report(result)

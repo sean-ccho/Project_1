@@ -164,6 +164,16 @@ def test_main_reads_event_name(tmp_path, monkeypatch):
     assert hc.main(["--log-date", "2026-10-12", "--data-dir", str(data)]) == 1
 
 
+def test_nightly_dispatch_is_strict(tmp_path, monkeypatch):
+    """Mac LaunchAgent 야간 신호(workflow_dispatch + NIGHTLY_DISPATCH=1)는 정기 실행처럼 엄격하다."""
+    data, _ = _layout(tmp_path, bar="", states={k: "2026-10-09" for k in hc.ACCOUNTS}, logs=INTRADAY_LOGS)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "workflow_dispatch")
+    assert hc.main(["--log-date", "2026-10-12", "--data-dir", str(data)]) == 0
+    monkeypatch.setenv("NIGHTLY_DISPATCH", "1")
+    assert hc.main(["--log-date", "2026-10-12", "--data-dir", str(data)]) == 1
+
+
 def test_missing_email_line_fails(tmp_path):
     r = _run(tmp_path, logs={"paper_trading.log": "[Email] 페이퍼 트레이딩 이메일 발송 실패: SMTP\n"})
     assert _failed(r) == ["PT-1 메일"]

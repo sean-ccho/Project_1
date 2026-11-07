@@ -72,5 +72,5 @@
   - `src/paper_trading/` — 페이퍼 트레이딩 엔진
   - `src/main.py` — 전체 파이프라인 진입점
   - `docs/architecture.md` — 전체 아키텍처 레퍼런스
-- **자동화:** GitHub Actions (매일 5PM EST)
+- **자동화:** GitHub Actions — 야간 작업은 Mac mini LaunchAgent 가 매일 6PM ET 에 workflow_dispatch 로 실행 (스케줄표: README)
 - **출력:** Google Sheets + 이메일 알림

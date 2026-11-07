@@ -207,7 +207,7 @@ PYTHONPATH=src python src/run_full_scan.py
 
 ## GitHub Actions 자동 실행
 
-매일 **5:00 PM EST (UTC 22:00)**에 `run-screener.yml` 워크플로우 하나로 두 파이프라인이 순서대로 실행됩니다.
+`run-screener.yml` 워크플로우 하나로 두 파이프라인이 순서대로 실행됩니다.
 
 ```
 ① main.py       → [SP500 분석] + [SP500 차트분석] 업데이트 + 이메일
@@ -215,6 +215,25 @@ PYTHONPATH=src python src/run_full_scan.py
 ```
 
 `push to main` 시에도 자동으로 실행됩니다. (`[skip ci]` 커밋 메시지로 스킵 가능)
+
+### 스케줄 요약 (2026-11-07 기준)
+
+| 워크플로 | 실행 신호 (온타리오 현지) | GitHub cron 예비 (UTC) | 주기 | 내용 |
+|---|---|---|---|---|
+| `run-screener.yml` | Mac LaunchAgent 6:00 PM | `0 3 * * *` | 매일 | 메인 파이프라인 (스크리너 · 페이퍼 트레이딩 · 내계좌 리포트 · 웹 내보내기) |
+| `canada-scan.yml` | Mac LaunchAgent 6:00 PM | `5 3 * * *` | 매일 | TSX / TSXV 캐나다 전체분석 |
+| `universe-scan.yml` | Mac LaunchAgent 6:30 PM | `10 3 * * *` | 매일 | S&P 500 · NASDAQ/NYSE 전체분석 |
+| `account-watch.yml` | Mac LaunchAgent 장중 30분마다 (09:30~16:00) | `0,30 13-21 * * 1-5` | 월~금 | 내계좌 체크 |
+| `update-sp500.yml` | GitHub cron 오전 9:00 (EST) | `0 14 1 * *` | 매달 1일 | S&P 500 구성 종목 갱신 |
+| `geo-revenue.yml` | GitHub cron 오전 10:30 (EST) | `30 15 3 * *` | 매달 3일 | SEC 10-K 지역별 매출 비중 |
+| `etf-holdings.yml` | GitHub cron 오전 10:30 (EST) | `30 15 5 * *` | 매달 5일 | SEC N-PORT ETF 보유 종목 |
+
+- **Mac LaunchAgent** 는 스크립트를 직접 돌리지 않고 `workflow_dispatch` API 만 불러 GitHub 에서 실행시킨다. 야간 3개: `scripts/launchagent/` (`bash scripts/launchagent/install.sh` 로 설치, 로그 `~/account-watch/logs/nightly_dispatch.log`).
+- 야간 3개의 GitHub cron 은 예비다. 각 워크플로의 `gate` 잡이 최근 20시간 안에 `workflow_dispatch` 실행이 있으면 조용히 끝나고, Mac 이 꺼진 날에만 실제로 돈다.
+- `run-screener` 의 Mac 신호는 `nightly=true` 를 붙여, 헬스체크가 정기 실행처럼 엄격하다 (직접 `workflow_dispatch` 로 돌릴 때는 장중 완화).
+- 서머타임(EDT) 기간에도 Mac 신호는 현지 시각 그대로다. GitHub cron(UTC) 시각만 현지로 1시간 당겨진다.
+- GitHub 예약 실행은 몇 시간씩 늦게 시작되는 일이 많다 (예: etf-holdings 11-05 오전 10:30 예약 → 오후 4:35 완료).
+- `etf-holdings` · `geo-revenue` 등의 결과는 `main` 이 아니라 고아 브랜치(`etf-data` · `geo-data` 등)에 올라간다.
 
 ---
 

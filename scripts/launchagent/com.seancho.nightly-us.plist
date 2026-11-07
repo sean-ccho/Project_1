@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.seancho.nightly-us</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>/Users/sean-server/account-watch/nightly_dispatch.sh</string>
+		<string>run-screener.yml</string>
+		<string>canada-scan.yml</string>
+	</array>
+	<key>StandardErrorPath</key>
+	<string>/Users/sean-server/account-watch/logs/nightly-us.err</string>
+	<key>StandardOutPath</key>
+	<string>/Users/sean-server/account-watch/logs/nightly-us.out</string>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>18</integer>
+		<key>Minute</key>
+		<integer>0</integer>
+	</dict>
+</dict>
+</plist>
+
