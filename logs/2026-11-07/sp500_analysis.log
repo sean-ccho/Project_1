@@ -14,7 +14,7 @@
   상장 이후 종가 빈 값 30% 넘음 — 1종목: KVUE 83%
 [차트 가격] 분할만 반영 · 상장 이후 전체: 521종목 받음 · 못 받음 0개
 [[SP500 분석]] 전날 스냅샷으로 채움: 재무·섹터 3개 · 실적일 0개
-[[SP500 분석]] 강한 섹터: {'Communication Services', 'Health Care', 'Consumer Staples', 'Utilities', 'Real Estate', 'Consumer Discretionary', 'Materials', 'Energy', 'Financials', 'Industrials'}
+[[SP500 분석]] 강한 섹터: {'Communication Services', 'Industrials', 'Financials', 'Consumer Staples', 'Real Estate', 'Utilities', 'Consumer Discretionary', 'Materials', 'Health Care', 'Energy'}
 [OHLCV] 배치 다운로드 1/3 (50개 종목, period=2y)...
 [OHLCV] 배치 다운로드 2/3 (50개 종목, period=2y)...
 [OHLCV] 배치 다운로드 3/3 (30개 종목, period=2y)...
@@ -24,11 +24,11 @@
 [[SP500 분석]] Extreme model 'label_high' walk-forward ROC 0.63, AP 0.37
 [[SP500 분석]] Google Sheets 업데이트 완료
 [[SP500 분석]] Signals 결과 기반 차트분석 종목 리스트 생성 중...
-[Dynamic Portfolio] 생성된 차트분석 종목 리스트(96개): ['NBM.V', 'XOM', 'PFE', 'LMT', 'ABBV', 'INTC', 'GEV', 'LIN', 'GOOG', 'GE', 'VRTX', 'CVX', 'MA', 'KO', 'T', 'CIEN', 'NXPI', 'ABT', 'PWR', 'BA', 'C', 'ETN', 'CVS', 'VZ', 'MRK', 'KLAC', 'ACN', 'PG', 'BLK', 'BRK-B', 'DELL', 'SNPS', 'META', 'INTU', 'UNH', 'LRCX', 'OKTA', 'TSLA', 'WMT', 'MSFT', 'CAT', 'LLY', 'NEE', 'JNJ', 'TER', 'ISRG', 'IBM', 'SYK', 'COP', 'FIX', 'NKE', 'BE', 'COHR', 'HD', 'PM', 'DIS', 'ASML', 'LITE', 'ORCL', 'SNDK', 'HPE', 'NFLX', 'MRNA', 'COST', 'AMGN', 'CEG', 'SBUX', 'AMAT', 'AXP', 'VST', 'IWM', 'MDT', 'HOOD', 'PEP', 'RTX', 'MU', 'AAPL', 'RDDT', 'DHR', 'SMCI', 'APH', 'GOOGL', 'MRVL', 'GLW', 'AMZN', 'SCHW', 'GILD', 'FTNT', 'MPC', 'TMO', 'AMD', 'ANET', 'VLO', 'V', 'VRT', 'MCD']
+[Dynamic Portfolio] 생성된 차트분석 종목 리스트(96개): ['NBM.V', 'XOM', 'PFE', 'LMT', 'BA', 'COP', 'MSFT', 'PEP', 'SNDK', 'VRTX', 'SMCI', 'PWR', 'KO', 'MCD', 'MU', 'JNJ', 'META', 'CAT', 'GOOGL', 'PM', 'RTX', 'GILD', 'PG', 'LRCX', 'VST', 'ANET', 'NKE', 'LIN', 'ABBV', 'VLO', 'MRVL', 'BLK', 'VZ', 'INTU', 'BE', 'VRT', 'HD', 'V', 'ACN', 'MRK', 'NEE', 'CIEN', 'MRNA', 'ABT', 'TER', 'HOOD', 'WMT', 'SBUX', 'GLW', 'HPE', 'MPC', 'SCHW', 'MA', 'GOOG', 'COST', 'NFLX', 'C', 'MDT', 'LLY', 'DELL', 'GE', 'KLAC', 'ETN', 'DIS', 'FTNT', 'SNPS', 'CVS', 'T', 'APH', 'AMD', 'BRK-B', 'INTC', 'ORCL', 'RDDT', 'AMAT', 'GEV', 'CEG', 'AMZN', 'OKTA', 'FIX', 'AXP', 'ASML', 'IWM', 'NXPI', 'TMO', 'COHR', 'UNH', 'TSLA', 'DHR', 'LITE', 'ISRG', 'IBM', 'AAPL', 'SYK', 'AMGN', 'CVX']
 [[SP500 차트분석]] [SP500 분석] 결과 기반 [SP500 차트분석] 시트 생성 중 (96개 종목)...
 [[SP500 차트분석]] [SP500 분석]에 없는 종목은 별도 분석: ['NBM.V']
 [차트 가격] 분할만 반영 · 상장 이후 전체: 1종목 받음 · 못 받음 0개
-[[SP500 차트분석]] 강한 섹터: {'Communication Services', 'Health Care', 'Consumer Staples', 'Utilities', 'Real Estate', 'Consumer Discretionary', 'Materials', 'Energy', 'Financials', 'Industrials'}
+[[SP500 차트분석]] 강한 섹터: {'Communication Services', 'Industrials', 'Financials', 'Consumer Staples', 'Real Estate', 'Utilities', 'Consumer Discretionary', 'Materials', 'Health Care', 'Energy'}
 [[SP500 차트분석]] Extreme model 'global' skipped: insufficient_tickers
 [[SP500 차트분석]] 차트 저장 디렉토리 준비 완료: charts/screenshots_sp500
 [[SP500 차트분석]] TradingView 차트 캡처 시작...
@@ -199,9 +199,9 @@
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
 [TradingView] Daily 캡처 완료 (D)
-[TradingView] Weekly 캡처 완료 (W)
+[TradingView] PG Weekly 로딩 타임아웃
 [TradingView] Monthly 캡처 완료 (M)
-[[SP500 차트분석]] PG 차트 5개 처리 완료
+[[SP500 차트분석]] PG 차트 4개 처리 완료
 [TradingView] GILD 브라우저 세션 시작...
 [TradingView] 1H 캡처 완료 (60)
 [TradingView] 4H 캡처 완료 (240)
@@ -709,8 +709,8 @@
 [[SP500 차트분석]] NBM.V 차트 5개 처리 완료
 [[SP500 차트분석]] 차트 캡처 완료
 [[SP500 차트분석]] Google Sheets 업데이트 완료
-[SEC] 공시 경고: 128/130종목 확인 · 🔴 0 · 🟠 9 (18초)
+[SEC] 공시 경고: 128/130종목 확인 · 🔴 0 · 🟠 9 (19초)
 [공매도] FINRA 2026-10-15 기준 22,537종목
 [Paper Trading] SP500 ranked_df 스냅샷 저장 완료 (130개 종목)
 
-[요약] 파이프라인 완료 – 총 4192.4초 (69.87분) 소요
+[요약] 파이프라인 완료 – 총 4950.1초 (82.50분) 소요
