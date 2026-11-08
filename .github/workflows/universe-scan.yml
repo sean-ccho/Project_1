@@ -10,7 +10,7 @@ name: Universe Scan
 on:
   workflow_dispatch:
   schedule:
-    - cron: '10 3 * * *'  # 예비 — 03:10 UTC = 10:10 PM EST (Mac 신호보다 뒤)
+    - cron: '35 0 * * *'  # 예비 — 00:35 UTC = 7:35 PM EST / 8:35 PM EDT (Mac 신호 6:30 PM ET 보다 뒤)
 
 permissions:
   contents: write

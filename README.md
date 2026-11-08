@@ -220,9 +220,9 @@ PYTHONPATH=src python src/run_full_scan.py
 
 | 워크플로 | 실행 신호 (온타리오 현지) | GitHub cron 예비 (UTC) | 주기 | 내용 |
 |---|---|---|---|---|
-| `run-screener.yml` | Mac LaunchAgent 6:00 PM | `0 3 * * *` | 매일 | 메인 파이프라인 (스크리너 · 페이퍼 트레이딩 · 내계좌 리포트 · 웹 내보내기) |
-| `canada-scan.yml` | Mac LaunchAgent 6:00 PM | `5 3 * * *` | 매일 | TSX / TSXV 캐나다 전체분석 |
-| `universe-scan.yml` | Mac LaunchAgent 6:30 PM | `10 3 * * *` | 매일 | S&P 500 · NASDAQ/NYSE 전체분석 |
+| `run-screener.yml` | Mac LaunchAgent 6:00 PM | `5 0 * * *` (7:05 PM EST) | 매일 | 메인 파이프라인 (스크리너 · 페이퍼 트레이딩 · 내계좌 리포트 · 웹 내보내기) |
+| `canada-scan.yml` | Mac LaunchAgent 6:00 PM | `10 0 * * *` (7:10 PM EST) | 매일 | TSX / TSXV 캐나다 전체분석 |
+| `universe-scan.yml` | Mac LaunchAgent 6:30 PM | `35 0 * * *` (7:35 PM EST) | 매일 | S&P 500 · NASDAQ/NYSE 전체분석 |
 | `account-watch.yml` | Mac LaunchAgent 장중 30분마다 (09:30~16:00) | `0,30 13-21 * * 1-5` | 월~금 | 내계좌 체크 |
 | `update-sp500.yml` | GitHub cron 오전 9:00 (EST) | `0 14 1 * *` | 매달 1일 | S&P 500 구성 종목 갱신 |
 | `geo-revenue.yml` | GitHub cron 오전 10:30 (EST) | `30 15 3 * *` | 매달 3일 | SEC 10-K 지역별 매출 비중 |

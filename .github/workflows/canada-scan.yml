@@ -12,7 +12,7 @@ name: Canada Scan
 on:
   workflow_dispatch:
   schedule:
-    - cron: '5 3 * * *'  # 예비 — 03:05 UTC = 10:05 PM EST (Mac 신호보다 뒤)
+    - cron: '10 0 * * *'  # 예비 — 00:10 UTC = 7:10 PM EST / 8:10 PM EDT (Mac 신호 6:00 PM ET 보다 뒤)
 
 permissions:
   contents: write

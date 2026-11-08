@@ -591,7 +591,7 @@ def tiebreak_key(s):
 
 > `engine.py` — `run_daily_trading()`
 
-**실행 시점:** 매일 6PM ET — Mac mini LaunchAgent 가 workflow_dispatch 로 실행 (cron 03:00 UTC 는 예비, 2026-11-07). 거래일 = 마지막으로 확정된 일봉 (그날 16:30 ET 뒤), 같은 일봉은 계좌마다 한 번만 처리 (`market_date.check_run_guard` — 장중 · 주말 실행은 매매 없이 리포트만)  
+**실행 시점:** 매일 6PM ET — Mac mini LaunchAgent 가 workflow_dispatch 로 실행 (cron 00:05 UTC 는 예비, 2026-11-07). 거래일 = 마지막으로 확정된 일봉 (그날 16:30 ET 뒤), 같은 일봉은 계좌마다 한 번만 처리 (`market_date.check_run_guard` — 장중 · 주말 실행은 매매 없이 리포트만)  
 **전체 실행 흐름:**
 
 ```
