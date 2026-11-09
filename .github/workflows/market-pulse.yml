@@ -1,0 +1,87 @@
+name: Market Pulse
+
+# 사이트 장중 숫자 (src/web_export/intraday_pulse.py) — 표시 전용. live-data 고아 브랜치에 live.json · quotes.json ·
+# base.json.gz 를 올리고, 사이트(seancho.vercel.app)는 1분 캐시로 읽기만 한다. main 브랜치 · PT 상태 · 시트에는 아무것도 안 쓴다.
+#
+# 실행 신호: Mac mini LaunchAgent(com.seancho.market-pulse → ~/account-watch/market_pulse_dispatch.sh, 원본
+# scripts/launchagent/)가 월~금 09:45~15:45 15분마다 + 16:20(마감 펄스) workflow_dispatch API 를 부른다.
+# GitHub 예약은 몇 시간씩 늦게 시작해서 쓰지 않는다 — Mac 이 꺼진 날은 사이트가 밤 숫자만 보여 준다.
+# 장 시간 · 휴장 · 조기 폐장 판단은 스크립트가 한다 (열린 시장이 없으면 push 하지 않는다. force 를 켜면 그래도 돈다).
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '장 시간 밖이어도 실행 (시험용)'
+        type: boolean
+        default: false
+      scope:
+        description: 'all = 전체분석 전부 (약 7,400종목) · cover = S&P 500 + 시총 $2B+ + 캐나다 C$1B+ (Yahoo 가 막힐 때)'
+        type: choice
+        options: [all, cover]
+        default: all
+
+permissions:
+  contents: write
+
+concurrency:
+  group: market-pulse
+  cancel-in-progress: false
+
+jobs:
+  pulse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20   # 그날 첫 실행(기준값 일봉 2년 + 시세)이 가장 길다 — 이 Mac 기준 전체 약 6~7분
+
+    env:
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-pulse.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-pulse.txt
+
+      # 그날 첫 실행이 만든 기준값을 다시 쓴다 (다른 날 것이면 스크립트가 새로 만든다)
+      - name: Restore today's base
+        run: |
+          mkdir -p "$RUNNER_TEMP/live"
+          if git fetch -q --depth 1 origin live-data 2>/dev/null; then
+            git show FETCH_HEAD:base.json.gz > "$RUNNER_TEMP/live/base.json.gz" 2>/dev/null || rm -f "$RUNNER_TEMP/live/base.json.gz"
+          fi
+          ls -la "$RUNNER_TEMP/live"
+
+      - name: Run pulse
+        id: pulse
+        env:
+          FORCE: ${{ inputs.force && '--force' || '' }}
+          SCOPE: ${{ inputs.scope || 'all' }}
+        run: |
+          set +e
+          PYTHONPATH=.:src python -m web_export.intraday_pulse --out "$RUNNER_TEMP/live" --scope "$SCOPE" $FORCE
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$code" = "3" ]; then echo "⏭️  열린 시장이 없음 — push 하지 않음"; exit 0; fi
+          exit $code
+
+      # 고아 브랜치 — 히스토리 없이 매번 교체 (dashboard-data 와 같은 방식, 기존 data 브랜치는 건드리지 않는다)
+      - name: Push live data (orphan branch)
+        if: steps.pulse.outputs.code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd "$RUNNER_TEMP/live"
+          git init -q -b live-data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add live.json quotes.json base.json.gz
+          git commit -q -m "live data $(date +%s) [skip ci]"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" live-data
+          echo "✅ live-data 브랜치 업데이트"

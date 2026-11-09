@@ -1,0 +1,8 @@
+# 사이트 장중 펄스 (.github/workflows/market-pulse.yml) 전용 — src/web_export/intraday_pulse.py 가 import 하는 것만
+pandas>=2.0
+numpy>=1.24
+pyarrow>=14.0
+yfinance>=1.7.0
+ta>=0.10
+scipy>=1.10
+requests

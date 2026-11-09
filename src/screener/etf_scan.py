@@ -298,6 +298,26 @@ def style_mix_full(entry: dict[str, Any] | None, styles: dict[str, dict[str, Any
     return {**out, "basis": "full", "as_of": entry.get("as_of"), **({"from": entry["from"]} if entry.get("from") else {})}
 
 
+def price_fields(p: pd.DataFrame) -> dict[str, Any]:
+    """가격으로 정해지는 칸 — 날짜 · 가격(분할만 반영 = 차트 가격) · 기간 수익률(배당 포함) · 200일선 위 · 52주 고점 대비.
+
+    p = 한 ETF 의 배당 조정 OHLCV + Dividends (fetch_ohlcv). 밤 스캔(build_rows)과 장중 펄스(web_export.intraday_pulse —
+    오늘 장중 봉이 마지막 줄)가 같이 쓴다 (2026-11-09).
+    """
+    c = p["Close"]
+    split_close = split_only_ohlcv(p)["Close"].dropna()
+    chart = split_close if len(split_close) else c.dropna()   # 차트 가격 (분할만 반영)
+    last = float(chart.iloc[-1])
+    sma200 = float(chart.tail(200).mean()) if len(chart) >= 200 else math.nan
+    return {
+        "date": c.index[-1].date().isoformat(),
+        "price": _num(last),
+        "ret": {**{k: _ret(c, n) for k, n in WINDOWS.items()}, "ytd": _ytd(c)},
+        "above_200": bool(last > sma200) if math.isfinite(sma200) else None,
+        "high_52w_gap": _num(last / chart.tail(YEAR_DAYS).max() - 1),
+    }
+
+
 def build_rows(prices: pd.DataFrame, chart_map: dict[str, ChartPrices], info: dict[str, dict[str, Any]],
                tickers: list[str] | None = None,
                holdings: dict[str, dict[str, Any]] | None = None,
@@ -319,23 +339,20 @@ def build_rows(prices: pd.DataFrame, chart_map: dict[str, ChartPrices], info: di
             continue
         c = p["Close"]
         y1 = _ret(c, YEAR_DAYS)
-        split_close = split_only_ohlcv(p)["Close"].dropna()
-        chart = split_close if len(split_close) else c.dropna()   # 차트 가격 (분할만 반영)
-        last = float(chart.iloc[-1])
-        sma200 = float(chart.tail(200).mean()) if len(chart) >= 200 else math.nan
+        pf = price_fields(p)
         held = ((holdings or {}).get(t) or {}).get("holdings") or []
         rows.append({
             "ticker": t,
             "group": group_of.get(t, ""),
             **{k: None for k in ("name", "family", "category", "currency", "expense", "aum", "yield", "inception")},
             **info.get(t, {}),
-            "date": c.index[-1].date().isoformat(),
-            "price": _num(last),
-            "ret": {**{k: _ret(c, n) for k, n in WINDOWS.items()}, "ytd": _ytd(c)},
-            "above_200": bool(last > sma200) if math.isfinite(sma200) else None,
+            "date": pf["date"],
+            "price": pf["price"],
+            "ret": pf["ret"],
+            "above_200": pf["above_200"],
             # BIL 은 자기와 비교라 늘 꺼짐 → 없음
             "trend_12m": None if y1 is None or t == RISK_FREE_ETF else bool(y1 - (rf_y1 or 0.0) > 0),
-            "high_52w_gap": _num(last / chart.tail(YEAR_DAYS).max() - 1),
+            "high_52w_gap": pf["high_52w_gap"],
             "vol": _ann_vol(c),
             "mdd_1y": _max_drawdown(c),
             "corr_spy": 1.0 if t == BENCHMARK_ETF else _corr(c, bench),
