@@ -15,21 +15,6 @@
     "entry_rsi": 57.09204747108399
   },
   {
-    "ticker": "PFE",
-    "entry_price": 30.0,
-    "entry_date": "2026-11-03",
-    "strategy": "📈 모멘텀",
-    "star_rating": "★★★★★ (12.0)",
-    "ccs_score": 0.5972,
-    "sector": "Healthcare",
-    "highest_price": 30.790000915527344,
-    "defer_count": 0,
-    "trailing_stop_override": null,
-    "last_defer_date": null,
-    "defer_debug": null,
-    "entry_rsi": 58.02112549331335
-  },
-  {
     "ticker": "LMT",
     "entry_price": 595.0399780273438,
     "entry_date": "2026-11-04",
@@ -43,5 +28,20 @@
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 55.01343113604785
+  },
+  {
+    "ticker": "MORN",
+    "entry_price": 246.15,
+    "entry_date": "2026-11-09",
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (11.5)",
+    "ccs_score": 0.5802,
+    "sector": "Financial Services",
+    "highest_price": 246.15,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 72.56768201993417
   }
 ]

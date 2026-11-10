@@ -1,0 +1,33 @@
+============================================================
+[Unified Paper Trading] PT-1 실행 시작
+============================================================
+2026-11-10 02:56:19,406 [INFO] paper_trading.runner — [Runner] SP500 snapshot 로드: 130개 종목
+[Unified PT] SP500 snapshot 로드: 130개 종목
+2026-11-10 02:56:19,417 [INFO] paper_trading.runner — [Runner] NASDAQ snapshot 로드: 240개 종목
+[Unified PT] NASDAQ snapshot 로드: 240개 종목
+[Unified PT] 합산 완료: 356개 종목 (SP500 130 + NASDAQ 240개, 중복 제거 후)
+[Unified PT] 거래일(일봉 날짜): 2026-11-09
+[Unified PT] 골든크로스임박 종목: 109개
+2026-11-10 02:56:20,531 [INFO] paper_trading.engine — [PaperTrading] SELL PFE @ 29.23 (트레일링(-5.1%))
+2026-11-10 02:56:20,546 [INFO] paper_trading.candidate_selector — [전략점수 분포] ~4.0: 71 | 4.0~5.0: 41 | 5.0~5.5: 35 | 5.5~6.0: 44 | 6.0+: 162
+2026-11-10 02:56:20,572 [INFO] paper_trading.candidate_selector — [CandidateSelector] Regime=neutral | Filtered=19/356 | Selected: MORN (CCS=0.5802)
+2026-11-10 02:56:20,574 [INFO] paper_trading.engine — [PaperTrading] BUY MORN @ 246.15 (CCS=0.5802, RSI=73)
+[Unified PT] 매도=1 매수=1 보유=3종목
+[Unified PT] 레짐=neutral | 필터={'지수ETF': 3, '전략점수<6.0': 191, '바닥반등_52주과열': 3, '판단등급_미달': 102, '과열_차단': 22, '유동성_부족': 0, '어닝_임박': 5, '보유_중복': 0, '같은회사_중복': 0, '모멘텀_ADX부족': 6, '바닥_RSI데드존': 5, '섹터_집중': 0, '_통과': 19, '_전체': 356}
+[Unified PT] Top5 후보:
+  WDC    CCS=0.5984 전략=📉 바닥반등 섹터=Technology
+  MU     CCS=0.5969 전략=📉 바닥반등 섹터=Technology
+  MORN   CCS=0.5802 전략=📈 모멘텀 섹터=Financial Services
+  HPE    CCS=0.5780 전략=📉 바닥반등 섹터=Technology
+  EXEL   CCS=0.5654 전략=📈 모멘텀 섹터=Healthcare
+2026-11-10 02:56:23,060 [INFO] paper_trading.sheet_sync — [SheetSync] 거래로그 다시 쓰기: 페이퍼_거래로그 123줄
+2026-11-10 02:56:24,378 [INFO] paper_trading.sheet_sync — [SheetSync] 포지션현황 업데이트: 3개 종목
+2026-11-10 02:56:25,612 [INFO] paper_trading.sheet_sync — [SheetSync] 성과요약 업데이트: 60건 거래
+[Unified PT] 구글 시트 동기화 완료
+[OHLCV] 배치 다운로드 1/2 (50개 종목, period=2y)...
+[OHLCV] 배치 다운로드 2/2 (10개 종목, period=2y)...
+[Unified PT] $5,000 계좌 탭 '페이퍼_계좌' 동기화 완료
+[Email] 페이퍼 트레이딩 알림 발송 완료 (매도 1건, 매수 1건, 재평가 0건, 재평가실패 0건, 후보 5건) → chunghwan14@gmail.com
+============================================================
+[Unified Paper Trading] 완료
+============================================================

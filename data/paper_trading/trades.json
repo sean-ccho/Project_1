@@ -1404,5 +1404,23 @@
     "defer_count": 0,
     "entry_rsi": 72.06684132888748,
     "actual_max_upside_pct": 0.0177
+  },
+  {
+    "ticker": "PFE",
+    "entry_date": "2026-11-03",
+    "exit_date": "2026-11-09",
+    "entry_price": 30.0,
+    "exit_price": 29.229999542236328,
+    "return_pct": -0.0257,
+    "holding_days": 6,
+    "highest_price": 30.790000915527344,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (12.0)",
+    "ccs_score": 0.5972,
+    "sector": "Healthcare",
+    "exit_reason": "트레일링(-5.1%)",
+    "defer_count": 0,
+    "entry_rsi": 58.02112549331335,
+    "actual_max_upside_pct": 0.0263
   }
 ]
