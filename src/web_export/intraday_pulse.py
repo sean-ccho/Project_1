@@ -56,6 +56,8 @@ EARLY_CLOSE = time(13, 0)
 CLOSE_WINDOW = timedelta(minutes=45)  # 마감 뒤 이 안의 실행 = 마감 펄스 (final — 사이트 '16:00 마감 · 잠정')
 SESSION_MIN = 390
 BATCH = 200                           # yf.download 한 번에 넣는 종목 수 (11-09: 일봉 5일 2,574종목 50초)
+THREADS = 16                          # yf.download 동시 받기 수 — 기본(threads=True)은 CPU×2 라 GitHub 러너(4코어)는 8개뿐:
+                                      # 11-10 7,540종목 시세 117~376초 · 기준값 236초. Mac(8코어 = 16개)은 7,547종목 153초 · 오류 0
 BASE_PERIOD = "2y"                    # 기준값 일봉 — 251봉 고가/저가 · 199일 합에 넉넉하게
 INDEX_SYMBOLS = ("SPY", "QQQ", "^VIX", "^GSPTSE", "XIC.TO", "CAD=X")
 CA_SUFFIXES = (".TO", ".V", ".CN", ".NE")
@@ -225,7 +227,7 @@ def _download(tickers: Sequence[str], **kw: Any) -> dict[str, pd.DataFrame]:
         batch = list(tickers[i:i + BATCH])
         for attempt in (1, 2):
             try:
-                data = yf.download(batch, group_by="ticker", progress=False, threads=True, auto_adjust=False, **kw)
+                data = yf.download(batch, group_by="ticker", progress=False, threads=THREADS, auto_adjust=False, **kw)
                 got = _frames(data, batch)
                 if got:
                     out.update(got)
