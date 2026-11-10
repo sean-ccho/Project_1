@@ -25,6 +25,7 @@ SEC 공시·공매도·내부자·ISB·SQZ·골든크로스는 웹 전체차트�
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from pathlib import Path
 from typing import Any, Mapping
@@ -46,7 +47,7 @@ from screener.features import compute_features_snapshot
 from screener.fundamentals_guard import SNAPSHOT_DIR, fetch_with_retry, fill_from_previous_snapshot
 from screener.processing import apply_neutralization
 from screener.signals import attach_signals_and_sort
-from web_export.market_summary import price_stats
+from web_export.market_summary import price_stats, volume_stats
 
 SHEET_SP500 = "[SP500 전체]"
 SHEET_NASDAQ = "[NASDAQ/NYSE 전체]"
@@ -292,7 +293,13 @@ def add_web_stats(ranked: pd.DataFrame, stats: Mapping[str, Mapping[str, Any]]) 
     ranked["52주신고가"] = tick.map(lambda t: stats[t]["new_high"])
     ranked["52주신저가"] = tick.map(lambda t: stats[t]["new_low"])
     ranked["주봉흐름"] = tick.map(lambda t: stats[t].get("spark_w"))  # 목록 미니 차트 (2026-11-06, 웹 전용)
+    ranked["거래량정보"] = tick.map(lambda t: _vol_text(stats[t].get("vol")))  # 종목 페이지 거래량 (2026-11-09, 웹 전용)
     return ranked
+
+
+def _vol_text(vol: Mapping[str, Any] | None) -> str | None:
+    """volume_stats 결과 → JSON 글자 (표의 한 칸 — 스냅숏 parquet 이 dict 칸을 못 쓴다). universe.item_info 가 푼다."""
+    return json.dumps(dict(vol), separators=(",", ":")) if vol else None
 
 
 def _ret_k(close: pd.Series, k: int) -> float | None:
@@ -357,6 +364,7 @@ def young_row(ticker: str, frame: pd.DataFrame) -> dict[str, Any]:
         "상장후위치": (last - lo) / (hi - lo) if hi > lo else None,
         "52주포지션": (last - lo) / (hi - lo) if hi > lo else None,  # 웹 52주 위치 칸 = 상장 후 고저 안 위치
         "최근20일평균거래대금": dollar,
+        "거래량정보": _vol_text(volume_stats(f)),  # 종목 페이지 거래량 (2026-11-09, 웹 전용)
     }
 
 
@@ -564,13 +572,13 @@ def web_extras(ranked_frames: list[pd.DataFrame], items: dict[str, dict[str, Any
     from web_export import stock_detail
     from web_export.dashboard import _industry
     from web_export.market_summary import (
-        MOVER_MIN_CAP, analyst_block, industry_medians, market_summary, valuation_block, valuation_values,
+        MOVER_MIN_CAP, analyst_block, industry_medians, market_summary, valuation_block, valuation_groups,
     )
 
     frames = [f for f in ranked_frames if f is not None and not f.empty]
     recs = pd.concat(frames, ignore_index=True).drop_duplicates("티커").to_dict("records") if frames else []
-    med = industry_medians({"industry": _industry(r.get("fund_industry")), "cap": r.get("fund_market_cap"),
-                            **valuation_values(r)} for r in recs)
+    peers = peer_rows(recs)
+    med = industry_medians(peers)
 
     now = datetime.now(ZoneInfo("America/New_York"))
     sp_set = set(sp_tickers)
@@ -595,6 +603,8 @@ def web_extras(ranked_frames: list[pd.DataFrame], items: dict[str, dict[str, Any
             details[t] = d
     market = market_summary(items, sp_tickers, stats, bar_date, (stats.get("SPY") or {}).get("ret_1d"),
                             now.isoformat(timespec="seconds"))
+    if market is not None:  # 밸류에이션 '다른 업종과 비교' (2026-11-09) — 종목 카드 업종 중앙값과 같은 규칙, 약 15KB
+        market["ind_val"] = valuation_groups(peers)
     return details, market
 
 
@@ -661,6 +671,16 @@ def extra_market(tickers: list[str], names: dict[str, str], tv_map: dict[str, st
     return payload, company_about(res["fund"])
 
 
+def peer_rows(recs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """분석 줄 → 업종 중앙값 재료 {industry, sector, cap, pe, fpe, peg, ps, pb, ev_ebitda} (market_summary.industry_medians ·
+    valuation_groups). 시총은 그 시장 통화 (캐나다 = C$)."""
+    from web_export.dashboard import _industry
+    from web_export.market_summary import valuation_values
+
+    return [{"industry": _industry(r.get("fund_industry")), "sector": r.get("섹터"), "cap": r.get("fund_market_cap"),
+             **valuation_values(r)} for r in recs]
+
+
 def local_details(ranked: pd.DataFrame, items: Mapping[str, dict[str, Any]],
                   bar_date: str | None) -> dict[str, dict[str, Any]]:
     """종목 상세 '밸류에이션' · '애널리스트' 카드 — 이미 받은 종목 정보만으로 (web_extras 의 앞 두 칸과 같은 계산).
@@ -669,13 +689,12 @@ def local_details(ranked: pd.DataFrame, items: Mapping[str, dict[str, Any]],
     따로 받아야 해서 없다 — 사이트는 그 카드만 안 보여 준다.
     """
     from web_export.dashboard import _industry
-    from web_export.market_summary import analyst_block, industry_medians, valuation_block, valuation_values
+    from web_export.market_summary import analyst_block, industry_medians, valuation_block
 
     if ranked.empty:
         return {}
     recs = ranked.to_dict("records")
-    med = industry_medians({"industry": _industry(r.get("fund_industry")), "cap": r.get("fund_market_cap"),
-                            **valuation_values(r)} for r in recs)
+    med = industry_medians(peer_rows(recs))
     out: dict[str, dict[str, Any]] = {}
     for r in recs:
         t = str(r["티커"])
@@ -710,6 +729,7 @@ def canada_market(listings: pd.DataFrame, prev_dir: Path) -> dict[str, Any] | No
     가격 · 시총은 C$ (Yahoo 가 캐나다 종목을 CAD 로 준다 — 웹은 티커 접미사로 C$ 를 붙인다).
     """
     from web_export.dashboard import daily_prices, isb_block, sqz_block
+    from web_export.market_summary import valuation_groups
     from web_export.universe import item_info, market_payload
 
     tickers = listings["ticker"].astype(str).tolist()
@@ -755,10 +775,13 @@ def canada_market(listings: pd.DataFrame, prev_dir: Path) -> dict[str, Any] | No
     print(f"[{CA_LABEL}] 분석 {len(ranked)} · 신규 상장 {len(young)} · 가격 없음 {len(res['no_data'])} · "
           f"골든 {len(golden)} · 공매도 {n_short}")
     bar_date = res["bar_date"] or None
+    market = canada_summary(items, res.get("stats") or {}, bar_date)
+    if market is not None and not ranked.empty:  # 밸류에이션 '다른 업종과 비교' (2026-11-09) — 캐나다 종목끼리
+        market["ind_val"] = valuation_groups(peer_rows(ranked.to_dict("records")))
     return {"payload": market_payload(CA_KEY, CA_LABEL, items, bar_date=bar_date, counts=counts, golden=golden),
             "about": company_about(res["fund"]),
             "details": local_details(ranked, items, bar_date),
-            "market": canada_summary(items, res.get("stats") or {}, bar_date),
+            "market": market,
             "sheet": ca_sheet_frame(ranked, isb, sqz) if not ranked.empty else None,
             "snapshot": snapshot_frame([ranked, res["young_fund"]])}
 

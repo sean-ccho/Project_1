@@ -1,8 +1,10 @@
 """웹 '투자자 한눈에' 숫자 (2026-11-03) — 전체분석(src/run_universe_scan.py)이 같이 만든다. 표시 전용 (점수 · 필터 · PT-1 무관).
 
-- price_stats      종목 일봉 → 하루 수익률 · 52주 최저/최고 · 50/200일선 위 · 52주 신고가/신저가 · 주봉 흐름
+- price_stats      종목 일봉 → 하루 수익률 · 52주 최저/최고 · 50/200일선 위 · 52주 신고가/신저가 · 주봉 흐름 · 거래량
+- volume_stats     오늘 거래량 vs 직전 20 · 50일 평균 · 1년 중 순위 · 신규 상장 첫 거래일 (2026-11-09)
 - weekly_spark     일봉 종가 → 목록 미니 차트용 주봉 52개 모양 글자 (2026-11-06)
 - industry_medians 세부 업종별 밸류에이션 중앙값 (시총 $1B+, 적자 · 500배 넘는 값 제외)
+- valuation_groups 업종 전부 · 섹터 · 시장 전체 중앙값 (market.json ind_val — 웹 '다른 업종과 비교', 2026-11-09)
 - valuation_block / analyst_block  종목 상세 카드 (stocks/{티커}.json 의 detail)
 - market_summary   오늘 탭 '시장 한눈에' · '실적 발표 일정' (market.json, 약 10KB) — 미국(universe-data)과
                    캐나다(canada-data, 2026-11-06 — TSX 시총 C$1B 이상으로 시장 폭, 지수는 S&P/TSX) 각각 한 파일
@@ -53,6 +55,9 @@ MEGA_DAYS = 60
 SPARK_WEEKS = 52
 SPARK_MIN_WEEKS = 8
 SPARK_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_"
+# 웹 '거래량 · 왜 움직였나' (2026-11-09) — 순위는 최근 1년(상장이 짧으면 상장 뒤 전부) 안에서
+VOL_RANK_BARS = 252
+VOL_MIN_PRIOR = 10  # 평균을 낼 직전 봉이 이보다 적으면 그 평균은 None
 
 
 def _f(v: Any) -> float | None:
@@ -119,11 +124,13 @@ def price_stats(adj: pd.DataFrame, chart: ChartPrices | None = None) -> dict[str
     신고가 = 마지막 봉 고가 ≥ 직전 251봉 최고 (신저가는 저가 ≤ 최저, 같으면 포함) — 2026-11-04 부터 차트 가격
     (전에는 배당 조정 가격이라 배당 많은 종목이 차트로는 신고가가 아닌데 신고가로 잡혔다). 일봉이 모자라면 그 칸은 None.
     spark_w = 목록 미니 차트 주봉 모양 (weekly_spark, 차트 가격 종가 — 2026-11-06).
+    vol = 오늘 거래량 vs 평소 (volume_stats — 2026-11-09).
     """
     out: dict[str, Any] = {"ret_1d": None, "above50": None, "above200": None, "new_high": None, "new_low": None,
-                           "range_52w": None, "spark_w": None}
+                           "range_52w": None, "spark_w": None, "vol": None}
     if adj is None or adj.empty or "Close" not in adj.columns:
         return out
+    out["vol"] = volume_stats(adj)
     close = adj["Close"].dropna()
     if len(close) >= 2 and close.iloc[-2] > 0:
         out["ret_1d"] = float(close.iloc[-1] / close.iloc[-2] - 1)
@@ -146,6 +153,35 @@ def price_stats(adj: pd.DataFrame, chart: ChartPrices | None = None) -> dict[str
     return out
 
 
+def volume_stats(frame: pd.DataFrame | None) -> dict[str, Any] | None:
+    """일봉 → 오늘 거래량 vs 평소 (2026-11-09, 웹 '거래량 · 왜 움직였나' — 표시 전용). 거래량이 없으면 None.
+
+    v = 마지막 봉 거래량, a20 · a50 = 그 전 20 · 50 거래일 평균 (오늘은 빼고 — '평소'와 나눠 보는 배수가 그대로 나오게.
+    목록 칸 '거래량돌파배수'는 오늘 포함 20일 평균이라 거래량이 터진 날엔 조금 작다). 직전 봉이 VOL_MIN_PRIOR 개 미만이면 None,
+    20 · 50개가 안 되면 있는 만큼 (n_prior 로 몇 개인지).
+    rank = 최근 VOL_RANK_BARS 봉(오늘 포함) 중 오늘보다 거래량이 많은 날 수 + 1, n = 그 봉 수.
+    first = 일봉이 1년 치(VOL_RANK_BARS)보다 적을 때만 첫 거래일 — 5년을 받으니 상장 1년 안 된 종목 (보호예수 180일 등).
+    """
+    if frame is None or frame.empty or "Volume" not in frame.columns:
+        return None
+    s = pd.to_numeric(frame["Volume"], errors="coerce").dropna()
+    if s.empty or not s.iloc[-1] > 0:
+        return None
+    v = float(s.iloc[-1])
+    prior = s.iloc[:-1]
+
+    def avg(k: int) -> float | None:
+        p = prior.iloc[-k:]
+        return round(float(p.mean())) if len(p) >= VOL_MIN_PRIOR and p.mean() > 0 else None
+
+    win = s.iloc[-VOL_RANK_BARS:]
+    out: dict[str, Any] = {"v": round(v), "a20": avg(20), "a50": avg(50), "n_prior": int(min(len(prior), 50)),
+                           "rank": int((win > v).sum()) + 1, "n": int(len(win)), "first": None}
+    if len(s) < VOL_RANK_BARS and isinstance(s.index, pd.DatetimeIndex):
+        out["first"] = str(pd.Timestamp(s.index[0]).date())
+    return out
+
+
 def industry_medians(rows: Iterable[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
     """[{industry, cap, pe, fpe, …}] → {업종: {"n": 시총 $1B+ 종목 수, "pe": 중앙값 | None, …}}."""
     groups: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
@@ -162,6 +198,33 @@ def industry_medians(rows: Iterable[Mapping[str, Any]]) -> dict[str, dict[str, A
             med[k] = round(statistics.median(xs), 2) if len(xs) >= PEER_MIN_N else None
         out[ind] = med
     return out
+
+
+def valuation_groups(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
+    """[{industry, sector, cap, pe, …}] → market.json 'ind_val' (2026-11-09, 웹 밸류에이션 '다른 업종과 비교').
+
+    {"all": 시장 전체 시총 $1B+ 중앙값, "sectors": {섹터: 중앙값}, "industries": {업종: 중앙값 + "sector"}} —
+    종목 카드의 업종 중앙값(industry_medians)과 같은 규칙. 지표가 하나도 없는 묶음은 뺀다.
+    """
+    rows = [r for r in rows if r.get("industry")]
+    ind = industry_medians(rows)
+    sec = industry_medians({**r, "industry": r.get("sector")} for r in rows if r.get("sector")
+                           and r.get("sector") != "Unknown")
+    whole = industry_medians({**r, "industry": "_all"} for r in rows).get("_all")
+    votes: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for r in rows:
+        if r.get("sector") and r.get("sector") != "Unknown":
+            votes[str(r["industry"])][str(r["sector"])] += 1
+    sector_of = {k: max(v.items(), key=lambda kv: kv[1])[0] for k, v in votes.items()}
+
+    def keep(m: Mapping[str, Any] | None) -> bool:
+        return bool(m) and any(m.get(k) is not None for k in VAL_COLS)
+
+    return {
+        "all": whole if keep(whole) else None,
+        "sectors": {k: v for k, v in sorted(sec.items()) if keep(v)},
+        "industries": {k: {**v, "sector": sector_of.get(k)} for k, v in sorted(ind.items()) if keep(v)},
+    }
 
 
 def valuation_values(row: Mapping[str, Any]) -> dict[str, float | None]:

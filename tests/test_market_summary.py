@@ -149,6 +149,63 @@ def _item(chg: float | None, cap: float, sector: str = "Technology", ed: str | N
             "earnings_move": {"timing": timing, "avg": 0.05} if timing else None}
 
 
+# ── 거래량 vs 평소 · 업종 비교 (2026-11-09)
+
+def test_volume_stats_excludes_today_ranks_and_first_date() -> None:
+    """a20 · a50 = 오늘 뺀 직전 평균, rank = 1년(상장 뒤) 중 몇 번째, first = 일봉 1년 치 미만일 때만 첫 거래일."""
+    df = _ohlcv([10.0] * 130)
+    vol = [1_000.0] * 130
+    vol[10] = 50_000.0  # 상장 초 큰 날 하나
+    vol[-1] = 3_000.0
+    df["Volume"] = vol
+    v = ms.volume_stats(df)
+    assert v["v"] == 3000 and v["a20"] == 1000 and v["a50"] == 1000 and v["n_prior"] == 50
+    assert (v["rank"], v["n"]) == (2, 130)  # 50,000 다음
+    assert v["first"] == str(df.index[0].date())
+    long = _ohlcv([10.0] * 300)
+    lv = ms.volume_stats(long)
+    assert lv["first"] is None and lv["n"] == ms.VOL_RANK_BARS and lv["rank"] == 1  # 모두 같으면 1등
+    short = _ohlcv([10.0] * 6)
+    sv = ms.volume_stats(short)
+    assert sv["a20"] is None and sv["a50"] is None  # 직전 봉 VOL_MIN_PRIOR 미만
+    zero = _ohlcv([10.0] * 30)
+    zero["Volume"] = 0.0
+    assert ms.volume_stats(zero) is None and ms.volume_stats(None) is None
+    assert ms.price_stats(df)["vol"] == v
+
+
+def test_volume_flows_to_item_info_and_young_rows() -> None:
+    """price_stats vol → add_web_stats '거래량정보'(JSON 글자) → item_info vol. 신규 상장 줄(young_row)도 같은 모양."""
+    frames = {"A": _ohlcv([10.0] * 60), "B": _ohlcv([10.0] * 3)}
+    frames["A"]["Volume"] = [100.0] * 59 + [500.0]
+    stats = {t: ms.price_stats(f) for t, f in frames.items()}
+    ranked = rus.add_web_stats(pd.DataFrame({"티커": list(frames)}), stats)
+    infos = {str(r["티커"]): wu.item_info(r, tv=None, insider=None, isb=None, sqz=None) for _, r in ranked.iterrows()}
+    assert infos["A"]["vol"]["v"] == 500 and infos["A"]["vol"]["a20"] == 100
+    assert infos["B"]["vol"]["a20"] is None
+    young = rus.young_row("Y", _ohlcv([5.0] * 30))
+    yi = wu.item_info(pd.Series(young), tv=None, insider=None, isb=None, sqz=None)
+    assert yi["vol"]["v"] == 1000 and yi["vol"]["first"] == young["첫거래일"]
+    assert wu.item_info(pd.Series({"티커": "N"}), tv=None, insider=None, isb=None, sqz=None)["vol"] is None
+    json.dumps(infos, allow_nan=False)
+
+
+def test_valuation_groups_all_sector_industry() -> None:
+    """업종 전부 · 섹터 · 시장 전체 중앙값 — 종목 카드 업종 중앙값(industry_medians)과 같은 규칙."""
+    rows = [{"industry": "Semis", "sector": "Technology", "cap": 5e9, "pe": v} for v in (10, 20, 30)]
+    rows += [{"industry": "Software", "sector": "Technology", "cap": 5e9, "pe": v} for v in (40, 50, 60)]
+    rows += [{"industry": "Banks", "sector": "Financial Services", "cap": 5e9, "pe": 8.0}]  # 값 1개 → 중앙값 없음
+    rows += [{"industry": "Semis", "sector": "Unknown", "cap": 5e9, "pe": 25.0}]
+    g = ms.valuation_groups(rows)
+    assert g["industries"]["Semis"]["pe"] == 22.5 and g["industries"]["Semis"]["sector"] == "Technology"
+    assert g["industries"]["Semis"]["n"] == 4
+    assert "Banks" not in g["industries"] and "Financial Services" not in g["sectors"]
+    assert g["sectors"]["Technology"]["pe"] == 35.0 and g["sectors"]["Technology"]["n"] == 6
+    assert g["all"]["pe"] == 27.5 and g["all"]["n"] == 8
+    assert ms.valuation_groups([]) == {"all": None, "sectors": {}, "industries": {}}
+    json.dumps(g, allow_nan=False)
+
+
 def test_trading_days_after_skips_weekend() -> None:
     assert ms.trading_days_after("2026-11-06", 3) == ["2026-11-09", "2026-11-10", "2026-11-11"]
 
@@ -418,6 +475,7 @@ def test_web_extras_and_write_payloads(tmp_path: Path, monkeypatch: pytest.Monke
     assert details["AAA"]["quarters"]["next"]["date"] == "2026-11-04"
     assert "SMALL" not in details
     assert market["breadth"]["spy"] == 0.002 and market["bar_date"] == "2026-11-03"
+    assert market["ind_val"]["industries"]["Semiconductors"]["pe"] == 30.0  # 종목 카드 업종 중앙값과 같다
     assert (tmp_path / "snapshot" / stock_detail.CACHE_NAME).exists()
 
     payload = wu.market_payload("sp500", "S&P 500", items, bar_date="2026-11-03", counts={})
