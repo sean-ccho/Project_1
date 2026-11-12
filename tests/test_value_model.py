@@ -295,10 +295,52 @@ def test_screen_and_build_model_are_json_safe():
     log = vm.update_log(vm.load_log(None), rows, px, "2026-11-13")
     model = vm.build_model(rows, funnel, price_date="2026-11-13", rf=0.0483, rf_src="test",
                            track=vm.tracking_rows(log, px, {r["ticker"]: r for r in rows}), log_start=log["start"],
-                           fetch_stats=None)
+                           fetch_stats=None, research=vm.research_rows(px, {r["ticker"]: r for r in rows}))
     body = json.dumps(model, allow_nan=False)  # NaN 이 있으면 여기서 실패
     assert '"schema": 2' in body
     assert model["rows"][0]["ticker"] == "GOOD"
     assert len(model["author"]["coverage"]) == len(vm.AUTHOR_COVERAGE)
+    assert len(model["author"]["research"]) == len(vm.AUTHOR_RESEARCH)
     assert model["v2"]["top"]["v1"] == ["GOOD"] and model["v2"]["top"]["v2"] == ["GOOD"]
     assert {"pass_v2", "sensitive"} <= set(funnel)
+
+
+# ── 저자 종목 두 번째 출처: Ideas 의 심층 리서치 글 (2026-11-12)
+
+def test_author_research_source():
+    assert vm.author_kind("RHI") == "coverage"  # 커버리지 + 리서치 글 둘 다 → 커버리지
+    assert vm.author_kind("FISV") == "research"  # 리서치 글에만 (커버리지 페이지에 없음)
+    assert vm.author_kind("MRK") == "screen"
+    assert vm.author_kind("AAPL") is None
+    ts = vm.author_tickers()
+    assert ts[: len(vm.AUTHOR_COVERAGE)] == [c["ticker"] for c in vm.AUTHOR_COVERAGE]
+    assert "FISV" in ts and len(ts) == len(set(ts))
+    assert {"FISV", "RHI", "MRK"} <= set(vm.universe_tickers())
+    for a in vm.AUTHOR_RESEARCH:  # 글 주소 · 날짜 · 통화가 빠지지 않게
+        assert a["slug"] and len(a["date"]) == 10 and a["ccy"] in {"USD", "CAD"}
+
+
+def test_update_log_adds_research_only_author():
+    px = _px().assign(FISV=lambda d: np.linspace(45, 50, len(d)))
+    log = vm.update_log(vm.load_log(None), [], px, "2026-11-04")
+    authors = {e["t"] for e in log["entries"] if e["g"] == "author"}
+    assert {"FISV", "GIB-A.TO"} <= authors  # 주가가 있는 저자 종목은 커버리지든 리서치든 들어간다
+
+
+def test_research_rows_since_post():
+    idx = pd.bdate_range("2026-09-01", "2026-11-13")
+    px = pd.DataFrame({"FISV": np.linspace(40, 60, len(idx)), "SPY": np.linspace(500, 510, len(idx)),
+                       "RHI": np.linspace(30, 33, len(idx))}, index=idx)
+    out = vm.research_rows(px, {"FISV": {"price": 60.0}})
+    fisv = next(r for r in out if r["ticker"] == "FISV")
+    p0 = px.loc["2026-10-05", "FISV"]
+    b0 = px.loc["2026-10-05", "SPY"]
+    assert fisv["url"].endswith("/post/fiserv-inc") and fisv["bench"] == "SPY"
+    assert fisv["ret"] == pytest.approx(60 / p0 - 1, abs=1e-4)
+    assert fisv["excess"] == pytest.approx((60 / p0 - 1) - (510 / b0 - 1), abs=1e-4)
+    assert fisv["upside"] == pytest.approx(83.75 / 60 - 1, abs=1e-4)
+    rhi = next(r for r in out if r["ticker"] == "RHI")
+    assert rhi["price"] == pytest.approx(33.0) and rhi["ret"] is None  # 게시일(2026-02-27) 주가가 없으면 비움
+    gib = next(r for r in out if r["ticker"] == "GIB-A.TO")
+    assert gib["price"] is None and gib["upside"] is None and gib["bench"] == "XIU.TO"
+    json.dumps(out, allow_nan=False)

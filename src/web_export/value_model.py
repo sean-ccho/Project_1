@@ -1,7 +1,8 @@
 """예측 모델 — 가치 체크리스트 스크린 (2026-11-11 · 표시 전용).
 
 사이트 내계좌 › 예측 모델 탭의 '우리 커버리지' 데이터. Baoro Research 블로그 로직(로컬 문서 docs/블로그주식분석.md 9절 — 저장소에는 안 올림)을
-S&P 500 + 저자 커버리지 종목에 밤마다 적용한다.
+S&P 500 + 저자 종목에 밤마다 적용한다. 저자 종목의 출처는 두 곳 (2026-11-12): 사이트 Coverage 페이지(AUTHOR_COVERAGE)와
+Ideas(블로그)의 심층 리서치 글(AUTHOR_RESEARCH — Fiserv 처럼 커버리지에 없는 종목도). A-Series 스크린 목록(AUTHOR_SCREEN)은 따로.
 
 - 품질 관문 5개 (연간 재무제표 4~5년, yfinance)
   ROE 평균 ≥ 15% · CV ≤ 0.3 / ROIC 평균 ≥ 12% · CV ≤ 0.3 · 평균 ROIC > WACC / Altman Z ≥ 2.99 /
@@ -107,6 +108,40 @@ AUTHOR_SCREEN: tuple[tuple[str, str], ...] = (
     ("NVO", "2025-10-01"), ("MRK", "2025-10-01"), ("HON", "2025-10-01"), ("HSY", "2025-10-01"),
     ("CLX", "2025-11-01"), ("GILD", "2025-11-01"), ("KMB", "2025-11-01"), ("MO", "2025-11-01"),
 )
+# 저자 심층 리서치 글 (Ideas = /blog, 2026-11-12 기준 44개 중) — 회사 하나를 길게 분석한 글: Model C 리서치 · 적정가 업데이트 ·
+# 2026 특수상황 장문(Pembina · Imperial Metals). 2024~25 특수상황 짧은 메모 17개 · 시황 글은 뺀다.
+# 커버리지와 함께 저자 종목의 두 번째 출처 — 새 리서치 글이 나오면(blog_watch 가 알린다) 여기에 한 줄 더한다.
+# view = 저자 결론 (짧게), target = 글에 적힌 목표가 · 기본 시나리오 (없으면 None).
+AUTHOR_POST_URL = "https://www.baorocapital.com/post/"
+AUTHOR_RESEARCH: tuple[dict[str, Any], ...] = (
+    {"slug": "robert-half-inc", "date": "2026-02-27", "ticker": "RHI", "kind": "리서치",
+     "view": "Overweight · $57.90", "target": 57.90, "ccy": "USD"},
+    {"slug": "factset-research-systems-inc", "date": "2026-02-28", "ticker": "FDS", "kind": "리서치",
+     "view": "DCF 세 값 $100 · $290 · $390", "target": None, "ccy": "USD"},
+    {"slug": "cgi-inc", "date": "2026-03-05", "ticker": "GIB-A.TO", "kind": "리서치",
+     "view": "Strong Buy · C$306", "target": 306.0, "ccy": "CAD"},
+    {"slug": "pembina-pipeline-corporation", "date": "2026-07-09", "ticker": "PPL.TO", "kind": "특수상황 장문",
+     "view": "발전소 · 송유관 프로젝트가 주당 +C$10.80~14.12", "target": None, "ccy": "CAD"},
+    {"slug": "red-chris-block-cave-imperial-metals", "date": "2026-07-13", "ticker": "III.TO", "kind": "특수상황 장문",
+     "view": "Red Chris 블록케이브 — FCF 마진 10~40% 시나리오", "target": None, "ccy": "CAD"},
+    {"slug": "tsx-engh-fair-value-update", "date": "2026-10-01", "ticker": "ENGH.TO", "kind": "적정가 업데이트",
+     "view": "C$40.50 유지", "target": 40.50, "ccy": "CAD"},
+    {"slug": "nyse-acn-fair-value-update", "date": "2026-10-01", "ticker": "ACN", "kind": "적정가 업데이트",
+     "view": "$529 유지", "target": 529.0, "ccy": "USD"},
+    {"slug": "nyse-fds-fair-value-update", "date": "2026-10-01", "ticker": "FDS", "kind": "적정가 업데이트",
+     "view": "$423 로 상향", "target": 423.0, "ccy": "USD"},
+    {"slug": "fiserv-inc", "date": "2026-10-05", "ticker": "FISV", "kind": "리서치",
+     "view": "보수 $68.50 · 기본 $83.75 · 회복 $99", "target": 83.75, "ccy": "USD"},
+)
+
+
+def author_tickers() -> list[str]:
+    """저자 종목 — 커버리지 + 리서치 글 (순서대로, 중복 없이). 앞으로 기록의 'author' 묶음."""
+    out: list[str] = []
+    for t in [c["ticker"] for c in AUTHOR_COVERAGE] + [a["ticker"] for a in AUTHOR_RESEARCH]:
+        if t not in out:
+            out.append(t)
+    return out
 
 # ── 받아 둘 재무 항목 (앞 이름이 빈 해는 뒤 이름으로 채운다 — series)
 INC_ROWS = ("Total Revenue", "Operating Revenue", "Net Income Common Stockholders", "Net Income",
@@ -593,7 +628,7 @@ def load_log(path: Path | None) -> dict[str, Any]:
 
 def update_log(log: dict[str, Any], rows: list[Mapping[str, Any]], px: pd.DataFrame, day: str) -> dict[str, Any]:
     """오늘 결과를 기록에 반영한다. 한 번 넣은 줄의 시작일 · 시작가는 바꾸지 않는다.
-    - ours(v1 통과) · author(저자 커버리지): 처음 한 번 넣고 계속 보유.
+    - ours(v1 통과) · author(저자 종목 = 커버리지 + 리서치 글): 처음 한 번 넣고 계속 보유.
     - v2: v2 통과하면 넣고, 반증 조건(kill_reasons)에 걸리면 끝낸다(x · xr). 다시 통과하면 새 줄.
     - v1_top · v2_top: 매달 첫 실행에 우선순위 상위 TOP_N 으로 다시 골라, 빠진 종목은 끝내고 새 종목을 넣는다."""
     entries: list[dict[str, Any]] = log.setdefault("entries", [])
@@ -639,9 +674,9 @@ def update_log(log: dict[str, Any], rows: list[Mapping[str, Any]], px: pd.DataFr
             if not active(t, group):
                 add(t, group)
         baskets[group] = month
-    for c in AUTHOR_COVERAGE:
-        if not ever(c["ticker"], "author"):
-            add(c["ticker"], "author")
+    for t in author_tickers():  # 커버리지 + 리서치 글 종목 — 처음 보이는 날부터
+        if not ever(t, "author"):
+            add(t, "author")
     return log
 
 
@@ -783,12 +818,35 @@ def screen(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], px: p
 
 
 def author_kind(ticker: str) -> str | None:
-    """저자 커버리지('coverage') · A-Series 스크린('screen') · 아님(None)."""
+    """저자 커버리지('coverage') · 리서치 글에만('research') · A-Series 스크린('screen') · 아님(None)."""
     if any(c["ticker"] == ticker for c in AUTHOR_COVERAGE):
         return "coverage"
+    if any(a["ticker"] == ticker for a in AUTHOR_RESEARCH):
+        return "research"
     if any(t == ticker for t, _ in AUTHOR_SCREEN):
         return "screen"
     return None
+
+
+def research_rows(px: pd.DataFrame, rows_by: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """저자 리서치 글마다 게시일 종가 → 오늘 수익률(배당 포함) · 같은 기간 지수(SPY · 캐나다는 XIU) · 목표가까지."""
+    out: list[dict[str, Any]] = []
+    for a in AUTHOR_RESEARCH:
+        t = a["ticker"]
+        bench = bench_of(t)
+        p0, p1 = price_on(px, t, a["date"]), last_price(px, t)
+        b0, b1 = price_on(px, bench, a["date"]), last_price(px, bench)
+        ret = p1 / p0 - 1 if p0 > 0 else NAN
+        bret = b1 / b0 - 1 if b0 > 0 else NAN
+        r = rows_by.get(t)
+        price = _f(r.get("price")) if r else None
+        if price is None and math.isfinite(p1):
+            price = p1
+        target = a.get("target")
+        out.append({**a, "url": AUTHOR_POST_URL + a["slug"], "bench": bench, "price": _r(price, 2),
+                    "ret": _r(ret), "bench_ret": _r(bret), "excess": _r(ret - bret),
+                    "upside": _r(target / price - 1) if target and price else None})
+    return out
 
 
 def web_row(r: Mapping[str, Any]) -> dict[str, Any]:
@@ -810,8 +868,10 @@ def web_row(r: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def build_model(rows: list[dict[str, Any]], funnel: Mapping[str, int], *, price_date: str, rf: float, rf_src: str,
-                track: list[dict[str, Any]], log_start: str | None, fetch_stats: Mapping[str, int] | None) -> dict[str, Any]:
-    """value_model.json — 관문을 하나라도 의미 있게 지난 종목(품질 통과 · 가격 통과 · 저자 종목)만 싣는다."""
+                track: list[dict[str, Any]], log_start: str | None, fetch_stats: Mapping[str, int] | None,
+                research: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """value_model.json — 관문을 하나라도 의미 있게 지난 종목(품질 통과 · 가격 통과 · 저자 종목)만 싣는다.
+    research = research_rows (저자 리서치 글 · 게시일 이후 성과)."""
     keep = [r for r in rows if r["quality"] or r["g_price"] or author_kind(r["ticker"])]
     keep.sort(key=lambda r: (not r["pass"], -(r["alpha"] if math.isfinite(r["alpha"]) else -9)))
     by_t = {r["ticker"]: r for r in rows}
@@ -832,7 +892,8 @@ def build_model(rows: list[dict[str, Any]], funnel: Mapping[str, int], *, price_
         "fetch": dict(fetch_stats or {}),
         "rows": [web_row(r) for r in keep],
         "author": {"as_of": AUTHOR_AS_OF, "coverage": coverage,
-                   "screen": [{"ticker": t, "date": d} for t, d in AUTHOR_SCREEN]},
+                   "screen": [{"ticker": t, "date": d} for t, d in AUTHOR_SCREEN],
+                   "research": list(research or [])},
         "tracking": {"start": log_start, "rows": track_web, "summary": tracking_summary(track)},
         "v2": {
             "params": {"bear_fcf_cut": BEAR_FCF_CUT, "sensitive_beta": SENSITIVE_BETA, "top_n": TOP_N,
@@ -844,10 +905,10 @@ def build_model(rows: list[dict[str, Any]], funnel: Mapping[str, int], *, price_
 
 
 def universe_tickers() -> list[str]:
-    """S&P 500 (data.sp500_tickers) + 저자 커버리지 · A-Series 종목."""
+    """S&P 500 (data.sp500_tickers) + 저자 종목(커버리지 · 리서치 글) · A-Series 종목."""
     from data.sp500_tickers import SP500_TICKERS  # noqa: PLC0415
 
-    extra = [c["ticker"] for c in AUTHOR_COVERAGE] + [t for t, _ in AUTHOR_SCREEN]
+    extra = author_tickers() + [t for t, _ in AUTHOR_SCREEN]
     return sorted(set(SP500_TICKERS) | set(extra))
 
 
@@ -909,9 +970,10 @@ def main(argv: list[str] | None = None) -> int:
     passing = {r["ticker"] for r in rows if r["pass"]}
     log = update_log(log, rows, px, price_date)
     (snap / LOG_NAME).write_text(json.dumps(log, ensure_ascii=False, indent=1), "utf-8")
-    track = tracking_rows(log, px, {r["ticker"]: r for r in rows})
+    by_ticker = {r["ticker"]: r for r in rows}
+    track = tracking_rows(log, px, by_ticker)
     model = build_model(rows, funnel, price_date=price_date, rf=rf, rf_src=rf_src, track=track,
-                        log_start=log.get("start"), fetch_stats=fetch_stats)
+                        log_start=log.get("start"), fetch_stats=fetch_stats, research=research_rows(px, by_ticker))
     body = json.dumps(model, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     (out_dir / OUT_NAME).write_text(body, "utf-8")
     print(f"[예측 모델] {price_date} · 계산 {funnel['computed']} · 품질 통과 {funnel['quality']} · 가격 통과 "
