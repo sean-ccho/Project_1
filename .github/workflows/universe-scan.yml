@@ -98,6 +98,7 @@ jobs:
       # + 종목 상세 분기 실적 · 의견 수 캐시 (detail.json.gz — 매일 조금씩 받아 쌓는다, web_export/stock_detail.py)
       # + 이미 읽은 국회의원 거래 신고 (congress_state.json.gz — 다음 밤엔 새 신고 PDF 만 받는다, data/congress_trades.py)
       # + 예측 모델 연간 재무 캐시 · 앞으로 기록 · 전날 결과 (value_fund.json.gz · value_log.json · value_model.json, web_export/value_model.py)
+      # + 저자 블로그 감지 기준 (blog_watch.json — 일주일에 한 번 받은 사이트맵 · 커버리지 · 알린 소식, web_export/blog_watch.py)
       - name: Restore previous universe snapshot
         run: |
           mkdir -p "$RUNNER_TEMP/prev"
@@ -106,8 +107,9 @@ jobs:
                      value_fund.json.gz value_log.json; do
               git show "FETCH_HEAD:snapshot/$f" > "$RUNNER_TEMP/prev/$f" 2>/dev/null || rm -f "$RUNNER_TEMP/prev/$f"
             done
-            git show "FETCH_HEAD:value_model.json" > "$RUNNER_TEMP/prev/value_model.json" 2>/dev/null \
-              || rm -f "$RUNNER_TEMP/prev/value_model.json"
+            for f in value_model.json blog_watch.json; do
+              git show "FETCH_HEAD:$f" > "$RUNNER_TEMP/prev/$f" 2>/dev/null || rm -f "$RUNNER_TEMP/prev/$f"
+            done
           fi
           ls -la "$RUNNER_TEMP/prev"
 
@@ -131,6 +133,7 @@ jobs:
       # 실패해도 스캔은 계속.
       - name: Value model (예측 모델)
         run: |
+          set -o pipefail  # python 이 실패하면 tee 대신 그 실패로 → 아래 경고가 뜬다
           mkdir -p "$RUNNER_TEMP/universe/snapshot"
           for f in value_fund.json.gz value_log.json; do
             if [ -f "$RUNNER_TEMP/prev/$f" ]; then cp "$RUNNER_TEMP/prev/$f" "$RUNNER_TEMP/universe/snapshot/$f"; fi
@@ -139,6 +142,19 @@ jobs:
           PYTHONPATH=.:src python -m web_export.value_model --out-dir "$RUNNER_TEMP/universe" --prev-dir "$RUNNER_TEMP/prev" \
             | tee "$RUNNER_TEMP/value_model.log" \
             || echo "::warning title=예측 모델 실패::value_model.json 을 새로 만들지 못했습니다 (전날 결과 유지 · 전체분석은 계속)."
+
+      # 저자 블로그 새 글 · 커버리지 변경 감지 (2026-11-11 · 표시 전용) — 예측 모델 위쪽 1~8절은 고정 글이라, 일주일에 한 번
+      # 저자 사이트맵 · 커버리지 페이지를 받아 정리 안 된 새 글 · 정리한 뒤 고친 글 · 커버리지 차이를 blog_watch.json 에 남기고
+      # 처음 보는 소식만 ntfy 로 한 번 알린다 (사이 밤엔 받지 않는다). 전날 파일을 먼저 옮겨 둬서 실패해도 기준이 안 지워진다.
+      - name: Blog watch (예측 모델 · 저자 새 글 감지)
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          set -o pipefail
+          if [ -f "$RUNNER_TEMP/prev/blog_watch.json" ]; then cp "$RUNNER_TEMP/prev/blog_watch.json" "$RUNNER_TEMP/universe/"; fi
+          PYTHONPATH=.:src python -m web_export.blog_watch --out-dir "$RUNNER_TEMP/universe" --prev-dir "$RUNNER_TEMP/prev" \
+            | tee "$RUNNER_TEMP/blog_watch.log" \
+            || echo "::warning title=블로그 감지 실패::blog_watch.json 을 새로 만들지 못했습니다 (전날 결과 유지 · 전체분석은 계속)."
 
       - name: Upload universe scan log
         if: always()
