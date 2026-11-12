@@ -169,24 +169,104 @@ def _px() -> pd.DataFrame:
                         index=idx)
 
 
+def _row(t: str, **kw) -> dict:
+    """update_log · tracking 에 넣을 최소한의 줄."""
+    base = {"ticker": t, "pass": False, "pass_v2": False, "quality": True, "kill": [], "drop": -0.3, "gap": 0.01,
+            "industry": "Software - Application"}
+    return {**base, **kw}
+
+
 def test_update_log_adds_once_and_tracks_returns():
     px = _px()
-    log = vm.update_log(vm.load_log(None), {"AAA"}, px, "2026-11-04")
+    rows = [_row("AAA", **{"pass": True, "pass_v2": True, "drop": 0.05, "gap": 0.08})]
+    log = vm.update_log(vm.load_log(None), rows, px, "2026-11-04")
     ours = [e for e in log["entries"] if e["g"] == "ours"]
     assert [e["t"] for e in ours] == ["AAA"] and log["start"] == "2026-11-04"
+    assert any(e["t"] == "AAA" and e["g"] == "v2" for e in log["entries"])
+    assert {e["g"] for e in log["entries"] if e["t"] == "AAA"} == {"ours", "v2", "v1_top", "v2_top"}
     # 저자 커버리지 중 주가가 있는 종목(GIB-A.TO)도 들어간다
     assert any(e["t"] == "GIB-A.TO" and e["g"] == "author" for e in log["entries"])
     n = len(log["entries"])
-    log = vm.update_log(log, {"AAA"}, px, "2026-11-06")
+    log = vm.update_log(log, rows, px, "2026-11-06")
     assert len(log["entries"]) == n  # 다시 넣지 않는다
-    rows = vm.tracking_rows(log, px, {"AAA"})
-    aaa = next(r for r in rows if r["ticker"] == "AAA")
+    track = vm.tracking_rows(log, px, {r["ticker"]: r for r in rows})
+    aaa = next(r for r in track if r["ticker"] == "AAA" and r["group"] == "ours")
     p0 = px.loc["2026-11-04", "AAA"]
     assert aaa["ret"] == pytest.approx(px["AAA"].iloc[-1] / p0 - 1)
     assert aaa["excess"] == pytest.approx(aaa["ret"] - aaa["bench_ret"])
-    assert aaa["passing"]
-    summ = vm.tracking_summary(rows)
-    assert summ["ours"]["n"] == 1 and summ["ours"]["beat"] == 1
+    assert aaa["passing"] and aaa["exit"] is None
+    summ = vm.tracking_summary(track)
+    assert summ["ours"]["n"] == 1 and summ["ours"]["beat"] == 1 and summ["ours"]["open"] == 1
+    assert set(summ) == set(vm.GROUPS)
+
+
+def test_v2_entry_closes_on_kill_and_freezes_return():
+    px = _px()
+    log = vm.update_log(vm.load_log(None), [_row("AAA", **{"pass": True, "pass_v2": True})], px, "2026-11-04")
+    killed = [_row("AAA", **{"pass": False, "pass_v2": False, "kill": ["적정가 도달"]})]
+    log = vm.update_log(log, killed, px, "2026-11-09")
+    v2 = next(e for e in log["entries"] if e["g"] == "v2")
+    assert v2["x"] == "2026-11-09" and v2["xr"] == "적정가 도달"
+    ours = next(e for e in log["entries"] if e["g"] == "ours")
+    assert "x" not in ours  # v1 은 끝내지 않는다
+    track = vm.tracking_rows(log, px, {"AAA": killed[0]})
+    t2 = next(r for r in track if r["group"] == "v2")
+    want = px.loc["2026-11-09", "AAA"] / px.loc["2026-11-04", "AAA"] - 1  # 끝낸 날에서 멈춘다
+    assert t2["ret"] == pytest.approx(want) and t2["exit"] == "2026-11-09" and not t2["passing"]
+
+
+def test_top_baskets_rebalance_monthly():
+    idx = pd.bdate_range("2026-10-26", "2026-11-13")
+    px = pd.DataFrame({t: np.linspace(10, 11, len(idx)) for t in ("AAA", "BBB", "CCC", "SPY")}, index=idx)
+    oct_rows = [_row("AAA", drop=-0.1, gap=0.05), _row("BBB", drop=-0.2, gap=0.04)]
+    log = vm.update_log(vm.load_log(None), oct_rows, px, "2026-10-30")
+    # 같은 달 안에서는 순위가 바뀌어도 그대로
+    log = vm.update_log(log, [_row("CCC", drop=-0.05, gap=0.09)] + oct_rows, px, "2026-10-31")
+    assert not any(e["t"] == "CCC" and e["g"] == "v1_top" for e in log["entries"])
+    # 다음 달 첫 실행에 다시 고른다 — 빠진 종목은 끝, 새 종목은 들어감
+    nov = [_row("CCC", drop=-0.05, gap=0.09)]
+    log = vm.update_log(log, nov, px, "2026-11-02")
+    v1 = {e["t"]: e for e in log["entries"] if e["g"] == "v1_top"}
+    assert v1["AAA"]["x"] == "2026-11-02" and "순위 밖" in v1["AAA"]["xr"]
+    assert "x" not in v1["CCC"] and log["baskets"]["v1_top"] == "2026-11"
+
+
+def test_revenue_falling():
+    q = lambda e, v: {"end": e, "revenue": v}  # noqa: E731
+    five = [q("2025-06-30", 110), q("2025-09-30", 105), q("2025-12-31", 120), q("2026-03-31", 98), q("2026-06-30", 108)]
+    down_year = pd.Series([1000.0, 950.0], index=pd.to_datetime(["2024-12-31", "2025-12-31"]))
+    up_year = pd.Series([1000.0, 1050.0], index=pd.to_datetime(["2024-12-31", "2025-12-31"]))
+    assert vm.revenue_falling(five, down_year) is True     # 최근 분기 110→108 감소 + 연간 감소
+    assert vm.revenue_falling(five, up_year) is False      # 연간은 증가
+    rising = five[:-1] + [q("2026-06-30", 115)]
+    assert vm.revenue_falling(rising, down_year) is False  # 최근 분기 증가
+    assert vm.revenue_falling(five[-2:], down_year) is None  # 1년 전 분기가 없음
+    assert vm.revenue_falling(None, down_year) is None     # 분기 자료 없음 (캐나다 등)
+
+
+def test_top_lists():
+    rows = [_row("AAA", drop=-0.10, gap=0.03), _row("BBB", drop=-0.30, gap=0.09, kill=["적정가 도달"]),
+            _row("CCC", drop=0.05, gap=0.05), _row("DDD", quality=False, drop=0.2, gap=0.2)]
+    assert vm.top_v1(rows) == ["CCC", "AAA", "BBB"]       # 필요한 하락 작은 순 (품질 탈락 제외)
+    assert vm.top_v2(rows) == ["CCC", "AAA"]              # 괴리 큰 순, 반증 조건 걸린 BBB 제외
+
+
+def test_kill_reasons():
+    ok = {"quality": True, "rev_down": False, "gap": 0.05, "alpha": 0.06}
+    assert vm.kill_reasons(ok) == []
+    bad = {"quality": False, "rev_down": True, "gap": -0.01, "alpha": -0.02}
+    assert vm.kill_reasons(bad) == ["품질 탈락", "매출 감소 (최근 분기 · 연간)", "시장 가정 성장 > 실제", "적정가 도달"]
+
+
+def test_analyze_v2_fields():
+    res = vm.analyze(quality_company(fcf=900.0), price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    ke, y = res["ke"], res["fcf_y"]
+    assert res["implied_g"] == pytest.approx((ke - y) / (1 + y))
+    assert res["gap"] == pytest.approx(res["g1"] - res["implied_g"])
+    assert res["alpha_bear"] < res["alpha"]
+    assert res["pass_v2"] == (res["pass"] and res["alpha_bear"] >= 0)
+    assert res["alpha_b06"] == pytest.approx(res["irr"] - (0.0483 + 0.6 * vm.ERP))
+    assert res["sensitive"] == (res["pass"] and res["alpha_b06"] < vm.ALPHA_MIN)
 
 
 def test_refresh_order_and_refresh_with_fake_fetch():
@@ -212,10 +292,13 @@ def test_screen_and_build_model_are_json_safe():
     cache = {"GOOD": quality_company(fcf=900.0)}
     rows, funnel = vm.screen(["GOOD", "NODATA"], cache, px, 0.0483, {})
     assert funnel["universe"] == 2 and funnel["computed"] == 1 and funnel["no_data"] == 1
-    log = vm.update_log(vm.load_log(None), {r["ticker"] for r in rows if r["pass"]}, px, "2026-11-13")
+    log = vm.update_log(vm.load_log(None), rows, px, "2026-11-13")
     model = vm.build_model(rows, funnel, price_date="2026-11-13", rf=0.0483, rf_src="test",
-                           track=vm.tracking_rows(log, px, set()), log_start=log["start"], fetch_stats=None)
+                           track=vm.tracking_rows(log, px, {r["ticker"]: r for r in rows}), log_start=log["start"],
+                           fetch_stats=None)
     body = json.dumps(model, allow_nan=False)  # NaN 이 있으면 여기서 실패
-    assert '"schema": 1' in body
+    assert '"schema": 2' in body
     assert model["rows"][0]["ticker"] == "GOOD"
     assert len(model["author"]["coverage"]) == len(vm.AUTHOR_COVERAGE)
+    assert model["v2"]["top"]["v1"] == ["GOOD"] and model["v2"]["top"]["v2"] == ["GOOD"]
+    assert {"pass_v2", "sensitive"} <= set(funnel)
