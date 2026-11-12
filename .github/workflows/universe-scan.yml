@@ -97,13 +97,17 @@ jobs:
       # Yahoo 종목 정보가 막힌 날 재무·섹터를 채울 전날 값 (없으면 실전 스냅샷 data/paper_trading 으로)
       # + 종목 상세 분기 실적 · 의견 수 캐시 (detail.json.gz — 매일 조금씩 받아 쌓는다, web_export/stock_detail.py)
       # + 이미 읽은 국회의원 거래 신고 (congress_state.json.gz — 다음 밤엔 새 신고 PDF 만 받는다, data/congress_trades.py)
+      # + 예측 모델 연간 재무 캐시 · 앞으로 기록 · 전날 결과 (value_fund.json.gz · value_log.json · value_model.json, web_export/value_model.py)
       - name: Restore previous universe snapshot
         run: |
           mkdir -p "$RUNNER_TEMP/prev"
           if git fetch -q --depth 1 origin universe-data 2>/dev/null; then
-            for f in sp500_ranked.parquet nasdaq_ranked.parquet detail.json.gz congress_state.json.gz; do
+            for f in sp500_ranked.parquet nasdaq_ranked.parquet detail.json.gz congress_state.json.gz \
+                     value_fund.json.gz value_log.json; do
               git show "FETCH_HEAD:snapshot/$f" > "$RUNNER_TEMP/prev/$f" 2>/dev/null || rm -f "$RUNNER_TEMP/prev/$f"
             done
+            git show "FETCH_HEAD:value_model.json" > "$RUNNER_TEMP/prev/value_model.json" 2>/dev/null \
+              || rm -f "$RUNNER_TEMP/prev/value_model.json"
           fi
           ls -la "$RUNNER_TEMP/prev"
 
@@ -119,6 +123,22 @@ jobs:
         run: |
           PYTHONPATH=.:src python src/run_universe_scan.py \
             --out-dir "$RUNNER_TEMP/universe" --prev-dir "$RUNNER_TEMP/prev" | tee "$RUNNER_TEMP/universe_scan.log"
+
+      # 예측 모델 (2026-11-11 · 표시 전용) — 사이트 내계좌 › 예측 모델의 '우리 커버리지'. Baoro 블로그 로직(docs/블로그주식분석.md
+      # 9절)의 품질 관문 5개 + 가격 관문을 S&P 500 + 저자 커버리지에 적용해 value_model.json 을 만든다. 연간 재무는
+      # snapshot/value_fund.json.gz 에 쌓아 30일마다 다시 받고(하룻밤 20분 한도, 처음엔 약 4분), 처음 통과한 날 · 가격은
+      # snapshot/value_log.json 에 남긴다. 먼저 전날 파일을 그대로 옮겨 둬서 실패해도 캐시 · 기록 · 결과가 지워지지 않는다.
+      # 실패해도 스캔은 계속.
+      - name: Value model (예측 모델)
+        run: |
+          mkdir -p "$RUNNER_TEMP/universe/snapshot"
+          for f in value_fund.json.gz value_log.json; do
+            if [ -f "$RUNNER_TEMP/prev/$f" ]; then cp "$RUNNER_TEMP/prev/$f" "$RUNNER_TEMP/universe/snapshot/$f"; fi
+          done
+          if [ -f "$RUNNER_TEMP/prev/value_model.json" ]; then cp "$RUNNER_TEMP/prev/value_model.json" "$RUNNER_TEMP/universe/"; fi
+          PYTHONPATH=.:src python -m web_export.value_model --out-dir "$RUNNER_TEMP/universe" --prev-dir "$RUNNER_TEMP/prev" \
+            | tee "$RUNNER_TEMP/value_model.log" \
+            || echo "::warning title=예측 모델 실패::value_model.json 을 새로 만들지 못했습니다 (전날 결과 유지 · 전체분석은 계속)."
 
       - name: Upload universe scan log
         if: always()
