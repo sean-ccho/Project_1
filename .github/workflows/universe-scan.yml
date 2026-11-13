@@ -126,10 +126,26 @@ jobs:
           PYTHONPATH=.:src python src/run_universe_scan.py \
             --out-dir "$RUNNER_TEMP/universe" --prev-dir "$RUNNER_TEMP/prev" | tee "$RUNNER_TEMP/universe_scan.log"
 
-      # 예측 모델 (2026-11-11 · 표시 전용) — 사이트 내계좌 › 예측 모델의 '우리 커버리지'. Baoro 블로그 로직(docs/블로그주식분석.md
-      # 9절)의 품질 관문 5개 + 가격 관문을 S&P 500 + 저자 커버리지에 적용해 value_model.json 을 만든다. 연간 재무는
-      # snapshot/value_fund.json.gz 에 쌓아 30일마다 다시 받고(하룻밤 20분 한도, 처음엔 약 4분), 처음 통과한 날 · 가격은
-      # snapshot/value_log.json 에 남긴다. 먼저 전날 파일을 그대로 옮겨 둬서 실패해도 캐시 · 기록 · 결과가 지워지지 않는다.
+      # 저자 블로그 새 글 · 커버리지 변경 감지 (2026-11-11 · 표시 전용) — 예측 모델 위쪽 1~8절은 고정 글이라, 일주일에 한 번
+      # 저자 사이트맵 · 커버리지 페이지를 받아 정리 안 된 새 글 · 정리한 뒤 고친 글 · 커버리지 차이를 blog_watch.json 에 남기고
+      # 처음 보는 소식만 ntfy 로 한 번 알린다 (사이 밤엔 받지 않는다). 전날 파일을 먼저 옮겨 둬서 실패해도 기준이 안 지워진다.
+      # 예측 모델보다 먼저 — 예측 모델이 이 파일의 커버리지 페이지 목록을 저자 커버리지로 쓴다 (2026-11-12).
+      - name: Blog watch (예측 모델 · 저자 새 글 감지)
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          set -o pipefail
+          if [ -f "$RUNNER_TEMP/prev/blog_watch.json" ]; then cp "$RUNNER_TEMP/prev/blog_watch.json" "$RUNNER_TEMP/universe/"; fi
+          PYTHONPATH=.:src python -m web_export.blog_watch --out-dir "$RUNNER_TEMP/universe" --prev-dir "$RUNNER_TEMP/prev" \
+            | tee "$RUNNER_TEMP/blog_watch.log" \
+            || echo "::warning title=블로그 감지 실패::blog_watch.json 을 새로 만들지 못했습니다 (전날 결과 유지 · 전체분석은 계속)."
+
+      # 예측 모델 (2026-11-11 · 표시 전용) — 사이트 내계좌 › 예측 모델. Baoro 블로그 로직(docs/블로그주식분석.md 9절)의
+      # 품질 관문 5개 + 가격 관문을 우리 대상(2026-11-12: 미국 상장 + TSX, 시가총액 US$10억 이상, 금융 · 리츠 제외 — 위 스캔 ·
+      # canada-data 의 시가총액으로 정함, 같은 회사는 하나 — 약 2,100종목)에 적용해 주니어(v1) · 시니어(v2) 목록을 만들고, 저자 종목(커버리지 =
+      # 위 블로그 감지가 읽은 페이지 목록 + 리서치 글)은 대상 밖이어도 비교용으로 계산한다. 연간 재무는
+      # snapshot/value_fund.json.gz 에 쌓아 30일마다 다시 받고(하룻밤 20분 한도 — 넓힌 첫 밤은 대부분 새로 받음), 기록은
+      # snapshot/value_log.json (대상 재무를 95% 받은 밤부터 시작). 먼저 전날 파일을 옮겨 둬서 실패해도 지워지지 않는다.
       # 실패해도 스캔은 계속.
       - name: Value model (예측 모델)
         run: |
@@ -152,19 +168,6 @@ jobs:
             --ca-dir "$RUNNER_TEMP/ca_scan" \
             | tee "$RUNNER_TEMP/value_model.log" \
             || echo "::warning title=예측 모델 실패::value_model.json 을 새로 만들지 못했습니다 (전날 결과 유지 · 전체분석은 계속)."
-
-      # 저자 블로그 새 글 · 커버리지 변경 감지 (2026-11-11 · 표시 전용) — 예측 모델 위쪽 1~8절은 고정 글이라, 일주일에 한 번
-      # 저자 사이트맵 · 커버리지 페이지를 받아 정리 안 된 새 글 · 정리한 뒤 고친 글 · 커버리지 차이를 blog_watch.json 에 남기고
-      # 처음 보는 소식만 ntfy 로 한 번 알린다 (사이 밤엔 받지 않는다). 전날 파일을 먼저 옮겨 둬서 실패해도 기준이 안 지워진다.
-      - name: Blog watch (예측 모델 · 저자 새 글 감지)
-        env:
-          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-        run: |
-          set -o pipefail
-          if [ -f "$RUNNER_TEMP/prev/blog_watch.json" ]; then cp "$RUNNER_TEMP/prev/blog_watch.json" "$RUNNER_TEMP/universe/"; fi
-          PYTHONPATH=.:src python -m web_export.blog_watch --out-dir "$RUNNER_TEMP/universe" --prev-dir "$RUNNER_TEMP/prev" \
-            | tee "$RUNNER_TEMP/blog_watch.log" \
-            || echo "::warning title=블로그 감지 실패::blog_watch.json 을 새로 만들지 못했습니다 (전날 결과 유지 · 전체분석은 계속)."
 
       - name: Upload universe scan log
         if: always()

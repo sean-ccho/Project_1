@@ -281,7 +281,7 @@ def test_refresh_order_and_refresh_with_fake_fetch():
 
     stats = vm.refresh(["NEW", "MISSING", "OLD"], cache, date(2026, 11, 11), budget_sec=60, fetch=fake, workers=1,
                        log=lambda _m: None)
-    assert stats == {"want": 2, "ok": 1, "fail": 1, "left": 0}
+    assert stats == {"want": 2, "ok": 1, "fail": 1, "left": 0, "pauses": 0}
     assert cache["MISSING"]["fetched"] == "2026-11-11"
     assert cache["OLD"]["fetched"] == "2026-09-01"  # 실패하면 전 값 그대로
 
@@ -376,6 +376,9 @@ def test_screen_uses_scan_info_when_yahoo_info_empty():
     want, _ = vm.screen(["GOOD"], {"GOOD": quality_company(fcf=900.0) | {"fetched": "2026-11-13"}}, px, 0.0483, {})
     assert rows[0]["name"] == "Good Co" and rows[0]["pass"] == want[0]["pass"]
     assert rows[0]["alpha"] == pytest.approx(want[0]["alpha"])  # 같은 시가총액이면 같은 결과
+    assert rows[0]["co"] == "good" and rows[0]["own"] is True
+    rows, _ = vm.screen(["GOOD"], {"GOOD": ent}, px, 0.0483, {}, None, scan, own=[], co_alias={"GOOD": "twin co"})
+    assert rows[0]["co"] == "twin co" and rows[0]["own"] is False  # 대상 밖 상장은 우리 대상 쪽 회사 키로
 
 
 def test_refresh_keeps_old_info_when_new_info_empty():
@@ -403,4 +406,147 @@ def test_load_scan_info_reads_ranked_parquet_and_lists(tmp_path):
         {"items": {"ABC": {"company": "ABC Corp", "sector": "Technology", "industry": "Software"}}}).encode()))
     got = vm.load_scan_info([tmp_path, None])
     assert got[vm._scan_key("BRK-B")]["marketCap"] == 1e12
-    assert got["ABC"] == {"shortName": "ABC Corp", "sector": "Technology", "industry": "Software"}  # 'Unknown' · NaN 은 건너뜀
+    assert got["ABC"] == {"ticker": "ABC", "shortName": "ABC Corp", "sector": "Technology",
+                          "industry": "Software"}  # 'Unknown' · NaN 은 건너뜀
+    assert got[vm._scan_key("BRK-B")]["ticker"] == "BRK.B"  # 원래 표기 그대로
+
+
+# ── 대상 넓히기 · 저자 모르게 (2026-11-12): 미국 상장 + TSX, 시가총액 US$10억 이상, 같은 회사는 하나
+
+def _scan(**items: dict) -> dict:
+    return {vm._scan_key(t): {"ticker": t, **v} for t, v in items.items()}
+
+
+def test_company_key_and_page_coverage():
+    assert vm.company_key("CGI Inc.") == vm.company_key("CGI Inc") == "cgi"
+    assert vm.company_key("Brown-Forman Corporation") == "brown forman"
+    assert vm.page_coverage(None) is None and vm.page_coverage({"coverage": []}) is None
+    cov = vm.page_coverage({"coverage": [{"ticker": "RHI", "target": 57.9, "rating": "OVERWEIGHT"},
+                                         {"ticker": "GIB-A.TO", "target": 306.0}, {"ticker": "RHI"}]})
+    assert [c["ticker"] for c in cov] == ["RHI", "GIB-A.TO"]  # 중복은 하나
+    assert (cov[0]["ccy"], cov[1]["ccy"], cov[0]["rating"]) == ("USD", "CAD", "OVERWEIGHT")
+    assert vm.author_tickers(cov)[:2] == ["RHI", "GIB-A.TO"] and "FISV" in vm.author_tickers(cov)  # 리서치 글은 그대로
+
+
+def test_own_universe_rules_and_dedup():
+    tech = {"sector": "Technology", "industry": "Software"}
+    scan = _scan(**{
+        "BIG": {"market": "nasdaq", "marketCap": 2e9, "shortName": "Big Co", **tech},
+        "SMALL": {"market": "nasdaq", "marketCap": 5e8, "shortName": "Small Co", **tech},
+        "BANK": {"market": "nasdaq", "marketCap": 9e9, "shortName": "A Bank", "sector": "Financial Services",
+                 "industry": "Banks - Regional"},
+        "FDS": {"market": "sp500", "marketCap": 1.2e10, "shortName": "FactSet", "sector": "Financial Services",
+                "industry": "Financial Data & Stock Exchanges"},
+        "TSXOK.TO": {"market": "tsx", "marketCap": 1.5e9, "shortName": "Maple One", **tech},   # C$15억 × 0.72 = US$10.8억
+        "TSXLOW.TO": {"market": "tsx", "marketCap": 1.2e9, "shortName": "Maple Two", **tech},  # US$8.6억 → 밖
+        "VENT.V": {"market": "tsxv", "marketCap": 5e9, "shortName": "Venture", **tech},
+        "BF-A": {"market": "nasdaq", "marketCap": 1.5e10, "shortName": "Brown-Forman Corporation", **tech},
+        "BF-B": {"market": "sp500", "marketCap": 1.5e10, "shortName": "Brown-Forman Corporation", **tech},
+        "GIB": {"market": "nasdaq", "marketCap": 2.3e10, "shortName": "CGI Inc.", **tech},
+        "GIB-A.TO": {"market": "tsx", "marketCap": 3.2e10, "shortName": "CGI Inc", **tech},
+        "NONAME": {"market": "nasdaq", "marketCap": 3e9, **tech},
+        # 이름 표기가 달라도 티커 뿌리 + 비슷한 시가총액이면 같은 회사 (Rogers: 'Communication' · 'Communications')
+        "RCI": {"market": "nasdaq", "marketCap": 1.77e10, "shortName": "Rogers Communication, Inc.", **tech},
+        "RCI-B.TO": {"market": "tsx", "marketCap": 2.5e10, "shortName": "Rogers Communications Inc.", **tech},
+        "FM.TO": {"market": "tsx", "marketCap": 2.7e10, "shortName": "First Quantum Minerals", **tech},
+        "FM": {"market": "nasdaq", "marketCap": 4e9, "shortName": "Some Other FM Co", **tech},  # 뿌리만 같고 시총이 다름
+        # 같은 회사 주식 종류 둘 — 시가총액은 A 가 조금 크지만 거래대금이 큰 B
+        "TECK-A.TO": {"market": "tsx", "marketCap": 4.29e10, "shortName": "Teck Resources Limited", "adv": 2e5, **tech},
+        "TECK-B.TO": {"market": "tsx", "marketCap": 4.28e10, "shortName": "Teck Resources Limited", "adv": 6e7, **tech},
+    })
+    own = vm.own_universe(scan, 0.72, sp500=["BF-B", "FDS"])
+    assert set(own) == {"BIG", "FDS", "TSXOK.TO", "BF-B", "GIB-A.TO", "NONAME", "RCI-B.TO", "FM.TO", "FM", "TECK-B.TO"}
+    assert own["TECK-B.TO"]["aliases"] == ["TECK-A.TO"]
+    assert own["TSXOK.TO"]["mcap_usd"] == pytest.approx(1.08e9) and own["GIB-A.TO"]["market"] == "tsx"
+    assert own["GIB-A.TO"]["aliases"] == ["GIB"] and own["RCI-B.TO"]["aliases"] == ["RCI"] and own["BF-B"]["aliases"] == ["BF-A"]
+
+
+def test_update_log_blind_groups_and_author_close():
+    px = _px()
+    px["GONE"] = px["AAA"]
+    day = str(px.index[-1].date())
+    mine = _row("AAA", **{"pass": True, "pass_v2": True})
+    theirs = _row("GIB-A.TO", **{"pass": True, "pass_v2": True}) | {"own": False}  # 저자 종목이라 비교용으로만 계산
+    log = vm.update_log(vm.load_log(None), [mine, theirs], px, day, authors=["GIB-A.TO", "GONE"])
+    groups = {(e["t"], e["g"]) for e in log["entries"]}
+    assert ("AAA", "ours") in groups and ("GIB-A.TO", "ours") not in groups and ("GIB-A.TO", "v2") not in groups
+    assert {("GIB-A.TO", "author"), ("GONE", "author")} <= groups
+    log = vm.update_log(log, [mine, theirs], px, day, authors=["GIB-A.TO"])  # 저자 목록에서 GONE 이 빠짐
+    gone = next(e for e in log["entries"] if e["t"] == "GONE")
+    assert gone["xr"] == "저자 목록에서 빠짐"
+    assert vm.top_v1([mine, theirs]) == ["AAA"]
+
+
+def test_compute_set_adds_authors_and_open_log_names():
+    log = {"entries": [{"t": "HELD", "g": "ours", "d": "2026-11-13"}, {"t": "DONE", "g": "v2", "d": "2026-11-13", "x": "2026-11-14"}]}
+    got = vm.compute_set(["AAA", "RHI"], [{"ticker": "RHI"}, {"ticker": "NEWCOV.TO"}], log)
+    assert got[:2] == ["AAA", "RHI"] and "NEWCOV.TO" in got and "FISV" in got and "MRK" in got  # 리서치 · A-Series
+    assert "HELD" in got and "DONE" not in got and len(got) == len(set(got))
+
+
+def test_retry_info_stops_when_blocked():
+    cache = {t: {"inc": {}, "info": {}} for t in ("A", "B", "C", "D")} | {"E": {"inc": {}, "info": {"currency": "USD"}}}
+    calls: list[str] = []
+
+    def fake(t: str) -> dict:
+        calls.append(t)
+        return {"currency": "USD"} if t == "A" else {}
+
+    stats = vm.retry_info(cache, list(cache), date(2026, 11, 13), fetch=fake, log=lambda _m: None)
+    assert stats["want"] == 4 and stats["ok"] == 1 and cache["A"]["info_at"] == "2026-11-13"
+    assert "E" not in calls  # 정보가 있는 종목은 다시 안 받음
+
+
+def test_main_resets_log_for_new_universe_and_waits_for_warmup(tmp_path, monkeypatch):
+    import gzip as _gz
+
+    out, prev = tmp_path / "out", tmp_path / "prev"
+    (out / "snapshot").mkdir(parents=True)
+    prev.mkdir()
+    n = 600  # 대상 600종목 중 재무가 있는 건 GOOD 하나 → 기록 준비 중
+    tickers = ["GOOD"] + [f"T{i:03d}" for i in range(n - 1)]
+    pd.DataFrame({"티커": tickers, "fund_market_cap": [1e10] * n, "fund_sector": ["Technology"] * n,
+                  "fund_industry": ["Software"] * n}).to_parquet(out / "snapshot" / "nasdaq_ranked.parquet")
+    (out / "nasdaq.json.gz").write_bytes(_gz.compress(json.dumps(
+        {"items": {t: {"company": f"{t} Corp", "market": "nasdaq"} for t in tickers}}).encode()))
+    (prev / vm.LOG_NAME).write_text(json.dumps({"schema": 1, "start": "2026-11-11", "entries": [
+        {"t": "RHI", "g": "author", "d": "2026-11-11", "p": 42.0, "bench": "SPY", "bp": 700.0}]}))
+    (prev / vm.CACHE_NAME).write_bytes(_gz.compress(json.dumps(
+        {"schema": 1, "items": {"GOOD": quality_company(fcf=900.0)}}).encode()))
+    idx = pd.bdate_range("2021-11-01", "2026-11-13")
+    monkeypatch.setattr(vm, "download_prices", lambda ts: pd.DataFrame(
+        {"GOOD": np.linspace(60, 100, len(idx)), "SPY": np.linspace(300, 500, len(idx))}, index=idx))
+    monkeypatch.setattr(vm, "risk_free", lambda: (0.0483, "test"))
+    monkeypatch.setattr(vm, "fx_rates", lambda pairs: {})
+    assert vm.main(["--out-dir", str(out), "--prev-dir", str(prev), "--no-fetch"]) == 0
+    model = json.loads((out / vm.OUT_NAME).read_text())
+    log = json.loads((out / "snapshot" / vm.LOG_NAME).read_text())
+    assert log["universe"] == vm.UNIVERSE_ID and log["entries"] == []  # 예전 대상(S&P 500) 기록은 새로 시작, 준비 중이라 비어 있음
+    assert model["tracking"]["warmup"] == {"have": 1, "want": n}
+    assert model["params"]["universe"]["size"] == n and model["funnel"]["universe"] == n
+    good = next(r for r in model["rows"] if r["ticker"] == "GOOD")
+    assert good["own"] is True and good["name"] == "Good Co"  # 캐시에 정보가 있으면 그대로
+
+
+def test_refresh_pauses_when_blocked_then_resumes():
+    """막히면(연속 실패) 쉬었다가 실패한 종목부터 이어 받는다 — 처음 30번은 막힘, 그 뒤 풀림."""
+    calls = {"n": 0}
+
+    def fake(t: str) -> dict:
+        calls["n"] += 1
+        if calls["n"] <= 30:
+            raise RuntimeError("429")
+        return {"inc": {"x": {}}, "bal": {}, "cf": {}, "info": {"currency": "USD"}}
+
+    naps: list[float] = []
+    cache: dict = {}
+    names = [f"T{i:02d}" for i in range(40)]
+    stats = vm.refresh(names, cache, date(2026, 11, 13), budget_sec=3600, fetch=fake, workers=1,
+                       log=lambda _m: None, pause_sec=5, sleep=naps.append)
+    assert stats["ok"] == 40 and stats["fail"] == 0 and stats["left"] == 0  # 풀린 직후 실패한 5개도 맨 뒤에서 다시
+    assert stats["pauses"] == 1 and naps == [5]
+    blocked: dict = {}
+    stats = vm.refresh(names, blocked, date(2026, 11, 13), budget_sec=3600, workers=1, log=lambda _m: None,
+                       fetch=lambda t: (_ for _ in ()).throw(RuntimeError("429")), pause_sec=5, pause_max=1,
+                       sleep=lambda _s: None)
+    assert stats["pauses"] == 1 and stats["ok"] == 0 and stats["fail"] == 25 and stats["left"] == 15
