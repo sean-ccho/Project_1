@@ -107,7 +107,7 @@ jobs:
                      value_fund.json.gz value_log.json; do
               git show "FETCH_HEAD:snapshot/$f" > "$RUNNER_TEMP/prev/$f" 2>/dev/null || rm -f "$RUNNER_TEMP/prev/$f"
             done
-            for f in value_model.json blog_watch.json; do
+            for f in value_model.json blog_watch.json data_status.json; do
               git show "FETCH_HEAD:$f" > "$RUNNER_TEMP/prev/$f" 2>/dev/null || rm -f "$RUNNER_TEMP/prev/$f"
             done
           fi
@@ -168,6 +168,20 @@ jobs:
             --ca-dir "$RUNNER_TEMP/ca_scan" \
             | tee "$RUNNER_TEMP/value_model.log" \
             || echo "::warning title=예측 모델 실패::value_model.json 을 새로 만들지 못했습니다 (전날 결과 유지 · 전체분석은 계속)."
+
+      # 자료 점검 (2026-11-13 · 표시 전용) — 사이트가 읽는 파일마다 '몇 개 중 몇 개를 받았나'를 data_status.json 에
+      # (전체분석 미국 · 위 단계가 받아 둔 캐나다 ca.json.gz · 예측 모델 · 국회의원 거래, 지난 밤 숫자와 비교).
+      # 사이트가 화면 머리 날짜 옆에 정상 · 일부만 · 실패로 보여 주고, 실패(0개 · 파일 없음 · 이번 밤 파일 아님)면 ntfy 로 알린다.
+      # 11-12 밤 예측 모델이 계산 0/513 이었는데 작업 · 파일 시각이 멀쩡해 아무도 몰랐던 일 때문. 실패해도 경고만
+      - name: Data status (자료 점검)
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          set -o pipefail
+          PYTHONPATH=.:src python -m web_export.data_status --universe-dir "$RUNNER_TEMP/universe" \
+            --ca "$RUNNER_TEMP/ca_scan/ca.json.gz" --prev "$RUNNER_TEMP/prev/data_status.json" \
+            | tee "$RUNNER_TEMP/data_status.log" \
+            || echo "::warning title=자료 점검 실패::data_status.json 을 만들지 못했습니다 (전체분석은 계속)."
 
       - name: Upload universe scan log
         if: always()
