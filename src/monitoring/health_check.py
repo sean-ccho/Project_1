@@ -134,8 +134,18 @@ def _read_json(path: Path) -> tuple[Any, str | None]:
         return None, f"JSON 파싱 실패: {exc}"
 
 
-def check_accounts(data_dir: Path, bar: str | None, now: datetime | None = None, intraday: str | None = None
-                   ) -> tuple[list[Check], dict[str, str | None]]:
+def _data_delayed(log_dir: Path | None, key: str) -> bool:
+    """계좌 로그에 'SPY 일봉 없음 (데이터 지연)' 줄이 있는가 — Yahoo 가 그날 봉을 아직 안 줘서 건너뜀 (2026-11-12 #559)."""
+    if log_dir is None:
+        return False
+    try:
+        return "데이터 지연" in (log_dir / f"paper_trading_{key}.log").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+
+
+def check_accounts(data_dir: Path, bar: str | None, now: datetime | None = None, intraday: str | None = None,
+                   log_dir: Path | None = None) -> tuple[list[Check], dict[str, str | None]]:
     """계좌별 상태·파일. (검사 목록, 계좌별 마지막 처리 일봉) 반환 — 뒤 값은 verify-pushed 의 기대값.
 
     intraday: 장중 실행이라 스냅샷 일봉이 빈 경우 그 미확정 일봉 — 계좌가 그 일봉을 처리하지 않았어야 정상.
@@ -163,6 +173,10 @@ def check_accounts(data_dir: Path, bar: str | None, now: datetime | None = None,
             checks.append(_check(f"{key} 상태", "ok", f"장중 실행 — 일봉 {bar} 미확정이라 비교 생략 (마지막 처리 {last})"))
         elif last == bar:
             checks.append(_check(f"{key} 상태", "ok", f"일봉 {bar} 처리됨"))
+        elif key != "pt1" and last is not None and last < bar and _data_delayed(log_dir, key):
+            # 일봉이 늦게 올라온 것뿐 — 엔진이 다음 실행에서 빠진 일봉을 따라잡는다 (실패 아님)
+            checks.append(_check(f"{key} 상태", "warn",
+                                 f"마지막 처리 {last} — SPY {bar} 일봉이 아직 없어 건너뜀 (데이터 지연, 다음 실행에서 따라잡음)"))
         else:
             checks.append(_check(f"{key} 상태", "fail",
                                  f"마지막 처리 {last} ≠ 스냅샷 일봉 {bar} — 이번 실행이 이 계좌를 처리하지 못했거나 상태가 저장되지 않음"))
@@ -233,7 +247,7 @@ def run_health_check(data_dir: Path = DATA_DIR, log_date: str | None = None, log
     intraday = intraday_bars(log_dir) if manual else {}
     snap_checks, bar = check_snapshots(data_dir, day, intraday)
     pending = max(intraday.values()) if bar is None and intraday else None
-    acct_checks, expected = check_accounts(data_dir, bar, now, pending)
+    acct_checks, expected = check_accounts(data_dir, bar, now, pending, log_dir)
     checks = acct_checks + snap_checks + check_logs(log_dir)
     shown = bar or (f"없음 — 장중 {pending} 미확정" if pending else None)
     return _summary(checks, title=f"Health Check (LOG_DATE {day}, 스냅샷 일봉 {shown})", expected=expected)

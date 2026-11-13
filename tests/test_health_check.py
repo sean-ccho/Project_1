@@ -228,3 +228,22 @@ def test_main_exit_code_and_expected_out(tmp_path, monkeypatch):
     assert json.loads(out.read_text(encoding="utf-8"))["pt1"] == "2026-10-09"
     (tmp_path / "logs" / "2026-10-12" / "paper_trading.log").write_text("no email\n", encoding="utf-8")
     assert hc.main(["--log-date", "2026-10-12", "--data-dir", str(data)]) == 1
+
+
+def test_pt_spy_data_delay_only_warns(tmp_path):
+    """2026-11-12 #559: SPY 일봉이 늦어 pt_spy 가 건너뜀 → 경고 (다음 실행에서 따라잡음)."""
+    r = _run(tmp_path, states={"pt_spy": "2026-10-08"},
+             logs={"paper_trading_pt_spy.log": "SPY 2026-10-09 일봉이 없어 건너뜀 (데이터 지연)\n"})
+    assert r["status"] == "warning", _failed(r)
+    assert _failed(r) == []
+
+
+def test_pt_spy_stale_without_delay_log_still_fails(tmp_path):
+    r = _run(tmp_path, states={"pt_spy": "2026-10-08"})
+    assert _failed(r) == ["pt_spy 상태"]
+
+
+def test_pt1_stale_with_delay_text_still_fails(tmp_path):
+    r = _run(tmp_path, states={"pt1": "2026-10-08"},
+             logs={"paper_trading_pt1.log": "데이터 지연\n"})
+    assert "pt1 상태" in _failed(r)
