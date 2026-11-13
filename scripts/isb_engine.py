@@ -67,7 +67,7 @@ NAN = float("nan")
 # ============================================================
 @dataclass(frozen=True)
 class IsbParams:
-    """ISB.pine 입력 기본값. tf = "D"(일봉) 또는 "W"(주봉) — Auto 값은 아래 속성에서 주기별로 정한다."""
+    """ISB.pine 입력 기본값. tf = "D"(일봉) · "W"(주봉) · "M"(월봉, 2026-11-13) — Auto 값은 아래 속성에서 주기별로 정한다."""
 
     tf: str
     sig_mode: str = "Balanced"
@@ -95,24 +95,36 @@ class IsbParams:
     use_macro: bool = True
     mintick: float = 0.01
     sw_len: int = 3
+    # TSXV 상장 (Pine isJunior = syminfo.prefix == "TSXV") — Auto 가 주기와 상관없이 Swing (v9.3) · S2 끔 · 시장 필터 끔.
+    # 벤치마크(TSX:JX)는 build_market 에 넘기는 쪽에서 고른다 (web_export/isb_signals.bench_symbol).
+    junior: bool = False
 
     @property
     def daily(self) -> bool:
         return self.tf == "D"
 
     @property
+    def monthly(self) -> bool:
+        return self.tf == "M"
+
+    @property
     def reg_len(self) -> int:
-        """Regime MA (Auto): 일봉 SMA150(≈30주) · 주봉 SMA30."""
-        return 150 if self.daily else 30
+        """Regime MA (Auto, Pine autoLen): 일봉 SMA150(≈30주) · 주봉 SMA30 · 월봉 SMA10."""
+        return 150 if self.daily else 10 if self.monthly else 30
 
     @property
     def reg_k(self) -> int:
-        return 20 if self.daily else 5
+        return 20 if self.daily else 2 if self.monthly else 5
+
+    @property
+    def swing_len(self) -> int:
+        """피벗 스윙 길이 (Pine swLen Auto) — 월봉 2, 그 외 sw_len(3)."""
+        return 2 if self.monthly else self.sw_len
 
     @property
     def use_swing(self) -> bool:
-        """Exit Mode Auto: 일봉 = Trend Hold + TOP, 주봉 = Swing (v9.3)."""
-        return not self.daily
+        """Exit Mode Auto: 일봉 = Trend Hold + TOP, 주봉 · 월봉 = Swing (v9.3). TSXV 는 일봉도 Swing (ISB.pine autoExit)."""
+        return self.junior or not self.daily
 
     @property
     def use_top_trim(self) -> bool:
@@ -120,11 +132,11 @@ class IsbParams:
 
     @property
     def use_s2(self) -> bool:
-        return self.daily
+        return self.daily and not self.junior  # ISB.pine autoS2
 
     @property
     def use_mkt_filter(self) -> bool:
-        return self.daily
+        return self.daily and not self.junior  # ISB.pine autoMktF
 
     @property
     def need_htf(self) -> bool:
@@ -133,15 +145,22 @@ class IsbParams:
     @property
     def use_rev_mkt(self) -> bool:
         """REV Market Washout Filter Auto: 월봉·Aggressive 가 아니면 켬."""
-        return self.sig_mode != "Aggressive"
+        return self.sig_mode != "Aggressive" and not self.monthly
 
     @property
     def mkt_len(self) -> int:
-        return 60 if self.daily else 12
+        """시장 투매 고점 창 (Pine mktLen): 일봉 60 · 주봉 12 · 월봉 3."""
+        return 60 if self.daily else 3 if self.monthly else 12
 
     @property
     def mkt_up_len(self) -> int:
-        return 200 if self.daily else 40
+        """추세 시장 필터 SMA (Pine mktUpLen): 일봉 200 · 주봉 40 · 월봉 10."""
+        return 200 if self.daily else 10 if self.monthly else 40
+
+    @property
+    def hl_len(self) -> int:
+        """52주 고저 창 (Pine hlLen) — 일봉은 주봉 52, 주봉 52, 월봉 12 (자기 봉)."""
+        return 12 if self.monthly else 52
 
     @property
     def min_grade_base(self) -> int:
@@ -385,12 +404,12 @@ def clean_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     return df.loc[real.idxmax():]
 
 
-def to_weekly(df: pd.DataFrame) -> pd.DataFrame:
-    """일봉 → 주봉 (W-FRI 기간 = TradingView 주봉의 월~금).
+def _period_bars(df: pd.DataFrame, freq: str) -> pd.DataFrame:
+    """봉 → 더 긴 봉 (freq 기간마다 시가 첫 값 · 고가 최대 · 저가 최소 · 종가 끝 값 · 거래량 합).
 
-    인덱스 = 그 주 마지막 거래일(신호 확정), 'period' = 주 기간, 'first_day' = 그 주 첫 거래일(시가 체결일).
+    인덱스 = 그 기간 마지막 행 날짜(신호 확정), 'period' = 기간, 'first_day' = 그 기간 첫 행 날짜(시가 체결일).
     """
-    per = df.index.to_period("W-FRI")
+    per = df.index.to_period(freq)
     g = df.groupby(per, sort=True)
     out = pd.DataFrame({
         "Open": g["Open"].first(), "High": g["High"].max(), "Low": g["Low"].min(),
@@ -403,12 +422,30 @@ def to_weekly(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _weekly_last(s: pd.Series) -> pd.Series:
-    """일별 시계열 → 주 마지막 값 (인덱스 = 주 기간 시작 시각, 정렬·병합용)."""
+def to_weekly(df: pd.DataFrame) -> pd.DataFrame:
+    """일봉 → 주봉 (W-FRI 기간 = TradingView 주봉의 월~금). 인덱스 = 그 주 마지막 거래일."""
+    return _period_bars(df, "W-FRI")
+
+
+def to_monthly(df: pd.DataFrame) -> pd.DataFrame:
+    """일봉(또는 야후 1mo 행) → 월봉 (달력 달 = TradingView 월봉). 인덱스 = 그 달 마지막 행 날짜.
+
+    야후 1mo 행은 그 달 1일 날짜 한 줄이라 인덱스도 1일 — 표시 날짜는 쓰는 쪽에서 그 달 마지막 거래일로 바꾼다.
+    """
+    return _period_bars(df, "M")
+
+
+def _period_last(s: pd.Series, freq: str) -> pd.Series:
+    """시계열 → 기간 마지막 값 (인덱스 = 기간 시작 시각, 정렬·병합용)."""
     s = s.dropna()
-    w = s.groupby(s.index.to_period("W-FRI")).last()
+    w = s.groupby(s.index.to_period(freq)).last()
     w.index = w.index.to_timestamp()
     return w
+
+
+def _weekly_last(s: pd.Series) -> pd.Series:
+    """일별 시계열 → 주 마지막 값 (인덱스 = 주 기간 시작 시각, 정렬·병합용)."""
+    return _period_last(s, "W-FRI")
 
 
 def load_macro(refresh: bool = False) -> pd.DataFrame:
@@ -445,16 +482,18 @@ class Market:
 
 
 def build_market(spy: pd.DataFrame, macro: pd.DataFrame, p: IsbParams) -> Market:
-    """SPY(벤치마크·시장 필터)·VIX·DXY 를 차트 주기 봉으로 만든다 (request.security 같은 주기, 지연 없음)."""
+    """벤치마크(상대강도·시장 필터 — 미국 SPY, 캐나다는 TSX/TSXV 지수)·VIX·DXY 를 차트 주기 봉으로 만든다
+    (request.security 같은 주기, 지연 없음). 인자 이름 spy 는 예전 그대로 — 어떤 벤치마크 OHLCV 든 된다."""
     vix, dxy = macro["vix"].dropna(), macro["dxy"].dropna()
     if p.daily:
         close = spy["Close"]
         idx = close.index
     else:
-        wk = to_weekly(spy)
+        freq = "M" if p.monthly else "W-FRI"
+        wk = _period_bars(spy, freq)
         close = pd.Series(wk["Close"].to_numpy(), index=pd.PeriodIndex(wk["period"]).to_timestamp())
         idx = close.index
-        vix, dxy = _weekly_last(vix), _weekly_last(dxy)
+        vix, dxy = _period_last(vix, freq), _period_last(dxy, freq)
     up = (close.to_numpy() > ta_sma(close, p.mkt_up_len)).astype(float)
     return Market(
         bench=close,
@@ -492,10 +531,11 @@ def prepare_bars(daily: pd.DataFrame, mkt: Market, p: IsbParams) -> tuple[pd.Dat
         wpos = pd.Index(wk["period"]).get_indexer(daily.index.to_period("W-FRI"))
         hi_prev, lo_prev, htf_str = hh[wpos], ll[wpos], htf[wpos]
     else:
-        bars = to_weekly(daily)
+        # 주봉 · 월봉: 52주(월봉 12달) 고저는 자기 봉 [1], 상위 TF 과매도는 안 본다 (Pine needHtf = 일봉 이하)
+        bars = to_monthly(daily) if p.monthly else to_weekly(daily)
         keys = pd.PeriodIndex(bars["period"]).to_timestamp()
-        hi_prev = shift(ta_highest(bars["High"], 52), 1)
-        lo_prev = shift(ta_lowest(bars["Low"], 52), 1)
+        hi_prev = shift(ta_highest(bars["High"], p.hl_len), 1)
+        lo_prev = shift(ta_lowest(bars["Low"], p.hl_len), 1)
         htf_str = np.full(len(bars), np.nan)
     inp = {
         "bench": _align(mkt.bench, keys), "mkt_up": _align(mkt.mkt_up, keys),
@@ -559,7 +599,7 @@ def run_engine(bars: pd.DataFrame, inp: dict[str, np.ndarray], p: IsbParams, tic
     reg_prev = np.r_[0, stage[:-1]] if n else stage
 
     # ── E2 STRUCTURE (포지션과 무관한 부분) ──
-    sw = p.sw_len
+    sw = p.swing_len
     ph, pl = pivot_high(h, sw, sw), pivot_low(l, sw, sw)
     rsi_piv = shift(rsi, sw)
     break_sh = np.zeros(n, dtype=bool)
@@ -590,16 +630,22 @@ def run_engine(bars: pd.DataFrame, inp: dict[str, np.ndarray], p: IsbParams, tic
 
     tr = ta_tr(h, l, c)
     climax = (rvol >= p.climax_rvol) & (tr >= 1.5 * atr) & (l < shift(ta_lowest(l, 50), 1))
-    wash_str = np.where(atr > 0, (ema20 - l) / atr, np.nan)
-    washout = (l <= ta_lowest(l, 20)) & ((rsi <= p.rev_rsi_max) | (wash_str >= 2.5))
-    exh_event = climax | bull_div | spring | washout
-    ev_low = np.where(bull_div, sl1_a, l)
-    ev_low_bar = np.where(bull_div, sl1b_a, ar.astype(float))
     lg_c = np.log(c)
     lg_c1 = shift(lg_c, 1)
     lg_tr = np.where(np.isnan(lg_c1), np.log(h) - np.log(l),
                      np.maximum(np.log(h), lg_c1) - np.minimum(np.log(l), lg_c1))
     lg_atr = ta_rma(lg_tr, 14)
+    if p.monthly:
+        # 월봉은 투매를 로그(퍼센트) 가격으로 판정 (Pine washRsi · washStr — 큰 퍼센트 변동이 섞인 14개월 창)
+        wash_rsi = ta_rsi(lg_c, 14)
+        wash_str = np.where(lg_atr > 0, (ta_ema(lg_c, 20) - np.log(l)) / lg_atr, np.nan)
+    else:
+        wash_rsi = rsi
+        wash_str = np.where(atr > 0, (ema20 - l) / atr, np.nan)
+    washout = (l <= ta_lowest(l, 20)) & ((wash_rsi <= p.rev_rsi_max) | (wash_str >= 2.5))
+    exh_event = climax | bull_div | spring | washout
+    ev_low = np.where(bull_div, sl1_a, l)
+    ev_low_bar = np.where(bull_div, sl1b_a, ar.astype(float))
 
     # ── E3 SETUPS · TRIGGERS ──
     pb_touch_bar = valuewhen(l <= ema20 + 0.25 * atr, ar)

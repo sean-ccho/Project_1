@@ -215,3 +215,34 @@ def test_tv_basis_matches_tradingview_abt(data):
     assert labels["2024-11-14"].startswith("BUY·S2 ·1/4")
     assert labels["2024-12-12"] == "EXIT · Stop"
     assert labels["2025-01-21"].startswith("BUY·BO 🏆4/4") and labels["2025-01-24"] == "TRIM·TOP"
+
+
+def test_to_monthly_from_days_and_yahoo_rows():
+    d = _days(["2020-06-29", "2020-06-30", "2020-07-01", "2020-07-02"])
+    mo = e.to_monthly(d)
+    assert list(mo.index.strftime("%Y-%m-%d")) == ["2020-06-30", "2020-07-02"]  # 그 달 마지막 행
+    assert mo["Open"].iloc[0] == d["Open"].iloc[0] and mo["Close"].iloc[1] == d["Close"].iloc[-1]
+    rows = pd.DataFrame({"Open": [1.0, 2.0], "High": [3.0, 4.0], "Low": [0.5, 1.5], "Close": [2.0, 3.0],
+                         "Volume": [10.0, 20.0]}, index=pd.DatetimeIndex(["2020-06-01", "2020-07-01"]))
+    assert e.to_monthly(rows)[["Open", "High", "Low", "Close", "Volume"]].to_numpy().tolist() == rows.to_numpy().tolist()
+
+
+def test_monthly_engine_runs_on_synthetic_history():
+    """월봉 경로(로그 투매 · 스윙 2봉 · 12달 고저 · 월봉 시장 시계열)가 끝까지 돌고 상태가 말이 되는지."""
+    rng = np.random.default_rng(3)
+    idx = pd.date_range("1990-01-01", periods=420, freq="MS")
+    c = 50 * np.exp(np.cumsum(rng.normal(0.004, 0.09, len(idx))))
+    o = c * (1 + rng.normal(0, 0.03, len(idx)))
+    h = np.maximum(o, c) * (1 + np.abs(rng.normal(0, 0.05, len(idx))))
+    lo = np.minimum(o, c) * (1 - np.abs(rng.normal(0, 0.05, len(idx))))
+    df = pd.DataFrame({"Open": o, "High": h, "Low": lo, "Close": c, "Volume": 1e6}, index=idx)
+    bench = df.assign(Close=df["Close"].rolling(3, min_periods=1).mean())
+    macro = pd.DataFrame({"vix": 20 + rng.normal(0, 4, len(idx)), "dxy": 100 + np.cumsum(rng.normal(0, 1, len(idx)))},
+                         index=idx)
+    p = e.IsbParams("M")
+    bars, inp = e.prepare_bars(df, e.build_market(bench, macro, p), p)
+    eng, trades = e.run_engine(bars, inp, p)
+    assert len(eng) == len(idx) and "period" in eng.columns
+    assert set(np.unique(eng["pos"])) <= {0, 1}
+    assert eng["ev_buy"].sum() > 0 and eng["ev_exit"].sum() > 0
+    assert not (eng["ev_buy"] & (eng["pos"].shift(1, fill_value=0) == 1) & ~eng["ev_exit"].shift(1, fill_value=False)).any()

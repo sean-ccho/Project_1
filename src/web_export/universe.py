@@ -34,9 +34,12 @@ TF_KO = {"D": "일", "W": "주", "M": "월"}
 
 
 def isb_text(rec: dict[str, Any] | None) -> str:
-    """ISB 최근 라벨 한 줄 (시트) — '일 BUY·REV 10/14 · 주 ◇BOTTOM 9/26'. 봉마다 가장 최근 라벨 하나."""
+    """ISB 최근 라벨 한 줄 (시트) — '일 BUY·REV 10/14 · 주 ◇BOTTOM 9/26 · 월 EXIT 8/29'. 봉마다 가장 최근 라벨 하나.
+
+    월봉 날짜는 그 달 마지막 거래일 (주봉이 그 주 마지막 거래일인 것과 같다).
+    """
     parts = []
-    for tf in ("D", "W"):
+    for tf in ("D", "W", "M"):
         labels = (rec or {}).get(tf) or {}
         hits = [(v.get("ago", 10**6), name, v.get("date", "")) for name, v in labels.items() if isinstance(v, dict)]
         if hits:

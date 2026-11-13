@@ -100,6 +100,9 @@ def test_isb_and_sqz_text() -> None:
            "W": {"bottom": {"date": "2026-09-26", "ago": 3}}}
     assert wu.isb_text(isb) == "일 BUY·REV 10/14 · 주 ◇BOTTOM 9/26"
     assert wu.isb_text({}) == "" and wu.isb_text(None) == ""
+    # 월봉 (2026-11-13) — 날짜는 그 달 마지막 거래일, 봉마다 가장 최근 것 하나
+    isb["M"] = {"exit": {"date": "2026-07-31", "ago": 3}, "top": {"date": "2026-02-27", "ago": 8}}
+    assert wu.isb_text(isb) == "일 BUY·REV 10/14 · 주 ◇BOTTOM 9/26 · 월 EXIT 7/31"
     # 웹 배지와 같은 말: 상태(압축 · 발사) + 방향(막대 색), 힘 빠짐은 몇 봉째 + 압축 중이 아닐 때 2봉째부터 ⚠
     sqz = {"D": {"dot": "black", "run": 5, "color": "lime", "color_run": 3},
            "W": {"dot": "gray", "run": 0, "color": "green", "color_run": 2,
