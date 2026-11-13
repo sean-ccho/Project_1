@@ -159,6 +159,14 @@ CF_ROWS = ("Free Cash Flow", "Operating Cash Flow", "Capital Expenditure", "Net 
            "Common Stock Issuance", "Depreciation And Amortization", "Depreciation Amortization Depletion")
 INFO_KEYS = ("marketCap", "currency", "financialCurrency", "sector", "industry", "shortName", "quoteType")
 
+# 종목 정보 보충 (2026-11-12) — Yahoo 종목 정보(tk.info)가 요청 제한에 걸리면 재무제표는 받히는데 정보만 빈 값이 온다.
+# 11-12 밤 실행이 그랬다 (전체분석이 수천 종목 정보를 받은 바로 뒤 → 513종목 전부 빈 값 → 시가총액이 없어 계산 0).
+# 그러면 같은 밤 전체분석이 재시도 · 전날 값으로 채워 둔 시가총액 · 업종 · 회사 이름을 쓴다 (캐나다는 canada-data 브랜치).
+SCAN_RANKED = ("sp500_ranked.parquet", "nasdaq_ranked.parquet", "ca_ranked.parquet")  # 시가총액(정확한 값) · 업종
+SCAN_LISTS = ("sp500.json.gz", "nasdaq.json.gz", "ca.json.gz")  # 회사 이름 · 업종
+# 재무제표 통화가 거래 통화와 다른 종목 — 정보를 못 받은 날 쓴다 (11-11 로컬에서 받은 정보로 513종목 중 이 둘뿐)
+FIN_CCY_HINT = {"NVO": "DKK", "RCI": "CAD"}
+
 NAN = float("nan")
 Fetch = Callable[[str], dict[str, Any]]
 
@@ -575,7 +583,14 @@ def refresh(tickers: Iterable[str], cache: dict[str, dict[str, Any]], today: dat
             t = running.pop(fut)
             done += 1
             try:
-                cache[t] = {**fut.result(), "fetched": today.isoformat()}
+                new = dict(fut.result())
+                old = cache.get(t) or {}
+                if new.get("info"):
+                    new["info_at"] = today.isoformat()
+                elif old.get("info"):  # 정보만 빈 값(요청 제한)이면 전에 받은 정보 · 그날짜를 그대로 쓴다
+                    new["info"] = old["info"]
+                    new["info_at"] = old.get("info_at") or old.get("fetched")
+                cache[t] = {**new, "fetched": today.isoformat()}
                 ok += 1
                 streak = 0
             except Exception:  # noqa: BLE001 — 표시용, 한 종목 실패는 넘어간다
@@ -762,22 +777,92 @@ def fx_rates(pairs: Iterable[str]) -> dict[str, float]:
     return out
 
 
+def _scan_key(ticker: str) -> str:
+    """전체분석 티커 표기 차이 (BRK.B · BRK-B) 를 없앤 비교용 키."""
+    return ticker.upper().replace("-", ".") if not ticker.endswith((".TO", ".V")) else ticker.upper()
+
+
+def load_scan_info(dirs: Iterable[Path | None]) -> dict[str, dict[str, Any]]:
+    """같은 밤 전체분석 결과(SCAN_RANKED · SCAN_LISTS)의 시가총액 · 업종 · 회사 이름 → {비교용 키: info 모양}.
+    폴더마다 그 폴더와 그 아래 snapshot/ 을 본다. 앞 폴더 · 앞 파일 값이 우선. 시가총액은 거래 통화."""
+    out: dict[str, dict[str, Any]] = {}
+
+    def put(t: str, key: str, v: Any) -> None:
+        if v is None or (isinstance(v, float) and not math.isfinite(v)) or (isinstance(v, str) and v in ("", "Unknown")):
+            return
+        out.setdefault(_scan_key(str(t)), {}).setdefault(key, v)
+
+    for d in dirs:
+        if d is None:
+            continue
+        for name in SCAN_RANKED:
+            for p in (d / name, d / "snapshot" / name):
+                if not p.exists():
+                    continue
+                try:
+                    df = pd.read_parquet(p, columns=["티커", "fund_market_cap", "fund_sector", "fund_industry"])
+                except Exception as exc:  # noqa: BLE001 — 보충용, 못 읽으면 넘어간다
+                    print(f"[예측 모델] {p.name} 못 읽음: {exc}")
+                    continue
+                for t, mc, sector, industry in df.itertuples(index=False, name=None):
+                    mcap = _f(mc)
+                    put(t, "marketCap", mcap if mcap and mcap > 0 else None)
+                    put(t, "sector", sector)
+                    put(t, "industry", industry)
+        for name in SCAN_LISTS:
+            for p in (d / name, d / "snapshot" / name):
+                if not p.exists():
+                    continue
+                try:
+                    items = json.loads(gzip.decompress(p.read_bytes()).decode("utf-8")).get("items") or {}
+                except (OSError, ValueError, AttributeError) as exc:
+                    print(f"[예측 모델] {p.name} 못 읽음: {exc}")
+                    continue
+                for t, it in items.items():
+                    if isinstance(it, dict):
+                        put(t, "shortName", it.get("company"))
+                        put(t, "sector", it.get("sector"))
+                        put(t, "industry", it.get("industry"))
+    return out
+
+
+def fill_info(ticker: str, info: Mapping[str, Any], scan: Mapping[str, Any] | None) -> dict[str, Any]:
+    """캐시의 종목 정보 빈 칸을 전체분석 값으로 채운다 (있는 값은 그대로). 시가총액을 전체분석에서 가져왔으면
+    'mcap_scan' = True — 그 값은 오늘 것이라 받은 날 주가로 다시 늘리고 줄이지 않는다.
+    통화가 없으면 거래소 꼬리로(.TO · .V → CAD), 재무제표 통화가 없으면 FIN_CCY_HINT · 거래 통화."""
+    out = dict(info)
+    scan = scan or {}
+    if not _f(out.get("marketCap")) and _f(scan.get("marketCap")):
+        out["marketCap"] = scan["marketCap"]
+        out["mcap_scan"] = True
+    for key in ("sector", "industry", "shortName"):
+        if not out.get(key) and scan.get(key):
+            out[key] = scan[key]
+    if not out.get("currency"):
+        out["currency"] = ("CAD" if ticker.endswith((".TO", ".V")) else "MXN" if ticker.endswith(".MX") else "USD")
+    if not out.get("financialCurrency"):
+        out["financialCurrency"] = FIN_CCY_HINT.get(ticker, out["currency"])
+    return out
+
+
 # ── 전체
 
 def screen(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], px: pd.DataFrame, rf: float,
            fx: Mapping[str, float], detail: Mapping[str, Mapping[str, Any]] | None = None,
+           scan: Mapping[str, Mapping[str, Any]] | None = None,
            ) -> tuple[list[dict[str, Any]], dict[str, int]]:
     """종목마다 analyze → (줄 목록, 깔때기 숫자). 시가총액은 받은 날 값 × (오늘 주가 ÷ 받은 날 주가).
-    detail = stock_detail 캐시(분기 매출) — v2 반증 조건 '매출 감소 (최근 분기 전년 대비 · 연간 둘 다)'에 쓴다 (없으면 그 조건만 빠짐)."""
+    detail = stock_detail 캐시(분기 매출) — v2 반증 조건 '매출 감소 (최근 분기 전년 대비 · 연간 둘 다)'에 쓴다 (없으면 그 조건만 빠짐).
+    scan = load_scan_info — 캐시에 종목 정보가 비었으면 전체분석의 시가총액 · 업종 · 이름으로 채운다 (info_scan 에 셈)."""
     rows: list[dict[str, Any]] = []
-    funnel = {"universe": 0, "excluded": 0, "no_data": 0, "computed": 0}
+    funnel = {"universe": 0, "excluded": 0, "no_data": 0, "computed": 0, "info_scan": 0}
     for t in tickers:
         funnel["universe"] += 1
         ent = cache.get(t)
-        info = (ent or {}).get("info") or {}
         if not ent:
             funnel["no_data"] += 1
             continue
+        info = fill_info(t, ent.get("info") or {}, (scan or {}).get(_scan_key(t)))
         if excluded(info):
             funnel["excluded"] += 1
             continue
@@ -786,9 +871,13 @@ def screen(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], px: p
         if not (price > 0 and mcap):
             funnel["no_data"] += 1
             continue
-        fetched = ent.get("fetched")
-        p_then = price_on(px, t, str(fetched)) if fetched else NAN
-        mcap_now = mcap * (price / p_then) if p_then > 0 else mcap
+        if info.get("mcap_scan"):
+            funnel["info_scan"] += 1
+            mcap_now = mcap
+        else:
+            info_at = ent.get("info_at") or ent.get("fetched")
+            p_then = price_on(px, t, str(info_at)) if info_at else NAN
+            mcap_now = mcap * (price / p_then) if p_then > 0 else mcap
         cur = info.get("currency") or "USD"
         fin = info.get("financialCurrency") or cur
         rate = 1.0 if cur == fin else fx.get(f"{fin}{cur}", NAN)
@@ -922,6 +1011,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-fetch", action="store_true", help="재무를 새로 받지 않고 캐시만 쓴다")
     ap.add_argument("--detail", type=Path, default=None,
                     help="분기 매출 캐시 (없으면 OUT/snapshot · PREV 의 detail.json.gz)")
+    ap.add_argument("--ca-dir", type=Path, default=None,
+                    help="캐나다 전체분석 결과 폴더 (canada-data 의 ca_ranked.parquet · ca.json.gz — 종목 정보 보충용)")
     args = ap.parse_args(argv)
 
     out_dir: Path = args.out_dir
@@ -953,7 +1044,7 @@ def main(argv: list[str] | None = None) -> int:
     rf, rf_src = risk_free()
     pairs = set()
     for t in tickers:
-        info = (cache.get(t) or {}).get("info") or {}
+        info = fill_info(t, (cache.get(t) or {}).get("info") or {}, None)  # 정보가 비어도 거래소 꼬리 · FIN_CCY_HINT 로
         cur, fin = info.get("currency"), info.get("financialCurrency")
         if cur and fin and cur != fin:
             pairs.add(f"{fin}{cur}")
@@ -966,7 +1057,9 @@ def main(argv: list[str] | None = None) -> int:
     detail = load_detail(detail_path)
     print(f"[예측 모델] 분기 매출 {len(detail)}종목 ({detail_path or '없음'})")
 
-    rows, funnel = screen(tickers, cache, px, rf, fx, detail)
+    scan = load_scan_info([out_dir, args.ca_dir, prev])  # 같은 밤 전체분석이 앞, 전날 스냅샷이 마지막
+    print(f"[예측 모델] 전체분석 종목 정보 {len(scan)}종목 (Yahoo 정보가 빈 종목 보충용)")
+    rows, funnel = screen(tickers, cache, px, rf, fx, detail, scan)
     passing = {r["ticker"] for r in rows if r["pass"]}
     log = update_log(log, rows, px, price_date)
     (snap / LOG_NAME).write_text(json.dumps(log, ensure_ascii=False, indent=1), "utf-8")

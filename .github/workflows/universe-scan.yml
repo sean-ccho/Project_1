@@ -139,7 +139,17 @@ jobs:
             if [ -f "$RUNNER_TEMP/prev/$f" ]; then cp "$RUNNER_TEMP/prev/$f" "$RUNNER_TEMP/universe/snapshot/$f"; fi
           done
           if [ -f "$RUNNER_TEMP/prev/value_model.json" ]; then cp "$RUNNER_TEMP/prev/value_model.json" "$RUNNER_TEMP/universe/"; fi
+          # Yahoo 종목 정보가 막혀 빈 값이면(11-12 밤 513종목 전부) 같은 밤 전체분석의 시가총액 · 업종 · 이름으로 채운다 —
+          # 미국은 위 스캔이 쓴 파일, 캐나다 종목은 canada-data (Canada Scan 이 이 단계 전에 끝난다). prev 에 두면
+          # fundamentals_guard 가 미국 스캔 보충에 같이 읽으니 따로 둔다
+          mkdir -p "$RUNNER_TEMP/ca_scan"
+          if git fetch -q --depth 1 origin canada-data 2>/dev/null; then
+            git show "FETCH_HEAD:snapshot/ca_ranked.parquet" > "$RUNNER_TEMP/ca_scan/ca_ranked.parquet" 2>/dev/null \
+              || rm -f "$RUNNER_TEMP/ca_scan/ca_ranked.parquet"
+            git show "FETCH_HEAD:ca.json.gz" > "$RUNNER_TEMP/ca_scan/ca.json.gz" 2>/dev/null || rm -f "$RUNNER_TEMP/ca_scan/ca.json.gz"
+          fi
           PYTHONPATH=.:src python -m web_export.value_model --out-dir "$RUNNER_TEMP/universe" --prev-dir "$RUNNER_TEMP/prev" \
+            --ca-dir "$RUNNER_TEMP/ca_scan" \
             | tee "$RUNNER_TEMP/value_model.log" \
             || echo "::warning title=예측 모델 실패::value_model.json 을 새로 만들지 못했습니다 (전날 결과 유지 · 전체분석은 계속)."
 

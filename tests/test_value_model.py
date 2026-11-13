@@ -344,3 +344,63 @@ def test_research_rows_since_post():
     gib = next(r for r in out if r["ticker"] == "GIB-A.TO")
     assert gib["price"] is None and gib["upside"] is None and gib["bench"] == "XIU.TO"
     json.dumps(out, allow_nan=False)
+
+
+# ── 종목 정보 보충 (2026-11-12 밤: Yahoo 정보가 513종목 전부 빈 값 → 계산 0)
+
+def test_fill_info_from_scan_and_currency_hints():
+    scan = {"marketCap": 5_000.0, "sector": "Technology", "industry": "Software", "shortName": "Scan Co"}
+    got = vm.fill_info("ABC", {}, scan)
+    assert got["marketCap"] == 5_000.0 and got["mcap_scan"] is True
+    assert (got["sector"], got["industry"], got["shortName"]) == ("Technology", "Software", "Scan Co")
+    assert got["currency"] == got["financialCurrency"] == "USD"
+    assert vm.fill_info("GIB-A.TO", {}, None)["currency"] == "CAD"
+    rci = vm.fill_info("RCI", {}, None)
+    assert (rci["currency"], rci["financialCurrency"]) == ("USD", "CAD")
+    # 캐시에 정보가 있으면 그대로 (전체분석 값으로 덮지 않음)
+    kept = vm.fill_info("ABC", {"marketCap": 9.0, "currency": "USD", "financialCurrency": "USD"}, scan)
+    assert kept["marketCap"] == 9.0 and "mcap_scan" not in kept
+
+
+def test_screen_uses_scan_info_when_yahoo_info_empty():
+    idx = pd.bdate_range("2021-11-01", "2026-11-13")
+    px = pd.DataFrame({"GOOD": np.linspace(60, 100, len(idx)), "SPY": np.linspace(300, 500, len(idx))}, index=idx)
+    ent = quality_company(fcf=900.0)
+    ent["info"] = {}  # 11-12 밤처럼 정보만 빈 값
+    rows, funnel = vm.screen(["GOOD"], {"GOOD": ent}, px, 0.0483, {})
+    assert funnel["computed"] == 0 and funnel["no_data"] == 1  # 보충 없으면 계산 못 함 (11-12 밤 상태)
+    scan = {"GOOD": {"marketCap": 10_000.0, "sector": "Technology", "industry": "Information Technology Services",
+                     "shortName": "Good Co"}}
+    rows, funnel = vm.screen(["GOOD"], {"GOOD": ent}, px, 0.0483, {}, None, scan)
+    assert funnel["computed"] == 1 and funnel["info_scan"] == 1
+    want, _ = vm.screen(["GOOD"], {"GOOD": quality_company(fcf=900.0) | {"fetched": "2026-11-13"}}, px, 0.0483, {})
+    assert rows[0]["name"] == "Good Co" and rows[0]["pass"] == want[0]["pass"]
+    assert rows[0]["alpha"] == pytest.approx(want[0]["alpha"])  # 같은 시가총액이면 같은 결과
+
+
+def test_refresh_keeps_old_info_when_new_info_empty():
+    old_info = {"marketCap": 1.0, "currency": "USD"}
+    cache = {"A": {"fetched": "2026-09-01", "info": old_info}}
+    vm.refresh(["A", "B"], cache, date(2026, 11, 12), budget_sec=60, workers=1, log=lambda _m: None,
+               fetch=lambda t: {"inc": {"x": {}}, "bal": {}, "cf": {}, "info": {}})
+    assert cache["A"]["info"] == old_info and cache["A"]["info_at"] == "2026-09-01"
+    assert cache["A"]["fetched"] == "2026-11-12"  # 재무는 새로 받은 것
+    assert cache["B"]["info"] == {} and "info_at" not in cache["B"]
+    fresh = {"A": {"fetched": "2026-09-01", "info": old_info}}
+    vm.refresh(["A"], fresh, date(2026, 11, 12), budget_sec=60, workers=1, log=lambda _m: None,
+               fetch=lambda t: {"inc": {}, "bal": {}, "cf": {}, "info": {"marketCap": 2.0}})
+    assert fresh["A"]["info"] == {"marketCap": 2.0} and fresh["A"]["info_at"] == "2026-11-12"
+
+
+def test_load_scan_info_reads_ranked_parquet_and_lists(tmp_path):
+    import gzip as _gz
+
+    snap = tmp_path / "snapshot"
+    snap.mkdir()
+    pd.DataFrame({"티커": ["BRK.B", "ABC"], "fund_market_cap": [1e12, np.nan], "fund_sector": ["Financial Services", "Unknown"],
+                  "fund_industry": ["Insurance - Diversified", None]}).to_parquet(snap / "sp500_ranked.parquet")
+    (tmp_path / "sp500.json.gz").write_bytes(_gz.compress(json.dumps(
+        {"items": {"ABC": {"company": "ABC Corp", "sector": "Technology", "industry": "Software"}}}).encode()))
+    got = vm.load_scan_info([tmp_path, None])
+    assert got[vm._scan_key("BRK-B")]["marketCap"] == 1e12
+    assert got["ABC"] == {"shortName": "ABC Corp", "sector": "Technology", "industry": "Software"}  # 'Unknown' · NaN 은 건너뜀
