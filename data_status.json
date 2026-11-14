@@ -1,0 +1,259 @@
+{
+ "schema": 1,
+ "generated": "2026-11-13T20:32-05:00",
+ "date": "2026-11-13",
+ "files": {
+  "sp500": {
+   "label": "전체분석 · S&P 500",
+   "date": "2026-11-13",
+   "generated": "2026-11-13T18:41:00-05:00",
+   "rows": [
+    {
+     "key": "items",
+     "label": "종목",
+     "got": 500,
+     "zero_red": true
+    },
+    {
+     "key": "price",
+     "label": "가격",
+     "got": 500,
+     "want": 500,
+     "floor": 0.95
+    },
+    {
+     "key": "isb",
+     "label": "ISB 라벨",
+     "got": 500,
+     "want": 500,
+     "floor": 0.95
+    },
+    {
+     "key": "sqz",
+     "label": "SQZ 모멘텀",
+     "got": 500,
+     "want": 500,
+     "floor": 0.95
+    },
+    {
+     "key": "mcap",
+     "label": "시가총액",
+     "got": 500,
+     "want": 500,
+     "floor": 0.9
+    },
+    {
+     "key": "insider",
+     "label": "내부자 거래",
+     "got": 500,
+     "want": 500,
+     "floor": 0.9
+    }
+   ]
+  },
+  "nasdaq": {
+   "label": "전체분석 · 나스닥·NYSE",
+   "date": "2026-11-13",
+   "generated": "2026-11-13T20:09:12-05:00",
+   "rows": [
+    {
+     "key": "items",
+     "label": "종목",
+     "got": 4818,
+     "zero_red": true
+    },
+    {
+     "key": "price",
+     "label": "가격",
+     "got": 4818,
+     "want": 4818,
+     "floor": 0.95
+    },
+    {
+     "key": "isb",
+     "label": "ISB 라벨",
+     "got": 4818,
+     "want": 4818,
+     "floor": 0.95
+    },
+    {
+     "key": "sqz",
+     "label": "SQZ 모멘텀",
+     "got": 4818,
+     "want": 4818,
+     "floor": 0.95
+    },
+    {
+     "key": "mcap",
+     "label": "시가총액",
+     "got": 4726,
+     "want": 4818,
+     "floor": 0.9
+    },
+    {
+     "key": "insider",
+     "label": "내부자 거래",
+     "got": 4818,
+     "want": 4818,
+     "floor": 0.9
+    }
+   ]
+  },
+  "new": {
+   "label": "전체분석 · 신규상장",
+   "date": "2026-11-13",
+   "generated": "2026-11-13T20:09:12-05:00",
+   "rows": [
+    {
+     "key": "items",
+     "label": "종목",
+     "got": 142,
+     "zero_red": true
+    },
+    {
+     "key": "price",
+     "label": "가격",
+     "got": 142,
+     "want": 142,
+     "floor": 0.95
+    },
+    {
+     "key": "isb",
+     "label": "ISB 라벨",
+     "got": 142,
+     "want": 142,
+     "floor": 0.95
+    },
+    {
+     "key": "sqz",
+     "label": "SQZ 모멘텀",
+     "got": 142,
+     "want": 142,
+     "floor": 0.95
+    },
+    {
+     "key": "mcap",
+     "label": "시가총액",
+     "got": 133,
+     "want": 142,
+     "floor": 0.9
+    },
+    {
+     "key": "insider",
+     "label": "내부자 거래",
+     "got": 142,
+     "want": 142,
+     "floor": 0.9
+    }
+   ]
+  },
+  "extra": {
+   "label": "전체분석 · 번외",
+   "date": "2026-11-13",
+   "generated": "2026-11-13T18:31:27-05:00",
+   "rows": [
+    {
+     "key": "items",
+     "label": "종목",
+     "got": 1,
+     "zero_red": true
+    },
+    {
+     "key": "price",
+     "label": "가격",
+     "got": 1,
+     "want": 1,
+     "floor": 0.95
+    },
+    {
+     "key": "isb",
+     "label": "ISB 라벨",
+     "got": 1,
+     "want": 1,
+     "floor": 0.95
+    },
+    {
+     "key": "sqz",
+     "label": "SQZ 모멘텀",
+     "got": 1,
+     "want": 1,
+     "floor": 0.95
+    },
+    {
+     "key": "mcap",
+     "label": "시가총액",
+     "got": 1,
+     "want": 1,
+     "floor": 0.9
+    }
+   ]
+  },
+  "ca": {
+   "label": "전체분석 · 캐나다",
+   "date": "2026-11-13",
+   "generated": "2026-11-13T18:34:36-05:00",
+   "rows": [
+    {
+     "key": "items",
+     "label": "종목",
+     "got": 1933,
+     "zero_red": true
+    },
+    {
+     "key": "price",
+     "label": "가격",
+     "got": 1933,
+     "want": 1933,
+     "floor": 0.95
+    },
+    {
+     "key": "isb",
+     "label": "ISB 라벨",
+     "got": 1933,
+     "want": 1933,
+     "floor": 0.95
+    },
+    {
+     "key": "sqz",
+     "label": "SQZ 모멘텀",
+     "got": 1933,
+     "want": 1933,
+     "floor": 0.95
+    },
+    {
+     "key": "mcap",
+     "label": "시가총액",
+     "got": 1904,
+     "want": 1933,
+     "floor": 0.9
+    }
+   ]
+  },
+  "value_model": {
+   "label": "예측 모델",
+   "date": "2026-11-12",
+   "generated": "2026-11-13T20:32-05:00",
+   "rows": [
+    {
+     "key": "computed",
+     "label": "계산된 종목",
+     "got": 2060,
+     "want": 2060,
+     "floor": 0.5
+    }
+   ]
+  },
+  "congress": {
+   "label": "국회의원 거래",
+   "date": "2026-11-13",
+   "generated": "2026-11-13T18:31:00-05:00",
+   "rows": [
+    {
+     "key": "recent",
+     "label": "최근 30일 신고",
+     "got": 168
+    }
+   ]
+  }
+ }
+}
