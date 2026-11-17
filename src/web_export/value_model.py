@@ -18,6 +18,10 @@ AUTHOR_COVERAGE)와 Ideas(블로그)의 심층 리서치 글(AUTHOR_RESEARCH). A
 - v2 (같은 데이터로 따로 계산해 v1 과 같은 날부터 기록 · 비교): v1 통과 + 하방 관문(FCF −30% · 성장 0 이하에서도
   알파 ≥ 0), 우선순위 = 괴리(실제 매출 성장 − 시장이 가정하는 영구 성장) 큰 순, 반증 조건(품질 탈락 · 매출 감소(최근
   분기 · 연간) · 시장 가정 성장 > 실제 · 적정가 도달)에 걸리면 기록 종료, 업종 집중 · 베타 민감은 표시만.
+- v3 (2026-11-16, 수석 애널리스트 · PM): v2 후보(품질 통과 · 반증 없음) 중 v2 가 놓치는 사각지대 4개를 막은 종목으로
+  10칸 포트폴리오 (칸당 10%, 빈칸은 SPY) — ① SBC 를 비용으로 뺀 FCF 로도 v1 가격 · v2 하방 관문 통과 ② 회사 전체(EV) 기준
+  (FCF − SBC + 세후 이자) ÷ EV 의 알파(vs WACC) ≥ 5%p ③ 주주환원율 ≥ 0 · 희석주식수 연 1% 이하 ④ 같은 업종 2개까지.
+  순서 = SBC 차감 하방 알파 큰 순. 매달 첫 실행에 다시 맞춘다. pm_metrics · top_v3.
 
 재무는 snapshot/value_fund.json.gz 에 쌓아 MAX_AGE_DAYS 마다 다시 받는다 (하룻밤 시간 한도 안에서 조금씩).
 주가 · 베타 · 하락폭 · 가격 관문은 매일 다시 계산한다.
@@ -80,8 +84,17 @@ TOP_N = 10              # 우선순위 상위 묶음 (v1 필요 하락 작은 �
 THEME_TOP = 20          # 업종 집중 경고를 볼 v2 상위 범위
 THEME_WARN = 3          # 그 안에 같은 업종이 이만큼 이상이면 경고
 DETAIL_NAME = "detail.json.gz"  # 분기 매출 — web_export/stock_detail.py 캐시 (같은 밤 전체분석이 먼저 쓴다)
-GROUPS = ("ours", "v2", "v1_top", "v2_top", "author")  # 기록 묶음 — ours = v1 통과
+GROUPS = ("ours", "v2", "v1_top", "v2_top", "v3", "author")  # 기록 묶음 — ours = v1 통과, v3 = PM 포트폴리오 종목
 MODEL_SCHEMA = 2
+
+# ── v3 수석 애널리스트 · PM (2026-11-16) — docs/월스트리트_저평가주식_분석_및_v3제안.md 의 사각지대 4개 (SBC · 레버리지(EV) ·
+#    자본배분 · 업종 쏠림). 문서의 EV 식(레버리지 FCF ÷ EV 를 Ke 와 비교)은 부채를 두 번 세서, EV 쪽은 FCF 에 세후 이자를
+#    더하고 WACC 와 비교한다. 규칙은 시작일에 고정 — 초반 성적을 보고 고치지 않는다.
+PM_SLOTS = 10           # 10칸 × 10%, 빈칸은 SPY — 고를 게 없으면 SPY 에 머문다
+PM_IND_CAP = 2          # 같은 업종 최대 (문서 처음 설계값 — 결과를 보고 3 으로 바꾼 값은 안 쓴다)
+PM_DIL_MAX = 0.01       # 희석주식수 연 증가율 상한 (주주 희석)
+ROWS_VERSION = 2        # 받는 재무 항목 판 — 2 = SBC · 희석주식수 추가 (v3). 판이 낮은 캐시는 v3 를 계산하지 않는다
+V3_BACKFILL = 300       # 판이 낮은 캐시를 밤마다 이만큼 더 받는다 (한 달 주기를 기다리지 않고 1주쯤에 채움)
 
 # 은행 · 보험 · 운용 · 증권 · 리츠는 FCF · Altman Z 가 의미 없어 뺀다. 금융데이터 · 거래소 · 결제망 · 보험중개는 남긴다.
 EXCLUDE_SECTORS = frozenset({"Real Estate"})
@@ -170,7 +183,7 @@ def page_coverage(watch: Mapping[str, Any] | None) -> list[dict[str, Any]] | Non
 INC_ROWS = ("Total Revenue", "Operating Revenue", "Net Income Common Stockholders", "Net Income",
             "Net Income Continuous Operations", "EBIT", "Operating Income", "Pretax Income", "Tax Provision",
             "Interest Expense", "Interest Expense Non Operating", "Cost Of Revenue", "Reconciled Cost Of Revenue",
-            "Selling General And Administration")
+            "Selling General And Administration", "Diluted Average Shares", "Basic Average Shares")
 BAL_ROWS = ("Stockholders Equity", "Common Stock Equity", "Total Debt",
             "Cash Cash Equivalents And Short Term Investments", "Cash And Cash Equivalents", "Total Assets",
             "Total Liabilities Net Minority Interest", "Current Assets", "Current Liabilities", "Retained Earnings",
@@ -179,7 +192,8 @@ BAL_ROWS = ("Stockholders Equity", "Common Stock Equity", "Total Debt",
 CF_ROWS = ("Free Cash Flow", "Operating Cash Flow", "Capital Expenditure", "Net Issuance Payments Of Debt",
            "Net Long Term Debt Issuance", "Cash Dividends Paid", "Common Stock Dividend Paid",
            "Repurchase Of Capital Stock", "Common Stock Payments", "Issuance Of Capital Stock",
-           "Common Stock Issuance", "Depreciation And Amortization", "Depreciation Amortization Depletion")
+           "Common Stock Issuance", "Depreciation And Amortization", "Depreciation Amortization Depletion",
+           "Stock Based Compensation")
 INFO_KEYS = ("marketCap", "currency", "financialCurrency", "sector", "industry", "shortName", "quoteType")
 
 # 종목 정보 보충 (2026-11-12) — Yahoo 종목 정보(tk.info)가 요청 제한에 걸리면 재무제표는 받히는데 정보만 빈 값이 온다.
@@ -275,6 +289,7 @@ def fetch_one(ticker: str) -> dict[str, Any]:
     if not (ent["inc"] or ent["bal"] or ent["cf"]):
         raise RuntimeError(f"{ticker}: 재무제표 없음")
     ent["info"] = fetch_info(ticker, tk)
+    ent["rows_v"] = ROWS_VERSION
     return ent
 
 
@@ -455,8 +470,17 @@ def analyze(ent: Mapping[str, Any], *, price: float, mcap_fc: float, beta: float
     ni = series(ent, "inc", "Net Income Common Stockholders", "Net Income")
     ebit = series(ent, "inc", "EBIT", "Operating Income")
     eq = series(ent, "bal", "Stockholders Equity", "Common Stock Equity")
-    debt = series(ent, "bal", "Total Debt").fillna(0)
-    cash = series(ent, "bal", "Cash Cash Equivalents And Short Term Investments", "Cash And Cash Equivalents").fillna(0)
+    # 부채 · 현금 (2026-11-16 버그 ② 수정) — 빚이 없는 회사는 Yahoo 재무제표에 'Total Debt' 줄 자체가 없다. 전엔 없는 줄이
+    # 빈 Series 라 투하자본(부채 + 자본 − 현금)이 전부 NaN → ROIC 계산 불가 → 품질 탈락이었다 (BMI · FNV.TO · MNST · CHKP 등).
+    # 자기자본이 있는 해에 맞추고, 총부채가 빈 해는 장기부채 줄로 채운다 (INSM 은 총부채 줄만 비고 장기부채가 11억 달러).
+    # 그래도 빈 해는 0 으로 계산하고, 몇 해를 0 으로 채웠는지 fill0 에 남긴다 — 사이트에 '자료 없음 → 0으로 계산' 표시.
+    yrs = eq.dropna().index
+    debt_raw = series(ent, "bal", "Total Debt", "Long Term Debt And Capital Lease Obligation", "Long Term Debt")
+    cash_raw = series(ent, "bal", "Cash Cash Equivalents And Short Term Investments", "Cash And Cash Equivalents")
+    debt, cash = debt_raw.reindex(yrs).fillna(0), cash_raw.reindex(yrs).fillna(0)
+    fill0 = {"debt": int((~yrs.isin(debt_raw.index)).sum()), "cash": int((~yrs.isin(cash_raw.index)).sum()),
+             "years": int(len(yrs))}
+    debt_any = debt_raw.reindex(yrs.union(debt_raw.index)).fillna(0)   # WACC 의 최근 부채 — 최근 해 줄이 비면 0
     pretax, taxp = series(ent, "inc", "Pretax Income"), series(ent, "inc", "Tax Provision")
     intexp = series(ent, "inc", "Interest Expense", "Interest Expense Non Operating")
     fcf = series(ent, "cf", "Free Cash Flow")
@@ -487,11 +511,12 @@ def analyze(ent: Mapping[str, Any], *, price: float, mcap_fc: float, beta: float
     roic = (ebit * (1 - tr) / ic).dropna()
     out["roic"] = float(roic.mean()) if len(roic) else NAN
     out["roic_cv"] = cv(roic)
+    out["fill0"] = fill0 if fill0["debt"] or fill0["cash"] else None
     ke = rf + beta * ERP
     ie = _at(intexp, -1)
     coverage = _at(ebit, -1) / abs(ie) if math.isfinite(ie) and ie != 0 else math.inf
     kd = rf + spread_for(coverage)
-    d_last = _at(debt, -1) if math.isfinite(_at(debt, -1)) else 0.0
+    d_last = _at(debt_any, -1) if math.isfinite(_at(debt_any, -1)) else 0.0
     wacc = (mcap_fc * ke + d_last * kd * (1 - tr)) / (mcap_fc + d_last) if mcap_fc > 0 else NAN
     out.update({"beta": beta, "ke": ke, "wacc": wacc})
     out["g_roic"] = bool(out["roic"] >= ROIC_MIN and out["roic_cv"] <= CV_MAX and out["roic"] > wacc)
@@ -533,7 +558,62 @@ def analyze(ent: Mapping[str, Any], *, price: float, mcap_fc: float, beta: float
     out["alpha_b06"] = irr - (rf + max(beta, SENSITIVE_BETA) * ERP)
     out["pass_v2"] = bool(out["pass"] and out["g_bear"])
     out["sensitive"] = bool(out["pass"] and not (math.isfinite(out["alpha_b06"]) and out["alpha_b06"] >= ALPHA_MIN))
+
+    # v3 수석 PM — 최근 해 현금(빈 해는 0 · fill0 에 표시)
+    cash_any = cash_raw.reindex(yrs.union(cash_raw.index)).fillna(0)
+    c_last = _at(cash_any, -1) if math.isfinite(_at(cash_any, -1)) else 0.0
+    out.update(pm_metrics(ent, fcf=fcf, g1=g1, ke=ke, wacc=wacc, tr=tr, mcap_fc=mcap_fc, debt_last=d_last,
+                          cash_last=c_last, sh_y=sh_y))
     return out
+
+
+def pm_metrics(ent: Mapping[str, Any], *, fcf: pd.Series, g1: float, ke: float, wacc: float, tr: float,
+               mcap_fc: float, debt_last: float, cash_last: float, sh_y: float) -> dict[str, Any]:
+    """v3 수석 PM 의 관문 지표 (2026-11-16). 받는 항목 판(rows_v)이 ROWS_VERSION 보다 낮은 캐시는 계산하지 않는다
+    (pm_ready False → 사이트에 '자료 준비 중'). 빠진 자료는 pm_gaps 에 남긴다 ('sbc' = SBC 줄 없음 → 0 으로 계산,
+    'shares' = 희석주식수 없음 · 분할로 보이는 급변 → 희석 판단 불가).
+    ① SBC: 해마다 FCF − SBC 의 최근 3년 평균 ÷ 시총으로 v1 가격 관문(알파 ≥ 5%p) · v2 하방 관문(FCF −30% · 첫 5년 성장
+       0 이하에서도 알파 ≥ 0)을 다시 본다.
+    ② 레버리지(EV): (FCF − SBC + 이자 × (1 − 세율)) 최근 3년 평균 ÷ EV(시총 + 차입금 − 현금)의 기대수익률 − WACC ≥ 5%p —
+       부채를 뺀 회사 전체로 봐도 싸야 한다. EV ≤ 0 (현금이 시총 + 차입금보다 많음)이면 통과.
+    ③ 자본배분: 주주환원율(3년 평균 배당 + 자사주 − 발행) ≥ 0 · 최근 2년 희석주식수 연 증가율 ≤ PM_DIL_MAX. 자료가 없으면
+       판단 불가(통과)."""
+    if int(ent.get("rows_v") or 1) < ROWS_VERSION or not len(fcf) or not mcap_fc > 0:
+        return {"pm_ready": False}
+    gaps: list[str] = []
+    sbc_raw = series(ent, "cf", "Stock Based Compensation")
+    if sbc_raw.dropna().empty:
+        gaps.append("sbc")
+    sbc = sbc_raw.abs().reindex(fcf.index).fillna(0)
+    real = fcf - sbc
+    real_y = float(real.tail(3).mean()) / mcap_fc
+    alpha_real = irr_two_stage(real_y, g1, TERM_G) - ke
+    alpha_bear_real = irr_two_stage(real_y * (1 - BEAR_FCF_CUT), min(g1, 0.0), TERM_G) - ke
+    p_sbc = bool(math.isfinite(alpha_real) and alpha_real >= ALPHA_MIN
+                 and math.isfinite(alpha_bear_real) and alpha_bear_real >= 0)
+    ie = series(ent, "inc", "Interest Expense", "Interest Expense Non Operating").abs().reindex(fcf.index).fillna(0)
+    fcff = real + ie * (1 - tr)
+    ev = mcap_fc + debt_last - cash_last
+    if ev > 0:
+        ev_y = float(fcff.tail(3).mean()) / ev
+        alpha_ev = irr_two_stage(ev_y, g1, TERM_G) - wacc
+        p_ev = bool(math.isfinite(alpha_ev) and alpha_ev >= ALPHA_MIN)
+    else:
+        ev_y, alpha_ev, p_ev = NAN, NAN, True
+    # 희석 = 최근 2년(3개 해) 희석주식수 연 증가율 — 더 옛날의 지배구조 변경(BRBR 2022 스핀오프로 93.8M → 134.1M,
+    # 그 뒤엔 자사주로 줄어듦)을 희석으로 잡지 않게. 1.8배 · 0.55배 넘게 튀면 분할로 보고 판단 불가.
+    sh = series(ent, "inc", "Diluted Average Shares", "Basic Average Shares").dropna()
+    sh = sh[sh > 0].tail(3)
+    jumps = (sh / sh.shift(1)).dropna()
+    if len(sh) >= 2 and not ((jumps > 1.8) | (jumps < 0.55)).any():
+        dil = float((sh.iloc[-1] / sh.iloc[0]) ** (1 / (len(sh) - 1)) - 1)
+    else:
+        dil = NAN
+        gaps.append("shares")
+    p_cap = bool((not math.isfinite(sh_y) or sh_y >= 0) and (not math.isfinite(dil) or dil <= PM_DIL_MAX))
+    return {"pm_ready": True, "sbc_y": float(sbc.tail(3).mean()) / mcap_fc, "fcf_real_y": real_y,
+            "alpha_real": alpha_real, "alpha_bear_real": alpha_bear_real, "ev_y": ev_y, "alpha_ev": alpha_ev,
+            "dil": dil, "p_sbc": p_sbc, "p_ev": p_ev, "p_cap": p_cap, "pm_gaps": gaps}
 
 
 def revenue_falling(quarters: list[Mapping[str, Any]] | None, annual: pd.Series) -> bool | None:
@@ -582,6 +662,30 @@ def top_v2(rows: Iterable[Mapping[str, Any]], n: int = TOP_N) -> list[str]:
     return [r["ticker"] for r in sorted(q, key=lambda r: -r["gap"])[:n]]
 
 
+def v3_eligible(r: Mapping[str, Any]) -> bool:
+    """v3 후보 — v2 후보(품질 통과 · 반증 조건 없음) 중 PM 관문 ① SBC ② EV ③ 자본배분을 모두 통과 (자료가 준비된 종목만)."""
+    return bool(r.get("quality") and not r.get("kill") and r.get("pm_ready")
+                and r.get("p_sbc") and r.get("p_ev") and r.get("p_cap"))
+
+
+def top_v3(rows: Iterable[Mapping[str, Any]], n: int = PM_SLOTS, cap: int = PM_IND_CAP) -> list[str]:
+    """v3 PM 포트폴리오 — v3 후보를 SBC 차감 하방 알파 큰 순으로, 같은 업종은 cap 개까지, n 칸까지 (빈칸은 SPY).
+    대상 밖(own False)은 뺀다."""
+    q = [r for r in rows if r.get("own", True) and v3_eligible(r) and _f(r.get("alpha_bear_real")) is not None]
+    q.sort(key=lambda r: (-r["alpha_bear_real"], r["ticker"]))
+    picks: list[str] = []
+    counts: dict[str, int] = {}
+    for r in q:
+        ind = r.get("industry") or "—"
+        if counts.get(ind, 0) >= cap:
+            continue
+        picks.append(r["ticker"])
+        counts[ind] = counts.get(ind, 0) + 1
+        if len(picks) >= n:
+            break
+    return picks
+
+
 def theme_counts(rows: Iterable[Mapping[str, Any]]) -> dict[str, int]:
     """v2 상위 THEME_TOP 안 업종별 종목 수 (많은 순)."""
     by_t = {r["ticker"]: r for r in rows}
@@ -621,17 +725,23 @@ def last_price(px: pd.DataFrame, ticker: str) -> float:
 
 # ── 받기 (시간 한도)
 
-def refresh_order(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], today: date) -> list[str]:
-    """다시 받을 종목 — ① 캐시에 없음 ② MAX_AGE_DAYS 일 넘음 (오래된 순)."""
+def refresh_order(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], today: date,
+                  backfill: int = V3_BACKFILL) -> list[str]:
+    """다시 받을 종목 — ① 캐시에 없음 ② MAX_AGE_DAYS 일 넘음 (오래된 순) ③ 받는 항목 판(rows_v)이 ROWS_VERSION 보다 낮음
+    (v3 의 SBC · 희석주식수가 없음 — 오래된 순으로 backfill 개까지)."""
     stale = (today - timedelta(days=MAX_AGE_DAYS)).isoformat()
     tiers: list[tuple[int, str, str]] = []
+    old_rows: list[tuple[int, str, str]] = []
     for t in tickers:
-        fetched = str((cache.get(t) or {}).get("fetched", ""))
+        ent = cache.get(t) or {}
+        fetched = str(ent.get("fetched", ""))
         if not fetched:
             tiers.append((0, "", t))
         elif fetched <= stale:
             tiers.append((1, fetched, t))
-    return [t for _, _, t in sorted(tiers)]
+        elif int(ent.get("rows_v") or 1) < ROWS_VERSION:
+            old_rows.append((2, fetched, t))
+    return [t for _, _, t in sorted(tiers) + sorted(old_rows)[:max(backfill, 0)]]
 
 
 def refresh(tickers: Iterable[str], cache: dict[str, dict[str, Any]], today: date, *, budget_sec: float,
@@ -737,12 +847,14 @@ def load_log(path: Path | None) -> dict[str, Any]:
 
 
 def update_log(log: dict[str, Any], rows: list[Mapping[str, Any]], px: pd.DataFrame, day: str,
-               authors: Sequence[str] | None = None) -> dict[str, Any]:
+               authors: Sequence[str] | None = None, v3_ready: bool = False) -> dict[str, Any]:
     """오늘 결과를 기록에 반영한다. 한 번 넣은 줄의 시작일 · 시작가는 바꾸지 않는다.
     - ours(v1 통과): 처음 한 번 넣고 계속 보유. author(저자 종목 = 커버리지 + 리서치 글, authors 없으면 코드 목록):
       처음 보이는 날 넣고, 저자 목록에서 빠지면 끝낸다.
     - v2: v2 통과하면 넣고, 반증 조건(kill_reasons)에 걸리면 끝낸다(x · xr). 다시 통과하면 새 줄.
     - v1_top · v2_top: 매달 첫 실행에 우선순위 상위 TOP_N 으로 다시 골라, 빠진 종목은 끝내고 새 종목을 넣는다.
+    - v3 (PM 포트폴리오, v3_ready 일 때만 — SBC · 희석주식수 자료가 대상의 WARMUP_MIN 만큼 모인 뒤): 매달 첫 실행에
+      top_v3 로 다시 맞추고(빈칸은 SPY 라 줄이 없다), 들고 있는 종목이 반증 조건에 걸리면 그날 바로 끝낸다(SPY 로).
     - ours · v2 · 상위 묶음은 우리 대상(own) 종목만 — 저자 종목이라 비교용으로 계산한 대상 밖 종목은 안 넣는다."""
     entries: list[dict[str, Any]] = log.setdefault("entries", [])
     if not log.get("start"):
@@ -789,6 +901,20 @@ def update_log(log: dict[str, Any], rows: list[Mapping[str, Any]], px: pd.DataFr
             if not active(t, group):
                 add(t, group)
         baskets[group] = month
+    for e in [e for e in entries if e.get("g") == "v3" and not e.get("x")]:  # 논리가 깨지면 그날 SPY 로
+        r = by_t.get(str(e.get("t")))
+        if r is not None and r.get("kill"):
+            close(e, "반증: " + " · ".join(r["kill"]))
+    if v3_ready and baskets.get("v3") != month:  # 빈 목록도 그대로 (전부 SPY)
+        picks = top_v3(rows)
+        for e in [e for e in entries if e.get("g") == "v3" and not e.get("x")]:
+            if e.get("t") not in picks:
+                close(e, "PM 포트폴리오에서 빠짐 (월 교체)")
+        for t in picks:
+            if not active(t, "v3"):
+                add(t, "v3")
+        baskets["v3"] = month
+        log.setdefault("v3_start", day)
     for e in [e for e in entries if e.get("g") == "author" and not e.get("x")]:
         if e.get("t") not in authors:
             close(e, "저자 목록에서 빠짐")
@@ -814,7 +940,7 @@ def tracking_rows(log: Mapping[str, Any], px: pd.DataFrame,
         ret = p1 / p0 - 1 if p0 > 0 else NAN
         bret = b1 / b0 - 1 if b0 > 0 else NAN
         r = rows_by.get(t)
-        passing = bool(r and (r.get("pass_v2") if group == "v2" else r.get("pass")))
+        passing = bool(r and (r.get("pass_v2") if group == "v2" else r.get("pass_v3") if group == "v3" else r.get("pass")))
         out.append({"ticker": t, "group": group, "since": day, "entry": e.get("p"), "bench": bench, "ret": ret,
                     "bench_ret": bret, "excess": ret - bret, "passing": passing, "exit": end, "reason": e.get("xr")})
     return out
@@ -1079,6 +1205,7 @@ def screen(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], px: p
         res["rev_down"] = revenue_falling(((detail or {}).get(t) or {}).get("revenue"),
                                           series(ent, "inc", "Total Revenue", "Operating Revenue"))
         res["kill"] = kill_reasons(res)
+        res["pass_v3"] = v3_eligible(res)
         res["own"] = mine
         res["co"] = ((co_alias or {}).get(t) or company_key((sc or {}).get("shortName"))
                      or company_key(info.get("shortName")) or _scan_key(t))
@@ -1092,6 +1219,8 @@ def screen(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], px: p
     funnel["pass"] = sum(1 for r in mine_rows if r["pass"])
     funnel["pass_v2"] = sum(1 for r in mine_rows if r["pass_v2"])
     funnel["sensitive"] = sum(1 for r in mine_rows if r["sensitive"])
+    funnel["pm_ready"] = sum(1 for r in mine_rows if r.get("pm_ready"))
+    funnel["pass_v3"] = sum(1 for r in mine_rows if r.get("pass_v3"))
     return rows, funnel
 
 
@@ -1159,6 +1288,13 @@ def web_row(r: Mapping[str, Any], cov: Sequence[Mapping[str, Any]] | None = None
                 "co": r.get("co")})
     row.update({"g_bear": r.get("g_bear"), "pass_v2": r.get("pass_v2"), "sensitive": r.get("sensitive"),
                 "rev_down": r.get("rev_down"), "kill": list(r.get("kill") or [])})
+    if r.get("fill0"):  # ROIC 의 부채 · 현금을 자료가 없어 0 으로 계산한 해 수 {"debt", "cash", "years"} (2026-11-16)
+        row["fill0"] = dict(r["fill0"])
+    if r.get("pm_ready"):  # v3 수석 PM 관문 (2026-11-16) — 없으면 자료 준비 중
+        row["pm"] = {**{k: _r(r.get(k), 4) for k in ("sbc_y", "fcf_real_y", "alpha_real", "alpha_bear_real", "ev_y",
+                                                     "alpha_ev", "dil")},
+                     "sbc": r.get("p_sbc"), "ev": r.get("p_ev"), "cap": r.get("p_cap"), "pass": r.get("pass_v3"),
+                     "gaps": list(r.get("pm_gaps") or [])}
     return row
 
 
@@ -1166,10 +1302,11 @@ def build_model(rows: list[dict[str, Any]], funnel: Mapping[str, int], *, price_
                 track: list[dict[str, Any]], log_start: str | None, fetch_stats: Mapping[str, int] | None,
                 research: list[dict[str, Any]] | None = None, cov: Sequence[Mapping[str, Any]] | None = None,
                 cov_src: str = "code", cov_as_of: str | None = None, universe: Mapping[str, Any] | None = None,
-                warmup: Mapping[str, int] | None = None) -> dict[str, Any]:
+                warmup: Mapping[str, int] | None = None, pm: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """value_model.json — 관문을 하나라도 의미 있게 지난 종목(품질 통과 · 가격 통과 · 저자 종목)만 싣는다.
     research = research_rows (저자 리서치 글 · 게시일 이후 성과). cov = 저자 커버리지 (cov_src 'page' = 저자 사이트에서
-    읽은 목록, 'code' = AUTHOR_COVERAGE). universe = 우리 대상 설명, warmup = 기록 준비 중이면 {"have", "want"}."""
+    읽은 목록, 'code' = AUTHOR_COVERAGE). universe = 우리 대상 설명, warmup = 기록 준비 중이면 {"have", "want"}.
+    pm = v3 기록 상태 {"ready", "have", "want", "start"} (have/want = SBC · 희석주식수 자료가 있는 대상 종목 수)."""
     cov = list(AUTHOR_COVERAGE if cov is None else cov)
     author_cos = author_companies(rows, cov)
     keep = [r for r in rows if r["quality"] or r["g_price"] or author_kind(r["ticker"], cov, r.get("co"), author_cos)]
@@ -1202,6 +1339,13 @@ def build_model(rows: list[dict[str, Any]], funnel: Mapping[str, int], *, price_
                        "theme_top": THEME_TOP, "theme_warn": THEME_WARN},
             "top": {"v1": top_v1(rows), "v2": top_v2(rows)},
             "theme": theme_counts(rows),
+        },
+        "v3": {
+            "params": {"slots": PM_SLOTS, "ind_cap": PM_IND_CAP, "dil_max": PM_DIL_MAX, "alpha_min": ALPHA_MIN,
+                       "bear_fcf_cut": BEAR_FCF_CUT},
+            "top": top_v3(rows),
+            "ready": bool((pm or {}).get("ready")), "have": (pm or {}).get("have"), "want": (pm or {}).get("want"),
+            "start": (pm or {}).get("start"),
         },
     }
 
@@ -1342,10 +1486,16 @@ def main(argv: list[str] | None = None) -> int:
     want = len(own_keys) if own_keys is not None else len(tickers)
     have = sum(1 for t in (own_keys if own_keys is not None else tickers) if (cache.get(t) or {}).get("inc") is not None)
     ready = not degraded and have >= WARMUP_MIN * want
+    # v3 — SBC · 희석주식수(받는 항목 판 2)까지 받은 대상 종목이 WARMUP_MIN 이 되면 기록을 시작한다
+    own_rows = [r for r in rows if r["own"]]
+    have3 = sum(1 for r in own_rows if r.get("pm_ready"))
+    ready3 = ready and bool(own_rows) and have3 >= WARMUP_MIN * len(own_rows)
     if ready:
-        log = update_log(log, rows, px, price_date, authors=author_tickers(cov))
+        log = update_log(log, rows, px, price_date, authors=author_tickers(cov), v3_ready=ready3)
     else:
         print(f"[예측 모델] 기록 준비 중 — 대상 재무 {have}/{want}" + (" (대상 못 만듦)" if degraded else ""))
+    if not ready3:
+        print(f"[예측 모델] v3 기록 준비 중 — SBC · 희석주식수 자료 {have3}/{len(own_rows)}")
     log["universe"] = UNIVERSE_ID
     (snap / LOG_NAME).write_text(json.dumps(log, ensure_ascii=False, indent=1), "utf-8")
     by_ticker = {r["ticker"]: r for r in rows}
@@ -1353,13 +1503,14 @@ def main(argv: list[str] | None = None) -> int:
     model = build_model(rows, funnel, price_date=price_date, rf=rf, rf_src=rf_src, track=track,
                         log_start=log.get("start"), fetch_stats=fetch_stats, research=research_rows(px, by_ticker),
                         cov=cov, cov_src=cov_src, cov_as_of=cov_as_of, universe=universe,
-                        warmup=None if ready else {"have": have, "want": want})
+                        warmup=None if ready else {"have": have, "want": want},
+                        pm={"ready": ready3, "have": have3, "want": len(own_rows), "start": log.get("v3_start")})
     body = json.dumps(model, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     (out_dir / OUT_NAME).write_text(body, "utf-8")
     print(f"[예측 모델] {price_date} · 대상 {funnel['universe']} · 계산 {funnel['computed']} (+비교용 {funnel['extra']}) · "
           f"품질 통과 {funnel['quality']} · 가격 통과 {funnel['price']} · 둘 다 {funnel['pass']} "
-          f"({', '.join(sorted(passing)) or '없음'}) · v2 통과 {funnel['pass_v2']} · 기록 {len(track)}줄 · "
-          f"{len(body) / 1e3:.0f}KB")
+          f"({', '.join(sorted(passing)) or '없음'}) · v2 통과 {funnel['pass_v2']} · v3 PM {model['v3']['top'] or '전부 SPY'} "
+          f"(자료 {have3}/{len(own_rows)}) · 기록 {len(track)}줄 · {len(body) / 1e3:.0f}KB")
     return 0
 
 

@@ -154,6 +154,38 @@ def test_analyze_expensive_company_fails_price_only():
     assert res["drop"] < 0  # 매수 기준가가 지금보다 낮다
 
 
+def test_roic_without_debt_row_counts_debt_as_zero_and_marks_it():
+    """버그 ② (2026-11-16) — 무차입 회사는 Yahoo 에 'Total Debt' 줄이 없다. 전엔 ROIC 가 NaN 이라 품질 탈락."""
+    ent = quality_company()
+    del ent["bal"]["Total Debt"], ent["bal"]["Long Term Debt"]
+    res = vm.analyze(ent, price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    ic = 1150.0 - 100.0                                     # 자본 + 0 − 현금 (최근 해)
+    assert math.isfinite(res["roic"]) and res["g_roic"] and res["quality"], res["fails"]
+    assert res["roic"] > 380 * 0.79 / ic * 0.9
+    assert res["fill0"] == {"debt": 4, "cash": 0, "years": 4}
+    row = vm.web_row(res | {"ticker": "GOOD"})
+    assert row["fill0"] == {"debt": 4, "cash": 0, "years": 4}
+    # 다 있으면 표시 없음
+    full = vm.analyze(quality_company(), price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    assert full["fill0"] is None and "fill0" not in vm.web_row(full | {"ticker": "GOOD"})
+
+
+def test_roic_debt_falls_back_to_long_term_debt_then_zero_for_missing_years():
+    ent = quality_company()
+    del ent["bal"]["Total Debt"]                             # INSM 처럼 총부채 줄만 빔 → 장기부채 200 으로
+    with_ltd = vm.analyze(ent, price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    base = vm.analyze(quality_company(), price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    assert with_ltd["roic"] == pytest.approx(base["roic"]) and with_ltd["fill0"] is None
+    assert with_ltd["wacc"] == pytest.approx(base["wacc"])
+    part = quality_company()
+    part["bal"]["Total Debt"] = {YEARS[1]: 200.0}             # 한 해만 있음 (MNST 처럼)
+    del part["bal"]["Long Term Debt"], part["bal"]["Cash Cash Equivalents And Short Term Investments"]
+    res = vm.analyze(part, price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    assert res["fill0"] == {"debt": 3, "cash": 4, "years": 4}
+    assert math.isfinite(res["roic"])
+    assert res["wacc"] == pytest.approx(res["ke"])           # 최근 해 부채 0 → WACC = Ke
+
+
 def test_negative_equity_roe_is_not_judged():
     ent = quality_company()
     ent["bal"]["Stockholders Equity"] = dict(zip(YEARS, [-100.0, -120.0, -90.0, -80.0]))
@@ -270,7 +302,7 @@ def test_analyze_v2_fields():
 
 
 def test_refresh_order_and_refresh_with_fake_fetch():
-    cache = {"OLD": {"fetched": "2026-09-01"}, "NEW": {"fetched": "2026-11-10"}}
+    cache = {"OLD": {"fetched": "2026-09-01"}, "NEW": {"fetched": "2026-11-10", "rows_v": vm.ROWS_VERSION}}
     order = vm.refresh_order(["NEW", "MISSING", "OLD"], cache, date(2026, 11, 11))
     assert order == ["MISSING", "OLD"]
 
@@ -550,3 +582,119 @@ def test_refresh_pauses_when_blocked_then_resumes():
                        fetch=lambda t: (_ for _ in ()).throw(RuntimeError("429")), pause_sec=5, pause_max=1,
                        sleep=lambda _s: None)
     assert stats["pauses"] == 1 and stats["ok"] == 0 and stats["fail"] == 25 and stats["left"] == 15
+
+
+# ── v3 수석 PM (2026-11-16)
+
+def _pm_company(fcf: float = 900.0, sbc: float = 100.0, shares=(100.0, 100.0, 99.0, 98.0)) -> dict:
+    """SBC · 희석주식수까지 받은(판 2) 우량 회사."""
+    ent = quality_company(fcf=fcf)
+    ent["rows_v"] = vm.ROWS_VERSION
+    ent["cf"]["Stock Based Compensation"] = dict(zip(YEARS, [sbc] * 4))
+    ent["inc"]["Diluted Average Shares"] = dict(zip(YEARS, list(shares)))
+    return ent
+
+
+def test_pm_metrics_need_new_rows():
+    res = vm.analyze(quality_company(), price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    assert res["pm_ready"] is False and not vm.v3_eligible({**res, "kill": []})
+
+
+def test_pm_sbc_gate_uses_fcf_minus_sbc():
+    res = vm.analyze(_pm_company(sbc=100.0), price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    assert res["pm_ready"] and res["pm_gaps"] == []
+    assert res["fcf_real_y"] == pytest.approx(0.08)
+    assert res["alpha_real"] == pytest.approx(vm.irr_two_stage(0.08, res["g1"], vm.TERM_G) - res["ke"])
+    assert res["alpha_real"] < res["alpha"]
+    assert res["p_sbc"] == (res["alpha_real"] >= vm.ALPHA_MIN and res["alpha_bear_real"] >= 0)
+    heavy = vm.analyze(_pm_company(sbc=650.0), price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    assert heavy["pass"] and not heavy["p_sbc"]          # v1 은 통과하지만 SBC 를 비용으로 치면 탈락
+    none = _pm_company()
+    del none["cf"]["Stock Based Compensation"]
+    r = vm.analyze(none, price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    assert "sbc" in r["pm_gaps"] and r["fcf_real_y"] == pytest.approx(0.09)   # SBC 줄 없음 → 0 으로 (표시)
+
+
+def test_pm_ev_gate_catches_leverage_illusion():
+    base = vm.analyze(_pm_company(sbc=0.0), price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    ev = 10_000 + 200 - 100
+    tr = min(max(74 / 368, 0.0), 0.35)
+    assert base["ev_y"] == pytest.approx((900 + 10 * (1 - tr)) / ev)
+    assert base["alpha_ev"] == pytest.approx(vm.irr_two_stage(base["ev_y"], base["g1"], vm.TERM_G) - base["wacc"])
+    lev = _pm_company(sbc=0.0)
+    lev["bal"]["Total Debt"] = dict(zip(YEARS, [30_000.0] * 4))
+    lev["inc"]["Interest Expense"] = dict(zip(YEARS, [1_500.0] * 4))
+    r = vm.analyze(lev, price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    assert r["alpha"] >= vm.ALPHA_MIN and not r["p_ev"]     # 시총 기준으론 싸 보이지만 회사 전체로는 아님
+    cash_rich = _pm_company(sbc=0.0)
+    cash_rich["bal"]["Cash Cash Equivalents And Short Term Investments"] = dict(zip(YEARS, [20_000.0] * 4))
+    r = vm.analyze(cash_rich, price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    assert r["p_ev"] and not math.isfinite(r["alpha_ev"])  # EV ≤ 0 → 통과
+
+
+def test_pm_capital_allocation_dilution_and_split_guard():
+    ok = vm.analyze(_pm_company(), price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    assert ok["dil"] < 0 and ok["p_cap"]
+    dil = vm.analyze(_pm_company(shares=(100.0, 103.0, 106.1, 109.3)), price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    assert dil["dil"] == pytest.approx(0.03, abs=1e-3) and not dil["p_cap"]
+    split = vm.analyze(_pm_company(shares=(100.0, 101.0, 400.0, 401.0)), price=100.0, mcap_fc=10_000.0, beta=0.5,
+                       rf=0.0483)
+    assert not math.isfinite(split["dil"]) and "shares" in split["pm_gaps"] and split["p_cap"]   # 분할 → 판단 불가
+    spun = vm.analyze(_pm_company(shares=(93.8, 134.1, 132.3, 128.5)), price=100.0, mcap_fc=10_000.0, beta=0.5,
+                      rf=0.0483)   # BRBR — 옛 스핀오프 구조 변경은 최근 2년 밖
+    assert spun["dil"] == pytest.approx((128.5 / 134.1) ** 0.5 - 1) and spun["p_cap"]
+
+
+def _pm_row(t: str, abr: float, ind: str, **kw) -> dict:
+    base = {"ticker": t, "own": True, "quality": True, "kill": [], "pm_ready": True, "p_sbc": True, "p_ev": True,
+            "p_cap": True, "alpha_bear_real": abr, "industry": ind}
+    return {**base, **kw}
+
+
+def test_top_v3_order_industry_cap_and_slots():
+    rows = [_pm_row(f"S{i}", 0.20 - i * 0.01, "Software") for i in range(4)]
+    rows += [_pm_row(f"I{i}", 0.15 - i * 0.01, f"Ind{i}") for i in range(10)]
+    rows += [_pm_row("KILL", 0.50, "X", kill=["적정가 도달"]), _pm_row("LEV", 0.40, "Y", p_ev=False),
+             _pm_row("OUT", 0.45, "Z", own=False)]
+    picks = vm.top_v3(rows)
+    assert picks[:2] == ["S0", "S1"] and "S2" not in picks          # 같은 업종 2개까지
+    assert len(picks) == vm.PM_SLOTS and not {"KILL", "LEV", "OUT"} & set(picks)
+    assert vm.top_v3([_pm_row("A", 0.1, "X", p_cap=False)]) == []   # 없으면 빈 목록 (전부 SPY)
+
+
+def test_update_log_v3_monthly_slots_and_kill_exit():
+    idx = pd.bdate_range("2026-10-26", "2026-11-13")
+    px = pd.DataFrame({t: np.linspace(10, 11, len(idx)) for t in ("AAA", "BBB", "SPY")}, index=idx)
+    rows = [_row("AAA", **_pm_row("AAA", 0.1, "X")), _row("BBB", **_pm_row("BBB", 0.05, "Y"))]
+    log = vm.update_log(vm.load_log(None), rows, px, "2026-10-29")
+    assert not any(e["g"] == "v3" for e in log["entries"])                    # 자료 준비 전엔 기록 안 함
+    log = vm.update_log(log, rows, px, "2026-10-30", v3_ready=True)
+    assert {e["t"] for e in log["entries"] if e["g"] == "v3"} == {"AAA", "BBB"} and log["v3_start"] == "2026-10-30"
+    killed = [_row("AAA", **_pm_row("AAA", 0.1, "X", kill=["매출 감소 (최근 분기 · 연간)"])), rows[1]]
+    log = vm.update_log(log, killed, px, "2026-10-31", v3_ready=True)
+    a = next(e for e in log["entries"] if e["g"] == "v3" and e["t"] == "AAA")
+    assert a["x"] == "2026-10-31" and a["xr"].startswith("반증")             # 논리가 깨지면 그날 SPY 로
+    log = vm.update_log(log, [rows[1]], px, "2026-11-02", v3_ready=True)     # 다음 달: 다시 맞춤
+    assert [e["t"] for e in log["entries"] if e["g"] == "v3" and not e.get("x")] == ["BBB"]
+    assert log["baskets"]["v3"] == "2026-11"
+    track = vm.tracking_rows(log, px, {r["ticker"]: {**r, "pass_v3": True} for r in rows})
+    assert vm.tracking_summary(track)["v3"]["n"] == 2
+
+
+def test_refresh_order_backfills_old_row_version():
+    today = date(2026, 11, 16)
+    cache = {f"T{i}": {"fetched": f"2026-11-{i + 1:02d}"} for i in range(5)}      # 최근에 받았지만 판 1
+    cache["NEW"] = {"fetched": "2026-11-15", "rows_v": vm.ROWS_VERSION}
+    order = vm.refresh_order(list(cache) + ["MISSING"], cache, today, backfill=2)
+    assert order == ["MISSING", "T0", "T1"]                                       # 없는 것 → 판 낮은 것 오래된 순 2개
+
+
+def test_web_row_and_model_carry_v3():
+    res = vm.analyze(_pm_company(), price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    row = {**res, "ticker": "GOOD", "kill": [], "pass_v3": vm.v3_eligible({**res, "kill": []}), "industry": "X"}
+    web = vm.web_row(row)
+    assert set(web["pm"]) >= {"alpha_real", "alpha_bear_real", "alpha_ev", "dil", "sbc", "ev", "cap", "pass", "gaps"}
+    model = vm.build_model([row], {"computed": 1}, price_date="2026-11-16", rf=0.0483, rf_src="test", track=[],
+                           log_start=None, fetch_stats=None, pm={"ready": False, "have": 1, "want": 1, "start": None})
+    json.dumps(model, allow_nan=False)
+    assert model["v3"]["top"] == (["GOOD"] if row["pass_v3"] else []) and model["v3"]["params"]["slots"] == 10
