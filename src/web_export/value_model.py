@@ -224,6 +224,8 @@ CADUSD_FALLBACK = 0.72
 UNIVERSE_MARKETS = frozenset({"sp500", "nasdaq", "tsx"})  # 전체분석 목록의 market (tsxv 는 뺀다)
 WARMUP_MIN = 0.95           # 대상 중 재무를 받은 비율이 이만큼 되기 전엔 기록을 시작하지 않는다 (첫 밤 일부만으로 묶음을 고르지 않게)
 PRICE_BATCH = 400           # 주가를 이만큼씩 나눠 받는다
+TOPUP_PERIOD = "5d"         # 5년치에 빠진 마지막 거래일 종가를 이 짧은 요청으로 채운다 (top_up_last)
+V2_CHURN_FIXED = "2026-11-17"  # 이 날까지 생긴 v2 재진입 줄(반증으로 닫은 밤에 다시 넣은 줄)은 버그라 지운다 (update_log)
 _CO_STOP = frozenset({"inc", "corp", "corporation", "ltd", "limited", "co", "company", "plc", "sa", "nv", "the", "holdings",
                       "holding", "group", "class", "a", "b", "common", "shares", "sub", "voting", "trust", "units", "lp",
                       "llc", "ag", "se", "incorporated"})
@@ -852,7 +854,7 @@ def update_log(log: dict[str, Any], rows: list[Mapping[str, Any]], px: pd.DataFr
     """오늘 결과를 기록에 반영한다. 한 번 넣은 줄의 시작일 · 시작가는 바꾸지 않는다.
     - ours(v1 통과): 처음 한 번 넣고 계속 보유. author(저자 종목 = 커버리지 + 리서치 글, authors 없으면 코드 목록):
       처음 보이는 날 넣고, 저자 목록에서 빠지면 끝낸다.
-    - v2: v2 통과하면 넣고, 반증 조건(kill_reasons)에 걸리면 끝낸다(x · xr). 다시 통과하면 새 줄.
+    - v2: v2 통과(반증 없음까지)하면 넣고, 반증 조건(kill_reasons)에 걸리면 끝낸다(x · xr). 반증이 풀려 다시 통과하면 새 줄.
     - v1_top · v2_top: 매달 첫 실행에 우선순위 상위 TOP_N 으로 다시 골라, 빠진 종목은 끝내고 새 종목을 넣는다.
     - v3 (PM 포트폴리오, v3_ready 일 때만 — SBC · 희석주식수 자료가 대상의 WARMUP_MIN 만큼 모인 뒤): 매달 첫 실행에
       top_v3 로 다시 맞추고(빈칸은 SPY 라 줄이 없다), 들고 있는 종목이 반증 조건에 걸리면 그날 바로 끝낸다(SPY 로).
@@ -880,6 +882,12 @@ def update_log(log: dict[str, Any], rows: list[Mapping[str, Any]], px: pd.DataFr
     def close(e: dict[str, Any], reason: str) -> None:
         e["x"], e["xr"] = day, reason
 
+    # 2026-11-17 버그 정리 — 전엔 반증에 걸린 종목도 pass_v2 면 반증으로 닫은 그 밤에 다시 넣어, VIPS 가 밤마다 새 v2 줄이
+    # 됐다(같은 날 열고 닫힌 줄 포함 4줄 → 시니어 성적표 '9건'). 이제 반증이 있으면 넣지 않으니 새로 생기지 않는다.
+    # 그때 생긴 줄(반증으로 끝난 날 같은 종목을 다시 넣은 줄)만 지운다 — 고친 날 이전 줄에만 (한 번만 맞는 정리).
+    killed = {(e.get("t"), e.get("x")) for e in entries if e.get("g") == "v2" and e.get("x")}
+    entries[:] = [e for e in entries if not (e.get("g") == "v2" and str(e.get("d")) <= V2_CHURN_FIXED
+                                             and (e.get("t"), e.get("d")) in killed)]
     for r in rows:
         if r.get("pass") and not ever(r["ticker"], "ours"):
             add(r["ticker"], "ours")
@@ -888,7 +896,7 @@ def update_log(log: dict[str, Any], rows: list[Mapping[str, Any]], px: pd.DataFr
         if r is not None and r.get("kill"):
             close(e, " · ".join(r["kill"]))
     for r in rows:
-        if r.get("pass_v2") and not active(r["ticker"], "v2"):
+        if r.get("pass_v2") and not r.get("kill") and not active(r["ticker"], "v2"):
             add(r["ticker"], "v2")
     month = day[:7]
     for group, picks in (("v1_top", top_v1(rows)), ("v2_top", top_v2(rows))):
@@ -964,28 +972,71 @@ def tracking_summary(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
 
 # ── 주가 · 금리 · 환율
 
+def top_up_last(close: pd.DataFrame, recent: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, str]]:
+    """5년치(close)에 빠진 최근 종가를 짧은 요청(recent — 수정 안 한 종가)으로 채운다 → (채운 표, {티커: 채운 마지막 날}).
+
+    밤 8시 넘어 받은 5년치엔 그날 봉이 빠지곤 했다 (2026-11-13 · 16 밤 — 같은 밤 전체분석은 그날 종가인데 예측 모델만
+    하루 전 종가. 같은 단계의 10일치 요청(^TNX)엔 그날 값이 있었다). 종목마다 5년치 마지막 값 뒤의 날만 붙이고,
+    5년치에 값이 없는 종목은 넣지 않는다(자료 없음 그대로). 가장 최근 봉은 수정 계수가 1 이라 수정 안 한 종가를 그대로 쓴다."""
+    if close.empty or recent.empty:
+        return close, {}
+    add: dict[str, pd.Series] = {}
+    for t in recent.columns:
+        if t not in close.columns:
+            continue
+        have = close[t].dropna()
+        if have.empty:
+            continue
+        new = recent[t].dropna()
+        new = new[new.index > have.index[-1]]
+        if len(new):
+            add[t] = new
+    if not add:
+        return close, {}
+    out = close.reindex(close.index.union(pd.DatetimeIndex(sorted({d for s in add.values() for d in s.index}))))
+    for t, s in add.items():
+        out.loc[s.index, t] = s.to_numpy(dtype=float)
+    return out, {t: s.index[-1].date().isoformat() for t, s in add.items()}
+
+
 def download_prices(tickers: Iterable[str]) -> pd.DataFrame:
-    """5년 일봉 종가 (배당 포함 수정주가) — 열 = 우리 티커. PRICE_BATCH 개씩 나눠 받는다 (대상이 2천 종목대)."""
+    """5년 일봉 종가 (배당 포함 수정주가) — 열 = 우리 티커. PRICE_BATCH 개씩 나눠 받는다 (대상이 2천 종목대).
+    5년치에 빠진 마지막 거래일은 짧은 요청(TOPUP_PERIOD)으로 채우고(top_up_last), 채운 종목은 attrs['filled'] 에 남긴다."""
     import yfinance as yf  # noqa: PLC0415
 
     syms = {yf_symbol(t): t for t in dict.fromkeys(tickers)}
     keys = list(syms)
-    frames: list[pd.DataFrame] = []
-    for i in range(0, len(keys), PRICE_BATCH):
-        part = keys[i:i + PRICE_BATCH]
-        raw = yf.download(part, period="5y", interval="1d", auto_adjust=True, progress=False, threads=True,
-                          group_by="column")
-        if raw is not None and not raw.empty:
-            frames.append(raw["Close"] if isinstance(raw.columns, pd.MultiIndex)
-                          else raw[["Close"]].set_axis([part[0]], axis=1))
-        if i + PRICE_BATCH < len(keys):
-            time.sleep(2)
-    if not frames:
-        return pd.DataFrame()
-    close = pd.concat(frames, axis=1)
-    close = close.loc[:, ~close.columns.duplicated()].rename(columns=syms)
-    close.index = pd.to_datetime(close.index).tz_localize(None).normalize()
-    return close.sort_index()
+
+    def fetch(period: str, adjust: bool) -> pd.DataFrame:
+        frames: list[pd.DataFrame] = []
+        for i in range(0, len(keys), PRICE_BATCH):
+            part = keys[i:i + PRICE_BATCH]
+            raw = yf.download(part, period=period, interval="1d", auto_adjust=adjust, progress=False, threads=True,
+                              group_by="column")
+            if raw is not None and not raw.empty:
+                frames.append(raw["Close"] if isinstance(raw.columns, pd.MultiIndex)
+                              else raw[["Close"]].set_axis([part[0]], axis=1))
+            if i + PRICE_BATCH < len(keys):
+                time.sleep(2)
+        if not frames:
+            return pd.DataFrame()
+        close = pd.concat(frames, axis=1)
+        close = close.loc[:, ~close.columns.duplicated()].rename(columns=syms)
+        close.index = pd.to_datetime(close.index).tz_localize(None).normalize()
+        return close.sort_index()
+
+    close = fetch("5y", True)
+    if close.empty:
+        return close
+    try:
+        close, filled = top_up_last(close, fetch(TOPUP_PERIOD, False))
+    except Exception as exc:  # noqa: BLE001 — 보충을 못 하면 5년치 그대로 (하루 늦은 종가)
+        print(f"[예측 모델] 마지막 거래일 보충 못 함 — 5년치 그대로: {exc}")
+        filled = {}
+    if filled:
+        print(f"[예측 모델] 5년치에 빠진 최근 종가 보충 {len(filled)}종목 → {max(filled.values())}")
+    close.attrs["filled"] = filled
+    return close
 
 
 def risk_free() -> tuple[float, str]:
@@ -1206,6 +1257,9 @@ def screen(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], px: p
         res["rev_down"] = revenue_falling(((detail or {}).get(t) or {}).get("revenue"),
                                           series(ent, "inc", "Total Revenue", "Operating Revenue"))
         res["kill"] = kill_reasons(res)
+        # 시니어 통과 = 주니어 통과 + 하방 관문 + 반증 없음 (2026-11-17 — 전엔 반증을 안 봐서 매출 감소에 걸린 VIPS 가
+        # 시니어 통과 픽에 남고, 기록은 밤마다 반증으로 닫혔다가 다시 들어갔다)
+        res["pass_v2"] = bool(res["pass_v2"] and not res["kill"])
         res["pass_v3"] = v3_eligible(res)
         res["own"] = mine
         res["co"] = ((co_alias or {}).get(t) or company_key((sc or {}).get("shortName"))
@@ -1506,6 +1560,9 @@ def main(argv: list[str] | None = None) -> int:
                         cov=cov, cov_src=cov_src, cov_as_of=cov_as_of, universe=universe,
                         warmup=None if ready else {"have": have, "want": want},
                         pm={"ready": ready3, "have": have3, "want": len(own_rows), "start": log.get("v3_start")})
+    filled = px.attrs.get("filled") or {}
+    if filled:  # 5년치에 빠져 짧은 요청으로 채운 마지막 거래일 (밤마다 공개 파일에서 확인용)
+        model["price_fill"] = {"n": len(filled), "date": max(filled.values())}
     body = json.dumps(model, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     (out_dir / OUT_NAME).write_text(body, "utf-8")
     print(f"[예측 모델] {price_date} · 대상 {funnel['universe']} · 계산 {funnel['computed']} (+비교용 {funnel['extra']}) · "

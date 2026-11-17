@@ -698,3 +698,60 @@ def test_web_row_and_model_carry_v3():
                            log_start=None, fetch_stats=None, pm={"ready": False, "have": 1, "want": 1, "start": None})
     json.dumps(model, allow_nan=False)
     assert model["v3"]["top"] == (["GOOD"] if row["pass_v3"] else []) and model["v3"]["params"]["slots"] == 10
+
+
+def test_top_up_last_fills_missing_last_session_only():
+    """11-16 밤처럼 5년치에 마지막 거래일이 빠지면(줄이 없거나 값이 비어도) 짧은 요청의 종가로 채운다 — 그 뒤 날만."""
+    days = pd.to_datetime(["2026-11-12", "2026-11-13"])
+    close = pd.DataFrame({"SPY": [757.12, 754.37], "BRBR": [10.24, 10.56], "OLD": [5.0, np.nan], "GONE": [np.nan, np.nan]},
+                         index=days)
+    recent = pd.DataFrame({"SPY": [760.0, 754.40, 739.95], "BRBR": [10.3, 10.57, 10.55], "OLD": [5.1, 5.2, 5.3],
+                           "GONE": [1.0, 1.0, 1.0], "NEW": [2.0, 2.0, 2.0]},
+                          index=pd.to_datetime(["2026-11-12", "2026-11-13", "2026-11-16"]))
+    out, filled = vm.top_up_last(close, recent)
+    assert out.index[-1] == pd.Timestamp("2026-11-16")
+    assert out.loc["2026-11-16", "SPY"] == pytest.approx(739.95) and out.loc["2026-11-16", "BRBR"] == pytest.approx(10.55)
+    assert out.loc["2026-11-13", "SPY"] == pytest.approx(754.37)  # 5년치에 있던 날은 그대로 (수정 종가 유지)
+    assert out.loc["2026-11-13", "OLD"] == pytest.approx(5.2)  # 그 종목의 마지막 값 뒤 빈 날도 채움
+    assert "NEW" not in out.columns and out["GONE"].isna().all()  # 5년치에 없거나 값이 없던 종목은 그대로
+    assert filled == {"SPY": "2026-11-16", "BRBR": "2026-11-16", "OLD": "2026-11-16"}
+
+    # 5년치 줄은 있는데 값만 빈 경우(수정 종가가 비어 온 밤)도 같은 결과
+    close2 = close.reindex(close.index.append(pd.DatetimeIndex(["2026-11-16"])))
+    out2, filled2 = vm.top_up_last(close2, recent)
+    assert out2.loc["2026-11-16", "SPY"] == pytest.approx(739.95) and set(filled2) == {"SPY", "BRBR", "OLD"}
+
+    # 이미 최신이면 그대로
+    same, none = vm.top_up_last(out, recent)
+    assert none == {} and same.equals(out)
+    assert vm.top_up_last(close, pd.DataFrame())[1] == {}
+
+
+def test_v2_kill_blocks_reentry_and_cleans_churn_rows():
+    """11-13~16 밤 VIPS — 반증(매출 감소)에 걸렸는데 pass_v2 라 밤마다 닫고 다시 넣었다. 그때 생긴 줄만 지우고 다시 넣지 않는다."""
+    days = pd.to_datetime(["2026-11-12", "2026-11-13", "2026-11-16", "2026-11-17"])
+    px = pd.DataFrame({"VIPS": [12.94, 13.26, 13.1, 13.0], "DOX": [44.11, 44.79, 43.64, 43.34],
+                       "SPY": [757.12, 754.37, 739.95, 733.62]}, index=days)
+    kill = ["매출 감소 (최근 분기 · 연간)"]
+    first = {"t": "VIPS", "g": "v2", "d": "2026-11-12", "p": 12.94, "bench": "SPY", "bp": 757.12, "x": "2026-11-13", "xr": kill[0]}
+    churn = [{"t": "VIPS", "g": "v2", "d": "2026-11-13", "p": 13.26, "bench": "SPY", "bp": 754.37, "x": "2026-11-13", "xr": kill[0]},
+             {"t": "VIPS", "g": "v2", "d": "2026-11-13", "p": 13.26, "bench": "SPY", "bp": 754.37, "x": "2026-11-13", "xr": kill[0]},
+             {"t": "VIPS", "g": "v2", "d": "2026-11-13", "p": 13.26, "bench": "SPY", "bp": 754.37}]
+    dox = {"t": "DOX", "g": "v2", "d": "2026-11-12", "p": 44.11, "bench": "SPY", "bp": 757.12}
+    log = {"schema": 1, "start": "2026-11-12", "entries": [first, *churn, dox], "baskets": {"v1_top": "2026-11", "v2_top": "2026-11"}}
+    base = {"own": True, "quality": True, "pass": True, "gap": 0.05, "alpha": 0.1, "drop": 0.3, "industry": "x"}
+    rows = [{**base, "ticker": "VIPS", "pass_v2": True, "kill": kill},  # 예전 파일처럼 pass_v2 가 반증을 안 봐도
+            {**base, "ticker": "DOX", "pass_v2": True, "kill": []}]
+    out = vm.update_log(log, rows, px, "2026-11-17", authors=[])
+    v2 = [e for e in out["entries"] if e["g"] == "v2"]
+    assert [e["t"] for e in v2 if e["t"] == "VIPS"] == ["VIPS"] and v2[0] == first  # 첫 줄만 남고 다시 안 넣음
+    assert any(e["t"] == "DOX" and not e.get("x") for e in v2)  # 반증 없는 종목은 그대로
+
+    # 고친 뒤 반증이 풀려 다시 통과하면 새 줄 — 정리 대상 아님
+    rows2 = [{**base, "ticker": "VIPS", "pass_v2": True, "kill": []}, rows[1]]
+    px2 = pd.concat([px, pd.DataFrame({"VIPS": [13.5], "DOX": [44.0], "SPY": [740.0]}, index=pd.to_datetime(["2026-11-20"]))])
+    out2 = vm.update_log(out, rows2, px2, "2026-11-20", authors=[])
+    back = [e for e in out2["entries"] if e["g"] == "v2" and e["t"] == "VIPS" and e["d"] == "2026-11-20"]
+    assert len(back) == 1 and not back[0].get("x")
+    out3 = vm.update_log(out2, rows2, px2, "2026-11-20", authors=[])
+    assert len([e for e in out3["entries"] if e["g"] == "v2" and e["t"] == "VIPS"]) == 2
