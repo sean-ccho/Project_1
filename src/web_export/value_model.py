@@ -728,6 +728,18 @@ def last_price(px: pd.DataFrame, ticker: str) -> float:
 
 # ── 받기 (시간 한도)
 
+STATEMENTS = ("inc", "bal", "cf")
+
+
+def lost_statements(old: Mapping[str, Any], new: Mapping[str, Any]) -> list[str]:
+    """전에 있던 재무표 중 새로 받은 자료에서 통째로 빈 표 — 하나라도 있으면 refresh 가 받기 실패로 치고 예전 자료를
+    통째로 둔다 (새 손익표와 섞지 않는다 — 해가 섞이면 비율이 틀린다. 받은 날짜가 그대로라 다음 밤 다시 받고, 막힘
+    감지 연속 실패에도 센다). 2026-11-17 로컬 전부 받기에서 Yahoo 가 막히기 시작할 때 손익표만 오고 대차 · 현금흐름표가
+    빈 채로 와 좋은 캐시를 덮어썼다 (OXY · BRSL · RNG · RNW · VYX). 정상으로 받은 2,059종목 중 표의 항목 일부만 줄어든
+    경우는 0 — 그래서 '항목이 줄면'이 아니라 '표가 통째로 비면'."""
+    return [k for k in STATEMENTS if old.get(k) and not new.get(k)]
+
+
 def refresh_order(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], today: date,
                   backfill: int = V3_BACKFILL) -> list[str]:
     """다시 받을 종목 — ① 캐시에 없음 ② MAX_AGE_DAYS 일 넘음 (오래된 순) ③ 받는 항목 판(rows_v)이 ROWS_VERSION 보다 낮음
@@ -753,7 +765,8 @@ def refresh(tickers: Iterable[str], cache: dict[str, dict[str, Any]], today: dat
             sleep: Callable[[float], None] = time.sleep) -> dict[str, int]:
     """시간 한도 안에서 cache 를 고쳐 쓴다 → {"want", "ok", "fail", "left", "pauses"}. 못 받은 종목은 전에 받은 값 그대로.
     연속 MAX_FAIL_STREAK 번 실패하면 Yahoo 가 막은 것 — 시간이 남으면 pause_sec 쉬고 그 종목들부터 이어 받는다
-    (pause_max 번까지). 2026-11-12 로컬: 670종목째에서 막혔다 (대상을 넓힌 첫 밤엔 1,600종목 넘게 새로 받는다)."""
+    (pause_max 번까지). 2026-11-12 로컬: 670종목째에서 막혔다 (대상을 넓힌 첫 밤엔 1,600종목 넘게 새로 받는다).
+    전에 있던 재무표가 통째로 빈 반쪽 응답(lost_statements)도 실패 — 예전 자료를 그대로 둔다."""
     order = refresh_order(tickers, cache, today)
     queue = deque(order)
     start = time.monotonic()
@@ -780,6 +793,8 @@ def refresh(tickers: Iterable[str], cache: dict[str, dict[str, Any]], today: dat
             try:
                 new = dict(fut.result())
                 old = cache.get(t) or {}
+                if lost := lost_statements(old, new):  # 반쪽 응답 (막히기 시작할 때) — 예전 자료를 통째로 두고 실패로
+                    raise RuntimeError(f"{t}: 전에 있던 {' · '.join(lost)} 표가 빈 값")
                 if new.get("info"):
                     new["info_at"] = today.isoformat()
                 elif old.get("info"):  # 정보만 빈 값(요청 제한)이면 전에 받은 정보 · 그날짜를 그대로 쓴다

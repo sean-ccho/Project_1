@@ -755,3 +755,20 @@ def test_v2_kill_blocks_reentry_and_cleans_churn_rows():
     assert len(back) == 1 and not back[0].get("x")
     out3 = vm.update_log(out2, rows2, px2, "2026-11-20", authors=[])
     assert len([e for e in out3["entries"] if e["g"] == "v2" and e["t"] == "VIPS"]) == 2
+
+
+def test_refresh_keeps_old_entry_when_a_statement_comes_back_empty():
+    """막히기 시작할 때 손익표만 온 반쪽 응답은 실패 — 예전 자료를 통째로 두고, 다음에 다시 받을 목록에 남는다 (2026-11-17)."""
+    old = {"fetched": "2026-10-01", "inc": {"Total Revenue": {"2025-12-31": 1.0}},
+           "bal": {"Total Debt": {"2025-12-31": 2.0}}, "cf": {"Free Cash Flow": {"2025-12-31": 3.0}},
+           "info": {"currency": "USD"}}
+    half = {"inc": {"Total Revenue": {"2026-12-31": 9.0}}, "bal": {}, "cf": {}, "info": {"currency": "USD"},
+            "rows_v": vm.ROWS_VERSION}
+    cache = {"OXY": dict(old), "NEW": {}}
+    stats = vm.refresh(["OXY", "NEW"], cache, date(2026, 11, 17), budget_sec=60, workers=1, log=lambda _m: None,
+                       fetch=lambda t: half)
+    assert cache["OXY"] == old and stats["fail"] == 1  # 예전 그대로 — 새 손익표와 섞지 않는다
+    assert cache["NEW"]["fetched"] == "2026-11-17" and stats["ok"] == 1  # 전에 없던 표는 비어 와도 받은 것
+    assert "OXY" in vm.refresh_order(["OXY"], cache, date(2026, 11, 17))  # 다음 밤 다시
+    assert vm.lost_statements(old, {**half, "bal": {"x": {}}}) == ["cf"]
+    assert vm.lost_statements({"inc": {}, "bal": {}, "cf": {}}, half) == []
