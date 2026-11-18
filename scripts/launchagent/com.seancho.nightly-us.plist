@@ -9,7 +9,6 @@
 		<string>/bin/bash</string>
 		<string>/Users/sean-server/account-watch/nightly_dispatch.sh</string>
 		<string>run-screener.yml</string>
-		<string>canada-scan.yml</string>
 	</array>
 	<key>StandardErrorPath</key>
 	<string>/Users/sean-server/account-watch/logs/nightly-us.err</string>
@@ -18,10 +17,9 @@
 	<key>StartCalendarInterval</key>
 	<dict>
 		<key>Hour</key>
-		<integer>18</integer>
+		<integer>22</integer>
 		<key>Minute</key>
 		<integer>0</integer>
 	</dict>
 </dict>
 </plist>
-

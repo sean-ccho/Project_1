@@ -5,12 +5,13 @@ name: Universe Scan
 # 결과: 구글 시트 [SP500 전체]·[NASDAQ/NYSE 전체]·[신규상장] + 웹 '전체분석' 데이터(universe-data 고아 브랜치).
 # push 로는 돌지 않는다 (코드만 바꾼 push 가 장중 데이터로 덮어쓰지 않게) — 예약 실행 또는 Actions 화면의 Run workflow.
 
-# 실행 신호: Mac mini LaunchAgent(com.seancho.nightly-universe, scripts/launchagent/)가 매일 6:30 PM ET 에 workflow_dispatch API 를 부른다.
-# schedule 은 예비 — 'gate' 잡이 최근 20시간 안에 workflow_dispatch 실행이 있으면 조용히 끝난다.
+# 실행 신호: Mac mini LaunchAgent(com.seancho.nightly-universe, scripts/launchagent/)가 매일 10:30 PM ET 에 workflow_dispatch API 를 부른다
+# (2026-11-17 6:30 PM 에서 옮김 — 평일 밤 20:00~21:30쯤 Yahoo 미국 종가가 빈 칸이라, 보내기 전에 종가가 들어왔는지 확인한다).
+# schedule 은 예비 — 'gate' 잡이 최근 20시간 안에 workflow_dispatch 실행이 있으면 조용히 끝난다 (없으면 같은 종가 확인 뒤 돈다).
 on:
   workflow_dispatch:
   schedule:
-    - cron: '35 0 * * *'  # 예비 — 00:35 UTC = 7:35 PM EST / 8:35 PM EDT (Mac 신호 6:30 PM ET 보다 뒤)
+    - cron: '35 4 * * *'  # 예비 — 04:35 UTC = 11:35 PM EST / 12:35 AM EDT (Mac 신호 10:30 PM ET 보다 뒤)
 
 permissions:
   contents: write
@@ -22,12 +23,19 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       actions: read
+      contents: read
     outputs:
       run: ${{ steps.g.outputs.run }}
     steps:
+      - name: Check out Yahoo close check (backup run only)
+        if: github.event_name == 'schedule'
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/launchagent/yahoo_bar_ready.py
+          sparse-checkout-cone-mode: false
       - id: g
         env:
           GH_TOKEN: ${{ github.token }}
@@ -39,10 +47,19 @@ jobs:
           if [ "${n:-0}" -gt 0 ]; then
             echo "⏭️  최근 20시간 안에 Mac 신호 실행이 있음 — 예비 실행 건너뜀"
             echo "run=0" >> "$GITHUB_OUTPUT"
-          else
-            echo "▶️  Mac 신호 실행 없음 — 예비로 실행"
-            echo "run=1" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          # Mac 신호가 없는 밤에만 여기까지 온다 — Mac 처럼 Yahoo 미국 종가가 들어왔는지 먼저 본다 (빈 칸이면 돌지 않고 실패로 알림)
+          rc=0
+          res=$(python3 scripts/launchagent/yahoo_bar_ready.py) || rc=$?
+          echo "미국 종가 확인: $res"
+          if [ "$rc" -eq 1 ]; then
+            echo "::error title=예비 실행 안 함::Mac 신호가 없는데 Yahoo 미국 종가가 아직 빈 칸이라 돌지 않음 — 들어온 뒤 Actions 에서 직접 실행 ($res)"
+            exit 1
+          fi
+          if [ "$rc" -ne 0 ]; then echo "::warning title=종가 확인 못 함::$res — 확인 없이 예비로 실행"; fi
+          echo "▶️  Mac 신호 실행 없음 — 예비로 실행"
+          echo "run=1" >> "$GITHUB_OUTPUT"
 
   scan:
     needs: gate

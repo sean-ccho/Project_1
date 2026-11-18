@@ -7,7 +7,8 @@ name: Canada Scan
 # 밤마다 통째로 덮어써서 같이 못 쓴다).
 # push 로는 돌지 않는다 — 예약 실행 또는 Actions 화면의 Run workflow.
 
-# 실행 신호: Mac mini LaunchAgent(com.seancho.nightly-us, scripts/launchagent/)가 매일 6:00 PM ET 에 workflow_dispatch API 를 부른다.
+# 실행 신호: Mac mini LaunchAgent(com.seancho.nightly-canada, scripts/launchagent/)가 매일 6:00 PM ET 에 workflow_dispatch API 를 부른다
+# (미국 작업은 2026-11-17 밤 10시로 옮겼지만 TSX 는 저녁 Yahoo 빈 칸 문제가 없어 6시 그대로).
 # schedule 은 예비 — 'gate' 잡이 최근 20시간 안에 workflow_dispatch 실행이 있으면 조용히 끝난다.
 on:
   workflow_dispatch:

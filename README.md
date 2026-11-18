@@ -216,13 +216,13 @@ PYTHONPATH=src python src/run_full_scan.py
 
 `push to main` 시에도 자동으로 실행됩니다. (`[skip ci]` 커밋 메시지로 스킵 가능)
 
-### 스케줄 요약 (2026-11-07 기준)
+### 스케줄 요약 (2026-11-17 기준)
 
 | 워크플로 | 실행 신호 (온타리오 현지) | GitHub cron 예비 (UTC) | 주기 | 내용 |
 |---|---|---|---|---|
-| `run-screener.yml` | Mac LaunchAgent 6:00 PM | `5 0 * * *` (7:05 PM EST) | 매일 | 메인 파이프라인 (스크리너 · 페이퍼 트레이딩 · 내계좌 리포트 · 웹 내보내기) |
+| `run-screener.yml` | Mac LaunchAgent 10:00 PM | `5 4 * * *` (11:05 PM EST) | 매일 | 메인 파이프라인 (스크리너 · 페이퍼 트레이딩 · 내계좌 리포트 · 웹 내보내기) |
 | `canada-scan.yml` | Mac LaunchAgent 6:00 PM | `10 0 * * *` (7:10 PM EST) | 매일 | TSX / TSXV 캐나다 전체분석 |
-| `universe-scan.yml` | Mac LaunchAgent 6:30 PM | `35 0 * * *` (7:35 PM EST) | 매일 | S&P 500 · NASDAQ/NYSE 전체분석 |
+| `universe-scan.yml` | Mac LaunchAgent 10:30 PM | `35 4 * * *` (11:35 PM EST) | 매일 | S&P 500 · NASDAQ/NYSE 전체분석 |
 | `account-watch.yml` | Mac LaunchAgent 장중 30분마다 (09:30~16:00) | `0,30 13-21 * * 1-5` | 월~금 | 내계좌 체크 |
 | `update-sp500.yml` | GitHub cron 오전 9:00 (EST) | `0 14 1 * *` | 매달 1일 | S&P 500 구성 종목 갱신 |
 | `geo-revenue.yml` | GitHub cron 오전 10:30 (EST) | `30 15 3 * *` | 매달 3일 | SEC 10-K 지역별 매출 비중 |
@@ -230,6 +230,8 @@ PYTHONPATH=src python src/run_full_scan.py
 
 - **Mac LaunchAgent** 는 스크립트를 직접 돌리지 않고 `workflow_dispatch` API 만 불러 GitHub 에서 실행시킨다. 야간 3개: `scripts/launchagent/` (`bash scripts/launchagent/install.sh` 로 설치, 로그 `~/account-watch/logs/nightly_dispatch.log`).
 - 야간 3개의 GitHub cron 은 예비다. 각 워크플로의 `gate` 잡이 최근 20시간 안에 `workflow_dispatch` 실행이 있으면 조용히 끝나고, Mac 이 꺼진 날에만 실제로 돈다.
+- **미국 작업을 밤 10시에 돌리는 이유 (2026-11-17):** 평일 밤 20:00~21:30쯤 Yahoo 가 그날 미국 일봉을 '거래량만 있고 가격은 빈 칸'으로 준다 (11-12 · 11-16 PT-SPY 건너뜀, 내계좌 알림 전날 가격, 11-17 저녁 재실행 취소). 그래서 그 뒤에 돌리고, Mac 신호기와 예비 실행 `gate` 가 보내기 전에 `scripts/launchagent/yahoo_bar_ready.py` 로 미국 종가가 들어왔는지 본다 — 빈 칸이면 Mac 은 10분마다 다시 보며 새벽 3시까지 기다리고, 예비 실행은 돌지 않고 실패로 알린다. 캐나다(TSX)는 이 문제가 없어 6시 그대로.
+- 저녁에 손으로 다시 돌릴 때도 20:00~21:40 은 피한다 (`bash ~/account-watch/nightly_dispatch.sh <워크플로>` 로 돌리면 같은 확인을 거친다).
 - `run-screener` 의 Mac 신호는 `nightly=true` 를 붙여, 헬스체크가 정기 실행처럼 엄격하다 (직접 `workflow_dispatch` 로 돌릴 때는 장중 완화).
 - 서머타임(EDT) 기간에도 Mac 신호는 현지 시각 그대로다. GitHub cron(UTC) 시각만 현지로 1시간 당겨진다.
 - GitHub 예약 실행은 몇 시간씩 늦게 시작되는 일이 많다 (예: etf-holdings 11-05 오전 10:30 예약 → 오후 4:35 완료).

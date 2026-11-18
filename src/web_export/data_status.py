@@ -5,7 +5,7 @@
 색 판정은 사이트 lib/dataStatus.ts 가 한다 — 여기는 숫자를 세고, 같은 규칙(row_level)으로 실패가 있으면 ntfy 로 한 번 알린다.
 
 보는 파일: 전체분석 미국(sp500 · nasdaq · new · extra), 같은 밤 Canada Scan 의 ca, 예측 모델(value_model.json),
-국회의원 거래(congress.json). dashboard.json · etf.json · macro.json 은 Run Screener 가 이 작업보다 늦게(밤 10시쯤)
+국회의원 거래(congress.json). dashboard.json · etf.json · macro.json 은 Run Screener 가 이 작업보다 늦게(새벽 2~3시쯤)
 만들어서 여기서는 못 본다 — 사이트가 그 파일을 읽을 때 같은 칸을 직접 센다.
 
 칸 = {key, label, got, want?, floor?, zero_red?, prev?}
