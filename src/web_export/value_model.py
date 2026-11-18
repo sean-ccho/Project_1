@@ -25,7 +25,8 @@ AUTHOR_COVERAGE)와 Ideas(블로그)의 심층 리서치 글(AUTHOR_RESEARCH). A
 
 재무는 snapshot/value_fund.json.gz 에 쌓아 MAX_AGE_DAYS 마다 다시 받는다 (하룻밤 시간 한도 안에서 조금씩).
 실적을 발표한 회사는 발표 뒤 REPORT_CHECKS 일에 먼저 다시 받는다 (2026-11-17 — note_reports · refresh_order).
-주가 · 베타 · 하락폭 · 가격 관문은 매일 다시 계산한다.
+주가 · 베타 · 하락폭 · 가격 관문은 매일 다시 계산한다. 주가는 같은 밤 전체분석이 받은 5년 종가(--px)를 쓰고, 거기 없는
+종목(캐나다 · XIU 등)만 직접 받는다 (2026-11-17 중복 정리 — download_prices).
 점수 · 필터 · PT-1 · 시트와 무관 — universe-scan.yml 이 universe-data 브랜치에 같이 올린다.
 
 사용: PYTHONPATH=.:src python -m web_export.value_model --out-dir DIR [--prev-dir DIR] [--tickers A,B] [--no-fetch]
@@ -1023,12 +1024,44 @@ def top_up_last(close: pd.DataFrame, recent: pd.DataFrame) -> tuple[pd.DataFrame
     return out, {t: s.index[-1].date().isoformat() for t, s in add.items()}
 
 
-def download_prices(tickers: Iterable[str]) -> pd.DataFrame:
-    """5년 일봉 종가 (배당 포함 수정주가) — 열 = 우리 티커. PRICE_BATCH 개씩 나눠 받는다 (대상이 2천 종목대).
-    5년치에 빠진 마지막 거래일은 짧은 요청(TOPUP_PERIOD)으로 채우고(top_up_last), 채운 종목은 attrs['filled'] 에 남긴다."""
+def load_scan_close(path: Path | None) -> pd.DataFrame:
+    """같은 밤 전체분석이 받은 5년 일봉 종가 (run_universe_scan --px-out — 열 = 야후 기호). 없거나 못 읽으면 빈 표
+    (그러면 전처럼 전부 직접 받는다)."""
+    if not path or not Path(path).exists():
+        return pd.DataFrame()
+    try:
+        close = pd.read_parquet(path)
+    except Exception as exc:  # noqa: BLE001 — 직접 받으면 된다
+        print(f"[예측 모델] 전체분석 종가 파일 못 읽음 — 직접 받는다: {exc}")
+        return pd.DataFrame()
+    close.index = pd.to_datetime(close.index).tz_localize(None).normalize()
+    return close.sort_index()
+
+
+def split_have(tickers: Iterable[str], have: pd.DataFrame | None) -> tuple[pd.DataFrame, list[str]]:
+    """우리 티커를 전체분석 종가(have)에 있는 것과 직접 받을 것으로 → (있는 종가 — 열 = 우리 티커, 직접 받을 티커).
+    표기 차이(BRK.B · BRK-B)는 야후 기호로 맞춘다. 종가가 하나도 없는 열은 없는 것으로 친다."""
+    cols = {yf_symbol(str(c)): c for c in have.columns} if have is not None and not have.empty else {}
+    taken: dict[str, pd.Series] = {}
+    rest: list[str] = []
+    for t in dict.fromkeys(tickers):
+        c = cols.get(yf_symbol(t))
+        if c is not None and have[c].notna().any():
+            taken[t] = have[c].astype(float)
+        else:
+            rest.append(t)
+    return (pd.DataFrame(taken) if taken else pd.DataFrame()), rest
+
+
+def download_prices(tickers: Iterable[str], have: pd.DataFrame | None = None) -> pd.DataFrame:
+    """5년 일봉 종가 (배당 포함 수정주가) — 열 = 우리 티커. 같은 밤 전체분석이 받은 종가(have — load_scan_close)에 있는
+    종목은 그걸 쓰고(2026-11-17 중복 정리), 나머지(캐나다 · XIU 등)만 PRICE_BATCH 개씩 나눠 받는다.
+    직접 받은 5년치에 빠진 마지막 거래일은 짧은 요청(TOPUP_PERIOD)으로 채운다(top_up_last).
+    attrs: filled = 채운 종목 → 날짜, reused = 전체분석 종가를 쓴 종목 수, fetched = 직접 받은 종목 수."""
     import yfinance as yf  # noqa: PLC0415
 
-    syms = {yf_symbol(t): t for t in dict.fromkeys(tickers)}
+    taken, rest = split_have(tickers, have)
+    syms = {yf_symbol(t): t for t in rest}
     keys = list(syms)
 
     def fetch(period: str, adjust: bool) -> pd.DataFrame:
@@ -1049,17 +1082,21 @@ def download_prices(tickers: Iterable[str]) -> pd.DataFrame:
         close.index = pd.to_datetime(close.index).tz_localize(None).normalize()
         return close.sort_index()
 
-    close = fetch("5y", True)
-    if close.empty:
-        return close
-    try:
-        close, filled = top_up_last(close, fetch(TOPUP_PERIOD, False))
-    except Exception as exc:  # noqa: BLE001 — 보충을 못 하면 5년치 그대로 (하루 늦은 종가)
-        print(f"[예측 모델] 마지막 거래일 보충 못 함 — 5년치 그대로: {exc}")
-        filled = {}
+    close = fetch("5y", True) if keys else pd.DataFrame()
+    filled: dict[str, str] = {}
+    if not close.empty:
+        try:
+            close, filled = top_up_last(close, fetch(TOPUP_PERIOD, False))
+        except Exception as exc:  # noqa: BLE001 — 보충을 못 하면 5년치 그대로 (하루 늦은 종가)
+            print(f"[예측 모델] 마지막 거래일 보충 못 함 — 5년치 그대로: {exc}")
+            filled = {}
     if filled:
         print(f"[예측 모델] 5년치에 빠진 최근 종가 보충 {len(filled)}종목 → {max(filled.values())}")
-    close.attrs["filled"] = filled
+    fetched = close.shape[1]
+    if not taken.empty:
+        close = pd.concat([taken, close], axis=1).sort_index() if not close.empty else taken.sort_index()
+    print(f"[예측 모델] 주가 — 전체분석 종가 {taken.shape[1]}종목 · 직접 받음 {fetched}종목 (못 받음 {len(keys) - fetched})")
+    close.attrs.update({"filled": filled, "reused": taken.shape[1], "fetched": fetched})
     return close
 
 
@@ -1490,6 +1527,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="분기 매출 캐시 (없으면 OUT/snapshot · PREV 의 detail.json.gz)")
     ap.add_argument("--ca-dir", type=Path, default=None,
                     help="캐나다 전체분석 결과 폴더 (canada-data 의 ca_ranked.parquet · ca.json.gz — 대상 · 종목 정보)")
+    ap.add_argument("--px", type=Path, default=None,
+                    help="같은 밤 전체분석의 5년 종가 (run_universe_scan --px-out) — 거기 있는 종목은 다시 받지 않는다")
     args = ap.parse_args(argv)
 
     out_dir: Path = args.out_dir
@@ -1556,7 +1595,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[예측 모델] 재무 캐시 {len(cache)}종목 · {size / 1e6:.2f}MB")
 
     benches = sorted({bench_of(t) for t in tickers} | {"SPY"})
-    px = download_prices(tickers + benches)
+    px = download_prices(tickers + benches, load_scan_close(args.px))
     if px.empty or "SPY" not in px.columns:
         print("[예측 모델] 주가를 못 받음 — 전날 결과 유지")
         (snap / LOG_NAME).write_text(json.dumps(log, ensure_ascii=False, indent=1), "utf-8")
@@ -1609,6 +1648,8 @@ def main(argv: list[str] | None = None) -> int:
     filled = px.attrs.get("filled") or {}
     if filled:  # 5년치에 빠져 짧은 요청으로 채운 마지막 거래일 (밤마다 공개 파일에서 확인용)
         model["price_fill"] = {"n": len(filled), "date": max(filled.values())}
+    # 주가 출처 — 같은 밤 전체분석 종가를 쓴 종목 · 직접 받은 종목 (2026-11-17 중복 정리 확인용)
+    model["price_src"] = {"scan": int(px.attrs.get("reused") or 0), "yahoo": int(px.attrs.get("fetched") or 0)}
     body = json.dumps(model, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     (out_dir / OUT_NAME).write_text(body, "utf-8")
     print(f"[예측 모델] {price_date} · 대상 {funnel['universe']} · 계산 {funnel['computed']} (+비교용 {funnel['extra']}) · "

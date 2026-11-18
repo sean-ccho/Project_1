@@ -121,10 +121,12 @@ jobs:
             | tee "$RUNNER_TEMP/congress.log" \
             || echo "::warning title=국회의원 거래 실패::하원 PTR 을 받지 못했습니다 (전체분석은 계속 진행)."
 
+      # --px-out: 이 밤 받은 5년 종가를 아래 예측 모델이 다시 받지 않게 남긴다 (2026-11-17 중복 정리 · universe-data 에 안 올림)
       - name: Run universe scan
         run: |
           PYTHONPATH=.:src python src/run_universe_scan.py \
-            --out-dir "$RUNNER_TEMP/universe" --prev-dir "$RUNNER_TEMP/prev" | tee "$RUNNER_TEMP/universe_scan.log"
+            --out-dir "$RUNNER_TEMP/universe" --prev-dir "$RUNNER_TEMP/prev" --px-out "$RUNNER_TEMP/px/close_5y.parquet" \
+            | tee "$RUNNER_TEMP/universe_scan.log"
 
       # 저자 블로그 새 글 · 커버리지 변경 감지 (2026-11-11 · 표시 전용) — 예측 모델 위쪽 1~8절은 고정 글이라, 일주일에 한 번
       # 저자 사이트맵 · 커버리지 페이지를 받아 정리 안 된 새 글 · 정리한 뒤 고친 글 · 커버리지 차이를 blog_watch.json 에 남기고
@@ -164,8 +166,9 @@ jobs:
               || rm -f "$RUNNER_TEMP/ca_scan/ca_ranked.parquet"
             git show "FETCH_HEAD:ca.json.gz" > "$RUNNER_TEMP/ca_scan/ca.json.gz" 2>/dev/null || rm -f "$RUNNER_TEMP/ca_scan/ca.json.gz"
           fi
+          # --px: 위 스캔이 받은 5년 종가 — 거기 있는 종목은 다시 받지 않는다 (파일이 없으면 전처럼 전부 직접 받는다)
           PYTHONPATH=.:src python -m web_export.value_model --out-dir "$RUNNER_TEMP/universe" --prev-dir "$RUNNER_TEMP/prev" \
-            --ca-dir "$RUNNER_TEMP/ca_scan" \
+            --ca-dir "$RUNNER_TEMP/ca_scan" --px "$RUNNER_TEMP/px/close_5y.parquet" \
             | tee "$RUNNER_TEMP/value_model.log" \
             || echo "::warning title=예측 모델 실패::value_model.json 을 새로 만들지 못했습니다 (전날 결과 유지 · 전체분석은 계속)."
 

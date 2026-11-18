@@ -546,7 +546,7 @@ def test_main_resets_log_for_new_universe_and_waits_for_warmup(tmp_path, monkeyp
     (prev / vm.CACHE_NAME).write_bytes(_gz.compress(json.dumps(
         {"schema": 1, "items": {"GOOD": quality_company(fcf=900.0)}}).encode()))
     idx = pd.bdate_range("2021-11-01", "2026-11-13")
-    monkeypatch.setattr(vm, "download_prices", lambda ts: pd.DataFrame(
+    monkeypatch.setattr(vm, "download_prices", lambda ts, have=None: pd.DataFrame(
         {"GOOD": np.linspace(60, 100, len(idx)), "SPY": np.linspace(300, 500, len(idx))}, index=idx))
     monkeypatch.setattr(vm, "risk_free", lambda: (0.0483, "test"))
     monkeypatch.setattr(vm, "fx_rates", lambda pairs: {})
@@ -814,3 +814,64 @@ def test_refresh_keeps_old_entry_when_a_statement_comes_back_empty():
     assert "OXY" in vm.refresh_order(["OXY"], cache, date(2026, 11, 17))  # 다음 밤 다시
     assert vm.lost_statements(old, {**half, "bal": {"x": {}}}) == ["cf"]
     assert vm.lost_statements({"inc": {}, "bal": {}, "cf": {}}, half) == []
+
+
+def test_split_have_reuses_scan_closes_by_yahoo_symbol():
+    """같은 밤 전체분석 종가(열 = 야후 기호)에 있는 종목은 다시 받지 않는다 — BRK.B · BRK-B 표기 차이는 맞추고,
+    종가가 하나도 없는 열 · 없는 종목(캐나다 · XIU)만 직접 받을 목록으로."""
+    days = pd.to_datetime(["2026-11-13", "2026-11-16", "2026-11-17"])
+    have = pd.DataFrame({"SPY": [754.4, 739.9, 741.0], "BRK-B": [480.0, 482.0, 481.0], "EMPTY": [np.nan] * 3},
+                        index=days)
+    taken, rest = vm.split_have(["BRK.B", "SPY", "EMPTY", "GIB-A.TO", "XIU.TO", "SPY"], have)
+    assert list(taken.columns) == ["BRK.B", "SPY"]  # 우리 티커 이름으로
+    assert taken.loc["2026-11-17", "BRK.B"] == pytest.approx(481.0)
+    assert rest == ["EMPTY", "GIB-A.TO", "XIU.TO"]
+    none, all_rest = vm.split_have(["SPY", "DOX"], None)
+    assert none.empty and all_rest == ["SPY", "DOX"]
+    assert vm.split_have(["SPY"], pd.DataFrame())[1] == ["SPY"]
+
+
+def test_download_prices_fetches_only_missing(monkeypatch):
+    """전체분석 종가에 있는 종목은 그대로 쓰고 나머지만 Yahoo 에서 (5년 + 마지막 거래일 보충) — 요청한 기호를 확인."""
+    import yfinance as yf
+
+    days = pd.to_datetime(["2026-11-13", "2026-11-16", "2026-11-17"])
+    have = pd.DataFrame({"SPY": [754.4, 739.9, 741.0], "LRN": [60.0, 61.0, 62.0]}, index=days)
+    asked: list[tuple[tuple[str, ...], str]] = []
+
+    def fake_download(syms, period, **kw):
+        asked.append((tuple(syms), period))
+        idx = days if period == "5y" else days[-2:]
+        return pd.DataFrame({("Close", s): [100.0 + i for i in range(len(idx))] for s in syms}, index=idx)
+
+    monkeypatch.setattr(yf, "download", fake_download)
+    px = vm.download_prices(["LRN", "GIB-A.TO", "SPY", "XIU.TO"], have)
+    assert asked == [(("GIB-A.TO", "XIU.TO"), "5y"), (("GIB-A.TO", "XIU.TO"), vm.TOPUP_PERIOD)]
+    assert set(px.columns) == {"LRN", "SPY", "GIB-A.TO", "XIU.TO"}
+    assert px.loc["2026-11-17", "SPY"] == pytest.approx(741.0)  # 전체분석 값 그대로
+    assert px.attrs["reused"] == 2 and px.attrs["fetched"] == 2
+
+    # 전부 있으면 Yahoo 를 아예 부르지 않는다
+    asked.clear()
+    px2 = vm.download_prices(["LRN", "SPY"], have)
+    assert asked == [] and px2.attrs == {"filled": {}, "reused": 2, "fetched": 0}
+    assert px2["SPY"].tolist() == pytest.approx([754.4, 739.9, 741.0])
+
+
+def test_load_scan_close_round_trip_and_missing(tmp_path):
+    """전체분석이 쓴 종가 파일(save_closes)을 그대로 읽는다. 파일이 없거나 깨졌으면 빈 표 (그러면 전부 직접 받는다)."""
+    import run_universe_scan as rus
+
+    idx = pd.DatetimeIndex(["2026-11-16 00:00", "2026-11-17 00:00"], tz="America/New_York")
+    sp = pd.DataFrame({"SPY": [739.9, 741.0], "AAPL": [230.0, 231.0]}, index=idx)
+    nq = pd.DataFrame({"AGM-A": [150.0, 151.0], "AAPL": [230.0, 231.0]}, index=idx)  # 두 시장에 겹친 종목은 한 번만
+    path = tmp_path / "px" / "close_5y.parquet"
+    assert rus.save_closes(path, [sp, pd.DataFrame(), nq]) == 3
+    back = vm.load_scan_close(path)
+    assert list(back.columns) == ["SPY", "AAPL", "AGM-A"]
+    assert back.index.tz is None and back.index[-1] == pd.Timestamp("2026-11-17")
+    assert vm.split_have(["AGM.A"], back)[0]["AGM.A"].tolist() == [150.0, 151.0]
+    assert rus.save_closes(tmp_path / "none.parquet", []) == 0
+    assert vm.load_scan_close(tmp_path / "none.parquet").empty and vm.load_scan_close(None).empty
+    (tmp_path / "bad.parquet").write_text("x")
+    assert vm.load_scan_close(tmp_path / "bad.parquet").empty

@@ -28,7 +28,7 @@ import argparse
 import json
 import time
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 import numpy as np
 import pandas as pd
@@ -240,6 +240,8 @@ def analyze_market(tickers: list[str], label: str, names: dict[str, str], strong
     price_map = {t: df[t].dropna(how="all") for t in df.columns.levels[0]} if not df.empty else {}
     price_map = {t: f for t, f in price_map.items() if not f.empty and f["Close"].notna().any()}
     no_data = [t for t in tickers if t not in price_map]
+    # 5년 종가 — 같은 job 의 예측 모델이 다시 받지 않게 main 이 파일로 남긴다 (save_closes · 2026-11-17)
+    close = pd.DataFrame({t: f["Close"] for t, f in price_map.items()}) if price_map else pd.DataFrame()
 
     # 종목 정보는 신규 상장까지 한 번에 받는다 (compute_all_features_guarded 와 같은 재시도·전날 스냅샷 보충)
     t1 = time.perf_counter()
@@ -277,7 +279,23 @@ def analyze_market(tickers: list[str], label: str, names: dict[str, str], strong
 
     young_fund = fund[fund["티커"].isin(list(young))] if not fund.empty else pd.DataFrame()
     return {"ranked": ranked, "young": young, "young_fund": young_fund, "bar_date": bar_date, "no_data": no_data,
-            "fund": fund, "stats": stats}
+            "fund": fund, "stats": stats, "close": close}
+
+
+def save_closes(path: Path, frames: Iterable[pd.DataFrame]) -> int:
+    """이 밤 받은 5년 일봉 종가(fetch_ohlcv — 배당 포함 수정주가, 열 = 야후 기호)를 한 파일로 → 종목 수.
+    같은 job 의 예측 모델(value_model --px)이 이 파일에 있는 종목은 Yahoo 에서 다시 받지 않는다 (2026-11-17 중복 정리 —
+    전엔 같은 밤 같은 5년치를 2천 종목 넘게 또 받았다). universe-data 브랜치에는 올리지 않는다 (RUNNER_TEMP/px)."""
+    parts = [f for f in frames if f is not None and not f.empty]
+    if not parts:
+        return 0
+    close = pd.concat(parts, axis=1)
+    close = close.loc[:, ~close.columns.duplicated()]
+    close.columns = [str(c) for c in close.columns]
+    close.index = pd.to_datetime(close.index).tz_localize(None).normalize()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    close.sort_index().to_parquet(path)
+    return close.shape[1]
 
 
 def add_web_stats(ranked: pd.DataFrame, stats: Mapping[str, Mapping[str, Any]]) -> pd.DataFrame:
@@ -862,6 +880,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--market", choices=("all", "sp500", "nasdaq", EXTRA_KEY, CA_KEY), default="all",
                     help=f"all = 미국 두 시장 + 번외 · {EXTRA_KEY} = 번외 종목만 (로컬 확인용 — 시트 · market.json 없이 "
                          f"{EXTRA_KEY}.json 만) · {CA_KEY} = 캐나다만 ({CA_KEY}.json · [캐나다 전체], 별도 워크플로)")
+    ap.add_argument("--px-out", type=Path, default=None,
+                    help="이 밤 받은 5년 종가를 이 파일로 — 같은 job 의 예측 모델이 다시 받지 않게 (universe-data 에 안 올림)")
     ap.add_argument("--detail-budget", type=float, default=DETAIL_BUDGET_SEC,
                     help="분기 실적 · 의견 수를 받는 초 (0 = 안 받고 캐시만)")
     args = ap.parse_args(argv)
@@ -908,6 +928,7 @@ def main(argv: list[str] | None = None) -> int:
     sp_items: dict[str, dict[str, Any]] = {}       # [섹터 대표] 시트 — S&P 500 웹 정보
     web_items: dict[str, dict[str, Any]] = {}      # 두 시장 웹 정보 (지수 빼고) — market.json · 종목 상세
     web_stats: dict[str, dict[str, Any]] = {}      # price_stats (SPY 포함) — 시장 폭
+    closes: list[pd.DataFrame] = []                # 5년 종가 (SPY 포함) — 예측 모델용 파일 (save_closes)
 
     # 번외 먼저 — 몇 종목뿐이라 금방이고, 5천 종목 뒤에는 Yahoo 종목 정보가 막혀 있을 수 있다. 표시 전용이라 실패해도 계속
     extra_payload: dict[str, Any] | None = None
@@ -926,6 +947,7 @@ def main(argv: list[str] | None = None) -> int:
     for key, label, sheet, tickers in markets:
         res = analyze_market(tickers, sheet, names, strong, prev_dir)
         _log(f"{sheet} 분석 끝", start)
+        closes.append(res.pop("close"))
         about.update(company_about(res["fund"]))
         ranked = res["ranked"]
         young = young_listings(res["young"], res["young_fund"], names, market_of)
@@ -974,6 +996,14 @@ def main(argv: list[str] | None = None) -> int:
                 young_sqz[t] = sqz.get(t)
         snapshots[key] = [ranked, res["young_fund"]]
         del res
+
+    if args.px_out and closes:
+        try:
+            n = save_closes(args.px_out, closes)
+            print(f"[전체분석] 5년 종가 {n}종목 → {args.px_out} (예측 모델이 다시 받지 않게)")
+        except Exception as exc:  # noqa: BLE001 — 못 쓰면 예측 모델이 전처럼 직접 받는다
+            print(f"[전체분석] 5년 종가 파일 못 씀 (예측 모델이 직접 받음): {exc}")
+    del closes
 
     if young_parts:
         young_all = pd.concat(young_parts, ignore_index=True).sort_values(["첫거래일", "티커"], ascending=[False, True])
