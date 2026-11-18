@@ -875,3 +875,143 @@ def test_load_scan_close_round_trip_and_missing(tmp_path):
     assert vm.load_scan_close(tmp_path / "none.parquet").empty and vm.load_scan_close(None).empty
     (tmp_path / "bad.parquet").write_text("x")
     assert vm.load_scan_close(tmp_path / "bad.parquet").empty
+
+
+# ── IFRS 이자 지급 분류 (2026-11-17 버그 수정)
+
+def test_interest_deduction_matches_sec_and_falls_back():
+    """재무활동 이자 지급은 SEC 값 그대로, SEC 에 없는 해는 가장 가까운 해의 재무활동 비율 × 이자비용, 영업활동만이면 0."""
+    ent = quality_company()                                                   # 이자비용 매년 10
+    fcf = vm.series(ent, "cf", "Free Cash Flow")
+    sec = {"unit": "USD", "fin": {"2022-12-31": 8.0, "2023-12-31": 9.0, "2024-12-28": 7.0}, "op": {}}
+    assert vm.interest_deduction(fcf, ent, sec, "USD").tolist() == [8.0, 9.0, 7.0, 10.0]  # 2025 는 SEC 에 아직 없음
+    split = {"unit": "USD", "fin": {"2024-12-31": 3.0}, "op": {"2024-12-31": 1.0, "2025-12-31": 4.0}}
+    ded = vm.interest_deduction(fcf, ent, split, "USD")
+    assert ded["2024-12-31"] == 3.0 and ded["2025-12-31"] == 0.0              # 2025 는 영업활동에만 (이미 빠짐)
+    assert ded["2022-12-31"] == pytest.approx(7.5)                            # 가장 가까운 2024 의 비율 3/4 × 10
+    eur = {"unit": "EUR", "fin": {"2025-12-31": 999.0}, "op": {}}
+    assert vm.interest_deduction(fcf, ent, eur, "USD")["2025-12-31"] == pytest.approx(10.0)  # 통화가 달라 이자비용 × 비율
+    assert not vm.interest_deduction(fcf, ent, None, "USD").any()
+    assert not vm.interest_deduction(fcf, ent, {"unit": "USD", "fin": {}, "op": {"2025-12-31": 5.0}}, "USD").any()
+
+
+def test_analyze_subtracts_ifrs_interest_from_fcf():
+    ent = quality_company(fcf=900.0)
+    base = vm.analyze(ent, price=100.0, mcap_fc=10_000.0, beta=1.0, rf=0.0483)
+    sec = {"unit": "USD", "fin": {y: 300.0 for y in YEARS}, "op": {}}
+    fixed = vm.analyze(ent, price=100.0, mcap_fc=10_000.0, beta=1.0, rf=0.0483, int_fin=sec, fin_ccy="USD")
+    assert base["int_fin"] is False and math.isnan(base["int_y"])
+    assert fixed["int_fin"] is True and fixed["int_y"] == pytest.approx(0.03)
+    assert fixed["fcf_y"] == pytest.approx(base["fcf_y"] - 0.03) and fixed["buy"] < base["buy"]
+    web = vm.web_row({**fixed, "ticker": "IFRS", "kill": []})
+    assert web["int_y"] == pytest.approx(0.03) and "int_y" not in vm.web_row({**base, "ticker": "US", "kill": []})
+
+
+class _FakeSec:
+    """SecClient 모양 — SEC 회사 목록 · companyconcept 를 네트워크 없이."""
+
+    enabled = True
+
+    def __init__(self, concepts: dict | None = None, fail: bool = False) -> None:
+        self.concepts, self.fail, self.urls = concepts or {}, fail, []
+
+    def get_json(self, url: str):
+        self.urls.append(url)
+        return {"0": {"cik_str": 1, "ticker": "STNG", "title": "Scorpio Tankers Inc."},
+                "1": {"cik_str": 2, "ticker": "BRBR", "title": "BellRing Brands, Inc."},
+                "2": {"cik_str": 3, "ticker": "GIB", "title": "CGI INC"},
+                "3": {"cik_str": 4, "ticker": "T", "title": "AT&T INC."}}
+
+    def get_json_status(self, url: str):
+        self.urls.append(url)
+        if self.fail:
+            return 0, None
+        for key, data in self.concepts.items():
+            if key in url:
+                return 200, data
+        return 404, None
+
+
+_STNG_FIN = {"units": {"USD": [
+    {"start": "2023-01-01", "end": "2023-12-31", "val": 150_000_000, "filed": "2024-03-20"},
+    {"start": "2023-01-01", "end": "2023-12-31", "val": 154_653_000, "filed": "2026-03-20"},   # 나중 공시 값
+    {"start": "2024-01-01", "end": "2024-12-31", "val": 96_882_000, "filed": "2025-03-21"},
+    {"start": "2025-01-01", "end": "2025-06-30", "val": 29_379_000, "filed": "2025-08-28"},    # 반기 — 뺀다
+]}}
+
+
+def test_fetch_interest_fin_asks_only_foreign_and_canadian():
+    scan = {"BRBR": {"last_report": "2026-11-10"}, "STNG": {}, "GIB-A.TO": {"shortName": "CGI Inc."},
+            "T.TO": {"shortName": "TELUS Corporation"}}
+    sec = _FakeSec({"CIK0000000001/ifrs-full/InterestPaidClassifiedAsFinancing": _STNG_FIN})
+    got = vm.fetch_interest_fin(["STNG", "BRBR", "GIB-A.TO", "T.TO", "XYZ.TO"], {}, scan, sec, log=lambda _m: None)
+    assert got is not None and got["asked"] == 2 and got["errors"] == 0          # STNG · CGI 만 (BRBR 는 미국 국내)
+    assert got["tickers"] == {"STNG": {"cik": 1, "unit": "USD", "fin": {"2023-12-31": 154_653_000.0,
+                                                                         "2024-12-31": 96_882_000.0}, "op": {}}}
+    assert not any("CIK0000000002" in u or "CIK0000000004" in u for u in sec.urls)  # BRBR · AT&T(T.TO 텔러스 아님)
+    assert any("CIK0000000001/ifrs-full/InterestPaidClassifiedAsOperating" in u for u in sec.urls)  # 걸린 회사만 영업도
+    blocked = _FakeSec(fail=True)
+    assert vm.fetch_interest_fin(["STNG", "GIB-A.TO"], {}, scan, blocked, log=lambda _m: None) is None  # 막힘 → 전날 표
+
+
+def test_load_interest_fin_reuses_prev_week_and_falls_back():
+    prev = {"int_fin": {"at": "2026-11-15", "src": "sec", "asked": 2, "tickers": {"STNG": {"cik": 1, "fin": {}}}}}
+    sec = _FakeSec()
+    got = vm.load_interest_fin(["STNG"], {}, {}, prev, date(2026, 11, 17), client=sec, log=lambda _m: None)
+    assert got["src"] == "prev" and got["tickers"] == {"STNG": {"cik": 1, "fin": {}}} and sec.urls == []
+    got = vm.load_interest_fin(["STNG"], {}, {}, prev, date(2026, 11, 30), client=_FakeSec(fail=True),
+                               log=lambda _m: None)
+    assert got["src"] == "prev" and got["at"] == "2026-11-15"                  # 일주일 지났지만 SEC 막힘 → 전날 표
+    fresh = vm.load_interest_fin(["STNG"], {}, {"STNG": {}}, prev, date(2026, 11, 30),
+                                 client=_FakeSec({"CIK0000000001/ifrs-full/InterestPaidClassifiedAsFinancing": _STNG_FIN}),
+                                 log=lambda _m: None)
+    assert fresh["src"] == "sec" and fresh["at"] == "2026-11-30" and "STNG" in fresh["tickers"]
+
+    class _Off:
+        enabled = False
+
+    none = vm.load_interest_fin(["STNG"], {}, {}, None, date(2026, 11, 30), client=_Off(), log=lambda _m: None)
+    assert none == {"at": None, "src": "none", "asked": 0, "tickers": {}}
+
+
+def test_update_log_drops_v3_entry_caused_by_interest_bug_once():
+    idx = pd.bdate_range("2026-11-02", "2026-11-20")
+    px = pd.DataFrame({t: np.linspace(10, 11, len(idx)) for t in ("AAA", "STNG", "SPY")}, index=idx)
+    rows = [_row("AAA", **_pm_row("AAA", 0.06, "X")), _row("STNG", **_pm_row("STNG", 0.03, "Y"))]
+    log = vm.update_log(vm.load_log(None), rows, px, "2026-11-16", v3_ready=True)
+    assert {e["t"] for e in log["entries"] if e["g"] == "v3"} == {"AAA", "STNG"}
+    fixed = [rows[0], _row("STNG", **_pm_row("STNG", 0.02, "Y", p_sbc=False, int_fin=True))]  # 이자를 빼니 v3 탈락
+    same = vm.update_log(json.loads(json.dumps(log)), fixed, px, "2026-11-18", v3_ready=True)  # 표를 못 읽은 밤
+    assert {e["t"] for e in same["entries"] if e["g"] == "v3"} == {"AAA", "STNG"} and "int_fin_fixed" not in same
+    log = vm.update_log(log, fixed, px, "2026-11-18", v3_ready=True, int_fixed_ok=True)
+    assert [e["t"] for e in log["entries"] if e["g"] == "v3"] == ["AAA"]      # 처음부터 없던 걸로 (닫지 않고 지움)
+    assert log["int_fin_fixed"] == "2026-11-18"
+    again = vm.update_log(log, fixed, px, "2026-11-19", v3_ready=True, int_fixed_ok=True)  # 한 번만
+    assert again["int_fin_fixed"] == "2026-11-18" and [e["t"] for e in again["entries"] if e["g"] == "v3"] == ["AAA"]
+
+
+def test_build_model_carries_interest_table_and_beta_floor():
+    res = vm.analyze(quality_company(), price=100.0, mcap_fc=10_000.0, beta=0.5, rf=0.0483)
+    row = {**res, "ticker": "GOOD", "kill": [], "pass_v3": False, "industry": "X"}
+    meta = {"at": "2026-11-17", "src": "sec", "asked": 3, "tickers": {"STNG": {"cik": 1, "unit": "USD", "fin": {}, "op": {}}}}
+    model = vm.build_model([row], {"computed": 1}, price_date="2026-11-17", rf=0.0483, rf_src="test", track=[],
+                           log_start=None, fetch_stats=None, int_meta=meta)
+    json.dumps(model, allow_nan=False)
+    assert model["int_fin"] == meta and model["params"]["beta_min"] == vm.BETA_RANGE[0]
+    plain = vm.build_model([row], {"computed": 1}, price_date="2026-11-17", rf=0.0483, rf_src="test", track=[],
+                           log_start=None, fetch_stats=None)
+    assert plain["int_fin"]["src"] == "none" and plain["int_fin"]["tickers"] == {}
+
+
+def test_resolve_interest_keeps_latest_filing_classification():
+    """분류를 바꾸며 지난해를 고쳐 낸 회사 — 나중 공시의 분류만 (Yahoo 도 고친 숫자). 같은 공시에 둘 다면 나눠 넣은 것."""
+    fin = {"2023-12-31": ("2026-02-26", 0.39), "2024-12-31": ("2026-02-26", 0.55), "2025-12-31": ("2026-02-26", 0.57)}
+    op = {"2022-12-31": ("2024-02-29", 0.24), "2023-12-31": ("2025-02-27", 0.39), "2024-12-31": ("2025-02-27", 0.55)}
+    f, o = vm.resolve_interest(fin, op)                                        # SAP: 영업 → 재무 (2025 20-F 에서)
+    assert f == {"2023-12-31": 0.39, "2024-12-31": 0.55, "2025-12-31": 0.57} and o == {"2022-12-31": 0.24}
+    back_f, back_o = vm.resolve_interest({"2024-12-31": ("2025-03-01", 5.0)}, {"2024-12-31": ("2026-03-01", 5.0)})
+    assert back_f == {} and back_o == {"2024-12-31": 5.0}                     # 재무 → 영업으로 고침: 뺄 이자 없음
+    split_f, split_o = vm.resolve_interest({"2025-12-31": ("2026-03-01", 2.0)}, {"2025-12-31": ("2026-03-01", 3.0)})
+    assert split_f == {"2025-12-31": 2.0} and split_o == {"2025-12-31": 3.0}  # 같은 공시 — 나눠 넣음
+    many = {f"{y}-12-31": ("2026-01-01", 1.0) for y in range(2015, 2026)}
+    assert list(vm.resolve_interest(many, {})[0]) == [f"{y}-12-31" for y in range(2020, 2026)]  # 최근 6년만

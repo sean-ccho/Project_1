@@ -231,6 +231,20 @@ WARMUP_MIN = 0.95           # 대상 중 재무를 받은 비율이 이만큼 �
 PRICE_BATCH = 400           # 주가를 이만큼씩 나눠 받는다
 TOPUP_PERIOD = "5d"         # 5년치에 빠진 마지막 거래일 종가를 이 짧은 요청으로 채운다 (top_up_last)
 V2_CHURN_FIXED = "2026-11-17"  # 이 날까지 생긴 v2 재진입 줄(반증으로 닫은 밤에 다시 넣은 줄)은 버그라 지운다 (update_log)
+
+# ── IFRS 이자 지급 분류 (2026-11-17 버그 수정) — 국제회계기준(IFRS)은 이자 지급을 영업 · 재무활동 중 골라 넣을 수 있다. 재무활동에
+#    넣는 회사(STNG · ASR · OMAB 등)는 Yahoo 영업현금흐름에 이자가 안 빠져 FCF 가 이자만큼 컸다 → 미국 회계(영업에 포함)와 같게
+#    FCF 에서 뺀다 (interest_deduction). 분류 · 금액은 SEC XBRL 의 회사별 ifrs-full 항목 — SEC 에 공시하는 회사만 알 수 있어
+#    TSX 에만 상장된 회사는 그대로다. 미국 국내 회사(전체분석에 SEC 8-K 실적 공시일이 있는 종목)는 미국 회계라 묻지 않는다.
+#    일주일에 한 번 SEC 에 물어 value_model.json 의 int_fin 에 남기고, 사이 밤 · SEC 를 못 받은 밤은 전날 표를 쓴다.
+INT_TAGS = {"fin": "InterestPaidClassifiedAsFinancingActivities", "op": "InterestPaidClassifiedAsOperatingActivities"}
+CONCEPT_URL = "https://data.sec.gov/api/xbrl/companyconcept/CIK{cik:010d}/ifrs-full/{tag}.json"
+INT_REFRESH_DAYS = 7        # 이자 분류 표를 다시 묻는 주기
+INT_MATCH_DAYS = 20         # SEC 기간 끝 ↔ Yahoo 회계연도 끝 허용 차이
+INT_MAX_ASK = 800           # 한 번에 SEC 에 묻는 회사 상한 (전체분석을 못 읽어 미국 회사가 전부 후보가 되는 밤 막기)
+INT_ERR_MAX = 0.10          # 물은 회사 중 못 받은 비율이 이보다 크면 SEC 가 막힌 것으로 보고 전날 표를 쓴다
+INT_KEEP_YEARS = 6          # 이자 분류 표에 남기는 최근 해 수 (Yahoo 연간 재무는 4~5년)
+INT_FIN_FIXED = "2026-11-17"  # 이 날까지 연 v3 줄 중 이자를 빼니 v3 를 못 넘는 종목은 처음부터 없던 걸로 지운다 (한 번, update_log)
 _CO_STOP = frozenset({"inc", "corp", "corporation", "ltd", "limited", "co", "company", "plc", "sa", "nv", "the", "holdings",
                       "holding", "group", "class", "a", "b", "common", "shares", "sub", "voting", "trust", "units", "lp",
                       "llc", "ag", "se", "incorporated"})
@@ -472,8 +486,48 @@ def excluded(info: Mapping[str, Any]) -> bool:
     return sector == "Financial Services" and industry not in KEEP_FIN_INDUSTRIES
 
 
-def analyze(ent: Mapping[str, Any], *, price: float, mcap_fc: float, beta: float, rf: float) -> dict[str, Any]:
-    """한 종목의 관문 지표 전부. mcap_fc = 재무제표 통화로 바꾼 오늘 시가총액. 계산 못 한 값은 NaN."""
+def interest_deduction(fcf: pd.Series, ent: Mapping[str, Any], int_fin: Mapping[str, Any] | None,
+                       fin_ccy: str | None = None) -> pd.Series:
+    """FCF 해마다 뺄 이자 지급 (2026-11-17) — 이자를 재무활동에 넣는 IFRS 회사만, 아니면 전부 0.
+    int_fin = SEC 표 한 종목 {"unit", "fin": {기간 끝: 재무활동 이자 지급}, "op": {기간 끝: 영업활동 이자 지급}}.
+    - SEC 값이 있는 해(기간 끝 ±INT_MATCH_DAYS): 재무활동 이자 지급 그대로. 영업활동에만 있으면 0 (이미 빠져 있다).
+      SEC 통화가 재무제표 통화와 다르면 손익계산서 이자비용 × 그해 재무활동 비율.
+    - SEC 에 없는 해(최근 연차보고서가 SEC 에 늦게 들어감 등): 가장 가까운 SEC 해의 재무활동 비율 × 그해 이자비용."""
+    ded = pd.Series(0.0, index=fcf.index)
+    if not int_fin or fcf.empty:
+        return ded
+    fin = {pd.Timestamp(k): float(v) for k, v in (int_fin.get("fin") or {}).items()}
+    op = {pd.Timestamp(k): float(v) for k, v in (int_fin.get("op") or {}).items()}
+    if not fin:
+        return ded
+    ends = sorted(set(fin) | set(op))
+    same = not fin_ccy or int_fin.get("unit") in (None, fin_ccy)
+    ie = series(ent, "inc", "Interest Expense", "Interest Expense Non Operating").abs().dropna()
+
+    def share(e: pd.Timestamp) -> float:
+        f, o = fin.get(e, 0.0), op.get(e, 0.0)
+        return f / (f + o) if f + o > 0 else 0.0
+
+    def ie_at(d: pd.Timestamp) -> float:
+        if ie.empty:
+            return 0.0
+        gaps = [abs((k - d).days) for k in ie.index]
+        i = int(np.argmin(gaps))
+        return float(ie.iloc[i]) if gaps[i] <= INT_MATCH_DAYS else 0.0
+
+    for d in fcf.index:
+        near = min(ends, key=lambda e: abs((e - d).days))
+        if abs((near - d).days) <= INT_MATCH_DAYS:
+            ded[d] = fin.get(near, 0.0) if same else ie_at(d) * share(near)
+        else:
+            ded[d] = ie_at(d) * share(near)
+    return ded
+
+
+def analyze(ent: Mapping[str, Any], *, price: float, mcap_fc: float, beta: float, rf: float,
+            int_fin: Mapping[str, Any] | None = None, fin_ccy: str | None = None) -> dict[str, Any]:
+    """한 종목의 관문 지표 전부. mcap_fc = 재무제표 통화로 바꾼 오늘 시가총액. 계산 못 한 값은 NaN.
+    int_fin · fin_ccy = 이자를 재무활동에 넣는 IFRS 회사의 SEC 표 · 재무제표 통화 — FCF 에서 이자 지급을 뺀다 (interest_deduction)."""
     rev = series(ent, "inc", "Total Revenue", "Operating Revenue").dropna()
     ni = series(ent, "inc", "Net Income Common Stockholders", "Net Income")
     ebit = series(ent, "inc", "EBIT", "Operating Income")
@@ -495,6 +549,10 @@ def analyze(ent: Mapping[str, Any], *, price: float, mcap_fc: float, beta: float
     if fcf.dropna().empty:
         fcf = series(ent, "cf", "Operating Cash Flow") + series(ent, "cf", "Capital Expenditure")
     fcf = fcf.dropna()
+    # IFRS 이자 (2026-11-17) — 이자를 재무활동에 넣는 회사는 FCF 에 이자가 안 빠져 있어 여기서 뺀다 (미국 회계와 같게).
+    # 아래 FCF 관문 · 가격 관문 · v2 하방 · v3 (SBC · EV) 가 모두 뺀 FCF 를 쓴다.
+    int_ded = interest_deduction(fcf, ent, int_fin, fin_ccy)
+    fcf = fcf - int_ded
 
     def flow(*names: str) -> pd.Series:  # FCF 해에 맞춰 0으로 채움 (빈 Series 끼리 더하면 전부 NaN)
         return series(ent, "cf", *names).reindex(fcf.index).fillna(0)
@@ -520,6 +578,9 @@ def analyze(ent: Mapping[str, Any], *, price: float, mcap_fc: float, beta: float
     out["roic"] = float(roic.mean()) if len(roic) else NAN
     out["roic_cv"] = cv(roic)
     out["fill0"] = fill0 if fill0["debt"] or fill0["cash"] else None
+    # IFRS 이자를 뺐는지 · 뺀 이자(최근 3년 평균) ÷ 시총 — 사이트 · 기록 정리(update_log)용
+    out["int_fin"] = bool((int_ded != 0).any())
+    out["int_y"] = float(int_ded.tail(3).mean()) / mcap_fc if out["int_fin"] and mcap_fc > 0 else NAN
     ke = rf + beta * ERP
     ie = _at(intexp, -1)
     coverage = _at(ebit, -1) / abs(ie) if math.isfinite(ie) and ie != 0 else math.inf
@@ -875,8 +936,9 @@ def load_log(path: Path | None) -> dict[str, Any]:
 
 
 def update_log(log: dict[str, Any], rows: list[Mapping[str, Any]], px: pd.DataFrame, day: str,
-               authors: Sequence[str] | None = None, v3_ready: bool = False) -> dict[str, Any]:
+               authors: Sequence[str] | None = None, v3_ready: bool = False, int_fixed_ok: bool = False) -> dict[str, Any]:
     """오늘 결과를 기록에 반영한다. 한 번 넣은 줄의 시작일 · 시작가는 바꾸지 않는다.
+    int_fixed_ok = IFRS 이자 분류 표를 제대로 읽었는지 — 그런 첫 밤에 한 번 이자 버그로 들어간 v3 줄을 지운다 (아래).
     - ours(v1 통과): 처음 한 번 넣고 계속 보유. author(저자 종목 = 커버리지 + 리서치 글, authors 없으면 코드 목록):
       처음 보이는 날 넣고, 저자 목록에서 빠지면 끝낸다.
     - v2: v2 통과(반증 없음까지)하면 넣고, 반증 조건(kill_reasons)에 걸리면 끝낸다(x · xr). 반증이 풀려 다시 통과하면 새 줄.
@@ -935,6 +997,17 @@ def update_log(log: dict[str, Any], rows: list[Mapping[str, Any]], px: pd.DataFr
             if not active(t, group):
                 add(t, group)
         baskets[group] = month
+    # 2026-11-17 IFRS 이자 버그 정리 — 이자를 재무활동에 넣는 회사의 FCF 가 이자만큼 커서 STNG 가 수석 PM(v3)에 들어갔다.
+    # v3 는 매달 첫 실행에만 다시 골라, 그냥 두면 다음 달까지 기록에 남는다. 이자 분류 표를 제대로 읽은 첫 밤 한 번:
+    # INT_FIN_FIXED 까지 연 v3 줄 중 이자를 빼니 v3 를 못 넘는 종목은 처음부터 없던 걸로 지운다 (VIPS 정리와 같은 방식).
+    if int_fixed_ok and not log.get("int_fin_fixed"):
+        wrong = {t for t, r in by_t.items() if r.get("int_fin") and not v3_eligible(r)}
+        gone = [e for e in entries if e.get("g") == "v3" and not e.get("x") and str(e.get("d")) <= INT_FIN_FIXED
+                and e.get("t") in wrong]
+        entries[:] = [e for e in entries if not any(e is g for g in gone)]
+        log["int_fin_fixed"] = day
+        if gone:
+            print(f"[예측 모델] IFRS 이자 버그로 들어간 v3 기록 지움: {', '.join(str(e.get('t')) for e in gone)}")
     for e in [e for e in entries if e.get("g") == "v3" and not e.get("x")]:  # 논리가 깨지면 그날 SPY 로
         r = by_t.get(str(e.get("t")))
         if r is not None and r.get("kill"):
@@ -1271,14 +1344,187 @@ def fill_info(ticker: str, info: Mapping[str, Any], scan: Mapping[str, Any] | No
     return out
 
 
+# ── IFRS 이자 지급 분류 (SEC, 2026-11-17) — 위 INT_TAGS 설명
+
+def _sec_norm(ticker: str) -> str:
+    """SEC company_tickers 표기 (BRK.B · BRK/B → BRK-B)."""
+    return ticker.upper().replace(".", "-").replace("/", "-")
+
+
+def sec_title_key(title: str | None) -> str:
+    """SEC 회사 이름 → company_key — 'CANADIAN PACIFIC KANSAS CITY LTD/CN' 의 '/CN' 같은 꼬리를 뗀다."""
+    return company_key(str(title or "").split("/")[0])
+
+
+def int_candidates(tickers: Iterable[str], scan: Mapping[str, Mapping[str, Any]]) -> list[str]:
+    """SEC 에 IFRS 이자 분류를 물을 종목 — 캐나다 상장 전부 + 전체분석에 SEC 8-K 실적 공시일이 없는 미국 상장
+    (6-K 를 내는 외국 회사 등. 8-K 실적 공시가 있는 미국 국내 회사는 미국 회계라 이자가 늘 영업활동에 있다)."""
+    return [t for t in tickers if t.endswith((".TO", ".V")) or not (scan.get(_scan_key(t)) or {}).get("last_report")]
+
+
+def sec_cik_for(ticker: str, name: str | None, by_ticker: Mapping[str, tuple[int, str]],
+                by_key: Mapping[str, int]) -> int | None:
+    """우리 종목 → SEC CIK (없으면 None). 미국 상장은 티커로. 캐나다 상장은 회사 이름(company_key)이 같은 SEC 회사,
+    없으면 티커 뿌리가 같은 SEC 상장 중 이름 첫 단어도 같은 것 (T.TO 텔러스 ≠ T AT&T)."""
+    if not ticker.endswith((".TO", ".V")):
+        hit = by_ticker.get(_sec_norm(ticker))
+        return hit[0] if hit else None
+    key = company_key(name)
+    if key and key in by_key:
+        return by_key[key]
+    hit = by_ticker.get(_root(ticker))
+    if hit and key and sec_title_key(hit[1]).split()[:1] == key.split()[:1]:
+        return hit[0]
+    return None
+
+
+def concept_annual_filed(data: Mapping[str, Any] | None) -> tuple[str | None, dict[str, tuple[str, float]]]:
+    """SEC companyconcept JSON → (통화, {기간 끝: (공시일, 1년 값)}). 1년(330~400일) 기간만 (6-K 반기 값은 뺀다),
+    같은 기간은 나중에 낸 공시 값. 통화가 여럿이면 해가 가장 많은 통화."""
+    best: tuple[str | None, dict[str, tuple[str, float]]] = (None, {})
+    for unit, vals in ((data or {}).get("units") or {}).items():
+        got: dict[str, tuple[str, float]] = {}
+        for v in vals or []:
+            start, end, x = str(v.get("start") or "")[:10], str(v.get("end") or "")[:10], _f(v.get("val"))
+            try:
+                days = (date.fromisoformat(end) - date.fromisoformat(start)).days
+            except ValueError:
+                continue
+            if x is None or not 330 <= days <= 400:
+                continue
+            filed = str(v.get("filed") or "")
+            if end not in got or filed >= got[end][0]:
+                got[end] = (filed, abs(x))
+        if len(got) > len(best[1]):
+            best = (unit, dict(sorted(got.items())))
+    return best
+
+
+def concept_annual(data: Mapping[str, Any] | None) -> tuple[str | None, dict[str, float]]:
+    """concept_annual_filed 에서 공시일을 뗀 것 → (통화, {기간 끝: 1년 값})."""
+    unit, got = concept_annual_filed(data)
+    return unit, {e: x for e, (_, x) in got.items()}
+
+
+def resolve_interest(fin: Mapping[str, tuple[str, float]],
+                     op: Mapping[str, tuple[str, float]]) -> tuple[dict[str, float], dict[str, float]]:
+    """같은 해가 재무활동 · 영업활동 두 항목에 다 있으면 — 분류를 바꾸며 지난해를 고쳐 다시 낸 것(SAP 2025 20-F 가
+    2023 · 2024 년을 재무활동으로 고침) — 나중에 낸 공시의 분류만 남긴다. Yahoo 도 고친 숫자를 쓴다. 공시일이 같으면
+    한 해 이자를 둘로 나눠 넣은 것이라 둘 다 둔다. → (재무활동 {끝: 값}, 영업활동 {끝: 값}), 최근 INT_KEEP_YEARS 해만."""
+    f, o = dict(fin), dict(op)
+    for e in set(f) & set(o):
+        if o[e][0] > f[e][0]:
+            del f[e]
+        elif f[e][0] > o[e][0]:
+            del o[e]
+    keep = sorted(set(f) | set(o))[-INT_KEEP_YEARS:]
+    return ({e: f[e][1] for e in keep if e in f}, {e: o[e][1] for e in keep if e in o})
+
+
+def fetch_interest_fin(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]],
+                       scan: Mapping[str, Mapping[str, Any]], client: Any,
+                       log: Callable[[str], None] = print) -> dict[str, Any] | None:
+    """SEC 에 IFRS 이자 분류를 묻는다 → {"asked", "errors", "tickers": {티커: {"cik", "unit", "fin", "op"}}}.
+    tickers 에는 재무활동 분류가 한 해라도 있는 종목만 (그 종목만 영업활동 항목도 묻는다 — 해마다 비율).
+    client = screener.sec_filings.SecClient 모양 (get_json · get_json_status). SEC 회사 목록을 못 받거나, 후보가
+    INT_MAX_ASK 보다 많거나(전체분석을 못 읽음), 못 받은 비율이 INT_ERR_MAX 보다 크면 None — 전날 표를 쓴다
+    (막힌 밤에 '전부 404 = 재무활동 분류 없음'으로 읽어 이자 빼기가 풀리지 않게)."""
+    from screener.sec_filings import TICKERS_URL  # noqa: PLC0415
+
+    raw = client.get_json(TICKERS_URL)
+    if not isinstance(raw, dict) or not raw:
+        log("[예측 모델] IFRS 이자 분류 — SEC 회사 목록을 못 받음 (전날 표)")
+        return None
+    by_ticker: dict[str, tuple[int, str]] = {}
+    by_key: dict[str, int] = {}
+    for v in raw.values():
+        try:
+            cik, tk, title = int(v["cik_str"]), _sec_norm(str(v["ticker"])), str(v.get("title") or "")
+        except (KeyError, TypeError, ValueError):
+            continue
+        by_ticker.setdefault(tk, (cik, title))
+        key = sec_title_key(title)
+        if key:
+            by_key.setdefault(key, cik)
+    cands = int_candidates(tickers, scan)
+    if len(cands) > INT_MAX_ASK:
+        log(f"[예측 모델] IFRS 이자 분류 — 후보 {len(cands)}개 > {INT_MAX_ASK} (전체분석을 못 읽음?) — 전날 표")
+        return None
+    asked = errors = 0
+    seen: dict[int, dict[str, Any] | None] = {}
+    out: dict[str, Any] = {}
+    for t in cands:
+        sc = scan.get(_scan_key(t)) or {}
+        name = sc.get("shortName") or ((cache.get(t) or {}).get("info") or {}).get("shortName")
+        cik = sec_cik_for(t, name, by_ticker, by_key)
+        if cik is None:
+            continue
+        if cik not in seen:  # 같은 회사의 다른 상장은 한 번만 묻는다
+            asked += 1
+            status, data = client.get_json_status(CONCEPT_URL.format(cik=cik, tag=INT_TAGS["fin"]))
+            if status not in (200, 404):
+                errors += 1
+            unit, fin_f = concept_annual_filed(data) if status == 200 else (None, {})
+            ent: dict[str, Any] | None = None
+            if fin_f:
+                status2, data2 = client.get_json_status(CONCEPT_URL.format(cik=cik, tag=INT_TAGS["op"]))
+                if status2 not in (200, 404):
+                    errors += 1
+                unit2, op_f = concept_annual_filed(data2) if status2 == 200 else (None, {})
+                fin, op = resolve_interest(fin_f, op_f if unit2 in (None, unit) else {})
+                if fin:  # 고쳐 낸 공시로 전부 영업활동이 됐으면 뺄 이자가 없다
+                    ent = {"cik": cik, "unit": unit, "fin": fin, "op": op}
+            seen[cik] = ent
+        if seen[cik]:
+            out[t] = seen[cik]
+    if asked and errors > INT_ERR_MAX * asked:
+        log(f"[예측 모델] IFRS 이자 분류 — SEC 응답 실패 {errors}/{asked} (막힘?) — 전날 표")
+        return None
+    log(f"[예측 모델] IFRS 이자 분류 — 후보 {len(cands)} · SEC 회사 {asked}곳 물음 · 이자를 재무활동에 넣는 종목 "
+        f"{len(out)} ({', '.join(sorted(out)) or '없음'})")
+    return {"asked": asked, "errors": errors, "tickers": out}
+
+
+def load_interest_fin(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]],
+                      scan: Mapping[str, Mapping[str, Any]], prev_model: Mapping[str, Any] | None, today: date,
+                      client: Any = None, log: Callable[[str], None] = print) -> dict[str, Any]:
+    """IFRS 이자 분류 표 → {"at", "src", "asked", "tickers"}. 전날 표(value_model.json 의 int_fin)가 INT_REFRESH_DAYS
+    안이면 그대로(src 'prev'), 아니면 SEC 에 다시 묻는다('sec'). SEC 연락처(SEC_USER_AGENT)가 없거나 못 받으면 전날 표,
+    그것도 없으면 빈 표('none' — 이자를 빼지 않는다)."""
+    prev_raw = (prev_model or {}).get("int_fin")
+    prev = prev_raw if isinstance(prev_raw, dict) and isinstance(prev_raw.get("tickers"), dict) else None
+    prev_at: date | None = None
+    if prev and prev.get("at"):
+        try:
+            prev_at = date.fromisoformat(str(prev["at"])[:10])
+        except ValueError:
+            prev_at = None
+    if prev and prev_at and (today - prev_at).days < INT_REFRESH_DAYS:
+        return {**prev, "src": "prev"}
+    if client is None:
+        from screener.sec_filings import SecClient  # noqa: PLC0415
+
+        client = SecClient()
+    if getattr(client, "enabled", False):
+        got = fetch_interest_fin(tickers, cache, scan, client, log=log)
+        if got is not None:
+            return {"at": today.isoformat(), "src": "sec", **got}
+    else:
+        log("[예측 모델] IFRS 이자 분류 — SEC 연락처(SEC_USER_AGENT) 없음 — 전날 표")
+    if prev and prev_at:
+        return {**prev, "src": "prev"}
+    return {"at": None, "src": "none", "asked": 0, "tickers": {}}
+
+
 # ── 전체
 
 def screen(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], px: pd.DataFrame, rf: float,
            fx: Mapping[str, float], detail: Mapping[str, Mapping[str, Any]] | None = None,
            scan: Mapping[str, Mapping[str, Any]] | None = None, own: Iterable[str] | None = None,
-           co_alias: Mapping[str, str] | None = None,
+           co_alias: Mapping[str, str] | None = None, int_fin: Mapping[str, Mapping[str, Any]] | None = None,
            ) -> tuple[list[dict[str, Any]], dict[str, int]]:
     """종목마다 analyze → (줄 목록, 깔때기 숫자). 시가총액은 받은 날 값 × (오늘 주가 ÷ 받은 날 주가).
+    int_fin = 이자를 재무활동에 넣는 IFRS 회사의 SEC 표 {티커: …} (load_interest_fin) — 그 종목은 FCF 에서 이자를 뺀다.
     detail = stock_detail 캐시(분기 매출) — v2 반증 조건 '매출 감소 (최근 분기 전년 대비 · 연간 둘 다)'에 쓴다 (없으면 그 조건만 빠짐).
     scan = load_scan_info — 캐시에 종목 정보가 비었으면 전체분석의 시가총액 · 업종 · 이름으로 채운다 (info_scan 에 셈).
     own = 우리 대상 (없으면 전부). 줄마다 own · co(회사 키 — co_alias(대상 종목 · 같은 회사라 뺀 상장 → 대상 쪽 키)에
@@ -1324,7 +1570,8 @@ def screen(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], px: p
             continue
         beta = monthly_beta(px, t, bench_of(t))
         beta = min(max(beta, BETA_RANGE[0]), BETA_RANGE[1]) if math.isfinite(beta) else 1.0
-        res = analyze(ent, price=price, mcap_fc=mcap_now / rate, beta=beta, rf=rf)
+        res = analyze(ent, price=price, mcap_fc=mcap_now / rate, beta=beta, rf=rf, int_fin=(int_fin or {}).get(t),
+                      fin_ccy=fin)
         s = px[t].dropna() if t in px.columns else pd.Series(dtype=float)
         res["dd_3y"] = float(s.iloc[-1] / s.iloc[-756:].max() - 1) if len(s) > 260 else NAN
         res.update({"ticker": t, "name": info.get("shortName"), "sector": info.get("sector"),
@@ -1420,6 +1667,8 @@ def web_row(r: Mapping[str, Any], cov: Sequence[Mapping[str, Any]] | None = None
                 "rev_down": r.get("rev_down"), "kill": list(r.get("kill") or [])})
     if r.get("fill0"):  # ROIC 의 부채 · 현금을 자료가 없어 0 으로 계산한 해 수 {"debt", "cash", "years"} (2026-11-16)
         row["fill0"] = dict(r["fill0"])
+    if r.get("int_fin"):  # IFRS 이자를 FCF 에서 뺀 종목 — 뺀 이자(3년 평균) ÷ 시총 (2026-11-17)
+        row["int_y"] = _r(r.get("int_y"), 4)
     if r.get("pm_ready"):  # v3 수석 PM 관문 (2026-11-16) — 없으면 자료 준비 중
         row["pm"] = {**{k: _r(r.get(k), 4) for k in ("sbc_y", "fcf_real_y", "alpha_real", "alpha_bear_real", "ev_y",
                                                      "alpha_ev", "dil")},
@@ -1432,8 +1681,10 @@ def build_model(rows: list[dict[str, Any]], funnel: Mapping[str, int], *, price_
                 track: list[dict[str, Any]], log_start: str | None, fetch_stats: Mapping[str, int] | None,
                 research: list[dict[str, Any]] | None = None, cov: Sequence[Mapping[str, Any]] | None = None,
                 cov_src: str = "code", cov_as_of: str | None = None, universe: Mapping[str, Any] | None = None,
-                warmup: Mapping[str, int] | None = None, pm: Mapping[str, Any] | None = None) -> dict[str, Any]:
+                warmup: Mapping[str, int] | None = None, pm: Mapping[str, Any] | None = None,
+                int_meta: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """value_model.json — 관문을 하나라도 의미 있게 지난 종목(품질 통과 · 가격 통과 · 저자 종목)만 싣는다.
+    int_meta = IFRS 이자 분류 표 (load_interest_fin) — 다음 밤이 다시 쓰도록 그대로 싣는다 ('int_fin').
     research = research_rows (저자 리서치 글 · 게시일 이후 성과). cov = 저자 커버리지 (cov_src 'page' = 저자 사이트에서
     읽은 목록, 'code' = AUTHOR_COVERAGE). universe = 우리 대상 설명, warmup = 기록 준비 중이면 {"have", "want"}.
     pm = v3 기록 상태 {"ready", "have", "want", "start"} (have/want = SBC · 희석주식수 자료가 있는 대상 종목 수)."""
@@ -1455,7 +1706,8 @@ def build_model(rows: list[dict[str, Any]], funnel: Mapping[str, int], *, price_
         "generated": datetime.now(ZoneInfo("America/Toronto")).isoformat(timespec="minutes"),
         "params": {"rf": _r(rf), "rf_src": rf_src, "erp": ERP, "term_g": TERM_G, "alpha_min": ALPHA_MIN,
                    "stage1_years": STAGE1_YEARS, "roe_min": ROE_MIN, "roic_min": ROIC_MIN, "cv_max": CV_MAX,
-                   "altman_min": ALTMAN_MIN, "beneish_max": BENEISH_MAX, "universe": dict(universe or {})},
+                   "altman_min": ALTMAN_MIN, "beneish_max": BENEISH_MAX, "universe": dict(universe or {}),
+                   "beta_min": BETA_RANGE[0]},  # 베타 하한 — 사이트 '베타 하한' 표시 (2026-11-17)
         "funnel": dict(funnel),
         "fetch": dict(fetch_stats or {}),
         "rows": [web_row(r, cov, author_cos) for r in keep],
@@ -1477,6 +1729,9 @@ def build_model(rows: list[dict[str, Any]], funnel: Mapping[str, int], *, price_
             "ready": bool((pm or {}).get("ready")), "have": (pm or {}).get("have"), "want": (pm or {}).get("want"),
             "start": (pm or {}).get("start"),
         },
+        # IFRS 이자 분류 표 (2026-11-17) — {"at", "src", "asked", "tickers": {티커: {"cik", "unit", "fin", "op"}}}.
+        # 다음 밤 load_interest_fin 이 일주일 안이면 그대로 쓰고, SEC 를 못 받은 밤에도 이 표를 쓴다.
+        "int_fin": dict(int_meta or {"at": None, "src": "none", "asked": 0, "tickers": {}}),
     }
 
 
@@ -1619,7 +1874,22 @@ def main(argv: list[str] | None = None) -> int:
     detail = load_detail(detail_path)
     print(f"[예측 모델] 분기 매출 {len(detail)}종목 ({detail_path or '없음'})")
 
-    rows, funnel = screen(tickers, cache, px, rf, fx, detail, scan, own=own_keys, co_alias=co_alias)
+    # IFRS 이자 분류 (2026-11-17) — 일주일에 한 번 SEC 에 묻고, 사이 밤 · 못 받은 밤은 전날 value_model.json 의 표
+    prev_model: dict[str, Any] | None = None
+    for p in (prev / OUT_NAME if prev else None, out_dir / OUT_NAME):
+        if p is not None and p.exists():
+            try:
+                prev_model = json.loads(p.read_text("utf-8"))
+                break
+            except (OSError, ValueError):
+                continue
+    int_meta = load_interest_fin(tickers, cache, scan, prev_model, today)
+    int_ok = int_meta.get("src") in ("sec", "prev") and bool(int_meta.get("at"))
+    print(f"[예측 모델] IFRS 이자 분류 표 — {int_meta.get('src')} ({int_meta.get('at') or '없음'}) · "
+          f"이자를 FCF 에서 뺄 종목 {len(int_meta.get('tickers') or {})}")
+
+    rows, funnel = screen(tickers, cache, px, rf, fx, detail, scan, own=own_keys, co_alias=co_alias,
+                          int_fin=int_meta.get("tickers") or {})
     passing = {r["ticker"] for r in rows if r["pass"] and r["own"]}
 
     # 앞으로 기록 — 대상 중 재무를 받은 비율이 WARMUP_MIN 이 되기 전(넓힌 첫 밤 등)엔 시작하지 않는다
@@ -1631,7 +1901,7 @@ def main(argv: list[str] | None = None) -> int:
     have3 = sum(1 for r in own_rows if r.get("pm_ready"))
     ready3 = ready and bool(own_rows) and have3 >= WARMUP_MIN * len(own_rows)
     if ready:
-        log = update_log(log, rows, px, price_date, authors=author_tickers(cov), v3_ready=ready3)
+        log = update_log(log, rows, px, price_date, authors=author_tickers(cov), v3_ready=ready3, int_fixed_ok=int_ok)
     else:
         print(f"[예측 모델] 기록 준비 중 — 대상 재무 {have}/{want}" + (" (대상 못 만듦)" if degraded else ""))
     if not ready3:
@@ -1644,7 +1914,8 @@ def main(argv: list[str] | None = None) -> int:
                         log_start=log.get("start"), fetch_stats=fetch_stats, research=research_rows(px, by_ticker),
                         cov=cov, cov_src=cov_src, cov_as_of=cov_as_of, universe=universe,
                         warmup=None if ready else {"have": have, "want": want},
-                        pm={"ready": ready3, "have": have3, "want": len(own_rows), "start": log.get("v3_start")})
+                        pm={"ready": ready3, "have": have3, "want": len(own_rows), "start": log.get("v3_start")},
+                        int_meta=int_meta)
     filled = px.attrs.get("filled") or {}
     if filled:  # 5년치에 빠져 짧은 요청으로 채운 마지막 거래일 (밤마다 공개 파일에서 확인용)
         model["price_fill"] = {"n": len(filled), "date": max(filled.values())}

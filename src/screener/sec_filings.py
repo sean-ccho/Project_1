@@ -191,6 +191,31 @@ class SecClient:
         """JSON 하나 (속도 제한 · 재시도). 없거나 실패면 None."""
         return self._get_json(url)
 
+    def get_json_status(self, url: str) -> tuple[int, Any | None]:
+        """JSON 하나와 HTTP 상태 (속도 제한 · 재시도) — 404 '그런 자료 없음'과 '못 받음'(막힘 · 429 · 5xx)을 가려야 할 때
+        (예측 모델 IFRS 이자 분류, 2026-11-17). 200 → (200, JSON), 404 → (404, None), 못 받으면 (마지막 상태 또는 0, None)."""
+        status = 0
+        for attempt in range(3):
+            wait = MIN_INTERVAL - (time.monotonic() - self._last)
+            if wait > 0:
+                time.sleep(wait)
+            self._last = time.monotonic()
+            try:
+                r = self.session.get(url, headers={"User-Agent": self.ua, "Accept-Encoding": "gzip, deflate"}, timeout=30)
+            except requests.RequestException:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            status = r.status_code
+            if status == 200:
+                try:
+                    return 200, r.json()
+                except ValueError:
+                    return 0, None
+            if status == 404:
+                return 404, None
+            time.sleep(2.0 * (attempt + 1))  # 429 · 5xx → 잠깐 쉬고 다시
+        return status, None
+
     def get_bytes(self, url: str) -> bytes:
         """큰 파일 (XBRL 인스턴스 등) — 속도 제한 지킴, 한 번 다시 시도, 실패하면 b''."""
         for attempt in range(2):
