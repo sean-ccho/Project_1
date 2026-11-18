@@ -24,6 +24,7 @@ AUTHOR_COVERAGE)와 Ideas(블로그)의 심층 리서치 글(AUTHOR_RESEARCH). A
   순서 = SBC 차감 하방 알파 큰 순. 매달 첫 실행에 다시 맞춘다. pm_metrics · top_v3.
 
 재무는 snapshot/value_fund.json.gz 에 쌓아 MAX_AGE_DAYS 마다 다시 받는다 (하룻밤 시간 한도 안에서 조금씩).
+실적을 발표한 회사는 발표 뒤 REPORT_CHECKS 일에 먼저 다시 받는다 (2026-11-17 — note_reports · refresh_order).
 주가 · 베타 · 하락폭 · 가격 관문은 매일 다시 계산한다.
 점수 · 필터 · PT-1 · 시트와 무관 — universe-scan.yml 이 universe-data 브랜치에 같이 올린다.
 
@@ -49,6 +50,8 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
+from web_export import report_dates
+
 OUT_NAME = "value_model.json"
 CACHE_NAME = "value_fund.json.gz"
 LOG_NAME = "value_log.json"
@@ -70,6 +73,7 @@ MIN_YEARS = 3           # 평균 · CV 를 내려면 이 해 수 이상
 
 # ── 받기
 MAX_AGE_DAYS = 30       # 연간 재무는 한 달에 한 번꼴로 다시
+REPORT_CHECKS = (2, 10)  # 실적 발표 뒤 이 날수에 다시 받는다 — Yahoo 가 새 재무를 며칠 늦게 넣어 두 번 (2026-11-17)
 WORKERS = 2             # 4개면 Yahoo 429 가 났다 (2026-11-05 시험)
 MAX_FAIL_STREAK = 25
 PAUSE_SEC = 120.0       # 연속 실패(막힘)면 이만큼 쉬고 이어 받는다 (시간 한도 안에서 PAUSE_MAX 번까지)
@@ -742,7 +746,8 @@ def lost_statements(old: Mapping[str, Any], new: Mapping[str, Any]) -> list[str]
 
 def refresh_order(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], today: date,
                   backfill: int = V3_BACKFILL) -> list[str]:
-    """다시 받을 종목 — ① 캐시에 없음 ② MAX_AGE_DAYS 일 넘음 (오래된 순) ③ 받는 항목 판(rows_v)이 ROWS_VERSION 보다 낮음
+    """다시 받을 종목 — ① 캐시에 없음 ② 실적 발표 뒤 REPORT_CHECKS 일이 됐는데 그 전에 받음 (report_due)
+    ③ MAX_AGE_DAYS 일 넘음 (오래된 순) ④ 받는 항목 판(rows_v)이 ROWS_VERSION 보다 낮음
     (v3 의 SBC · 희석주식수가 없음 — 오래된 순으로 backfill 개까지)."""
     stale = (today - timedelta(days=MAX_AGE_DAYS)).isoformat()
     tiers: list[tuple[int, str, str]] = []
@@ -750,12 +755,15 @@ def refresh_order(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]]
     for t in tickers:
         ent = cache.get(t) or {}
         fetched = str(ent.get("fetched", ""))
+        due = report_due(ent, today) if fetched else None
         if not fetched:
             tiers.append((0, "", t))
-        elif fetched <= stale:
+        elif due and fetched < due:
             tiers.append((1, fetched, t))
+        elif fetched <= stale:
+            tiers.append((2, fetched, t))
         elif int(ent.get("rows_v") or 1) < ROWS_VERSION:
-            old_rows.append((2, fetched, t))
+            old_rows.append((3, fetched, t))
     return [t for _, _, t in sorted(tiers) + sorted(old_rows)[:max(backfill, 0)]]
 
 
@@ -800,7 +808,8 @@ def refresh(tickers: Iterable[str], cache: dict[str, dict[str, Any]], today: dat
                 elif old.get("info"):  # 정보만 빈 값(요청 제한)이면 전에 받은 정보 · 그날짜를 그대로 쓴다
                     new["info"] = old["info"]
                     new["info_at"] = old.get("info_at") or old.get("fetched")
-                cache[t] = {**new, "fetched": today.isoformat()}
+                # 실적일은 받은 재무가 아니라 밤마다 적은 값 — 그대로 옮긴다
+                cache[t] = {**new, **report_dates.carry(old), "fetched": today.isoformat()}
                 ok += 1
                 failed.discard(t)
                 for x in streak:  # 막혔다 풀리는 사이에 실패한 종목은 맨 뒤에서 한 번 더
@@ -1133,7 +1142,21 @@ def load_scan_info(dirs: Iterable[Path | None]) -> dict[str, dict[str, Any]]:
                         put(t, "market", it.get("market"))  # sp500 · nasdaq · tsx · tsxv
                         a50, px_ = _f((it.get("vol") or {}).get("a50")), _f(it.get("price"))
                         put(t, "adv", a50 * px_ if a50 and px_ else None)  # 50일 평균 거래대금 (거래 통화)
+                        # 실적일 — 지난(SEC 실적 공시일, 미국 국내 회사만) · 다음(Yahoo 예정일). note_reports 가 쓴다
+                        for k, v in report_dates.item_dates(it).items():
+                            put(t, k, v)
     return out
+
+
+def note_reports(cache: dict[str, dict[str, Any]], scan: Mapping[str, Mapping[str, Any]], today: date) -> int:
+    """실적 발표일을 캐시 줄에 남긴다 → 지난 실적일이 새로 바뀐 종목 수 (report_dates.note — 외국 · 캐나다 회사는
+    적어 둔 다음 실적일이 지나면 지난 실적일). refresh_order 가 그 뒤 REPORT_CHECKS 일에 재무를 다시 받는다."""
+    return report_dates.note(cache, scan, today, key=_scan_key)
+
+
+def report_due(ent: Mapping[str, Any], today: date) -> str | None:
+    """지난 실적 발표 뒤 다시 받을 날(REPORT_CHECKS) 중 오늘까지 온 가장 늦은 날 — 그 전에 받았으면 다시 받을 때."""
+    return report_dates.due(ent, today, REPORT_CHECKS)
 
 
 def company_key(name: str | None) -> str:
@@ -1515,11 +1538,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[예측 모델] 대상 {len(own_keys)}종목 {universe['by_market']} + 비교용 {len(tickers) - len(own_keys)}")
 
     cache = load_cache(prev / CACHE_NAME if prev else None)
+    # 실적일 — 발표한 회사는 발표 뒤 REPORT_CHECKS 일에 먼저 다시 받는다 (refresh_order)
+    noted = note_reports(cache, scan, today)
+    known = sum(1 for t in tickers if (cache.get(t) or {}).get("last_report"))
+    due_n = sum(1 for t in tickers if (e := cache.get(t)) and e.get("fetched")
+                and (d := report_due(e, today)) and str(e["fetched"]) < d)
+    print(f"[예측 모델] 실적일 — 지난 실적을 아는 종목 {known}/{len(tickers)} · 이번에 새로 안 실적 {noted} · "
+          f"발표 뒤 다시 받을 {due_n}")
     fetch_stats: dict[str, int] | None = None
     try:
         if not args.no_fetch:
             fetch_stats = refresh(tickers, cache, today, budget_sec=args.budget_min * 60)
             fetch_stats["info"] = retry_info(cache, tickers, today)["ok"]
+            fetch_stats.update({"report_known": known, "report_due": due_n})
     finally:
         size = save_cache(snap / CACHE_NAME, cache, keep=set(tickers))
         print(f"[예측 모델] 재무 캐시 {len(cache)}종목 · {size / 1e6:.2f}MB")

@@ -757,6 +757,48 @@ def test_v2_kill_blocks_reentry_and_cleans_churn_rows():
     assert len([e for e in out3["entries"] if e["g"] == "v2" and e["t"] == "VIPS"]) == 2
 
 
+def test_note_reports_uses_sec_and_passed_yahoo_dates():
+    """미국 국내 회사는 SEC 실적일, 외국 · 캐나다 회사는 적어 둔 다음 실적일(Yahoo)이 지나면 지난 실적일."""
+    today = date(2026, 11, 20)
+    cache = {"BRBR": {"fetched": "2026-11-13", "next_report": "2026-11-18"},   # 적어 둔 날이 지남
+             "VIPS": {"fetched": "2026-11-13"},                                 # 오늘 목록의 다음 실적일이 이미 지남
+             "DOX": {"fetched": "2026-11-13", "last_report": "2026-08-05"},
+             "RY.TO": {"fetched": "2026-11-13"}}
+    scan = {"BRBR": {"next_report": "2027-02-03", "last_report": "2026-08-04"},
+            "VIPS": {"next_report": "2026-11-19"},
+            "DOX": {"next_report": "2027-02-02"},
+            "RY.TO": {"next_report": "2026-12-03"}}
+    assert vm.note_reports(cache, scan, today) == 2
+    assert cache["BRBR"]["last_report"] == "2026-11-18" and cache["BRBR"]["next_report"] == "2027-02-03"
+    assert cache["VIPS"]["last_report"] == "2026-11-19" and "next_report" not in cache["VIPS"]
+    assert cache["DOX"]["last_report"] == "2026-08-05" and cache["DOX"]["next_report"] == "2027-02-02"
+    assert "last_report" not in cache["RY.TO"] and cache["RY.TO"]["next_report"] == "2026-12-03"
+
+
+def test_refresh_order_puts_after_report_first_at_day_2_and_10():
+    ent = {"fetched": "2026-11-13", "last_report": "2026-11-18", "rows_v": vm.ROWS_VERSION}
+    assert vm.report_due(ent, date(2026, 11, 19)) is None                 # 발표 다음 날은 아직 (Yahoo 가 늦게 넣는다)
+    assert vm.report_due(ent, date(2026, 11, 20)) == "2026-11-20"         # 2일 뒤
+    assert vm.report_due(ent, date(2026, 11, 29)) == "2026-11-28"         # 10일 뒤
+    cache = {"BRBR": dict(ent),
+             "STALE": {"fetched": "2026-10-01", "rows_v": vm.ROWS_VERSION},
+             "OLDV": {"fetched": "2026-11-12"},
+             "FRESH": {"fetched": "2026-11-20", "last_report": "2026-11-18", "rows_v": vm.ROWS_VERSION}}
+    assert vm.refresh_order(list(cache), cache, date(2026, 11, 20)) == ["BRBR", "STALE", "OLDV"]
+    cache["BRBR"]["fetched"] = "2026-11-20"                                  # 2일 뒤에 받음 → 10일 뒤까지 쉼
+    assert "BRBR" not in vm.refresh_order(list(cache), cache, date(2026, 11, 27))
+    assert vm.refresh_order(["BRBR"], cache, date(2026, 11, 28)) == ["BRBR"]
+
+
+def test_refresh_keeps_report_dates_after_refetch():
+    cache = {"BRBR": {"fetched": "2026-11-13", "last_report": "2026-11-18", "next_report": "2027-02-03",
+                      "inc": {}, "bal": {}, "cf": {}, "info": {"marketCap": 1.0}}}
+    vm.refresh(["BRBR"], cache, date(2026, 11, 20), budget_sec=60, workers=1, log=lambda _m: None,
+               fetch=lambda t: {"inc": {"x": {}}, "bal": {}, "cf": {}, "info": {"marketCap": 2.0}})
+    assert cache["BRBR"]["fetched"] == "2026-11-20" and cache["BRBR"]["info"]["marketCap"] == 2.0
+    assert cache["BRBR"]["last_report"] == "2026-11-18" and cache["BRBR"]["next_report"] == "2027-02-03"
+
+
 def test_refresh_keeps_old_entry_when_a_statement_comes_back_empty():
     """막히기 시작할 때 손익표만 온 반쪽 응답은 실패 — 예전 자료를 통째로 두고, 다음에 다시 받을 목록에 남는다 (2026-11-17)."""
     old = {"fetched": "2026-10-01", "inc": {"Total Revenue": {"2025-12-31": 1.0}},

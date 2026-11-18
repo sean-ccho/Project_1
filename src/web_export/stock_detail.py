@@ -19,6 +19,8 @@ from typing import Any, Callable, Mapping
 
 import pandas as pd
 
+from web_export import report_dates
+
 CACHE_NAME = "detail.json.gz"
 MAX_AGE_DAYS = 14        # 이보다 오래되면 다시 (의견 수 · 다음 분기 예상이 바뀐다)
 AFTER_REPORT_DAYS = 4    # 실적 발표 뒤 이 날까지는 매일 다시 (yfinance 가 매출을 며칠 늦게 넣는다)
@@ -197,6 +199,7 @@ def merge_entry(old: Mapping[str, Any] | None, new: Mapping[str, Any], today: da
     old = old or {}
     ent: dict[str, Any] = {k: old[k] for k in DETAIL_KEYS if k in old}
     ent.update({k: v for k, v in new.items() if k in DETAIL_KEYS})
+    ent.update(report_dates.carry(old))  # 실적일은 받은 값이 아니라 밤마다 적은 값 — 그대로 옮긴다
     ent["fetched"] = today.isoformat()
     missing = [k for k in DETAIL_KEYS if k not in new]
     if missing:

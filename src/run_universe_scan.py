@@ -569,7 +569,7 @@ def web_extras(ranked_frames: list[pd.DataFrame], items: dict[str, dict[str, Any
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
-    from web_export import stock_detail
+    from web_export import report_dates, stock_detail
     from web_export.dashboard import _industry
     from web_export.market_summary import (
         MOVER_MIN_CAP, analyst_block, industry_medians, market_summary, valuation_block, valuation_groups,
@@ -585,7 +585,11 @@ def web_extras(ranked_frames: list[pd.DataFrame], items: dict[str, dict[str, Any
     scope = [t for t, v in items.items()
              if t in sp_set or ((v.get("fundamentals") or {}).get("market_cap") or 0) >= MOVER_MIN_CAP]
     cache = stock_detail.load_cache(cache_dir / stock_detail.CACHE_NAME if cache_dir else None)
-    last_report = {t: (((items[t].get("earnings_move") or {}).get("last") or [[None]])[-1] or [None])[0] for t in scope}
+    # 지난 실적일 — 미국 국내 회사는 SEC 실적 공시일, 외국 회사(6-K)는 캐시에 적어 둔 Yahoo 예정일이 지난 날 (2026-11-17).
+    # stock_detail.refresh_order 가 발표 뒤 AFTER_REPORT_DAYS 일까지 매일 다시 받는다
+    src = {t: report_dates.item_dates(items[t]) for t in scope}
+    report_dates.note(cache, src, now.date())
+    last_report = {t: (cache.get(t) or {}).get("last_report") or src[t]["last_report"] for t in scope}
     stock_detail.refresh(scope, cache, now.date(), last_report, budget_sec=budget_sec)
     stock_detail.save_cache(out_dir / "snapshot" / stock_detail.CACHE_NAME, cache, keep=set(scope))
 
