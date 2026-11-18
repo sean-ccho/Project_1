@@ -37,6 +37,10 @@ STALE_HOURS = 12  # 이보다 오래 전에 만든 파일은 이번 밤 것이 �
 FLOOR_FULL = 0.95
 FLOOR_PART = 0.9
 VM_FLOOR = 0.5  # 예측 모델 계산된 종목 ÷ 대상 (11-11 로컬 433/513 = 84%, 넓힌 대상 첫 밤은 재무를 다 못 받는다)
+# 재무(헬스체크) 점수가 있는 종목 ÷ 전체 — 시장마다 평소 값이 달라 따로 (2026-11-18, 11-17 자료를 새 점수 방식으로 센 값:
+# S&P 499/500 · 나스닥·NYSE 94% · 캐나다 85%). 은행 · 펀드 · 소형주는 Yahoo 재무가 적어 원래 '자료 부족'이 있다.
+# 신규상장(47%) · 번외(1종목)는 비율 대신 숫자만 — 지난 밤의 80% 밑이면 일부만
+HEALTH_FLOOR = {"sp500": 0.95, "nasdaq": 0.85, "ca": 0.75}
 US_FILES = (("sp500", "전체분석 · S&P 500"), ("nasdaq", "전체분석 · 나스닥·NYSE"), ("new", "전체분석 · 신규상장"),
             ("extra", "전체분석 · 번외"))
 LEVELS = ("green", "yellow", "red")
@@ -72,8 +76,13 @@ def row(key: str, label: str, got: int, want: int | None = None, *, floor: float
     return out
 
 
-def stock_rows(items: Iterable[Mapping[str, Any]], *, insider: bool) -> list[dict[str, Any]]:
-    """종목 목록 → 종목 수 · 가격 · ISB · SQZ · 시가총액 (· 내부자) 칸. None 이면 그 칸을 못 받은 것 ({} 는 계산했지만 없음)."""
+def stock_rows(items: Iterable[Mapping[str, Any]], *, insider: bool,
+               health_floor: float | None = None) -> list[dict[str, Any]]:
+    """종목 목록 → 종목 수 · 가격 · ISB · SQZ · 시가총액 · 재무 (· 내부자) 칸. None 이면 그 칸을 못 받은 것 ({} 는 계산했지만 없음).
+
+    재무 = 헬스체크 점수가 있는 종목 (Yahoo 가 섹터 · 시가총액만 주고 재무를 빼먹으면 시가총액 칸은 멀쩡해도 여기가 준다).
+    health_floor 가 없으면 비율 대신 숫자만 (지난 밤 대비).
+    """
     xs = [x for x in items if isinstance(x, Mapping)]
     n = len(xs)
 
@@ -87,6 +96,8 @@ def stock_rows(items: Iterable[Mapping[str, Any]], *, insider: bool) -> list[dic
         row("sqz", "SQZ 모멘텀", cnt(lambda x: x.get("sqzmom") is not None), n),
         row("mcap", "시가총액", cnt(lambda x: (x.get("fundamentals") or {}).get("market_cap") is not None), n,
             floor=FLOOR_PART),
+        row("health", "재무(헬스체크)", cnt(lambda x: (x.get("health") or {}).get("score") is not None),
+            n if health_floor is not None else None, floor=health_floor),
     ]
     if insider:
         rows.append(row("insider", "내부자 거래", cnt(lambda x: x.get("insider") is not None), n, floor=FLOOR_PART))
@@ -118,9 +129,10 @@ def entry(label: str, data: Any, rows_fn: Callable[[Mapping[str, Any]], list[dic
             "rows": rows_fn(data)}
 
 
-def market_entry(label: str, data: Any, *, insider: bool) -> dict[str, Any]:
+def market_entry(label: str, data: Any, *, insider: bool, health_floor: float | None = None) -> dict[str, Any]:
     """전체분석 목록 파일 (items = {티커: 정보})."""
-    return entry(label, data, lambda d: stock_rows((d.get("items") or {}).values(), insider=insider), "bar_date")
+    return entry(label, data, lambda d: stock_rows((d.get("items") or {}).values(), insider=insider,
+                                                   health_floor=health_floor), "bar_date")
 
 
 def _when(s: Any) -> datetime | None:
@@ -183,8 +195,8 @@ def build_status(universe_dir: Path, ca_path: Path | None, prev: Any = None, now
         data = load_json(universe_dir / f"{key}.json")
         if data is None and key == "extra":
             continue  # 번외 종목이 없는 설정이면 파일도 없다 (사이트도 탭을 숨긴다)
-        files[key] = market_entry(label, data, insider=key != "extra")
-    files["ca"] = market_entry("전체분석 · 캐나다", load_json(ca_path), insider=False)
+        files[key] = market_entry(label, data, insider=key != "extra", health_floor=HEALTH_FLOOR.get(key))
+    files["ca"] = market_entry("전체분석 · 캐나다", load_json(ca_path), insider=False, health_floor=HEALTH_FLOOR["ca"])
     files["value_model"] = entry("예측 모델", load_json(universe_dir / "value_model.json"), value_model_rows, "date")
     files["congress"] = entry("국회의원 거래", load_json(universe_dir / "congress.json"), congress_rows, "as_of")
     mark_stale(files, now)

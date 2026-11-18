@@ -164,6 +164,17 @@ def test_fill_text_columns_without_turning_numbers_into_objects(tmp_path):
     assert out["fund_roe"].dtype == float and out.loc["AAA", "fund_roe"] == 0.3
 
 
+def test_fill_currency_codes_as_text(tmp_path):
+    """보고 통화 · 거래 통화(2026-11-18)도 글자 칸 — 전날 값으로 채우고 숫자 칸은 숫자 그대로."""
+    pd.DataFrame({"티커": ["SONY"], "섹터": ["Technology"], "fund_sector": ["Technology"], "fund_roe": [0.15],
+                  "fund_market_cap": [1.5e11], "fund_fin_ccy": ["JPY"], "fund_ccy": ["USD"]}).to_parquet(
+        tmp_path / "nasdaq_ranked.parquet")
+    fund = pd.DataFrame([{**_record("SONY", False), "fund_fin_ccy": None, "fund_ccy": None}])
+    out = fill_from_previous_snapshot(fund, snapshot_dir=tmp_path, today=TODAY).set_index("티커")
+    assert (out.loc["SONY", "fund_fin_ccy"], out.loc["SONY", "fund_ccy"]) == ("JPY", "USD")
+    assert out["fund_roe"].dtype == float and out.loc["SONY", "fund_roe"] == 0.15
+
+
 def _ohlcv(tickers: list[str], days: int = 300) -> pd.DataFrame:
     rng = np.random.default_rng(0)
     idx = pd.bdate_range("2025-07-01", periods=days)

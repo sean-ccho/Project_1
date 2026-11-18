@@ -12,9 +12,10 @@ from web_export import data_status as ds  # noqa: E402
 NOW = datetime(2026, 11, 13, 20, 10, tzinfo=ds.ET)
 
 
-def _item(price=1.0, isb=None, sqz=None, mcap=1e9, insider=None):
+def _item(price=1.0, isb=None, sqz=None, mcap=1e9, insider=None, score=80):
     return {"price": price, "isb": {} if isb is None else isb, "sqzmom": {} if sqz is None else sqz,
-            "fundamentals": {"market_cap": mcap}, "insider": {} if insider is None else insider}
+            "fundamentals": {"market_cap": mcap}, "insider": {} if insider is None else insider,
+            "health": {"score": score, "grade": None if score is None else "A", "detail": None}}
 
 
 def _rows(rows):
@@ -28,6 +29,19 @@ def test_stock_rows_count_missing_fields() -> None:
     assert (r["mcap"]["got"], r["insider"]["got"], r["isb"]["want"]) == (3, 3, 4)
     assert r["items"].get("zero_red") and "want" not in r["items"]
     assert "insider" not in _rows(ds.stock_rows(xs, insider=False))  # 캐나다 · 번외는 내부자를 안 모은다
+
+
+def test_health_row_counts_scored_stocks_with_market_floor() -> None:
+    xs = [_item(), _item(), _item(score=None), {**_item(), "health": None}]
+    r = _rows(ds.stock_rows(xs, insider=False, health_floor=0.85))
+    assert (r["health"]["got"], r["health"]["want"], r["health"]["floor"]) == (2, 4, 0.85)
+    assert ds.row_level(r["health"]) == "yellow"  # 50% < 85%
+    plain = _rows(ds.stock_rows(xs, insider=False))  # 신규상장 · 번외 — 비율 없이 숫자만 (지난 밤 대비)
+    assert plain["health"]["got"] == 2 and "want" not in plain["health"]
+    # 야후가 시가총액만 주고 재무를 빼먹은 밤 (FISV 모양) — 시가총액 칸은 멀쩡해도 재무 칸이 실패
+    blank = _rows(ds.stock_rows([_item(score=None) for _ in range(5)], insider=False,
+                                health_floor=ds.HEALTH_FLOOR["sp500"]))
+    assert ds.row_level(blank["mcap"]) == "green" and ds.row_level(blank["health"]) == "red"
 
 
 def test_row_level_rules() -> None:
@@ -73,6 +87,8 @@ def test_build_status_files_prev_stale_and_alert(tmp_path: Path) -> None:
     assert set(f) == {"sp500", "nasdaq", "new", "ca", "value_model", "congress"}  # 번외 파일이 없으면 칸도 없다
     assert st["date"] == "2026-11-13"
     assert ds.file_level(f["sp500"]) == "green"
+    assert _rows(f["sp500"]["rows"])["health"]["floor"] == 0.95 and _rows(f["ca"]["rows"])["health"]["floor"] == 0.75
+    assert "want" not in _rows(f["new"]["rows"])["health"]  # 신규상장은 숫자만
     assert _rows(f["nasdaq"]["rows"])["items"]["prev"] == 10 and ds.file_level(f["nasdaq"]) == "yellow"  # 10 → 4
     assert "prev" not in _rows(f["nasdaq"]["rows"])["price"]  # want 있는 칸은 비율로만
     assert f["ca"].get("stale") and ds.file_level(f["ca"]) == "red"

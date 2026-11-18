@@ -264,6 +264,24 @@ def build_export_dataframe(
     return prepare_export_dataframe(ranked)
 
 
+def save_held_snapshot(ranked: pd.DataFrame | None, tickers: list[str]) -> bool:
+    """차트분석이 따로 분석한 보유 · 고정 종목(두 선별 표에 없는 것)을 웹 · 메일 표시용으로 저장 (2026-11-18).
+
+    PT-1 보유 MORN · 번외 NBM.V 처럼 선별 표에서 빠진 종목은 dashboard.json · PT-1 메일이 헬스체크 · 가격을 못 찾아 빈칸이었다.
+    ranked 의 종목이 따로 분석한 종목뿐일 때만 저장한다 (다른 표가 넘어오면 그 표를 보충 파일로 쓰지 않게).
+    """
+    if ranked is None or ranked.empty or "티커" not in ranked.columns:
+        print("[보유 종목 보충] 따로 분석한 결과가 없어 저장하지 않음")
+        return False
+    got = set(ranked["티커"].astype(str))
+    if not got <= set(map(str, tickers)):
+        print(f"[보유 종목 보충] 따로 분석한 종목이 아닌 표({len(got)}개)라 저장하지 않음")
+        return False
+    from paper_trading.runner import save_ranked_snapshot
+
+    return save_ranked_snapshot(ranked, source="held")
+
+
 def main() -> None:
     """데이터 수집부터 결과 출력, 백테스트까지 전체 파이프라인을 실행한다."""
 
@@ -370,6 +388,8 @@ def main() -> None:
                 if missing_tickers:
                     print(f"[{portfolio_label}] [SP500 분석]에 없는 종목은 별도 분석: {missing_tickers}")
                     # 누락 종목만 별도 분석 (NBM.V 등 고정 종목)
+                    # _last_ranked 는 분석이 끝까지 가야 바뀐다 — 비워 두지 않으면 중간에 끝났을 때 S&P 표가 남아 있다
+                    build_export_dataframe._last_ranked = None
                     missing_export = build_export_dataframe(
                         missing_tickers,
                         portfolio_label,
@@ -378,6 +398,8 @@ def main() -> None:
                     )
                     if missing_export is not None:
                         portfolio_export = pd.concat([portfolio_export, missing_export], ignore_index=True)
+                    # 웹 · 메일이 읽는 보유 · 고정 종목 보충 표 (MORN · NBM.V 등이 1차 선별 · PT-1 메일에서 빈칸이던 것)
+                    save_held_snapshot(getattr(build_export_dataframe, "_last_ranked", None), missing_tickers)
                 
                 # --- TradingView 차트 캡처 ---
                 from screener.config import CHARTS_ENABLED, CHARTS_TIMEFRAMES, CHARTS_OUTPUT_DIR

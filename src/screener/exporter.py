@@ -189,7 +189,8 @@ def _pattern_with_preview(patterns: Any, preview: Any, when: str) -> Any:
 def prepare_export_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     if "[헬스체크]" not in df.columns or "[시총]" not in df.columns:
         try:
-            from screener.fundamentals import calculate_health_score, format_market_cap
+            from screener.fundamentals import format_market_cap
+            from screener.health_score import calculate_health_score
             df = df.copy()
             if "[헬스체크]" not in df.columns:
                 health = df.apply(calculate_health_score, axis=1, result_type="expand")
@@ -658,7 +659,9 @@ def send_paper_trading_email(
     try:
         from pathlib import Path as _Path
         import pandas as _pd
-        for _p in ("data/paper_trading/sp500_ranked.parquet", "data/paper_trading/nasdaq_ranked.parquet"):
+        # held_ranked = 보유 · 고정 종목 중 두 선별 표에 없는 것 (main.py 차트분석이 따로 분석, 2026-11-18) — 맨 끝이라 빈칸만 채운다
+        for _p in ("data/paper_trading/sp500_ranked.parquet", "data/paper_trading/nasdaq_ranked.parquet",
+                   "data/paper_trading/held_ranked.parquet"):
             if _Path(_p).exists():
                 _df = _pd.read_parquet(_p)
                 if "티커" in _df.columns:

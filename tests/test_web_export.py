@@ -78,6 +78,35 @@ def test_ticker_info_fundamentals_keep_yfinance_units() -> None:
     json.dumps(info, allow_nan=False)
 
 
+def test_parse_health_keeps_item_count_and_na() -> None:
+    """받은 항목이 8개 미만이면 끝에 ' · 5/8개 항목' (screener.health_score) — detail 로 그대로, 'N/A' 는 점수 없음."""
+    assert wd.parse_health("100 (A+) · 매출+10% 마진+35% 이익+10% · 5/8개 항목") == {
+        "score": 100, "grade": "A+", "detail": "매출+10% 마진+35% 이익+10% · 5/8개 항목"}
+    assert wd.parse_health("N/A") == {"score": None, "grade": None, "detail": "N/A"}
+
+
+def test_fundamentals_currency_codes() -> None:
+    """보고 통화 · 거래 통화 — Sony 는 JPY · USD. 스냅샷의 빈 값('nan'·'None' 글자)과 이상한 값은 None."""
+    f = wd.ticker_info(pd.Series({"fund_fin_ccy": "JPY", "fund_ccy": "usd", "fund_free_cashflow": 2.3e12}))["fundamentals"]
+    assert (f["fin_ccy"], f["ccy"]) == ("JPY", "USD")
+    for blank in ("nan", "None", None, float("nan"), "", "US Dollar"):
+        assert wd.ticker_info(pd.Series({"fund_fin_ccy": blank}))["fundamentals"]["fin_ccy"] is None
+    json.dumps(f, allow_nan=False)
+
+
+def test_load_held_adds_only_unknown_same_day_tickers(tmp_path: Path) -> None:
+    """보유 · 고정 종목 보충 표 — 선별 표에 이미 있는 종목 · 다른 일봉 날짜 줄은 빼고, 시장 키를 붙인다."""
+    pd.DataFrame({"티커": ["MORN", "NBM.V", "XOM", "OLD"], "_bar_date": ["2026-11-17"] * 3 + ["2026-11-10"],
+                  "[헬스체크]": ["85 (A) · 매출+5%", "25 (F) · 매출?", "100 (A+)", "50 (D)"]}).to_parquet(
+        tmp_path / wd.HELD_FILE)
+    held = wd.load_held(tmp_path, {"XOM"}, "2026-11-17")
+    assert held["티커"].tolist() == ["MORN", "NBM.V"]
+    assert held["market"].tolist() == ["nasdaq", "tsxv"]
+    assert wd.ticker_info(held.iloc[0])["health"] == {"score": 85, "grade": "A", "detail": "매출+5%"}
+    assert wd.load_held(tmp_path / "없음", set(), "2026-11-17").empty
+    assert wd._held_market("RY.TO") == "tsx" and wd._held_market("AAPL") == "sp500"
+
+
 def test_ticker_info_dividends() -> None:
     """배당 — 지금 받는 배당 (최근 정기 배당 × 1년 횟수 ÷ 가격). 특별배당만이면 0, 이상한 값·모르면 None."""
     def div(**kw):

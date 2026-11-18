@@ -28,6 +28,14 @@ logger = logging.getLogger(__name__)
 _SNAPSHOT_DIR = Path("data/paper_trading")
 _SP500_SNAPSHOT = _SNAPSHOT_DIR / "sp500_ranked.parquet"
 _NASDAQ_SNAPSHOT = _SNAPSHOT_DIR / "nasdaq_ranked.parquet"
+# 보유 · 고정 종목 중 두 선별 표에 없는 것 (main.py 차트분석이 따로 분석 — 2026-11-18). 웹 · 메일 표시용 정보만,
+# PT 엔진(_load_and_merge)은 읽지 않는다. 커밋하지 않는다 (같은 밤 실행 안에서만 쓴다)
+_HELD_SNAPSHOT = _SNAPSHOT_DIR / "held_ranked.parquet"
+
+
+def _snapshot_path(source: str) -> Path:
+    """스냅샷 이름 → 파일 (부를 때마다 모듈 값을 읽는다 — 테스트가 경로를 바꿔 끼울 수 있게). 모르는 이름은 KeyError."""
+    return {"sp500": _SP500_SNAPSHOT, "nasdaq": _NASDAQ_SNAPSHOT, "held": _HELD_SNAPSHOT}[source]
 
 # 스크리너가 쓴 마지막 일봉 날짜 (main.py / run_full_scan.py에서 기록)
 BAR_DATE_COL = "_bar_date"
@@ -64,21 +72,23 @@ def save_ranked_snapshot(df: pd.DataFrame, source: str) -> bool:
 
     Args:
         df: _last_ranked DataFrame — 모든 내부 컬럼 포함
-        source: "sp500" 또는 "nasdaq"
+        source: "sp500" · "nasdaq" · "held" (보유 · 고정 종목 보충 — 표시용, PT 엔진은 안 읽음).
+            모르는 이름이면 저장하지 않는다 (예전엔 sp500 이 아니면 전부 나스닥 파일에 덮어썼다)
 
     Returns:
         저장 성공 여부
     """
     try:
         _SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
-        path = _SP500_SNAPSHOT if source == "sp500" else _NASDAQ_SNAPSHOT
+        path = _snapshot_path(source)
 
         # 회사 소개(종목마다 긴 영어 글)는 매일 커밋되는 이 파일에 넣지 않는다 — 웹 소개는 전체분석(universe-data)에서
         df_save = df.drop(columns=["fund_summary"], errors="ignore")
 
         # 회사 건전성 점수 + 시가총액 컬럼 추가 (display-only, score/CCS에 영향 없음)
         try:
-            from screener.fundamentals import calculate_health_score, format_market_cap
+            from screener.fundamentals import format_market_cap
+            from screener.health_score import calculate_health_score
             health = df_save.apply(calculate_health_score, axis=1, result_type="expand")
             df_save["health_score"] = health[0]
             df_save["[헬스체크]"] = health[1]

@@ -122,6 +122,48 @@ def load_ranked(data_dir: Path) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True).drop_duplicates("티커")
 
 
+# 보유 · 고정 종목 중 두 선별 표에 없는 것 (main.py 차트분석이 따로 분석 — PT-1 보유 MORN · 번외 NBM.V 등, 2026-11-18).
+# 종목 정보만 채운다 — 후보 · 골든크로스 목록(ranked)에는 넣지 않는다. PT 엔진은 이 파일을 읽지 않는다.
+HELD_FILE = "held_ranked.parquet"
+
+
+def _held_market(ticker: str) -> str:
+    """보충 종목의 시장 키 — 캐나다 상장은 전체분석과 같은 tsx · tsxv, 미국은 S&P 500 구성종목이면 sp500 아니면 nasdaq."""
+    t = ticker.strip().upper()
+    if t.endswith(".TO"):
+        return "tsx"
+    if t.endswith(".V"):
+        return "tsxv"
+    try:
+        from data.sp500_tickers import SP500_TICKERS
+    except Exception:  # noqa: BLE001 — 표시용 이름만 달라진다
+        return "nasdaq"
+    return "sp500" if t in {str(x).strip().upper() for x in SP500_TICKERS} else "nasdaq"
+
+
+def load_held(data_dir: Path, known: set[str], bar_date: str | None) -> pd.DataFrame:
+    """보충 종목 표 — known(이미 선별 표에 있는 티커)은 빼고, bar_date 가 있으면 같은 일봉 날짜 것만 (로컬에 남은 옛 파일 방지).
+
+    파일이 없거나 못 읽으면 빈 표.
+    """
+    path = data_dir / HELD_FILE
+    if not path.exists():
+        return pd.DataFrame()
+    try:
+        df = pd.read_parquet(path)
+    except Exception as exc:  # noqa: BLE001 — 보충용, 못 읽으면 넘어간다
+        print(f"[웹 내보내기] {HELD_FILE} 못 읽음: {exc}")
+        return pd.DataFrame()
+    if df.empty or "티커" not in df.columns:
+        return pd.DataFrame()
+    df = df[~df["티커"].astype(str).isin(known)].drop_duplicates("티커")
+    if bar_date and "_bar_date" in df.columns:
+        df = df[df["_bar_date"].astype(str) == bar_date]
+    df = df.copy()
+    df["market"] = [_held_market(str(t)) for t in df["티커"]]
+    return df
+
+
 # (웹 키, 스냅샷 컬럼, 반올림 자리) — yfinance 값 그대로: 성장률·마진·ROE·비중은 0.165 = 16.5%,
 # 부채비율은 % (32 = 0.32배), 유동비율은 배, 현금흐름·시총은 달러.
 # 배당 둘(dividend_yield · annual_dividend)은 fundamentals() 가 따로 채운다 — 지금 받는 배당 (screener.dividends)
@@ -141,14 +183,24 @@ FUNDAMENTAL_FIELDS = (
 )
 
 
-def fundamentals(row: pd.Series) -> dict[str, float | None]:
+def _ccy(v: Any) -> str | None:
+    """통화 코드 'JPY' — 세 글자 영문이 아니면 None (스냅샷의 빈 값은 'nan'·'None' 글자로 저장돼 있다)."""
+    s = (_text(v) or "").upper()
+    return s if re.fullmatch(r"[A-Z]{3}", s) and s != "NAN" else None
+
+
+def fundamentals(row: pd.Series) -> dict[str, Any]:
     """스냅샷의 재무 컬럼(fund_*) → 웹 키. 없는 값은 None.
 
     배당: 최근 정기 배당 × 1년 횟수 ÷ 지금 가격 (증권사 화면과 같은 방식). 특별배당만 준 종목은 0, 이상한 값은 None.
+    통화 (2026-11-18): fin_ccy = 회사 보고 통화 (현금흐름 · 분기 매출이 이 통화), ccy = 거래 통화 (가격 · 시가총액).
+    Sony 는 fin_ccy JPY · ccy USD — 사이트가 둘이 다르면 현금흐름 · 매출 금액에 보고 통화를 붙인다.
     """
-    out = {key: _num(row.get(col), digits) for key, col, digits in FUNDAMENTAL_FIELDS}
+    out: dict[str, Any] = {key: _num(row.get(col), digits) for key, col, digits in FUNDAMENTAL_FIELDS}
     price = row.get("현재가격") if _num(row.get("현재가격")) is not None else row.get("close")
     out["dividend_yield"], out["annual_dividend"] = dividend_now(row.get("dividend_rate"), row.get("fund_dividend_rate"), price)
+    out["fin_ccy"] = _ccy(row.get("fund_fin_ccy"))
+    out["ccy"] = _ccy(row.get("fund_ccy"))
     return out
 
 
@@ -729,6 +781,12 @@ def build_dashboard(data_dir: Path | None = None, *, charts_from_git: bool = Fal
     bar_date = None
     if not ranked.empty and "_bar_date" in ranked.columns:
         bar_date = _text(ranked["_bar_date"].dropna().astype(str).max())
+    # 보유 · 고정 종목 중 선별 표에 없는 것 — 정보만 (PT-1 보유 헬스체크 · 1차 선별 줄 · 종목 페이지). ranked 에는 안 넣는다
+    held_rows = load_held(data_dir, set(infos), bar_date)
+    for _, r in held_rows.iterrows():
+        infos[str(r["티커"])] = ticker_info(r)
+    if not held_rows.empty:
+        print(f"[웹 내보내기] 선별 표에 없는 보유 · 고정 종목 정보 보충: {held_rows['티커'].astype(str).tolist()}")
 
     books: dict[str, tuple[list[dict[str, Any]], list[dict[str, Any]]]] = {}
     for key, acfg in PT1_ACCOUNTS.items():

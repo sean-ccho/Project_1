@@ -214,7 +214,8 @@ def tag_sectors(df: pd.DataFrame, strong: set[str] | None) -> pd.DataFrame:
 def add_health(df: pd.DataFrame) -> pd.DataFrame:
     """[헬스체크]·[시총] (PT 스냅샷 저장과 같은 계산). 실패하면 그대로."""
     try:
-        from screener.fundamentals import calculate_health_score, format_market_cap
+        from screener.fundamentals import format_market_cap
+        from screener.health_score import calculate_health_score
 
         out = df.copy()
         health = out.apply(calculate_health_score, axis=1, result_type="expand")

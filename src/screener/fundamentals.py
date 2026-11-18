@@ -180,6 +180,10 @@ def fetch_fundamental_snapshots(tickers: List[str], use_cache: bool = False) -> 
             # 웹 표시 전용 (2026-11-03) — 종목 상세 밸류에이션 · 애널리스트 카드. 점수 · 필터에 안 쓴다 (같은 info 호출, 추가 요청 없음)
             **{k: _safe_float(info.get(src)) for k, src in _WEB_INFO_NUMS.items()},
             "fund_rec_key": info.get("recommendationKey") or None,
+            # 웹 표시 전용 (2026-11-18) — 통화 코드. 현금흐름 · 매출은 회사 보고 통화(financialCurrency: Sony 는 JPY)라
+            # 거래 통화(currency: ADR 은 USD, 캐나다 상장은 대개 CAD)와 다를 수 있다. 점수 · 필터에 안 쓴다 (같은 info 호출)
+            "fund_fin_ccy": info.get("financialCurrency") or None,
+            "fund_ccy": info.get("currency") or None,
         }
 
         records.append(record)
@@ -225,16 +229,7 @@ def fetch_fundamental_snapshots(tickers: List[str], use_cache: bool = False) -> 
     return df
 
 
-# ── 회사 건전성 점수 (display-only) ────────────────────────────
-
-
-def _health_grade(score: int) -> str:
-    if score >= 90: return "A+"
-    if score >= 80: return "A"
-    if score >= 70: return "B"
-    if score >= 60: return "C"
-    if score >= 50: return "D"
-    return "F"
+# ── 표시용 글자 (헬스체크 근거 줄 · 시가총액) — 점수 계산은 screener.health_score ──────
 
 
 def _format_pct(val) -> str:
@@ -276,59 +271,3 @@ def format_market_cap(row) -> str:
     if x >= 1e9:  return f"${x/1e9:.1f}B"
     if x >= 1e6:  return f"${x/1e6:.0f}M"
     return f"${x:.0f}"
-
-
-def calculate_health_score(row) -> tuple[int | None, str]:
-    """회사 건전성 점수 (0-100) + 표시 문자열.
-
-    8개 펀더멘털 항목을 가중치 합산. 결측은 미가산.
-    평가 가능 항목이 4개 미만이면 N/A.
-
-    Returns:
-        (score, display)
-        - score: 0-100 또는 None
-        - display: "85 (A) · 매출+35% 마진+38% 이익+25%" 또는 "N/A"
-          (시트는 그대로 한 줄 사용, 이메일은 ' · '로 split해서 두 줄 렌더)
-    """
-    from screener.config import (
-        FUND_HEALTH_ROE_MIN,
-        FUND_HEALTH_DEBT_TO_EQUITY_MAX,
-        FUND_HEALTH_REVENUE_GROWTH_MIN,
-        FUND_HEALTH_PROFIT_MARGIN_MIN,
-        FUND_HEALTH_EARNINGS_GROWTH_MIN,
-        FUND_HEALTH_CURRENT_RATIO_MIN,
-    )
-
-    # (컬럼명, 임계값, 점수, "gt"/"lt")
-    items = [
-        ("fund_roe",                       FUND_HEALTH_ROE_MIN,             20, "gt"),
-        ("fund_debt_to_equity",            FUND_HEALTH_DEBT_TO_EQUITY_MAX,  15, "lt"),
-        ("fund_revenue_growth",            FUND_HEALTH_REVENUE_GROWTH_MIN,  15, "gt"),
-        ("fund_profit_margin",             FUND_HEALTH_PROFIT_MARGIN_MIN,   15, "gt"),
-        ("fund_earnings_growth",           FUND_HEALTH_EARNINGS_GROWTH_MIN, 10, "gt"),
-        ("fund_current_ratio",             FUND_HEALTH_CURRENT_RATIO_MIN,   10, "gt"),
-        ("fund_free_cashflow",             0,                               10, "gt"),
-        ("fund_institutional_holders_pct", 0.60,                             5, "gt"),
-    ]
-
-    total = 0
-    evaluated = 0
-    for col, thr, pts, op in items:
-        val = row.get(col) if hasattr(row, "get") else None
-        if val is None:
-            continue
-        try:
-            v = float(val)
-        except (TypeError, ValueError):
-            continue
-        if np.isnan(v):
-            continue
-        evaluated += 1
-        if (op == "gt" and v > thr) or (op == "lt" and v < thr):
-            total += pts
-
-    if evaluated < 4:
-        return None, "N/A"
-
-    grade = _health_grade(total)
-    return total, f"{total} ({grade}) · {format_growth_indicators(row)}"
