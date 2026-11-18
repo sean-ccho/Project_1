@@ -178,3 +178,156 @@
 - Google Sheets API 한도: https://developers.google.com/sheets/api/limits
 - Vercel Hobby 상업 금지: https://conductatlas.com/platform/vercel/vercel-terms-of-service/provision/CA-P-048642/hobby-plan-personal-non-commercial-use-only/
 - ※ 법률 자문이 아님. 가격·약관은 바뀔 수 있으니 실행 시점에 각 공식 페이지로 재확인.
+
+---
+
+## 7. [2026-11-08 업데이트] 초저비용(월 고정비 $0) Subscription 상용화 리뷰 및 실행 플랜
+
+> 작성: 2026-11-08 (온타리오 기준) · 10월 14일 초안 이후 실제 구현된 웹 파이프라인(`src/web_export/`, `universe-scan`, `canada-scan` 등)을 반영한 구독형(Subscription) 최소 비용 상용화 설계
+
+### 7.1 현재 구현 진척도 (2026-10-14 vs 2026-11-08)
+
+**이미 완성된 자산**
+- **웹 내보내기 파이프라인 (`src/web_export/`) 구축 완료**:
+  - `dashboard.py`: 일일 스크리너·페이퍼 트레이딩 요약 (`dashboard.json`)
+  - `universe.py` & `stock_detail.py`: 미국(S&P 500 · NASDAQ · NYSE) 및 캐나다(TSX · TSXV) 전 종목 유니버스 (`{market}.json.gz`) 및 개별 종목 상세 (`stocks/{ticker}.json`)
+  - `isb_signals.py` & `sqz_signals.py`: 멀티 타임프레임(일·주·월) ISB 및 Squeeze Momentum 상태 데이터
+- **상업 이용이 100% 합법·무료인 고부가 공시/거시 데이터 파이프라인 확보**:
+  - SEC 10-K 지역별 매출 비중 (`src/data/geo_revenue.py`)
+  - SEC N-PORT ETF 보유 종목 (`src/data/etf_holdings.py`)
+  - 매크로·FOMC 금리 결정 일정 (`src/screener/macro_scan.py`, `src/data/rate_calendar.py` — 단, ICE BofA 하이일드 스프레드 제외)
+  - ⚠️ **주의 — 미 하원 의원 거래 신고 내역 (`src/data/congress_trades.py`)**: 미국 연방법(`5 U.S.C. § 13107(c)`)상 의원 재산·거래 신고서를 **상업적 목적으로 수집·이용하는 것은 명시적 불법**(뉴스 매체 예외만 인정)이므로 유료 구독 상품에서는 반드시 제외해야 함 (§7.5 참조).
+- **프론트엔드 연동 완료**: `seancho.vercel.app`에서 GitHub 고아 브랜치(`dashboard-data`, `universe-data`, `canada-data`)의 JSON을 읽어 화면에 표시 중.
+
+**지금 바로 유료 구독(Subscription)을 붙일 때 막히는 4가지 구조적 병목**
+1. **Paywall(유료 잠금) 우회 문제 (`raw.githubusercontent.com` 직접 호출)**:
+   - 현재 브라우저가 공개 리포지토리의 `raw.githubusercontent.com` 주소를 직접 호출해 JSON을 받음.
+   - 프론트엔드 UI만 블러(잠금) 처리하면 사용자가 브라우저 개발자 도구(Network 탭)에서 원본 JSON URL을 열어 결제 없이 전체 데이터를 볼 수 있음.
+   - 반대로 리포를 **Private**으로 전환하면 `raw.githubusercontent.com` 접근이 차단되어 웹사이트 데이터 로드가 즉시 중단됨.
+2. **GitHub Private 전환 시 Actions 실행 시간 과금**:
+   - 현재 `run-screener.yml` + `universe-scan.yml` + `canada-scan.yml` 실행 시간이 하루 총 **6~8시간(월 10,000분 이상)** 소요됨.
+   - Private 전환 시 GitHub 무료 한도(월 2,000분)를 초과하여 매달 큰 종량제 요금이 부과됨.
+3. **Vercel Hobby 플랜의 상업적 이용 금지**:
+   - 현재 호스팅 중인 Vercel Hobby(무료) 플랜은 유료 구독 결제를 붙이는 순간 약관 위반이 되어 Vercel Pro($20/월) 강제 전환 대상이 됨.
+4. **아직 코드에 남아 있는 데이터 라이선스·약관 리스크 3곳**:
+   - `charts/tradingview_capture.py`: 쿠키 로그인 기반 자동 스크린샷 캡처 및 `screenshots-*` 브랜치 공개 배포
+   - `src/screener/insider.py`: OpenInsider HTML 스크래핑
+   - `src/data/fetch.py` & `src/screener/fundamentals.py`: `yfinance` 직접 의존
+
+---
+
+### 7.2 최소 비용(매출 발생 전 월 고정비 $0) 구독 인프라 아키텍처
+
+매출이 나기 전까지는 **월 고정비 $0**, 유료 결제를 여는 시점에도 **서버·호스팅·DB·결제 고정비는 $0**(데이터 라이선스비만 월 ~$50)으로 맞춘 구성이다.
+
+| 영역 | 현재 구조 | 최소 비용 상용화 구조 | 월 고정비 | 선택 이유 |
+|---|---|---|:---:|---|
+| **웹 호스팅** | Vercel Hobby (`seancho.vercel.app`) | **Cloudflare Pages + Workers** | **$0** | 무료 플랜도 상업적(유료 SaaS) 운영 합법 허용, 대역폭 무제한 무료 |
+| **데이터 저장소** | GitHub 고아 브랜치 (`raw.githubusercontent`) | **Cloudflare R2** (`public/` vs `pro/` 분리) | **$0** | 월 10GB 무료, **데이터 전송량(Egress) 요금 평생 $0** (S3 호환 API) |
+| **일일 배치 연산** | GitHub-hosted Runner | **Mac mini 로컬 실행 (또는 Self-hosted Runner)** | **$0** | 이미 매일 저녁 6시 ET에 켜져 있는 Mac mini에서 직접 실행 후 R2에 업로드하면 GitHub Private 전환 후에도 Actions 비용 $0 |
+| **인증 / 구독 DB** | 없음 | **Supabase (Auth + Postgres Free Tier)** | **$0** | MAU 50,000명까지 무료. 소셜/이메일 로그인 + 유저별 구독 상태(`is_pro`)만 저장 |
+| **결제 & 글로벌 세금** | 없음 | **Lemon Squeezy** (또는 **Paddle / Polar**) | **$0** *(건당 수수료만)* | 월 고정비 $0 (결제 발생 시에만 ~5% + $0.50 차감). **Merchant of Record(MoR)**로서 캐나다 HST/GST, 미국 판매세, 한국 해외전자용역 부가세(VAT)를 대신 정산·납부 |
+| **차트 표시** | TV 자동 스크린샷 캡처 | **TradingView 무료 임베드 위젯** | **$0** | `universe.py`에 이미 준비된 `tv` 심볼을 위젯에 전달. 이미지 저장소 용량 절감 + 약관 준수 |
+| **내부자·재무** | OpenInsider / yfinance | **SEC EDGAR (Form 4 + CompanyFacts)** | **$0** | 미국 정부 공시 데이터(상업 이용 무료). 기존 `scripts/fetch_insider_data.py`, `scripts/build_sec_data.py` 재사용 |
+| **일봉 가격(OHLCV)** | yfinance | 베타까지 유지 → **유료 오픈 직전 Tiingo 상업 플랜** | 베타 **$0** → 유료 시 **~$50** | 유료 결제 오픈 직전에만 스왑. 월 $10~$15 구독자 **4~5명만 확보해도 손익분기점(BEP) 달성** |
+
+---
+
+### 7.3 Paywall(무료 vs 유료 데이터 잠금) 아키텍처 설계
+
+무거운 백엔드 DB 서버를 띄우지 않고, 현재의 **정적 JSON 내보내기 구조**를 그대로 살려 **`public/`(무료 공개)과 `pro/`(유료 구독자 전용) 2단계로 분리**한다.
+
+```mermaid
+flowchart LR
+    subgraph Mac["Mac mini (매일 저녁 배치)"]
+        P["파이프라인 실행<br/>(main / universe / canada)"]
+        E["web_export 분리 생성"]
+        P --> E
+    end
+
+    subgraph R2["Cloudflare R2 ($0/월)"]
+        PUB["/public/*.json<br/>(무료 공개 데이터)"]
+        PRO["/pro/*.json.gz<br/>(구독자 전용 데이터)"]
+    end
+
+    E -->|"S3 API 업로드"| PUB
+    E -->|"S3 API 업로드"| PRO
+
+    subgraph CF["Cloudflare Pages / Edge API ($0/월)"]
+        W["JWT 권한 검증 API"]
+    end
+
+    PUB -->|"누구나 즉시 로드"| U1["무료 유저 브라우저"]
+    PRO -->|"Supabase 세션 확인<br/>(is_pro == true)"| W
+    W -->|"통과 시 전달"| U2["Pro 구독자 브라우저"]
+```
+
+#### Free 티어 vs Pro 구독 티어($9.99~$14.99/월) 상품 구성 전략
+- **법적 방어 핵심**: "돈을 받고 매수할 종목을 추천"하면 한국 유사투자자문업 및 북미 투자자문 규제 리스크가 발생하지만, **"5,000+ 종목 퀀트 필터링 소프트웨어 도구와 공시 데이터 열람 편의성"을 유료로 판매**하면 안전한 소프트웨어 SaaS가 된다.
+- **Free 티어 (`/public/*.json` — $0, 유입·신뢰 확보용)**:
+  - **모의투자(PT-1 vs SPY) 성과 곡선 및 거래 기록 전체 공개**: 대가성 없는 투명한 실험 기록으로 공개해 신뢰 확보 및 규제 회피
+  - **오늘의 시장 요약 (`macro.json`)**: 시장 레짐, 섹터 요약, FOMC 일정
+  - **스크리너 미리보기**: 시장별 상위 3~5개 종목만 예시로 노출 (나머지 행은 잠금 처리)
+- **Pro 구독 티어 (`/pro/*.json.gz` — 월 $9.99~$14.99 / 연 $99)**:
+  - **미국(S&P 500 · NASDAQ · NYSE) 전 종목 무제한 필터링·정렬** (캐나다 TSX·TSXV는 캐나다 상업 시세 공급사 계약 후 포함)
+  - **멀티 타임프레임(일·주·월봉) 기술적 스캐너**: 25종 차트 패턴, Squeeze Momentum(압축·발사), ISB 신호 전체 검색
+  - **공시·수급 통합 데이터 열람**: SEC Form 4 내부자 클러스터 매수 + SEC 10-K 지역별 매출 비중 + SEC N-PORT ETF 보유 종목 + SEC 8-K 공시 경고
+  - **개별 종목 상세(`stocks/{ticker}.json`) 무제한 열람** + 사용자 설정 필터 기준 일일 이메일 다이제스트(일방향 발송)
+
+---
+
+### 7.4 단계별 실행 체크리스트 (비용 $0부터 순차 진행)
+
+- [ ] **Phase 1: 코드 클린업 & 데이터 합법화 (비용 $0)**
+  - [ ] 웹 화면의 차트를 TradingView 무료 임베드 위젯으로 전환하고, 공개용 `screenshots-*` 브랜치 배포 중단 (`CHARTS_ENABLED=False` 또는 본인 시트 전용으로 격리)
+  - [ ] `src/screener/insider.py`의 OpenInsider 스크래핑을 `scripts/fetch_insider_data.py` (SEC Form 4) 기반으로 교체
+  - [ ] `src/screener/fundamentals.py`의 `yfinance.info`를 `scripts/build_sec_data.py` (SEC EDGAR `companyfacts`) 기반으로 교체
+  - [ ] §7.5의 상업 이용 불가 항목(의원 거래 PTR, Yahoo 기업소개 원문·애널리스트 컨센서스, ICE BofA 스프레드 등) 비활성화 또는 대체
+- [ ] **Phase 2: Paywall JSON 분리 & 인프라 $0 이전 (비용 $0)**
+  - [ ] `src/web_export/`에서 무료용(`public/`)과 구독자용(`pro/`) JSON을 분리 생성하도록 수정
+  - [ ] Cloudflare R2 버킷 생성 후 GitHub 고아 브랜치 push 대신 R2로 업로드하도록 스크립트 변경
+  - [ ] Mac mini를 직접 실행(또는 GitHub Self-hosted Runner)으로 전환하고 `sean-ccho/Project_1` 리포지토리를 **Private**으로 전환
+  - [ ] 프론트엔드(`seancho.vercel.app`)를 Cloudflare Pages로 이전 배포
+- [ ] **Phase 3: 인증·결제(MoR)·약관 연결 (고정비 $0)**
+  - [ ] Supabase Auth(구글/이메일 로그인) 및 `subscriptions` 테이블 생성
+  - [ ] Lemon Squeezy(또는 Paddle/Polar) 구독 상품 생성 및 Webhook → Supabase 연동
+  - [ ] Cloudflare Pages Edge API에서 `is_pro == true` 검증 후 R2 `/pro/*` 데이터 반환
+  - [ ] 웹사이트 하단 필수 고지(이용약관, 개인정보처리방침, 비자문·원금손실 면책, 온타리오 NI 31-103 일반 조언 고지) 부착
+- [ ] **Phase 4: 유료 결제 오픈 직전 (월 ~$50)**
+  - [ ] Tiingo 등 상업용 EOD 가격 공급사 서면 확인 및 구독 후 `src/data/fetch.py` 소스 교체
+  - [ ] 결제 스위치(Checkout) 활성화
+
+---
+
+### 7.5 현재 공유 중인 모든 데이터·문구 전수 점검표 (`web_export` 전체 감사, 2026-11-09)
+
+10월 14일 이후 웹사이트(`dashboard.json`, `universe-data`, `canada-data`, `etf.json`, `macro.json`)에 새로 추가된 항목까지 포함하여, **유료 구독(상용화) 시 그대로 공유해도 되는지** 전수 점검한 결과다.
+
+| 공유 항목 | 관련 코드 | 상업 이용 | 문제점 및 해결 방법 |
+|---|---|:---:|---|
+| **국회의원 거래 신고 (House PTR)** | `src/data/congress_trades.py` | ❌ **절대 금지 (연방법 위반)** | **미국 연방법 `5 U.S.C. § 13107(c)`** 에 따라 하원·상원 재산/거래 신고서(PTR)를 **상업적 목적(유료 서비스·마케팅 포함)으로 수집·사용하는 것은 불법**(민·형사 제재 대상, 뉴스 매체만 예외). 코드 주석(`congress_trades.py:8`)에 적어 둔 대로 개인 무료 사이트에만 가능하므로 **상용화 시 반드시 제거**해야 함. |
+| **종목 상세: 애널리스트 의견 수(`rec`)·예상 실적(`eps_est`, `rev_est`)·목표주가** | `src/web_export/stock_detail.py`, `market_summary.py` | ❌ **불가** | 애널리스트 컨센서스(예상 EPS/매출, 매수·매도 의견 수, 목표주가)는 SEC 공시에 없는 **유료 독점 데이터(LSEG/Refinitiv/FactSet 원천)**를 `yfinance`로 가져온 것이라 상업 재배포 불가. **해결:** 예상치·의견 수는 빼고, **실제 발표된 과거 분기 매출·EPS만 SEC EDGAR `companyfacts` (10-Q/10-K)** 로 교체. |
+| **종목 상세: 영문 회사 소개 (`about`)** | `src/web_export/universe.py:174` | ❌ **불가** | `yfinance`의 `longBusinessSummary`는 제3자 데이터 제공사의 저작물 텍스트임. **해결:** 빼거나 SEC 10-K 업종(SIC) 설명 / 자체 요약으로 대체. |
+| **차트 스크린샷 (`charts`, `all_charts`)** | `src/web_export/dashboard.py:523-616` | ❌ **불가** | TradingView 로그인 세션으로 캡처한 PNG/WebP 이미지를 `screenshots-*` 브랜치로 배포 중 (TV 약관 3조 위반). **해결:** 이미지 배포를 끄고 **TradingView 무료 임베드 위젯**으로 교체. |
+| **내부자 매수 (`insider`)** | `src/screener/insider.py`, `dashboard.py:248` | ❌ **교체 필요** | OpenInsider 스크래핑 결과. **해결:** 이미 구현해 둔 **SEC Form 4 직접 파서(`scripts/fetch_insider_data.py`)** 로 연결하면 ✅ 합법. |
+| **공매도 잔고·숏스퀴즈 (`short`, `squeeze`)** | `src/screener/short_squeeze.py` | ⚠️ **위험** | FINRA API + Nasdaq 비공개 API(브라우저 UA 위장) + `yfinance` 유통주식 수 결합. FINRA 및 거래소 공매도 데이터는 상업적 재배포 시 별도 라이선스를 요구함. **해결:** 상용 v1에서는 제외 권장. |
+| **ETF 기본정보·보유종목 (`etf.json`, `etf_detail.json`)** | `src/screener/etf_scan.py`, `src/data/etf_holdings.py` | ⚠️ **절반만 가능** | `etf_holdings.py`가 **SEC N-PORT 공시**에서 직접 뽑는 보유 종목·비중은 ✅ **100% 합법·무료**. 반면 `yfinance Ticker.funds_data`에서 가져오는 설명·채권 등급·보수율은 ❌ Yahoo 원천이므로 상용화 시 SEC N-PORT + 자체 계산 수익률/변동성만 남길 것. |
+| **매크로·금리 (`macro.json`)** | `src/screener/macro_scan.py`, `src/data/rate_calendar.py` | ⚠️ **1개 지표만 제외** | 미 연준·노동부·재무부 데이터(`UNRATE`, `ICSA`, `T10Y3M`, `DFEDTARU`, FOMC 일정)와 캐나다 중앙은행(`BoC Valet`, 출처 표기 시)은 ✅ **합법**. 단, **하이일드 스프레드(`BAMLH0A0HYM2`)** 는 FRED에 있더라도 원 저작권이 **ICE Data Indices(ICE BofA)** 에 있어 상업 재배포가 금지됨 → **국채 금리차 등으로 대체하거나 제거**. |
+| **캐나다 전체분석 (`canada-scan.yml`)** | `src/run_universe_scan.py --market ca` | ⚠️ **보류 권장** | 미국 주식은 SEC EDGAR(무료) + Tiingo($50/월)로 해결되지만, 캐나다(TSX/TSXV)는 무료 재무 공시 API가 없고 Tiingo 기본 플랜에 캐나다 시세가 포함되지 않음. **해결:** 최소 비용 상용화 v1에서는 미국 주식만 유료 서비스로 먼저 출시. |
+| **지역별 매출 (`geo_revenue`) · 공시 경고 (`sec_flags`) · 실적 발표 후 움직임 (`earnings_move`)** | `src/data/geo_revenue.py`, `src/screener/sec_filings.py`, `src/screener/earnings_moves.py` | ✅ **완전 합법** | SEC 10-K / 8-K 원문에서 직접 추출한 데이터 + 자체 계산 파생 통계이므로 상업 이용에 **아무 문제 없음** (핵심 차별화 포인트). |
+| **자체 기술 지표 (`score`, `patterns`, `ma_gap`, `isb`, `sqzmom`, `spark_w`)** | `src/screener/features.py`, `patterns.py`, `web_export/*` | ✅ **가능** *(시세 라이선스 전환 후)* | 전부 직접 작성한 수식·알고리즘으로 계산한 **파생 지표(Derived Data)**. 원천 일봉(OHLCV)만 상업 플랜(Tiingo 등)으로 바꾸면 그대로 공개 가능. 주봉 미니차트(`spark_w`)도 가격 숫자가 아닌 정규화(0~63) 모양 문자열이라 유리함. |
+| **화면 표시 문구 (`판단`: `'매수 후보'`, `추천`: `'적극 매수'`, 목표가·손절가)** | `src/web_export/dashboard.py:209-210, 498-505` | ⚠️ **문구 수정 필수 (규제 방어)** | 유료 구독 화면에 **"추천: 적극 매수 / 매수 후보"** 나 **"목표가 / 손절가"** 를 그대로 노출하면 한국 유사투자자문업 및 북미 투자자문 규제의 타깃이 될 수 있음.<br/>**해결 (중립적 용어로 변경):**<br/>· `매수적합도` → **`퀀트 스코어`** / **`팩터 점수`**<br/>· `추천: 적극 매수 / 매수 후보` → **`신호 강도: Tier 1 / 필터 충족`**<br/>· 보유 종목 `exit.up / down` → **`모의투자 봇 규칙 기준선 (참고용)`** 으로 명시. |
+
+#### 7.5.1 Q&A: "문제 되는 데이터는 무료(Free) 탭에 풀고, 다른 기능만 유료(Pro)로 팔면 해결될까?"
+
+결론: **금융 규제(유사투자자문업)에는 매우 효과적인 전략이지만, 데이터 저작권·연방법 위반 항목에는 통하지 않는다.**
+
+| 구분 | 무료(Free)로 빼면 해결되나? | 이유 및 최적 처리 방법 |
+|---|:---:|---|
+| **① 금융 규제 영역**<br/>*(모의투자 PT-1 종목·매매 내역 공개)* | **⭕ 해결됨 (강력 추천)** | 한국 유사투자자문업 등은 **"대가를 받고"** 투자 판단을 제공할 때 성립한다. 따라서 **PT-1 모의투자 기록·후보 목록은 로그인/결제 없이 100% 무료로 공개**하고, 유료(Pro)는 **"사용자가 직접 조건을 조합해 검색하는 스크리너 필터 도구 · 멀티타임프레임 패턴 검색 · SEC 공시 열람 · 알림"** 기능에만 과금하면 '종목 추천'이 아닌 '소프트웨어 도구(SaaS) 구독'이 되어 규제 방어력이 크게 높아진다. *(단, "유료 결제 시 더 좋은 추천 종목 제공" 같은 광고는 절대 금지)* |
+| **② 미국 연방법 영역**<br/>*(국회의원 거래 신고 `congress_trades.py`)* | **❌ 해결 안 됨 (우회 불가)** | `5 U.S.C. § 13107(c)`는 의원 거래 신고서를 **(B) 상업적 목적**으로 쓰는 것뿐 아니라 **(D) 직·간접적으로 금전(구독료 등)을 유인하는 데 사용하는 행위**까지 모두 금지한다. 사이트 내에 유료 결제가 존재하면 무료 탭에 두더라도 '유료 전환을 위한 트래픽 미끼(간접적 영리 목적)'로 간주되므로, 상용 사이트에서는 반드시 제외해야 한다 (본인만 보는 시트·이메일에만 유지). |
+| **③ 제3자 독점 데이터·약관 영역**<br/>*(Yahoo 애널리스트 예상치·기업소개, ICE 스프레드, FINRA 공매도)* | **❌ 해결 안 됨** | 데이터 약관의 "비상업적(Personal, non-commercial)" 기준은 **해당 기능을 유료로 파느냐가 아니라, 수익 모델이 있는 웹사이트(Freemium 포함)에 공개 재배포(Public Redistribution)하느냐**로 판단한다. 따라서 무료 탭에 두어도 약관 위반·저작권 침해 소지는 동일하다. |
+| **④ $0 대체가 가능한 영역**<br/>*(OpenInsider 내부자, Yahoo 재무, TV 캡처)* | **무료로 숨길 필요 없음 ($0 합법 전환)** | 이미 무료·합법 대안(**SEC Form 4**, **SEC EDGAR `companyfacts`**, **TradingView 무료 공식 위젯**)이 준비되어 있으므로, 소스를 교체한 뒤 당당하게 **유료(Pro) 핵심 기능**으로 넣으면 된다. |
+
+
+
