@@ -476,3 +476,31 @@ def test_send_ntfy_json_payload(monkeypatch):
     assert aw.send_ntfy("t", "내계좌 11:07", "본문", priority=2)
     assert seen["url"] == aw.NTFY_URL and seen["topic"] == "t" and seen["title"] == "내계좌 11:07"
     assert seen["priority"] == 2 and seen["click"] == aw.ACCOUNT_URL
+
+
+# ── 캐나다 접미사 · 분할 (2026-11-18) ─────────────────────────────────────────
+
+def test_rows_add_canadian_suffix_from_exchange():
+    values = [["티커", "거래소", "매수가"], ["t", "TSX", "20"], ["NVA", "TSXV", "1"], ["AAPL", "NASDAQ", "200"], ["RY.TO", "TSX", "270"]]
+    assert [r["티커"] for r in aw._rows_from_values(values)] == ["T.TO", "NVA.V", "AAPL", "RY.TO"]
+
+
+def test_split_basis_alert_scales_quote_and_suppresses_fake_stop():
+    # 4:1 분할 (11-16) — 시트는 분할 전 매수가 80 · 손절 72, 지금 가격 19.6 (= 분할 전 78.4)
+    rows = [{"티커": "EMBJ", "매수가": "80", "수량": "10", "매수일": "2026-11-02", "손절가": "72"}]
+    quotes = {"EMBJ": _q(19.6, prev=19.9)}
+    alerts = aw.split_basis_alerts(rows, quotes, {"EMBJ": [("2026-11-16", 4.0)]}, date(2026, 11, 18))
+    assert [a["kind"] for a in alerts] == ["split"] and "4:1 분할 (2026-11-16)" in alerts[0]["text"]
+    assert quotes["EMBJ"].price == pytest.approx(78.4) and quotes["EMBJ"].prev_close == pytest.approx(79.6)
+    assert not [a for a in aw.build_watch_alerts(rows, [], quotes) if a["kind"] in ("stop", "near")]
+
+
+def test_split_basis_left_alone_when_sheet_already_fixed():
+    # 사용자가 증권사 기준(매수가 20 · 40주)으로 고쳐 둠 → 그대로
+    rows = [{"티커": "EMBJ", "매수가": "20", "수량": "40", "매수일": "2026-11-02", "손절가": "18"}]
+    quotes = {"EMBJ": _q(19.6)}
+    assert aw.split_basis_alerts(rows, quotes, {"EMBJ": [("2026-11-16", 4.0)]}, date(2026, 11, 18)) == []
+    assert quotes["EMBJ"].price == 19.6
+    # 매수 전 분할은 상관없다
+    rows2 = [{"티커": "AAPL", "매수가": "200", "수량": "1", "매수일": "2026-10-01"}]
+    assert aw.split_basis_alerts(rows2, {"AAPL": _q(350)}, {"AAPL": [("2020-08-31", 4.0)]}, date(2026, 11, 18)) == []

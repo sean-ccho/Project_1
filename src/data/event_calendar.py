@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 import pandas as pd
@@ -60,6 +61,13 @@ FRED_API_URL = ("https://api.stlouisfed.org/fred/release/dates?release_id={rid}&
 STATCAN_URL = "https://www150.statcan.gc.ca/n1/dai-quo/ssi/homepage/schedule-key_indicators-eng.json"
 STATCAN_PAGE = "https://www150.statcan.gc.ca/n1/dai-quo/cal1-eng.htm"
 STATCAN_TITLES = {"Consumer Price Index": "ca_cpi", "Labour Force Survey": "ca_jobs"}
+# 저장해 둔 StatCan 일정 (CPI · LFS 만) — GitHub 러너에서는 StatCan 이 403 을 줘서(Mac 에서는 200) 11-06 부터 캐나다 CPI · 고용
+# 발표일이 일정 표에 빠져 있었다 (2026-11-18 사이트 점검). 받기에 실패하면 이 목록을 쓴다. 다시 받기 (Mac 에서):
+#   curl -s -A "Mozilla/5.0" "$STATCAN_URL" | python3 -c "import json,sys; d=[e for e in json.load(sys.stdin)
+#     if e.get('title') in ('Consumer Price Index','Labour Force Survey')]; print(json.dumps(sorted(d, key=lambda e: e['date']),
+#     ensure_ascii=False, separators=(',',':')))" > src/data/statcan_schedule.json
+STATCAN_FALLBACK = Path(__file__).with_name("statcan_schedule.json")
+STATCAN_FALLBACK_WARN_DAYS = 60   # 저장 목록에 앞으로 이 날 수 안의 발표가 없으면 '다시 받아야 함' 경고
 FOMC_SRC = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
 BOC_SRC = "https://www.bankofcanada.ca/core-functions/monetary-policy/key-interest-rate/"
 MINUTES_LAG_DAYS = 21          # 연준은 결정 3주 뒤 수요일 14:00 에 의사록을 낸다
@@ -334,9 +342,16 @@ def build_events(today: date, fomc: list[tuple[str, str, bool]], boc: list[tuple
                     hist[key] = parse_fred_api_dates(get(FRED_API_URL.format(rid=rid, key=fred_key)))
                 except Exception as exc:  # noqa: BLE001
                     errors.append(f"FRED API {key}: {str(exc)[:120]}")
-        # 캐나다 지표 — StatCan
+        # 캐나다 지표 — StatCan (못 받으면 저장 목록)
         try:
-            sc = parse_statcan(get(STATCAN_URL))
+            try:
+                sc = parse_statcan(get(STATCAN_URL))
+            except Exception as exc:  # noqa: BLE001
+                sc = parse_statcan(STATCAN_FALLBACK.read_bytes())
+                errors.append(f"StatCan 일정(저장 목록 사용): {str(exc)[:80]}")
+                ahead = [d for rows in sc.values() for d, _x in rows if today <= d <= today + timedelta(days=STATCAN_FALLBACK_WARN_DAYS)]
+                if not ahead:
+                    errors.append(f"StatCan 저장 목록: {STATCAN_FALLBACK_WARN_DAYS}일 안 발표일이 없음 — Mac 에서 다시 받기")
             for key, rows in sc.items():
                 for d, desc in rows:
                     add(_event(d, key, note_ko=period_ko(desc), note_en=desc, src=STATCAN_PAGE))

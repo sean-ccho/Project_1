@@ -33,7 +33,9 @@ import os
 import smtplib
 import time
 from dataclasses import asdict
+import math
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
@@ -327,6 +329,43 @@ def is_sample(rec: dict[str, str]) -> bool:
     return str(rec.get("메모", "") or "").strip().startswith(SAMPLE_MEMO_PREFIX)
 
 
+CA_SUFFIX = {"TSX": ".TO", "TSXV": ".V", "TSX-V": ".V", "CSE": ".CN", "NEO": ".NE"}
+
+
+def market_ticker(ticker: str, exchange: str = "") -> str:
+    """캐나다 거래소인데 접미사가 없는 티커 → Yahoo 티커 (사이트 lib/account marketTicker 와 같은 규칙, 2026-11-18 —
+    시트에 'T' + TSX 로 적으면 AT&T(미국) 가격으로 평가 · 알림했다)."""
+    t = ticker.strip().upper()
+    sfx = CA_SUFFIX.get(exchange.strip().upper())
+    return f"{t}{sfx}" if sfx and t and "." not in t else t
+
+
+def split_basis(recs: list[dict[str, str]], price: Optional[float], splits: list[tuple[str, float]],
+                today: date) -> tuple[float, str]:
+    """시트 매수가가 아직 분할 전 기준인가 → (지금 가격에 곱할 비율, 설명). 아니면 (1.0, "") (2026-11-18).
+
+    매수일 뒤 · 오늘까지의 분할이 있고, 지금 가격 × 비율이 시트 매수가에 지금 가격보다 가까우면 분할 전 기준으로 본다
+    (4:1 분할이면 지금 가격은 1/4 이라 그대로 비교하면 가짜 '손절가 아래'). 증권사 기준으로 시트를 고쳐 두면 1.0.
+    """
+    buys = [b for b in (_to_float(r.get("매수가")) for r in recs) if b and b > 0]
+    if not price or price <= 0 or not buys or not splits:
+        return 1.0, ""
+    dates = [pd.to_datetime(str(r.get("매수일", "")).replace(". ", "-").rstrip("."), errors="coerce") for r in recs]
+    dates = [d.date() for d in dates if not pd.isna(d)]
+    first = min(dates) if dates else None
+    pend = [(d, r) for d, r in splits if r > 0 and abs(r - 1) > 1e-9
+            and (first is None or d > first.isoformat()) and d <= today.isoformat()]
+    if not pend:
+        return 1.0, ""
+    cum = math.prod(r for _d, r in pend)
+    buy = sum(buys) / len(buys)
+    if abs(math.log(price * cum / buy)) >= abs(math.log(price / buy)):
+        return 1.0, ""
+    from data.validators import split_label
+
+    return cum, ", ".join(f"{split_label(r)} 분할 ({d})" for d, r in pend)
+
+
 def fetch_my_tickers() -> tuple[list[str], dict[str, int], list[dict[str, str]]]:
     """'내계좌' 시트에서 보유 중 티커 목록, 각 티커의 행 번호(1-based), 행 내용(머리글 → 값)을 반환한다.
 
@@ -371,6 +410,9 @@ def fetch_my_tickers() -> tuple[list[str], dict[str, int], list[dict[str, str]]]
         ticker = row[ticker_col_idx].strip().upper() if len(row) > ticker_col_idx else ""
         if ticker and ticker not in ("", "샘플"):
             rec = {h: (row[i] if i < len(row) else "") for i, h in enumerate(header) if h}
+            # 캐나다 거래소인데 접미사가 없으면 .TO · .V — 가격 · 알림 · 시트 쓰기가 모두 이 티커를 쓴다 (시트 칸은 그대로)
+            ticker = market_ticker(ticker, rec.get("거래소", ""))
+            rec[MY_ACCOUNT_TICKER_COLUMN] = ticker
             rec["_row"] = str(row_idx)
             rec["_closed"] = "1" if is_closed(rec) else ""
             rec["_sample"] = "1" if is_sample(rec) else ""
@@ -552,7 +594,7 @@ def _next_earnings(ticker: str) -> Optional[str]:
     try:
         cal = yf.Ticker(ticker).calendar
         dates = cal.get("Earnings Date") if isinstance(cal, dict) else None
-        today = datetime.now(tz=timezone(timedelta(hours=-4))).date()
+        today = datetime.now(tz=ZoneInfo("America/Toronto")).date()
         future = sorted(d for d in (dates or []) if hasattr(d, "year") and d >= today)
         return future[0].isoformat() if future else None
     except Exception as exc:  # noqa: BLE001 — 실적일은 없어도 리포트는 계속
@@ -642,7 +684,7 @@ def update_sheet_with_indicators(
         return
 
     ws = _get_or_create_worksheet(sheet)
-    now_str = datetime.now(tz=timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M EDT")
+    now_str = datetime.now(tz=ZoneInfo("America/Toronto")).strftime("%Y-%m-%d %H:%M %Z")
     header = _ensure_headers(ws, ws.row_values(1), MY_ACCOUNT_HEADERS)
     col = {h: i + 1 for i, h in enumerate(header) if h}
 
@@ -735,7 +777,7 @@ def update_watchlist(sheet) -> list[dict[str, str]]:
         return []
     header = _ensure_headers(ws, values[0], WATCH_HEADERS)
     col = {h: i + 1 for i, h in enumerate(header) if h}
-    now_str = datetime.now(tz=timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M EDT")
+    now_str = datetime.now(tz=ZoneInfo("America/Toronto")).strftime("%Y-%m-%d %H:%M %Z")
     prices: dict[str, Optional[float]] = {}
     data: list[dict] = []
     alerts: list[dict[str, str]] = []
@@ -780,10 +822,25 @@ def update_watchlist(sheet) -> list[dict[str, str]]:
     return alerts
 
 
-def build_alerts(records: list[dict[str, str]], ticker_results: dict[str, dict], today=None) -> tuple[list[dict[str, str]], list[str]]:
-    """보유 종목 알림 (손절가 아래·근접, 목표가 도달, 실적 임박) + 손절가가 비어 있는 티커 목록."""
-    today = today or datetime.now(tz=timezone(timedelta(hours=-4))).date()
+def build_alerts(records: list[dict[str, str]], ticker_results: dict[str, dict], today=None,
+                 splits: Optional[dict[str, list[tuple[str, float]]]] = None) -> tuple[list[dict[str, str]], list[str]]:
+    """보유 종목 알림 (손절가 아래·근접, 목표가 도달, 실적 임박) + 손절가가 비어 있는 티커 목록.
+
+    splits = 보유 종목 분할 기록 (paper_trading.portfolio.fetch_splits). 시트 매수가가 분할 전 기준이면 손절 · 목표가 비교를
+    분할 전 가격으로 환산해 하고 '분할 — 시트를 고쳐 주세요' 알림을 한 번 붙인다 (가짜 '손절가 아래' 방지, 2026-11-18).
+    """
+    today = today or datetime.now(tz=ZoneInfo("America/Toronto")).date()
     alerts: list[dict[str, str]] = []
+    basis: dict[str, float] = {}
+    for t in sorted({str(r.get("티커", "")).strip().upper() for r in records if not r.get("_closed") and not r.get("_sample")}):
+        recs = [r for r in records if str(r.get("티커", "")).strip().upper() == t]
+        price0 = ticker_results.get(t, {}).get("_price")
+        f, why = split_basis(recs, price0, (splits or {}).get(t, []), today)
+        if f != 1.0:
+            basis[t] = f
+            alerts.append({"kind": "split", "ticker": t,
+                           "text": f"{t} {why} — 시트 매수가 · 수량 · 손절가가 분할 전 기준이에요. 알림은 지금 가격 "
+                                   f"${price0:,.2f} 를 분할 전 ${price0 * f:,.2f} 로 바꿔 계산했어요. 증권사 기준으로 시트를 고쳐 주세요"})
     no_stop: list[str] = []
     seen_earn: set[str] = set()
     seen_sec: set[str] = set()
@@ -797,6 +854,8 @@ def build_alerts(records: list[dict[str, str]], ticker_results: dict[str, dict],
         ticker = str(rec.get("티커", "")).strip().upper()
         res = ticker_results.get(ticker, {})
         price = res.get("_price")
+        if price is not None and ticker in basis:
+            price = price * basis[ticker]   # 시트가 분할 전 기준 — 같은 기준으로 비교
         stop = _to_float(rec.get("손절가"))
         if stop is None:
             if ticker not in no_stop:
@@ -839,7 +898,8 @@ def build_alerts(records: list[dict[str, str]], ticker_results: dict[str, dict],
     return alerts, no_stop
 
 
-_ALERT_ICON = {"stop": "🛑", "near": "⚠️", "target": "🎯", "earn": "📅", "watch": "🎯", "sec": "📄", "squeeze": "🔥"}
+_ALERT_ICON = {"stop": "🛑", "near": "⚠️", "target": "🎯", "earn": "📅", "watch": "🎯", "sec": "📄", "squeeze": "🔥",
+               "split": "✂️"}
 
 
 def squeeze_alerts(tickers: list[str], watch=None) -> list[dict[str, str]]:
@@ -1025,8 +1085,8 @@ td.tf-row-label{
 
 def build_html_report(ticker_results: dict[str, dict[str, dict]], alerts: Optional[list[dict[str, str]]] = None,
                       no_stop: Optional[list[str]] = None) -> str:
-    now_edt = datetime.now(tz=timezone(timedelta(hours=-4)))
-    date_str = now_edt.strftime("%Y-%m-%d %H:%M EDT")
+    now_edt = datetime.now(tz=ZoneInfo("America/Toronto"))
+    date_str = now_edt.strftime("%Y-%m-%d %H:%M %Z")
     n_tickers = len(ticker_results)
 
     body = f"""<!DOCTYPE html>
@@ -1219,7 +1279,14 @@ def run_portfolio_report() -> bool:
     update_sheet_with_indicators(ticker_results, rows_by_ticker or row_map)
 
     # 4. 알림 (손절가·실적 임박·관심종목 목표가) + HTML 이메일 빌드 & 발송
-    alerts, no_stop = build_alerts(records, ticker_results)
+    try:   # 보유 종목 분할 (시트가 분할 전 기준이면 알림을 같은 기준으로) — 못 받아도 알림은 그대로
+        from paper_trading.portfolio import fetch_splits
+        held_splits = fetch_splits(sorted({str(r.get("티커", "")).strip().upper() for r in records
+                                           if not r.get("_closed") and not r.get("_sample")}))
+    except Exception as exc:  # noqa: BLE001
+        print(f"[내계좌] 분할 확인 실패 (건너뜀): {exc}")
+        held_splits = {}
+    alerts, no_stop = build_alerts(records, ticker_results, splits=held_splits)
     alerts += update_watchlist(_open_sheet())
     alerts += squeeze_alerts(tickers)
     for a in alerts:

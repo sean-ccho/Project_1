@@ -325,3 +325,22 @@ def test_sample_rows_are_excluded_but_kept_in_records(monkeypatch):
     assert cell[f"{col('상태')}4"] == "보유 중"
     assert cell[f"{col('현재가')}2"] == ""                  # 더는 갱신 안 하니 옛 값 지움
     assert not any(k == f"{col('현재가')}4" for k in cell)
+
+
+# ── 캐나다 접미사 · 분할 (2026-11-18) ─────────────────────────────────────────
+
+def test_market_ticker_suffix_by_exchange():
+    from screener.portfolio_report import market_ticker
+    assert market_ticker("t", "TSX") == "T.TO" and market_ticker("NVA", "tsxv") == "NVA.V"
+    assert market_ticker("RY.TO", "TSX") == "RY.TO" and market_ticker("AAPL", "NASDAQ") == "AAPL"
+
+
+def test_build_alerts_split_basis_no_fake_stop():
+    from datetime import date
+    from screener.portfolio_report import build_alerts
+    recs = [{"티커": "EMBJ", "매수가": "80", "수량": "10", "매수일": "2026. 11. 2", "손절가": "72"}]
+    res = {"EMBJ": {"_price": 19.6}}
+    plain, _ = build_alerts(recs, res, today=date(2026, 11, 18))
+    assert [a["kind"] for a in plain] == ["stop"]                    # 분할을 모르면 가짜 '손절가 아래'
+    fixed, _ = build_alerts(recs, res, today=date(2026, 11, 18), splits={"EMBJ": [("2026-11-16", 4.0)]})
+    assert [a["kind"] for a in fixed] == ["split"] and "$78.40" in fixed[0]["text"]

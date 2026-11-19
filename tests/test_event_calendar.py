@@ -178,3 +178,21 @@ def test_event_rows_in_sheet() -> None:
     assert rows[1]["설명"] == "캐나다"
     f = sheet_frame({"as_of": "2026-11-06", "indicators": [], "rates": {}, "events": events})
     assert list(f["구분"]) == ["", "주요 일정", "주요 일정"]
+
+
+def test_statcan_blocked_uses_saved_schedule() -> None:
+    """GitHub 러너에서 StatCan 이 403 (2026-11-18) — 저장 목록(src/data/statcan_schedule.json)으로 캐나다 CPI · 고용 일정."""
+    today = date(2026, 11, 18)
+
+    def get(url: str) -> bytes:
+        raise RuntimeError("403 Client Error: Forbidden")
+
+    errors: list[str] = []
+    ev = ec.build_events(today, [], [], get=get, prices=_prices(), errors=errors)
+    ca = {(e["key"], e["date"]) for e in ev if e["key"] in ("ca_cpi", "ca_jobs")}
+    assert ("ca_jobs", "2026-12-04") in ca and ("ca_cpi", "2026-12-14") in ca
+    assert any(x.startswith("StatCan 일정(저장 목록 사용)") for x in errors)
+    assert not any("다시 받기" in x for x in errors)                   # 60일 안 발표일이 있다
+    late: list[str] = []
+    ec.build_events(date(2027, 6, 1), [], [], get=get, prices=_prices(), errors=late)
+    assert any("다시 받기" in x for x in late)                          # 저장 목록이 2027-03 까지라 6월엔 경고

@@ -27,7 +27,7 @@ import os
 import re
 import smtplib
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -50,7 +50,7 @@ from screener.config import (
     SMTP_SERVER,
 )
 from screener.portfolio_report import (STOP_NEAR_PCT, WATCHLIST_WORKSHEET, _open_sheet, _to_float, is_closed,
-                                       is_sample)
+                                       is_sample, market_ticker, split_basis)
 from screener.earnings_moves import alert_stage, alert_text, decision_of, stats_from_sheet
 from screener.watch_news import Headline, headlines
 from screener.watch_sec import ICON as SEC_ICON
@@ -68,7 +68,7 @@ ACCOUNT_URL = "https://seancho.vercel.app/quant/account"
 CAD_EXCHANGES = ("TSX", "TSXV", "CSE")
 _CAD_SUFFIX = re.compile(r"\.(V|TO|CN|NE)$")
 
-_ICON = {"stop": "🛑", "near": "⚠️", "target": "🎯", "up": "🚀", "down": "📉", "watch": "👀", "earn": "📅"}
+_ICON = {"stop": "🛑", "near": "⚠️", "target": "🎯", "up": "🚀", "down": "📉", "watch": "👀", "earn": "📅", "split": "✂️"}
 
 
 # ---------------------------------------------------------------------------
@@ -124,6 +124,8 @@ def _rows_from_values(values: list[list[str]], ticker_col: str = "티커") -> li
         rec = {h: (str(row[i]).strip() if i < len(row) else "") for i, h in enumerate(header) if h}
         ticker = rec.get(ticker_col, "").upper()
         if ticker and ticker != "샘플":
+            # 캐나다 거래소인데 접미사가 없으면 .TO · .V (2026-11-18 — 'T' + TSX 가 AT&T 시세로 알림됐다)
+            ticker = market_ticker(ticker, rec.get("거래소", ""))
             rec[ticker_col] = ticker
             out.append(rec)
     return out
@@ -221,11 +223,40 @@ def fetch_quotes(tickers: list[str], today: date) -> dict[str, Quote]:
     symbols = {t: _yf_symbol(t) for t in dict.fromkeys([*tickers, "SPY"])}
     try:
         df = yf.download(list(dict.fromkeys(symbols.values())), period="5d", interval="1d", auto_adjust=False,
-                         group_by="ticker", progress=False, threads=True)
+                         group_by="ticker", progress=False, threads=True, actions=True)
     except Exception as exc:
         print(f"[계좌감시] 시세 받기 실패: {exc}")
         return {}
+    try:   # Yahoo 가 아직 반영 안 한 분할 — 분할 첫날 전일 종가가 분할 전이면 가짜 '−75% 급락' 알림 (2026-11-18)
+        from data.validators import repair_unapplied_splits
+        if isinstance(df.columns, pd.MultiIndex):
+            df = repair_unapplied_splits(df)[0]
+    except Exception as exc:  # noqa: BLE001
+        print(f"[계좌감시] 분할 보정 건너뜀: {exc}")
     return quotes_from_frame(df, symbols, today)
+
+
+def split_basis_alerts(rows: list[dict[str, str]], quotes: dict[str, "Quote"],
+                       splits: dict[str, list[tuple[str, float]]], today: date) -> list[dict[str, str]]:
+    """시트 매수가가 분할 전 기준인 보유 종목 — 시세를 분할 전 가격으로 바꿔(quotes 를 그 자리에서) 손절 · 목표가 · 요약을 시트와
+    같은 기준으로 만들고, '분할 — 시트를 고쳐 주세요' 알림 (portfolio_report.split_basis 와 같은 판정, 2026-11-18)."""
+    out: list[dict[str, str]] = []
+    for t in sorted({r.get("티커", "").upper() for r in rows}):
+        q = quotes.get(t)
+        if q is None or t not in splits:
+            continue
+        f, why = split_basis([r for r in rows if r.get("티커", "").upper() == t], q.price, splits[t], today)
+        if f == 1.0:
+            continue
+        sc = lambda v: None if v is None else v * f  # noqa: E731
+        quotes[t] = replace(q, price=q.price * f, prev_close=sc(q.prev_close), day_high=sc(q.day_high),
+                            day_low=sc(q.day_low), day_open=sc(q.day_open))
+        cad = any(is_cad(t, r.get("거래소", "")) for r in rows if r.get("티커", "").upper() == t)
+        out.append({"kind": "split", "ticker": t, "key": f"split:{t}:{why}",
+                    "text": f"{_ICON['split']} {t} {why} — 시트 매수가 · 수량 · 손절가가 분할 전 기준이에요. 알림 · 요약은 지금 가격 "
+                            f"{_money(q.price, cad)} 를 분할 전 {_money(q.price * f, cad)} 로 바꿔 계산했어요. "
+                            "증권사 기준으로 시트를 고쳐 주세요"})
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -575,7 +606,13 @@ def run(state_path: Optional[Path] = None, force: bool = False, dry_run: bool = 
     if missing:
         print(f"[계좌감시] 시세 없음: {missing}")
 
-    alerts = build_watch_alerts(rows, watch, quotes)
+    try:   # 보유 종목 분할 — 시트가 분할 전 기준이면 시세를 같은 기준으로 (못 받으면 그대로)
+        from paper_trading.portfolio import fetch_splits
+        split_alerts = split_basis_alerts(rows, quotes, fetch_splits(sorted({r["티커"] for r in rows})), today)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[계좌감시] 분할 확인 실패 (건너뜀): {exc}")
+        split_alerts = []
+    alerts = split_alerts + build_watch_alerts(rows, watch, quotes)
     alerts += earnings_alerts(rows, quotes, today)
     sec_sent = set(state["sec_sent"])
     alerts += sec_alerts(fetch_new_filings(tickers, today, sec_sent), rows, quotes)  # 새 공시는 이미 안 알린 것만 온다
