@@ -8,9 +8,10 @@
 국회의원 거래(congress.json). dashboard.json · etf.json · macro.json 은 Run Screener 가 이 작업보다 늦게(새벽 2~3시쯤)
 만들어서 여기서는 못 본다 — 사이트가 그 파일을 읽을 때 같은 칸을 직접 센다.
 
-칸 = {key, label, got, want?, floor?, zero_red?, prev?}
+칸 = {key, label, got, want?, floor?, zero_red?, prev?, max?, note?}
 - want 가 있으면: got 0 이면 실패, got/want 가 floor 밑이면 일부만
-- want 가 없으면: zero_red 이고 0 이면 실패, 지난 밤 got(prev)의 80% 밑이면 일부만
+- max 가 있으면: got 이 max 를 넘으면 일부만 (이상값 칸 — note 에 종목)
+- 둘 다 없으면: zero_red 이고 0 이면 실패, 지난 밤 got(prev)의 80% 밑이면 일부만
 파일 = {label, date, generated, rows, missing?, stale?} — missing = 파일 없음 · stale = 12시간 넘게 지난 파일
 (그 단계가 실패해 전날 파일이 남은 것). 둘 다 실패.
 """
@@ -41,6 +42,10 @@ VM_FLOOR = 0.5  # 예측 모델 계산된 종목 ÷ 대상 (11-11 로컬 433/513
 # S&P 499/500 · 나스닥·NYSE 94% · 캐나다 85%). 은행 · 펀드 · 소형주는 Yahoo 재무가 적어 원래 '자료 부족'이 있다.
 # 신규상장(47%) · 번외(1종목)는 비율 대신 숫자만 — 지난 밤의 80% 밑이면 일부만
 HEALTH_FLOOR = {"sp500": 0.95, "nasdaq": 0.85, "ca": 0.75}
+# 이상값 (2026-11-18) — 시총 $10B 이상인데 하루 ±50%. 11-17 EMBJ($13B) 4:1 분할을 Yahoo 가 늦게 반영해 −76% 였다.
+# 분할 보정(data.validators.repair_unapplied_splits) 뒤에도 남으면 사람이 볼 것. 소형주 실제 급등(SLS +156%, $3.9B)은 안 센다.
+JUMP_MIN_CAP = 10e9
+JUMP_ABS = 0.5
 US_FILES = (("sp500", "전체분석 · S&P 500"), ("nasdaq", "전체분석 · 나스닥·NYSE"), ("new", "전체분석 · 신규상장"),
             ("extra", "전체분석 · 번외"))
 LEVELS = ("green", "yellow", "red")
@@ -65,7 +70,7 @@ def load_json(path: Path | None) -> Any | None:
 
 
 def row(key: str, label: str, got: int, want: int | None = None, *, floor: float | None = None,
-        zero_red: bool = False) -> dict[str, Any]:
+        zero_red: bool = False, max_ok: int | None = None, note: str | None = None) -> dict[str, Any]:
     """칸 하나 — 사이트 목록에 보이는 말 그대로의 이름."""
     out: dict[str, Any] = {"key": key, "label": label, "got": int(got)}
     if want is not None:
@@ -73,17 +78,42 @@ def row(key: str, label: str, got: int, want: int | None = None, *, floor: float
         out["floor"] = FLOOR_FULL if floor is None else floor
     if zero_red:
         out["zero_red"] = True
+    if max_ok is not None:
+        out["max"] = int(max_ok)
+    if note:
+        out["note"] = note
     return out
 
 
-def stock_rows(items: Iterable[Mapping[str, Any]], *, insider: bool,
+def _num(v: Any) -> float | None:
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return None
+    return x if x == x else None
+
+
+def jump_row(xs: list[Mapping[str, Any]], names: list[str]) -> dict[str, Any]:
+    """이상값 칸 — 시총 $10B+ 인데 하루 ±50% (사이트 lib/dataStatus.ts jumpRow 와 같은 규칙)."""
+    hits = []
+    for t, x in zip(names, xs):
+        r, cap = _num(x.get("ret_1d")), _num((x.get("fundamentals") or {}).get("market_cap"))
+        if r is not None and cap is not None and cap >= JUMP_MIN_CAP and abs(r) >= JUMP_ABS:
+            hits.append((t, r))
+    note = ", ".join(f"{t} {r:+.0%}" for t, r in sorted(hits, key=lambda h: -abs(h[1]))[:5])
+    return row("jump", "하루 ±50% (시총 $10B+)", len(hits), max_ok=0, note=note or None)
+
+
+def stock_rows(items: Iterable[Mapping[str, Any]] | Mapping[str, Mapping[str, Any]], *, insider: bool,
                health_floor: float | None = None) -> list[dict[str, Any]]:
     """종목 목록 → 종목 수 · 가격 · ISB · SQZ · 시가총액 · 재무 (· 내부자) 칸. None 이면 그 칸을 못 받은 것 ({} 는 계산했지만 없음).
 
     재무 = 헬스체크 점수가 있는 종목 (Yahoo 가 섹터 · 시가총액만 주고 재무를 빼먹으면 시가총액 칸은 멀쩡해도 여기가 준다).
     health_floor 가 없으면 비율 대신 숫자만 (지난 밤 대비).
     """
-    xs = [x for x in items if isinstance(x, Mapping)]
+    pairs = list(items.items()) if isinstance(items, Mapping) else [("", x) for x in items]
+    pairs = [(t, x) for t, x in pairs if isinstance(x, Mapping)]
+    xs = [x for _, x in pairs]
     n = len(xs)
 
     def cnt(f: Callable[[Mapping[str, Any]], bool]) -> int:
@@ -101,6 +131,7 @@ def stock_rows(items: Iterable[Mapping[str, Any]], *, insider: bool,
     ]
     if insider:
         rows.append(row("insider", "내부자 거래", cnt(lambda x: x.get("insider") is not None), n, floor=FLOOR_PART))
+    rows.append(jump_row(xs, [t for t, _ in pairs]))
     return rows
 
 
@@ -131,7 +162,7 @@ def entry(label: str, data: Any, rows_fn: Callable[[Mapping[str, Any]], list[dic
 
 def market_entry(label: str, data: Any, *, insider: bool, health_floor: float | None = None) -> dict[str, Any]:
     """전체분석 목록 파일 (items = {티커: 정보})."""
-    return entry(label, data, lambda d: stock_rows((d.get("items") or {}).values(), insider=insider,
+    return entry(label, data, lambda d: stock_rows(d.get("items") or {}, insider=insider,
                                                    health_floor=health_floor), "bar_date")
 
 
@@ -172,6 +203,8 @@ def row_level(r: Mapping[str, Any]) -> str:
         if want > 0 and got / want < float(r.get("floor", FLOOR_FULL)):
             return "yellow"
         return "green"
+    if r.get("max") is not None:
+        return "yellow" if got > int(r["max"]) else "green"
     if got == 0 and r.get("zero_red"):
         return "red"
     prev = r.get("prev")

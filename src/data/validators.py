@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import logging
+import math
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +16,140 @@ import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+
+# ── Yahoo 가 아직 반영 안 한 액면분할 보정 (2026-11-18) ─────────────
+#
+# Yahoo 는 분할 기록(Stock Splits)은 바로 주면서 그 전 가격은 하루 이틀 분할 전 그대로 둘 때가 있다.
+# 11-17 밤: EMBJ 4:1 (11-16) 이 82 → 18.9 로 남아 오늘 탭 '하락 상위' −76%, 52주 $19~$83 '저점 0%', 1년 −70%,
+# KALA 1:30 역분할 +2,368%. 분할 기록이 있고 그 직후 첫 종가 ÷ 직전 종가가 분할 비율로 설명될 때만 그 전 봉을 나눈다 —
+# Yahoo 가 이미 반영했으면 비율이 1 근처라 건드리지 않고, 분할 기록 없는 실제 급등락(SLS +156%)도 그대로.
+
+SPLIT_COL = "Stock Splits"
+_PRICE_COLS = ("Open", "High", "Low", "Close", "Adj Close")
+# 이보다 작은 분할은 고치지 않는다 — Yahoo 는 1~10% 주식배당(SCCO 1.01:1 · LEN 1.033:1 …)도 분할로 적어서, 그날 우연히
+# 비슷하게 움직이면 과거 가격을 몇 % 틀리게 고친다 (11-18 펄스 기준값 2년에서 47건 중 22건이 이런 것). 5:4 · 6:5 부터.
+MIN_SPLIT_LOG = math.log(1.2)
+
+
+@dataclass(frozen=True)
+class SplitFix:
+    """보정한 분할 하나 — ratio 는 Yahoo 값 (4.0 = 4:1 분할, 0.0333 = 1:30 병합)."""
+
+    ticker: str
+    first_bar: pd.Timestamp   # 분할 뒤 첫 종가 날짜 — 이 날 전 봉을 나눴다
+    ratio: float
+    raw_move: float           # 보정 전 그날 등락 (예: −0.76)
+    fixed_move: float         # 보정 뒤 그날 등락 (예: −0.04)
+
+
+def split_label(ratio: float) -> str:
+    """4.0 → '4:1', 0.0333 → '1:30', 1.5 → '3:2'."""
+    if ratio >= 1:
+        for den in (1, 2, 3, 4, 5, 10):
+            num = ratio * den
+            if abs(num - round(num)) < 1e-6:
+                return f"{int(round(num))}:{den}"
+        return f"{ratio:g}:1"
+    inv = 1 / ratio
+    for num in (1, 2, 3, 4, 5, 10):
+        den = inv * num
+        if abs(den - round(den)) < 1e-3:
+            return f"{num}:{int(round(den))}"
+    return f"1:{inv:.3g}"
+
+
+def split_explains_jump(prev_close: float, next_close: float, ratio: float) -> bool:
+    """분할 직전 종가 → 직후 첫 종가의 점프가 분할 비율로 설명되는가 (= Yahoo 가 아직 반영 안 함).
+
+    보정하면 그날 등락(로그)이 분할 크기의 절반 넘게 줄어야 한다. 이미 반영된 가격이면 보정이 오히려 점프를 만든다.
+    """
+    if not (prev_close > 0 and next_close > 0 and ratio > 0) or abs(math.log(ratio)) < MIN_SPLIT_LOG - 1e-9:
+        return False
+    raw = abs(math.log(next_close / prev_close))
+    fixed = abs(math.log(next_close * ratio / prev_close))
+    return fixed < raw and raw - fixed > 0.5 * abs(math.log(ratio))
+
+
+def repair_unapplied_splits_frame(df: pd.DataFrame, ticker: str = "") -> tuple[pd.DataFrame, list[SplitFix]]:
+    """한 종목 일봉(Open…Close · Volume · Stock Splits) — 반영 안 된 분할이 있으면 그 전 가격 ÷비율 · 거래량 ×비율.
+
+    Stock Splits 칸이 없거나 분할이 없으면 받은 표를 그대로 돌려준다 (복사하지 않음).
+    """
+    if SPLIT_COL not in df.columns or "Close" not in df.columns:
+        return df, []
+    sp = pd.to_numeric(df[SPLIT_COL], errors="coerce")
+    events = sp[(sp > 0) & ((sp - 1).abs() > 1e-9)]
+    if events.empty:
+        return df, []
+    out: pd.DataFrame | None = None
+    fixes: list[SplitFix] = []
+    for when, ratio in events.items():
+        cur = (out if out is not None else df)["Close"]
+        close = pd.to_numeric(cur, errors="coerce").dropna()
+        close = close[close > 0]
+        post = close[close.index >= when]
+        if post.empty:
+            continue
+        first = post.index[0]
+        pre = close[close.index < first]
+        if pre.empty:
+            continue
+        prev_c, next_c = float(pre.iloc[-1]), float(post.iloc[0])
+        if not split_explains_jump(prev_c, next_c, float(ratio)):
+            continue
+        if out is None:
+            out = df.copy()
+            if "Volume" in out.columns:
+                out["Volume"] = pd.to_numeric(out["Volume"], errors="coerce").astype(float)
+        mask = out.index < first
+        for col in _PRICE_COLS:
+            if col in out.columns:
+                out.loc[mask, col] = pd.to_numeric(out.loc[mask, col], errors="coerce") / float(ratio)
+        if "Volume" in out.columns:
+            out.loc[mask, "Volume"] = out.loc[mask, "Volume"] * float(ratio)
+        fixes.append(SplitFix(ticker, pd.Timestamp(first), float(ratio), next_c / prev_c - 1,
+                              next_c * float(ratio) / prev_c - 1))
+    return (out if out is not None else df), fixes
+
+
+def repair_unapplied_splits(data: pd.DataFrame) -> tuple[pd.DataFrame, list[SplitFix]]:
+    """(티커, 필드) 멀티인덱스 일봉 전체 — 분할 기록이 있는 종목만 repair_unapplied_splits_frame.
+
+    fetch_ohlcv · fetch_chart_prices 가 yf.download(actions=True) 로 받은 표에 쓴다. 바꾼 종목이 없으면 그대로 돌려준다.
+    """
+    if data is None or data.empty or not isinstance(data.columns, pd.MultiIndex):
+        return data, []
+    if SPLIT_COL not in data.columns.get_level_values(1):
+        return data, []
+    sp = data.xs(SPLIT_COL, axis=1, level=1).apply(pd.to_numeric, errors="coerce")
+    cand = [t for t in sp.columns[((sp > 0) & ((sp - 1).abs() > 1e-9)).any()]]
+    if not cand:
+        return data, []
+    fixes: list[SplitFix] = []
+    changed: dict[str, pd.DataFrame] = {}
+    for t in cand:
+        new, f = repair_unapplied_splits_frame(data[t], str(t))
+        if f:
+            changed[t] = new
+            fixes += f
+    if not changed:
+        return data, []
+    out = data.copy()
+    for t, new in changed.items():
+        for col in new.columns:
+            out[(t, col)] = new[col]   # 칸을 통째로 바꾼다 (거래량은 정수 → 실수)
+    return out, fixes
+
+
+def summarize_split_fixes(fixes: list[SplitFix], limit: int = 40) -> list[str]:
+    """보정 로그 한 줄 — '[분할 보정] 3종목 — Yahoo 가 아직 반영 안 한 분할: EMBJ 4:1 (11-17 −76% → −4%), …'."""
+    if not fixes:
+        return []
+    parts = [f"{f.ticker} {split_label(f.ratio)} ({f.first_bar:%m-%d} {f.raw_move:+.0%} → {f.fixed_move:+.0%})"
+             for f in fixes[:limit]]
+    more = f" 외 {len(fixes) - limit}건" if len(fixes) > limit else ""
+    return [f"[분할 보정] {len(fixes)}건 — Yahoo 가 아직 반영 안 한 분할을 그 전 가격에 반영: {', '.join(parts)}{more}"]
 
 
 # ── OHLCV 데이터 검증 ────────────────────────────────────────

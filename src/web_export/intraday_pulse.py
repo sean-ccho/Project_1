@@ -219,23 +219,36 @@ def _frames(data: pd.DataFrame, batch: Sequence[str]) -> dict[str, pd.DataFrame]
 
 
 def _download(tickers: Sequence[str], **kw: Any) -> dict[str, pd.DataFrame]:
-    """yf.download 를 BATCH 개씩 (한 번 다시 시도). 못 받은 종목은 빠진다."""
+    """yf.download 를 BATCH 개씩 (한 번 다시 시도). 못 받은 종목은 빠진다.
+
+    actions=True 로 분할 기록을 같이 받아 Yahoo 가 아직 반영 안 한 분할을 고친다 (밤 fetch_ohlcv 와 같은 함수) —
+    분할 다음 날 전일 종가 · 52주 고저가 분할 전 값이면 '오늘 −75%' · '52주 저점 0%' 가 된다 (11-17 EMBJ).
+    """
     import yfinance as yf
 
+    from data.validators import repair_unapplied_splits_frame, summarize_split_fixes
+
     out: dict[str, pd.DataFrame] = {}
+    fixes: list[Any] = []
     for i in range(0, len(tickers), BATCH):
         batch = list(tickers[i:i + BATCH])
         for attempt in (1, 2):
             try:
-                data = yf.download(batch, group_by="ticker", progress=False, threads=THREADS, auto_adjust=False, **kw)
+                data = yf.download(batch, group_by="ticker", progress=False, threads=THREADS, auto_adjust=False,
+                                   actions=True, **kw)
                 got = _frames(data, batch)
                 if got:
-                    out.update(got)
+                    for t, df in got.items():
+                        df, f = repair_unapplied_splits_frame(df, t)
+                        out[t] = df
+                        fixes += f
                     break
             except Exception as exc:  # noqa: BLE001 — 표시용이라 나머지는 계속
                 print(f"[펄스] 받기 실패 ({len(batch)}종목, 시도 {attempt}): {exc}")
             if attempt == 1:
                 _time.sleep(5)
+    for line in summarize_split_fixes(fixes):
+        print(f"[펄스] {line}")
     return out
 
 
@@ -482,10 +495,33 @@ def _spy_ref(dash: Mapping[str, Any], price_date: str | None) -> float | None:
     return None
 
 
+def pending_splits(positions: list[dict[str, Any]], today: date) -> dict[tuple[str, str], float]:
+    """밤 실행 뒤 생긴 보유 종목 분할(보통 분할일 = 오늘) — positions 를 그 자리에서 분할 뒤 기준으로 (저장 안 함).
+
+    밤 PT-1 은 portfolio.apply_splits 로 매수가 · 고점을 고쳐 저장하지만, 분할 첫날 장중엔 아직 분할 전 매수가라
+    지금 가격(분할 뒤)과 비교하면 4:1 분할이 '−75% · 이미 손절선 아래'가 된다 (2026-11-18).
+    Returns: {(티커, 매수일): 주식 수에 곱할 비율} — 고친 것만.
+    """
+    from paper_trading.portfolio import apply_splits, fetch_splits
+
+    before = {(str(p["ticker"]), str(p.get("entry_date"))): float(p.get("split_factor") or 1.0) for p in positions}
+    for note in apply_splits(positions, fetch_splits([str(p["ticker"]) for p in positions]), today.isoformat()):
+        print(f"[펄스] PT-1 분할 반영 (표시만 — 밤 실행이 저장): {note}")
+    out: dict[tuple[str, str], float] = {}
+    for p in positions:
+        k = (str(p["ticker"]), str(p.get("entry_date")))
+        m = float(p.get("split_factor") or 1.0) / before.get(k, 1.0)
+        if abs(m - 1) > 1e-9:
+            out[k] = m
+    return out
+
+
 def pt1_live(dash: Mapping[str, Any], positions: Sequence[Mapping[str, Any]], quotes: Mapping[str, Mapping[str, Any]],
-             today: date) -> dict[str, Any] | None:
+             today: date, share_mult: Mapping[tuple[str, str], float] | None = None) -> dict[str, Any] | None:
     """PT-1 — 보유 종목 장중 가격 · 수익률 · 잠정 매도선(engine.exit_levels, 고점 = max(기록, 지금 가격) — 저장 안 함) ·
-    $5,000 계좌 평가액(현금 + 주식 수 × 지금 가격) · 같은 날 SPY. 엔진은 종가로만 판정한다 (PT1_STOP_INTRADAY=False)."""
+    $5,000 계좌 평가액(현금 + 주식 수 × 지금 가격) · 같은 날 SPY. 엔진은 종가로만 판정한다 (PT1_STOP_INTRADAY=False).
+
+    share_mult: pending_splits 결과 — 밤 대시보드의 주식 수(분할 전)에 곱한다 (positions 는 이미 분할 뒤 기준)."""
     from paper_trading.engine import exit_levels
     from paper_trading.portfolio import get_holding_days
 
@@ -512,6 +548,8 @@ def pt1_live(dash: Mapping[str, Any], positions: Sequence[Mapping[str, Any]], qu
         lv = exit_levels({**pos, "highest_price": highest}, as_of=today)
         nxt = lv.get("next")
         shares = _f(r.get("shares"))
+        if shares is not None and share_mult:
+            shares *= share_mult.get((t, str(r.get("entry_date"))), 1.0)
         if shares is not None and price is not None:
             held_value += shares * price
         spy_ret = _f(r.get("spy_return"))
@@ -676,8 +714,16 @@ def _load_squeeze_watch(path: Path) -> pd.DataFrame:
 
 def run(out_dir: Path, *, base_path: Path | None = None, now: datetime | None = None, force: bool = False,
         scope: str = "all", dashboard: Mapping[str, Any] | None = None,
-        universe: Mapping[str, Any] | None = None) -> int:
-    """펄스 한 번. 0 = 파일을 씀 · 3 = 열린 시장이 없어 아무것도 안 씀 · 1 = 시세를 하나도 못 받음."""
+        universe: Mapping[str, Any] | None = None, check_splits: bool | None = None,
+        value_model: Mapping[str, Any] | None = None) -> int:
+    """펄스 한 번. 0 = 파일을 씀 · 3 = 열린 시장이 없어 아무것도 안 씀 · 1 = 시세를 하나도 못 받음.
+
+    check_splits: PT-1 보유 종목 분할을 Yahoo 에 물어볼지 — 기본은 실제 실행(dashboard 를 안 넘김)일 때만 (시험은 안 함).
+    value_model: 예측 모델 밤 파일 — 없으면 실제 실행일 때만 universe-data 에서 받는다 (vm_live.json).
+    """
+    if check_splits is None:
+        check_splits = dashboard is None
+    fetch_vm = value_model is None and dashboard is None
     now = now or datetime.now(ET)
     today = now.date()
     sessions = {m: market_session(m, now) for m in ("us", "ca")}
@@ -760,7 +806,9 @@ def run(out_dir: Path, *, base_path: Path | None = None, now: datetime | None = 
     macro = _try("경기 상태", lambda: macro_live(today, bars.get("CAD=X")), errors) if us_open else None
     etf = (_try("ETF", lambda: etf_live(today, quotes), errors) or {}) if us_open else {}
     positions = json.loads(POSITIONS_PATH.read_text()) if POSITIONS_PATH.exists() else []
-    pt1 = _try("PT-1", lambda: pt1_live(dash, positions, quotes, today), errors) if us_open else None
+    share_mult = (_try("PT-1 분할 확인", lambda: pending_splits(positions, today), errors)
+                  if us_open and positions and check_splits else None)
+    pt1 = _try("PT-1", lambda: pt1_live(dash, positions, quotes, today, share_mult), errors) if us_open else None
     strategies = {c["ticker"]: c.get("strategy") for c in cand_rows}
     detail, regime = (_try("후보 지표", lambda: detail_live(list(dict.fromkeys([*(c["ticker"] for c in cand_rows),
                                                                                  *held])),
@@ -795,6 +843,23 @@ def run(out_dir: Path, *, base_path: Path | None = None, now: datetime | None = 
                                                   separators=(",", ":")), encoding="utf-8")
     (out_dir / "quotes.json").write_text(json.dumps(_clean(qfile), ensure_ascii=False, allow_nan=False,
                                                     separators=(",", ":")), encoding="utf-8")
+    # 예측 모델 장중 (2026-11-18) — 밤 value_model.json 의 가격 관문 · 알파 · 괴리 · 통과 · 상위 10 을 지금 가격으로
+    # (value_model.live_model — 밤과 같은 함수). 품질 관문 · 성적표 · 기록은 밤 그대로. 사이트가 장중 잠정으로 덮어쓴다.
+    vm_src = value_model if value_model is not None else (
+        _try("예측 모델 받기", lambda: _get_json(f"{UNIVERSE_RAW}/value_model.json"), errors) if fetch_vm else None)
+    vm_live = None
+    if vm_src:
+        from web_export.value_model import live_model
+
+        vm_live = _try("예측 모델 장중", lambda: live_model(vm_src, {t: q.get("p") for t, q in quotes.items()}), errors)
+    vm_path = out_dir / "vm_live.json"
+    if vm_live:
+        vm_live = {"generated_at": generated_at, "day": day, "final": final,
+                   "as_of": as_of.get("us") or as_of.get("ca"), **vm_live}
+        vm_path.write_text(json.dumps(_clean(vm_live), ensure_ascii=False, allow_nan=False, separators=(",", ":")),
+                           encoding="utf-8")
+    elif vm_path.exists():
+        vm_path.unlink()   # 지난 펄스 파일이 남아 옛 값이 오늘 것처럼 올라가지 않게
     # 고아 브랜치는 매번 통째로 바뀌어서 기준값도 매번 같이 올린다 (같은 날은 같은 내용)
     (out_dir / "base.json.gz").write_bytes(gzip.compress(json.dumps(
         _clean(base), ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")))
@@ -802,6 +867,7 @@ def run(out_dir: Path, *, base_path: Path | None = None, now: datetime | None = 
     b = (markets.get("us") or {}).get("breadth") or {}
     print(f"[펄스] 시세 {len(quotes)}종목 · 미국 오른 {b.get('adv')} 내린 {b.get('dec')} 신고가 {b.get('new_high')} · "
           f"PT-1 {((pt1 or {}).get('dollar') or {}).get('equity')} · 후보 {len(detail)} · 레짐 {regime} · "
+          f"예측 모델 {((vm_live or {}).get('counts') or {}).get('priced')} · "
           f"{'마감' if final else '장중'} · 파일 {sizes} · 오류 {len(errors)}")
     return 0
 

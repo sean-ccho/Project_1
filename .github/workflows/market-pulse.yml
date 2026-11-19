@@ -82,6 +82,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add live.json quotes.json base.json.gz
+          [ -f vm_live.json ] && git add vm_live.json   # 예측 모델 장중 (2026-11-18) — 없으면 사이트는 밤 값
           git commit -q -m "live data $(date +%s) [skip ci]"
           git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" live-data
           echo "✅ live-data 브랜치 업데이트"

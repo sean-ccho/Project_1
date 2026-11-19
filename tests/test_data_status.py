@@ -117,3 +117,18 @@ def test_main_writes_file_without_notify(tmp_path: Path, monkeypatch) -> None:
     assert out["schema"] == 1 and "sp500" in out["files"] and sent == []
     assert ds.main(["--universe-dir", str(tmp_path)]) == 0  # 예측 모델 · 캐나다 파일 없음 → 실패 → 알림
     assert sent and sent[0][1].startswith("자료 점검 · 실패")
+
+
+def test_jump_row_flags_big_cap_one_day_moves() -> None:
+    """이상값 (2026-11-18) — 시총 $10B+ 하루 ±50% 만 (EMBJ 분할 미반영 −76%). 소형주 실제 급등은 안 센다."""
+    items = {
+        "EMBJ": {"ret_1d": -0.76, "fundamentals": {"market_cap": 13.4e9}},
+        "SLS": {"ret_1d": 1.56, "fundamentals": {"market_cap": 3.9e9}},
+        "AAPL": {"ret_1d": -0.002, "fundamentals": {"market_cap": 5.1e12}},
+        "NOCAP": {"ret_1d": 0.9, "fundamentals": {}},
+    }
+    r = _rows(ds.stock_rows(items, insider=False))["jump"]
+    assert r["got"] == 1 and r["max"] == 0 and r["note"] == "EMBJ -76%"
+    assert ds.row_level(r) == "yellow"
+    calm = _rows(ds.stock_rows({"AAPL": items["AAPL"]}, insider=False))["jump"]
+    assert calm["got"] == 0 and "note" not in calm and ds.row_level(calm) == "green"

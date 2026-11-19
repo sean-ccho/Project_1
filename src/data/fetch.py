@@ -156,6 +156,15 @@ def fetch_ohlcv(tickers: List[str], period: str = "1y", force_download: bool = F
         if skipped > 0:
             print(f"[OHLCV] 경고: {skipped}개 종목 다운로드 실패 (건너뜀)")
 
+    # Yahoo 가 아직 반영 안 한 액면분할 보정 (2026-11-18 — EMBJ 4:1 이 −76% 로 보이던 것). 실패해도 받은 그대로 쓴다
+    try:
+        from data.validators import repair_unapplied_splits, summarize_split_fixes
+        data, split_fixes = repair_unapplied_splits(data)
+        for line in summarize_split_fixes(split_fixes):
+            print(line)
+    except Exception as e:  # noqa: BLE001
+        print(f"[분할 보정] 건너뜀 (받은 가격 그대로): {e}")
+
     # 데이터 품질 검증 (정보용) — 종류별로 한 줄씩
     try:
         from data.validators import summarize_warnings, validate_ohlcv
@@ -206,7 +215,8 @@ def fetch_chart_prices(tickers: List[str], daily_years: int = CHART_DAILY_YEARS,
         data = None
         for attempt in range(1, MAX_DOWNLOAD_RETRIES + 1):
             try:
-                data = yf.download(batch, period="max", interval="1d", auto_adjust=False, actions=False,
+                # actions=True — 분할 기록(Stock Splits)으로 Yahoo 가 아직 반영 안 한 분할을 고친다 (아래 repair)
+                data = yf.download(batch, period="max", interval="1d", auto_adjust=False, actions=True,
                                    threads=True, progress=False)
                 if not data.empty:
                     break
@@ -221,6 +231,13 @@ def fetch_chart_prices(tickers: List[str], daily_years: int = CHART_DAILY_YEARS,
             data = pd.concat({batch[0]: data}, axis=1)
         elif "Close" in data.columns.get_level_values(0):
             data = data.swaplevel(0, 1, axis=1).sort_index(axis=1)
+        try:
+            from data.validators import repair_unapplied_splits, summarize_split_fixes
+            data, split_fixes = repair_unapplied_splits(data)
+            for line in summarize_split_fixes(split_fixes):
+                print(f"[차트 가격] {line}")
+        except Exception as exc:  # noqa: BLE001 — 받은 가격 그대로
+            print(f"[차트 가격] 분할 보정 건너뜀: {exc}")
         for t in batch:
             if t not in data.columns.get_level_values(0):
                 failed += 1

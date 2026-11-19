@@ -158,8 +158,63 @@ def close_position(
         "entry_rsi": pos.get("entry_rsi", 0.0),
         "actual_max_upside_pct": actual_max_upside_pct,
     }
+    if pos.get("split_factor"):   # 보유 중 분할 — 가격은 분할 뒤 기준, $5,000 계좌가 산 주식 수를 맞추려고
+        trade["split_factor"] = pos["split_factor"]
     trades.append(trade)
     return trade
+
+
+SplitList = list[tuple[str, float]]   # [(분할일 'YYYY-MM-DD' 미국 동부, Yahoo 비율 4.0 = 4:1 · 0.0333 = 1:30)]
+
+
+def fetch_splits(tickers: list[str]) -> dict[str, SplitList]:
+    """보유 종목의 Yahoo 분할 기록 (종목마다 한 번 — 보유는 몇 개뿐). 못 받은 종목은 빠진다 (그 종목은 고치지 않는다)."""
+    import yfinance as yf
+
+    out: dict[str, SplitList] = {}
+    for t in dict.fromkeys(tickers):
+        try:
+            s = yf.Ticker(t).splits
+        except Exception as exc:  # noqa: BLE001 — 분할 확인 실패는 매매를 막지 않는다
+            print(f"[분할 확인] {t} 실패 (건너뜀): {exc}")
+            continue
+        if s is None or len(s) == 0:
+            continue
+        rows: SplitList = []
+        for ts, ratio in s.items():
+            d = pd.Timestamp(ts)
+            if d.tzinfo is not None:
+                d = d.tz_convert("America/New_York")
+            rows.append((d.strftime("%Y-%m-%d"), float(ratio)))
+        out[t] = rows
+    return out
+
+
+def apply_splits(positions: list[dict[str, Any]], splits: dict[str, SplitList], today: str | date) -> list[str]:
+    """보유 중 액면분할 → 매수가 · 고점을 분할 뒤 기준으로 (2026-11-18).
+
+    현재가(분할 뒤)와 매수가(분할 전)를 그대로 비교하면 4:1 분할이 −75% 손절이 된다. 매수일 < 분할일 ≤ 오늘인 분할만,
+    고친 분할은 pos['splits'] 에 적어 두 번 고치지 않는다. split_factor = 지금까지 곱한 비율 ($5,000 계좌가 산 주식 수를 맞춘다).
+    Returns: 로그 · 메일 줄
+    """
+    notes: list[str] = []
+    today_s = str(today)
+    for pos in positions:
+        for day, ratio in sorted(splits.get(pos["ticker"], [])):
+            key = f"{day}:{ratio:g}"
+            if not (ratio > 0 and abs(ratio - 1) > 1e-9):
+                continue
+            if not (str(pos["entry_date"]) < day <= today_s) or key in pos.get("splits", []):
+                continue
+            old = float(pos["entry_price"])
+            pos["entry_price"] = old / ratio
+            pos["highest_price"] = float(pos.get("highest_price", old)) / ratio
+            pos["split_factor"] = float(pos.get("split_factor", 1.0)) * ratio
+            pos.setdefault("splits", []).append(key)
+            from data.validators import split_label
+            notes.append(f"{pos['ticker']} {split_label(ratio)} 분할 ({day}) — 매수가 {old:.2f} → {pos['entry_price']:.2f}"
+                         f" · 고점 {pos['highest_price']:.2f}")
+    return notes
 
 
 def update_highest_price(

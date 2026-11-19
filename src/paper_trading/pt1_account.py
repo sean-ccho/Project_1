@@ -6,7 +6,8 @@ PT-1 은 거래마다 수익률(%)만 기록해서 "실제 돈으로 얼마"가 
 같은 날 같은 돈으로 SPY 를 샀을 때와 비교한다.
 
 매매 판단은 바꾸지 않고 기록·표시만 한다. 매번 거래 기록 전체에서 다시 계산하므로 따로 저장할 상태가 없다.
-평가에 쓰는 종가는 수정주가라, 보유 중 액면분할이 있으면 그 종목 평가액이 틀릴 수 있다 (PT-1 자체 기록과 같은 한계).
+평가에 쓰는 종가는 수정주가 — 보유 중 액면분할은 PT-1 이 매수가를 분할 뒤 기준으로 고치고 split_factor 를 남겨서
+(portfolio.apply_splits, 2026-11-18) 산 주식 수를 그만큼 곱해 맞춘다.
 """
 
 from __future__ import annotations
@@ -40,6 +41,7 @@ class Lot:
     proceeds: float = 0.0  # 매도로 받은 돈 (비용 뺀 뒤)
     cash_after_buy: float = math.nan   # 이 매수 직후 계좌 현금 (거래로그 '거래 후 현금')
     cash_after_sell: float = math.nan  # 이 매도 직후 계좌 현금
+    split: float = 1.0     # 보유 중 분할 비율의 곱 (4:1 이면 4) — entry_price 는 분할 뒤 기준
 
     @property
     def is_open(self) -> bool:
@@ -81,8 +83,9 @@ class DollarAccount:
 def lots_from_records(trades: Sequence[dict[str, Any]], positions: Sequence[dict[str, Any]]) -> list[Lot]:
     """PT-1 trades.json(청산)·positions.json(보유) → 매수~매도 묶음."""
     lots = [Lot(str(t["ticker"]), str(t["entry_date"]), float(t["entry_price"]),
-                str(t["exit_date"]), float(t["exit_price"])) for t in trades]
-    lots += [Lot(str(p["ticker"]), str(p["entry_date"]), float(p["entry_price"])) for p in positions]
+                str(t["exit_date"]), float(t["exit_price"]), split=float(t.get("split_factor") or 1.0)) for t in trades]
+    lots += [Lot(str(p["ticker"]), str(p["entry_date"]), float(p["entry_price"]),
+                 split=float(p.get("split_factor") or 1.0)) for p in positions]
     return lots
 
 
@@ -102,8 +105,10 @@ def allocate(lots: list[Lot], *, max_positions: int, initial: float = INITIAL_CA
         lot = lots[i]
         if kind == 1:
             budget = cash / max(1, max_positions - held)
-            lot.shares = float(math.floor(budget / (lot.entry_price * (1 + cost)) + 1e-9))
-            lot.cost = lot.shares * lot.entry_price * (1 + cost)
+            paid = lot.entry_price * lot.split   # 그날 실제로 낸 가격 (분할 전 기준) — 그 가격으로 정수 주식을 산다
+            bought = float(math.floor(budget / (paid * (1 + cost)) + 1e-9))
+            lot.shares = bought * lot.split      # 분할 뒤 주식 수
+            lot.cost = bought * paid * (1 + cost)
             cash -= lot.cost
             held += 1
             lot.cash_after_buy = cash

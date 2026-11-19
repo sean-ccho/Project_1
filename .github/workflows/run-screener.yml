@@ -71,6 +71,11 @@ jobs:
       # SEC EDGAR 공시 경고 (src/screener/sec_filings.py) — SEC 규칙상 요청에 연락처. 없으면 경고만 건너뛴다
       SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
     steps:
+      # 작업 시작 시각 — 아래 전체차트 캡처가 남은 시간만 쓰게 (2026-11-18: 최근 30회 4.4~5.4시간, 한도 6시간.
+      # 웹 데이터 내보내기 · 사이트 갱신이 캡처 뒤라 한 번 늦어지면 다음 날 매수 후보가 통째로 어제 것이 된다)
+      - name: Record job start
+        run: date +%s > "$RUNNER_TEMP/job_start"
+
       - name: Check out repository
         uses: actions/checkout@v4
 
@@ -328,7 +333,17 @@ jobs:
           TRADINGVIEW_SESSIONID: ${{ secrets.TRADINGVIEW_SESSIONID }}
         run: |
           mkdir -p logs/$LOG_DATE
-          PYTHONPATH=.:src python -m charts.capture_remaining --budget-min 90 | tee "$RUNNER_TEMP/capture_remaining.log"
+          # 한도 6시간(360분) 중 340분 안에 끝나게 — 캡처 뒤 단계(WebP · ETF · 경제 · 내보내기 · push · 사이트 갱신)에
+          # 30분을 남긴다 (11-17 실제 16분). 캡처는 남은 시간과 90분 중 짧은 쪽만.
+          elapsed=$(( ($(date +%s) - $(cat "$RUNNER_TEMP/job_start" 2>/dev/null || date +%s)) / 60 ))
+          budget=$(( 340 - 30 - elapsed ))
+          [ "$budget" -gt 90 ] && budget=90
+          if [ "$budget" -lt 5 ]; then
+            echo "::warning title=전체차트 캡처 건너뜀::작업이 이미 ${elapsed}분 — 웹 데이터 내보내기 시간을 지키려고 캡처를 건너뜁니다."
+            exit 0
+          fi
+          echo "⏱️  작업 ${elapsed}분 경과 → 전체차트 캡처 ${budget}분까지"
+          PYTHONPATH=.:src python -m charts.capture_remaining --budget-min "$budget" | tee "$RUNNER_TEMP/capture_remaining.log"
 
       # 사이트용 WebP (2026-11-03) — 차트분석 PNG 옆에 .webp 사본(시트 =IMAGE() · 후보 메일은 PNG 그대로),
       # 전체차트는 PNG → WebP. 아래 웹 데이터 내보내기가 같은 이름이면 .webp 를 고른다. 실패해도 계속 (그럼 사이트는 PNG).

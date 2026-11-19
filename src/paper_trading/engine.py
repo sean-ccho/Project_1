@@ -366,6 +366,7 @@ def run_daily_trading(
     data_dir: Path | None = None,
     today: str | date | None = None,
     prices: dict[str, float] | None = None,
+    splits: dict[str, list[tuple[str, float]]] | None = None,
 ) -> dict[str, Any]:
     """전체 일일 페이퍼 트레이딩 로직.
 
@@ -374,6 +375,8 @@ def run_daily_trading(
         data_dir: 데이터 저장 경로 (None이면 기본 경로)
         today: 오늘 날짜 (테스트용)
         prices: 현재가 dict (None이면 yfinance로 조회)
+        splits: 보유 종목 분할 기록 {티커: [(분할일, 비율)]} — None 이고 prices 도 None 이면 Yahoo 에서 받는다
+            (prices 를 넘기는 테스트 · 백테스트는 받지 않는다)
 
     Returns:
         실행 결과 요약 dict (sells, buys, holdings 등)
@@ -386,8 +389,19 @@ def run_daily_trading(
     trades = load_trades(data_dir)
     result: dict[str, Any] = {"date": today_str, "sells": [], "buys": [], "skipped": None}
 
-    # ── 1. 현재가 조회 ──
+    # ── 0. 보유 중 액면분할 (2026-11-18) — 현재가는 분할 뒤인데 매수가 · 고점이 분할 전이면 가짜 −75% 손절 ──
     held_tickers = [p["ticker"] for p in positions]
+    if splits is None and prices is None and held_tickers:
+        from paper_trading.portfolio import fetch_splits
+        splits = fetch_splits(held_tickers)
+    if splits:
+        from paper_trading.portfolio import apply_splits
+        result["splits"] = apply_splits(positions, splits, today_str)
+        for note in result["splits"]:
+            logger.info(f"[PaperTrading] 분할 반영: {note}")
+            print(f"[PaperTrading] 분할 반영: {note}")
+
+    # ── 1. 현재가 조회 ──
     if prices is None and held_tickers:
         from data.fetch import fetch_latest_prices
         prices = fetch_latest_prices(held_tickers)

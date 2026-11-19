@@ -1015,3 +1015,59 @@ def test_resolve_interest_keeps_latest_filing_classification():
     assert split_f == {"2025-12-31": 2.0} and split_o == {"2025-12-31": 3.0}  # 같은 공시 — 나눠 넣음
     many = {f"{y}-12-31": ("2026-01-01", 1.0) for y in range(2015, 2026)}
     assert list(vm.resolve_interest(many, {})[0]) == [f"{y}-12-31" for y in range(2020, 2026)]  # 최근 6년만
+
+
+# ── 장중 (2026-11-18) — 밤 줄 + 지금 가격 → 가격 관문 · 알파 · 괴리 · 통과 (live_row · live_model) ─────────────
+
+def _night_row(ticker: str, price: float, *, fcf_y: float = 0.10, g1: float = 0.06, beta: float = 1.0,
+               quality: bool = True, rf: float = 0.045) -> dict:
+    """analyze 와 같은 함수로 만든 밤 줄 (web_row 모양의 필요한 칸만)."""
+    ke = rf + beta * vm.ERP
+    pf = vm.price_fields(price=price, fcf_y=fcf_y, sh_y=0.03, g1=g1, ke=ke, rf=rf, beta=beta, quality=quality)
+    kill = vm.kill_reasons({"quality": quality, "rev_down": None, "gap": pf["gap"], "alpha": pf["alpha"]})
+    return {"ticker": ticker, "price": price, "buy": pf["buy"], "fcf_y": fcf_y, "sh_y": 0.03, "g1": g1, "ke": ke,
+            "beta": beta, "quality": quality, "rev_down": None, "own": True, "irr": pf["irr"], "alpha": pf["alpha"],
+            "drop": pf["drop"], "gap": pf["gap"], "pass": pf["pass"], "pass_v2": bool(pf["pass_v2"] and not kill),
+            "kill": kill, "gates": {"price": pf["g_price"]}}
+
+
+def test_live_row_same_price_reproduces_night():
+    r = _night_row("AAA", 50.0)
+    lr = vm.live_row(r, 50.0, 0.045)
+    assert lr is not None
+    assert lr["alpha"] == pytest.approx(r["alpha"], abs=1e-4) and lr["drop"] == pytest.approx(r["drop"], abs=1e-4)
+    assert lr["pass"] == r["pass"] and lr["pass_v2"] == r["pass_v2"] and lr["kill"] == r["kill"]
+
+
+def test_live_row_price_jump_lowers_alpha_and_can_fail_price_gate():
+    r = _night_row("AAA", 50.0, fcf_y=0.15)
+    assert r["pass"]
+    up = vm.live_row(r, 75.0, 0.045)            # +50% — FCF 수익률 0.15 → 0.10
+    assert up["fcf_y"] == pytest.approx(0.15 * 50 / 75, abs=1e-4)
+    assert up["alpha"] < r["alpha"] and up["drop"] == pytest.approx(r["buy"] / 75 - 1, abs=1e-4)
+    # 매수 기준가는 가격과 무관 — 같은 FCF 로 같은 기준가
+    assert vm.price_fields(price=75.0, fcf_y=up["fcf_y"], sh_y=0.02, g1=0.06, ke=r["ke"], rf=0.045, beta=1.0,
+                           quality=True)["buy"] == pytest.approx(r["buy"], rel=1e-3)
+    far = vm.live_row(r, 200.0, 0.045)          # 네 배 — 적정가를 넘어 가격 관문 탈락 · 반증 '적정가 도달'
+    assert far["g_price"] is False and far["pass"] is False and "적정가 도달" in far["kill"]
+
+
+def test_live_row_needs_prices_and_inputs():
+    r = _night_row("AAA", 50.0)
+    assert vm.live_row(r, 0.0, 0.045) is None
+    assert vm.live_row({**r, "fcf_y": None}, 50.0, 0.045) is None
+    assert vm.live_row({**r, "price": None}, 50.0, 0.045) is None
+
+
+def test_live_model_tops_and_counts():
+    rows = [_night_row("AAA", 50.0, fcf_y=0.12), _night_row("BBB", 50.0, fcf_y=0.09),
+            _night_row("CCC", 50.0, fcf_y=0.10, quality=False), {**_night_row("DDD", 50.0), "own": False}]
+    model = {"date": "2026-11-17", "params": {"rf": 0.045}, "rows": rows}
+    same = vm.live_model(model, {r["ticker"]: 50.0 for r in rows})
+    assert same["model_date"] == "2026-11-17" and same["counts"]["priced"] == 4
+    assert same["top"]["v1"] == vm.top_v1(rows) and same["top"]["v2"] == vm.top_v2(rows)
+    assert same["counts"]["pass"] == sum(1 for r in rows if r["own"] and r["pass"])
+    moved = vm.live_model(model, {"AAA": 120.0, "BBB": 40.0})   # AAA 급등 → 순서가 바뀐다, CCC · DDD 는 가격 없음
+    assert moved["counts"]["priced"] == 2 and set(moved["rows"]) == {"AAA", "BBB"}
+    assert moved["top"]["v1"][0] == "BBB"
+    assert vm.live_model({"rows": rows, "params": {}}, {}) is None   # 국채금리 없으면 안 만든다

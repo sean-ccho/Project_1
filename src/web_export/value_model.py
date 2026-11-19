@@ -606,18 +606,36 @@ def analyze(ent: Mapping[str, Any], *, price: float, mcap_fc: float, beta: float
     g1 = min(max(g1, G1_RANGE[0]), G1_RANGE[1]) if math.isfinite(g1) else 0.0
     fcf_y = float(fcf.tail(3).mean()) / mcap_fc if mcap_fc > 0 and len(fcf) else NAN
     sh_y = float(payout.tail(3).mean()) / mcap_fc if mcap_fc > 0 and len(payout) else NAN
-    irr = irr_two_stage(fcf_y, g1, TERM_G)
-    out.update({"g1": g1, "fcf_y": fcf_y, "sh_y": sh_y, "irr": irr, "alpha": irr - ke,
-                "alpha_author": irr_two_stage(fcf_y, g1, rf) - ke})  # 저자식: 영구 성장 = 국채금리
-    out["g_price"] = bool(math.isfinite(out["alpha"]) and out["alpha"] >= ALPHA_MIN)
-    y_star = required_yield(ke, g1)
-    out["buy"] = price * fcf_y / y_star if math.isfinite(fcf_y) and fcf_y > 0 and price > 0 else NAN
-    out["drop"] = out["buy"] / price - 1 if math.isfinite(out["buy"]) else NAN
 
     names = (("ROE", "g_roe"), ("ROIC", "g_roic"), ("Z", "g_z"), ("M", "g_m"), ("FCF", "g_fcf"))
     out["fails"] = [label for label, key in names if out[key] is False]
     out["quality"] = not out["fails"]
-    out["pass"] = bool(out["quality"] and out["g_price"])
+    out.update(price_fields(price=price, fcf_y=fcf_y, sh_y=sh_y, g1=g1, ke=ke, rf=rf, beta=beta,
+                            quality=out["quality"]))
+
+    # v3 수석 PM — 최근 해 현금(빈 해는 0 · fill0 에 표시)
+    cash_any = cash_raw.reindex(yrs.union(cash_raw.index)).fillna(0)
+    c_last = _at(cash_any, -1) if math.isfinite(_at(cash_any, -1)) else 0.0
+    out.update(pm_metrics(ent, fcf=fcf, g1=g1, ke=ke, wacc=wacc, tr=tr, mcap_fc=mcap_fc, debt_last=d_last,
+                          cash_last=c_last, sh_y=sh_y))
+    return out
+
+
+def price_fields(*, price: float, fcf_y: float, sh_y: float, g1: float, ke: float, rf: float, beta: float,
+                 quality: bool) -> dict[str, Any]:
+    """가격 관문 · v2 칸 — 지금 가격에 따라 바뀌는 값 전부 (2026-11-18 analyze 에서 떼어 냄 — 장중 펄스가 같은 함수를 쓴다).
+
+    fcf_y · sh_y = 최근 3년 평균 FCF · 주주환원 ÷ 그 가격의 시가총액. 매수 기준가(buy)는 price × fcf_y 라 가격과 무관하다.
+    품질 관문(ROE · ROIC · Z · M · FCF)은 밖에서 정해 quality 로 넘긴다.
+    """
+    irr = irr_two_stage(fcf_y, g1, TERM_G)
+    out: dict[str, Any] = {"g1": g1, "fcf_y": fcf_y, "sh_y": sh_y, "irr": irr, "alpha": irr - ke,
+                           "alpha_author": irr_two_stage(fcf_y, g1, rf) - ke}  # 저자식: 영구 성장 = 국채금리
+    out["g_price"] = bool(math.isfinite(out["alpha"]) and out["alpha"] >= ALPHA_MIN)
+    y_star = required_yield(ke, g1)
+    out["buy"] = price * fcf_y / y_star if math.isfinite(fcf_y) and fcf_y > 0 and price > 0 else NAN
+    out["drop"] = out["buy"] / price - 1 if math.isfinite(out["buy"]) else NAN
+    out["pass"] = bool(quality and out["g_price"])
 
     # v2 — 시장이 가정하는 영구 성장률(현재가 = FCF × (1+g) ÷ (Ke − g)) · 괴리(실제 − 시장 가정) · 하방 관문 · 베타 민감
     out["implied_g"] = (ke - fcf_y) / (1 + fcf_y) if math.isfinite(fcf_y) and fcf_y > 0 else NAN
@@ -627,13 +645,59 @@ def analyze(ent: Mapping[str, Any], *, price: float, mcap_fc: float, beta: float
     out["alpha_b06"] = irr - (rf + max(beta, SENSITIVE_BETA) * ERP)
     out["pass_v2"] = bool(out["pass"] and out["g_bear"])
     out["sensitive"] = bool(out["pass"] and not (math.isfinite(out["alpha_b06"]) and out["alpha_b06"] >= ALPHA_MIN))
-
-    # v3 수석 PM — 최근 해 현금(빈 해는 0 · fill0 에 표시)
-    cash_any = cash_raw.reindex(yrs.union(cash_raw.index)).fillna(0)
-    c_last = _at(cash_any, -1) if math.isfinite(_at(cash_any, -1)) else 0.0
-    out.update(pm_metrics(ent, fcf=fcf, g1=g1, ke=ke, wacc=wacc, tr=tr, mcap_fc=mcap_fc, debt_last=d_last,
-                          cash_last=c_last, sh_y=sh_y))
     return out
+
+
+LIVE_KEYS4 = ("fcf_y", "sh_y", "irr", "alpha", "alpha_author", "drop", "implied_g", "gap", "alpha_bear", "alpha_b06")
+
+
+def live_row(r: Mapping[str, Any], price: float, rf: float) -> dict[str, Any] | None:
+    """밤 한 줄(web_row) + 지금 가격 → 가격에 따라 바뀌는 칸 (장중 펄스, 2026-11-18). 사이트가 밤 줄 위에 덮어쓴다.
+
+    fcf_y · sh_y 를 밤 가격 ÷ 지금 가격만큼 바꿔 price_fields · kill_reasons 를 다시 돌린다 (밤과 같은 함수).
+    품질 관문은 밤 그대로 — Altman Z · WACC 도 시가총액을 쓰지만 재무제표 원자료가 필요해 장중엔 다시 안 센다.
+    매수 기준가는 가격과 무관해서 밤 값을 그대로 쓰고 필요한 하락만 지금 가격으로.
+    """
+    p0, fy, g1, ke = _f(r.get("price")), _f(r.get("fcf_y")), _f(r.get("g1")), _f(r.get("ke"))
+    if not (p0 and p0 > 0 and price and price > 0) or fy is None or g1 is None or ke is None:
+        return None
+    scale = p0 / price
+    sh = _f(r.get("sh_y"))
+    pf = price_fields(price=price, fcf_y=fy * scale, sh_y=sh * scale if sh is not None else NAN, g1=g1, ke=ke, rf=rf,
+                      beta=_f(r.get("beta")) or 1.0, quality=bool(r.get("quality")))
+    buy = _f(r.get("buy"))
+    pf["drop"] = buy / price - 1 if buy is not None else NAN
+    kill = kill_reasons({"quality": r.get("quality"), "rev_down": r.get("rev_down"), "gap": pf["gap"],
+                         "alpha": pf["alpha"]})
+    out: dict[str, Any] = {"price": _r(price, 4)}
+    out.update({k: _r(pf[k], 4) for k in LIVE_KEYS4})
+    out.update({"g_price": pf["g_price"], "pass": pf["pass"], "g_bear": pf["g_bear"],
+                "pass_v2": bool(pf["pass_v2"] and not kill), "sensitive": pf["sensitive"], "kill": kill})
+    return out
+
+
+def live_model(vm: Mapping[str, Any], prices: Mapping[str, float]) -> dict[str, Any] | None:
+    """value_model.json + 지금 가격 {티커: 가격} → vm_live.json 내용 (장중 펄스가 live-data 에 올린다).
+
+    rows = 가격이 있는 줄만 {티커: live_row}, top = 주니어 · 시니어 상위 10 (top_v1 · top_v2 — 밤과 같은 함수),
+    counts = 우리 대상 중 주니어 통과 · 시니어 통과 수. 가격 관문 통과 수는 밤 파일 줄만으로는 다 못 세서 넣지 않는다.
+    """
+    rows = vm.get("rows") or []
+    rf = _f((vm.get("params") or {}).get("rf"))
+    if not rows or rf is None:
+        return None
+    live: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        px = _f(prices.get(r.get("ticker")))
+        lr = live_row(r, px, rf) if px is not None else None
+        if lr:
+            live[r["ticker"]] = lr
+    merged = [{**r, **live.get(r["ticker"], {})} for r in rows]
+    own = [r for r in merged if r.get("own", True)]
+    return {"schema": 1, "model_date": vm.get("date"), "rows": live,
+            "top": {"v1": top_v1(merged), "v2": top_v2(merged)},
+            "counts": {"pass": sum(1 for r in own if r.get("pass")), "pass_v2": sum(1 for r in own if r.get("pass_v2")),
+                       "rows": len(rows), "priced": len(live)}}
 
 
 def pm_metrics(ent: Mapping[str, Any], *, fcf: pd.Series, g1: float, ke: float, wacc: float, tr: float,
