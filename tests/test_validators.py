@@ -183,3 +183,24 @@ def test_split_labels_and_summary():
     df = _split_frame([80.0] * 9 + [19.5, 19.6, 19.4], split_at=9, ratio=4.0)
     line = summarize_split_fixes(repair_unapplied_splits_frame(df, "EMBJ")[1])
     assert line and "EMBJ 4:1" in line[0] and "-76%" in line[0]
+
+
+def test_split_fields_for_stock_file_and_list():
+    from web_export.universe import split_fields
+    all_, recent = split_fields([("2026-11-16", 4.0), ("2020-08-31", 4.0)], "2026-11-17")
+    assert all_ == [["2020-08-31", 4.0], ["2026-11-16", 4.0]] and recent == {"date": "2026-11-16", "ratio": 4.0}
+    assert split_fields([("2020-08-31", 4.0)], "2026-11-17")[1] is None      # 90일 넘음 → 목록 칸 없음
+    assert split_fields(None, "2026-11-17") == (None, None)
+
+
+def test_write_payloads_adds_splits(tmp_path):
+    import json as _json
+    from web_export.universe import write_payloads
+    payload = {"key": "nasdaq", "bar_date": "2026-11-17", "items": {"EMBJ": {"price": 18.9}, "AAPL": {"price": 351.9}}}
+    write_payloads(tmp_path, [payload], splits={"EMBJ": [("2026-11-16", 4.0)], "AAPL": [("2020-08-31", 4.0)]})
+    embj = _json.loads((tmp_path / "stocks" / "EMBJ.json").read_text())
+    aapl = _json.loads((tmp_path / "stocks" / "AAPL.json").read_text())
+    assert embj["splits"] == [["2026-11-16", 4.0]] and embj["info"]["split"] == {"date": "2026-11-16", "ratio": 4.0}
+    assert aapl["splits"] == [["2020-08-31", 4.0]] and "split" not in aapl["info"]
+    listed = _json.loads((tmp_path / "nasdaq.json").read_text())["items"]
+    assert listed["EMBJ"]["split"]["ratio"] == 4.0 and "split" not in listed["AAPL"]

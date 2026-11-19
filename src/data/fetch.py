@@ -189,7 +189,8 @@ CHART_DAILY_YEARS = 6   # 차트 가격의 일봉은 최근 6년만 남긴다 (�
 
 
 def fetch_chart_prices(tickers: List[str], daily_years: int = CHART_DAILY_YEARS,
-                       daily_since: "pd.Timestamp | None" = None) -> Dict[str, "ChartPrices"]:
+                       daily_since: "pd.Timestamp | None" = None,
+                       splits_out: "Dict[str, list[tuple[str, float]]] | None" = None) -> Dict[str, "ChartPrices"]:
     """패턴 · 교차 라벨용 차트 가격 — TradingView 기본 차트와 같은 분할만 반영 가격, 상장 이후 전체 (2026-10-27).
 
     yfinance auto_adjust=False 의 OHLC = 분할만 반영 (ADJ 꺼짐). 주·월봉 EMA100/200 이 TradingView 값과 맞으려면
@@ -198,6 +199,8 @@ def fetch_chart_prices(tickers: List[str], daily_years: int = CHART_DAILY_YEARS,
     받은 일봉(5년)으로 만든다.
 
     daily_since: 일봉을 남길 첫날 (주면 daily_years 대신 — 백테스트용으로 얼릴 때).
+    splits_out: 주면 종목마다 상장 이후 분할 기록 [(분할일 'YYYY-MM-DD', Yahoo 비율 4.0 = 4:1)] 을 채운다 (2026-11-18 —
+        종목 페이지 '분할 이력'. 같은 받기라 요청이 늘지 않는다).
 
     Returns:
         {종목: screener.chart_ma.ChartPrices}
@@ -242,6 +245,11 @@ def fetch_chart_prices(tickers: List[str], daily_years: int = CHART_DAILY_YEARS,
             if t not in data.columns.get_level_values(0):
                 failed += 1
                 continue
+            if splits_out is not None and "Stock Splits" in data[t].columns:
+                sp = pd.to_numeric(data[t]["Stock Splits"], errors="coerce")
+                ev = sp[(sp > 0) & ((sp - 1).abs() > 1e-9)]
+                if not ev.empty:
+                    splits_out[t] = [(pd.Timestamp(d).date().isoformat(), round(float(r), 6)) for d, r in ev.items()]
             frame = data[t].reindex(columns=list(OHLCV)).dropna(subset=["Close"])
             if frame.empty:
                 failed += 1

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import gzip
 import json
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Mapping
 from zoneinfo import ZoneInfo
@@ -148,18 +148,45 @@ def market_payload(key: str, label: str, items: dict[str, dict[str, Any]], *, ba
     }
 
 
+SPLIT_RECENT_DAYS = 90   # 목록 · 종목 머리에 '최근 분할' 표시 (그 사이 차트 · 수익률은 분할을 맞춘 값이라 확인용)
+
+
+def split_fields(splits: list[tuple[str, float]] | None, bar_date: str | None) -> tuple[list[list[Any]] | None, dict[str, Any] | None]:
+    """분할 기록 → (종목 파일 splits [[날짜, 비율], …] 오래된 순, 목록 칸 split {date, ratio} — 기준일 90일 안 가장 최근 것)."""
+    if not splits:
+        return None, None
+    rows = sorted((str(d), float(r)) for d, r in splits)
+    recent = None
+    if bar_date:
+        last_d, last_r = rows[-1]
+        try:
+            gap = (date.fromisoformat(bar_date[:10]) - date.fromisoformat(last_d[:10])).days
+        except ValueError:
+            gap = None
+        if gap is not None and 0 <= gap <= SPLIT_RECENT_DAYS:
+            recent = {"date": last_d, "ratio": last_r}
+    return [[d, r] for d, r in rows], recent
+
+
 def write_payloads(out_dir: Path, payloads: list[dict[str, Any]],
                    about: Mapping[str, str | None] | None = None,
                    details: Mapping[str, dict[str, Any]] | None = None,
                    market: dict[str, Any] | None = None,
-                   congress: Mapping[str, list[dict[str, Any]]] | None = None) -> dict[str, int]:
+                   congress: Mapping[str, list[dict[str, Any]]] | None = None,
+                   splits: Mapping[str, list[tuple[str, float]]] | None = None) -> dict[str, int]:
     """{key}.json 과 stocks/{티커}.json 을 쓴다 → {파일: 바이트}. 같은 티커가 두 시장에 있으면 앞의 것.
 
     about: 티커 → 회사 소개(영어, yfinance). 종목 파일에만 싣는다 (시장 파일에 넣으면 목록이 몇 MB 커진다).
     details: 티커 → 밸류에이션 · 애널리스트 · 분기 실적 (종목 파일의 detail, 2026-11-03). 없는 종목은 키를 안 쓴다.
     market: 오늘 탭 '시장 한눈에' · '실적 발표 일정' (market.json, 2026-11-03). None 이면 안 쓴다.
     congress: 티커 → 국회의원 거래 신고 12개월 (종목 파일의 congress, 2026-11-06 — data.congress_trades). 없는 종목은 키를 안 쓴다.
+    splits: 티커 → 상장 이후 분할 기록 (2026-11-18) — 종목 파일 splits, 90일 안 분할은 목록 칸 split 으로도. 없으면 키를 안 쓴다.
     """
+    for p in payloads:   # 목록 칸 split 먼저 (시장 파일에도 들어가게)
+        for ticker, info in p["items"].items():
+            _all, recent = split_fields((splits or {}).get(ticker), p.get("bar_date"))
+            if recent:
+                info["split"] = recent
     out_dir.mkdir(parents=True, exist_ok=True)
     stocks_dir = out_dir / "stocks"
     stocks_dir.mkdir(exist_ok=True)
@@ -180,6 +207,9 @@ def write_payloads(out_dir: Path, payloads: list[dict[str, Any]],
                    "about": _text((about or {}).get(ticker))}
             if details and details.get(ticker):
                 one["detail"] = details[ticker]
+            all_splits, _recent = split_fields((splits or {}).get(ticker), p.get("bar_date"))
+            if all_splits:
+                one["splits"] = all_splits
             cong = (congress or {}).get(ticker) or (congress or {}).get(ticker.replace(".", "-"))
             if cong:
                 one["congress"] = cong

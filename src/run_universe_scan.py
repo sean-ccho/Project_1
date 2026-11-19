@@ -227,6 +227,10 @@ def add_health(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
 
+# 종목별 상장 이후 분할 기록 (2026-11-18) — analyze_market 의 차트 가격 받기가 채우고 write_payloads 가 종목 파일 · 목록에 싣는다
+SPLITS: dict[str, list[tuple[str, float]]] = {}
+
+
 def analyze_market(tickers: list[str], label: str, names: dict[str, str], strong: set[str] | None,
                    snapshot_dir: Path) -> dict[str, Any]:
     """한 시장 분석 → {ranked, young(신규 상장 일봉), young_fund, bar_date, no_data}. 유동성 필터 없음."""
@@ -250,7 +254,7 @@ def analyze_market(tickers: list[str], label: str, names: dict[str, str], strong
     fund = fill_from_previous_snapshot(fund, f"[{label}]", snapshot_dir=snapshot_dir)
     t2 = time.perf_counter()
     # 패턴 · 교차 라벨은 TradingView 차트와 같은 가격(분할만 반영 · 상장 이후 전체)으로 본다 (2026-10-27)
-    chart_map = fetch_chart_prices(list(price_map))
+    chart_map = fetch_chart_prices(list(price_map), splits_out=SPLITS)
     features = compute_features_snapshot(price_map, fundamentals_df=fund, chart_map=chart_map)
     t3 = time.perf_counter()
     print(f"[{label}] 가격 {(t1 - t0) / 60:.1f}분 · 종목 정보 {(t2 - t1) / 60:.1f}분 · 피처 {(t3 - t2) / 60:.1f}분")
@@ -853,7 +857,7 @@ def canada_main(args: argparse.Namespace) -> int:
     _log(f"{CA_LABEL} 분석 끝", start)
     if res is None:
         return 1
-    sizes = write_payloads(args.out_dir, [res["payload"]], res["about"], res["details"], res.get("market"))
+    sizes = write_payloads(args.out_dir, [res["payload"]], res["about"], res["details"], res.get("market"), splits=SPLITS)
     print(f"[{CA_LABEL}] 회사 소개 {len(res['about'])}종목 · 종목 상세 {len(res['details'])}종목 · "
           f"market.json {'있음' if res.get('market') else '없음'} · 웹 파일: {sizes}")
     if not res["snapshot"].empty:
@@ -1033,7 +1037,7 @@ def main(argv: list[str] | None = None) -> int:
         _log("투자자 한눈에 끝", start)
     cong_sum, cong_tx = load_congress(args.out_dir)
     n_cong = attach_congress(payloads, cong_sum)
-    sizes = write_payloads(args.out_dir, payloads, about, details, market, congress=cong_tx)
+    sizes = write_payloads(args.out_dir, payloads, about, details, market, congress=cong_tx, splits=SPLITS)
     print(f"[전체분석] 회사 소개 {len(about)}종목 · 종목 상세 {len(details)}종목 · market.json {'있음' if market else '없음'} · "
           f"국회의원 거래 칩 {n_cong}종목")
     snap_dir = args.out_dir / "snapshot"
