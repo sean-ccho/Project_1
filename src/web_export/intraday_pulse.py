@@ -32,7 +32,7 @@ import math
 import sys
 import time as _time
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
@@ -276,6 +276,41 @@ def today_bars(tickers: Sequence[str], today: date) -> dict[str, Bar]:
                      low=_f(last.get("Low")) or float(last["Close"]), volume=vol or 0.0,
                      prev_close=_f(sub["Close"].iloc[-2]) if len(sub) >= 2 else None)
     return out
+
+
+MINUTE_INDEX = ("^VIX", "^GSPTSE")   # 일봉 마지막 값이 15분쯤 늦는 지수 (11-18 12:30 펄스 VIX 24.65 = 1분봉 12:14 값, 12:30 실제 23.81)
+
+
+def _minute_last(symbols: Sequence[str], today: date) -> dict[str, float]:
+    """1분봉 오늘 마지막 종가 {기호: 값} — 못 받으면 빠진다."""
+    import yfinance as yf
+
+    out: dict[str, float] = {}
+    data = yf.download(list(symbols), period="1d", interval="1m", group_by="ticker", progress=False, threads=True,
+                       auto_adjust=False)
+    for t, df in _frames(data, list(symbols)).items():
+        c = df["Close"].dropna() if "Close" in df.columns else pd.Series(dtype=float)
+        last = pd.Timestamp(c.index[-1]) if not c.empty else None
+        if last is not None and (last.tz_localize("UTC") if last.tzinfo is None else last).tz_convert(ET).date() == today:
+            out[t] = float(c.iloc[-1])
+    return out
+
+
+def refresh_index_prices(bars: dict[str, Bar], today: date,
+                         minute_last: Callable[[Sequence[str], date], dict[str, float]] = _minute_last) -> list[str]:
+    """지수 일봉 가격을 1분봉 마지막 값으로 (그 자리에서) → 바꾼 기호. 오늘 봉이 있는 지수만 (고가 · 저가도 넓힌다)."""
+    want = [s for s in MINUTE_INDEX if s in bars]
+    if not want:
+        return []
+    got = minute_last(want, today)
+    done: list[str] = []
+    for s, px in got.items():
+        b = bars.get(s)
+        if b is None or not (px > 0):
+            continue
+        bars[s] = replace(b, price=px, high=max(b.high, px), low=min(b.low, px))
+        done.append(s)
+    return done
 
 
 # ── 종목 정보 · 기준값 ────────────────────────────────────────────────────────
@@ -763,6 +798,8 @@ def run(out_dir: Path, *, base_path: Path | None = None, now: datetime | None = 
     print(f"[펄스] 기준값 {base['day']} · {len(base['t'])}종목 (만든 시각 {base['built_at']})")
 
     bars = _try(f"시세 {len(tickers)}종목", lambda: today_bars(tickers, today), errors) or {}
+    if bars and dashboard is None:   # 실제 실행만 (시험은 네트워크 없이)
+        _try("지수 1분봉", lambda: refresh_index_prices(bars, today), errors)
     if not bars:
         print("[펄스] 오늘 시세를 하나도 못 받음")
         return 1

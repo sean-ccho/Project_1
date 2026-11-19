@@ -183,3 +183,22 @@ def test_run_does_nothing_when_markets_are_closed(tmp_path):
     saturday = datetime(2026, 11, 14, 11, 0, tzinfo=ET)
     assert run(tmp_path, now=saturday) == 3
     assert not any(tmp_path.iterdir())
+
+
+def test_refresh_index_prices_uses_minute_bars():
+    """^VIX 일봉 마지막 값이 15분쯤 늦어서 1분봉 마지막 값으로 (2026-11-18). 오늘 봉이 있는 지수만, 고가 · 저가도 넓힌다."""
+    from datetime import date as _date
+    from web_export import intraday_pulse as ip
+    bars = {"^VIX": ip.Bar(price=24.65, high=25.0, low=24.5, volume=0.0, prev_close=25.46),
+            "SPY": ip.Bar(price=733.0, high=734.0, low=728.0, volume=1.0, prev_close=732.4)}
+    asked: list = []
+
+    def fake(symbols, today):
+        asked.append(list(symbols))
+        return {"^VIX": 23.81}
+
+    done = ip.refresh_index_prices(bars, _date(2026, 11, 18), minute_last=fake)
+    assert done == ["^VIX"] and asked == [["^VIX"]]                      # ^GSPTSE 는 오늘 봉이 없어 묻지 않는다
+    assert bars["^VIX"].price == 23.81 and bars["^VIX"].low == 23.81 and bars["^VIX"].prev_close == 25.46
+    assert bars["SPY"].price == 733.0                                    # 다른 종목은 그대로
+    assert ip.refresh_index_prices({"SPY": bars["SPY"]}, _date(2026, 11, 18), minute_last=fake) == []
