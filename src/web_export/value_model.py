@@ -11,6 +11,8 @@ AUTHOR_COVERAGE)와 Ideas(블로그)의 심층 리서치 글(AUTHOR_RESEARCH). A
   Beneish M ≤ −2.22 / FCF 모든 해 플러스 · FCF 합 > 순차입 합
 - 가격 관문: 3년 평균 FCF 수익률이 5년 동안 매출 성장률(−5 ~ +10%로 자름), 그 뒤 2.5% 로 자란다고 보고 낸
   기대수익률 − 요구수익률(10년 국채 + 베타 × 5.36%) ≥ 5%p. 매수 기준가 = 그 조건이 딱 맞는 주가.
+  베타는 최소 1 (2026-11-19 사용자 — 그 전엔 0.3 이라 S&P 와 따로 움직이는 종목의 요구수익률이 국채 근처까지 내려가
+  매수 기준가 · 적정가가 높게 나왔다. 이제 어떤 종목도 시장 평균보다 안전하다고 보지 않는다. 기록은 그대로 이어 간다).
 - 앞으로 기록: 처음 통과한 날 · 가격(우리)과 저자 종목(목록에 처음 보인 날)을 snapshot/value_log.json 에 남겨
   지금까지 수익률을 SPY(캐나다는 XIU)와 비교한다. 대상(UNIVERSE_ID)이 바뀌면 새로 시작하고, 대상 재무를 WARMUP_MIN 만큼
   받기 전엔 시작하지 않는다.
@@ -25,6 +27,8 @@ AUTHOR_COVERAGE)와 Ideas(블로그)의 심층 리서치 글(AUTHOR_RESEARCH). A
 
 재무는 snapshot/value_fund.json.gz 에 쌓아 MAX_AGE_DAYS 마다 다시 받는다 (하룻밤 시간 한도 안에서 조금씩).
 실적을 발표한 회사는 발표 뒤 REPORT_CHECKS 일에 먼저 다시 받는다 (2026-11-17 — note_reports · refresh_order).
+회계연도 마감 실적이면 발표한 밤부터 Yahoo 에 새 해 현금흐름표가 들어왔는지 밤마다 확인해, 들어온 그 밤에 받는다
+(2026-11-19 — awaiting_year · probe_new_year. 새 해 FCF 는 10-K 가 나와야 들어와 발표 당일 ~ 몇 주 뒤로 종목마다 다르다).
 주가 · 베타 · 하락폭 · 가격 관문은 매일 다시 계산한다. 주가는 같은 밤 전체분석이 받은 5년 종가(--px)를 쓰고, 거기 없는
 종목(캐나다 · XIU 등)만 직접 받는다 (2026-11-17 중복 정리 — download_prices).
 점수 · 필터 · PT-1 · 시트와 무관 — universe-scan.yml 이 universe-data 브랜치에 같이 올린다.
@@ -64,7 +68,8 @@ TERM_G = 0.025          # 5년 뒤 영구 성장률 (저자는 국채금리 — 
 ALPHA_MIN = 0.05        # 기대수익률 − 요구수익률 ≥ 5%p
 STAGE1_YEARS = 5
 G1_RANGE = (-0.05, 0.10)  # 첫 5년 성장률 = 최근 매출 연평균 성장률, 이 범위로 자름
-BETA_RANGE = (0.3, 2.5)
+BETA_RANGE = (1.0, 2.5)  # 베타 최소 1 (2026-11-19 사용자, 그 전 0.3) — 요구수익률이 시장 평균(국채 + ERP)보다 낮지 않다
+BETA_MIN_FROM = "2026-11-19"  # 베타 최소 1 을 쓴 첫 밤 — 그 전 기록은 0.3 으로 고른 것 (사이트 규칙 설명)
 RF_FALLBACK = 0.045
 
 # ── 품질 관문 기준
@@ -74,7 +79,10 @@ MIN_YEARS = 3           # 평균 · CV 를 내려면 이 해 수 이상
 
 # ── 받기
 MAX_AGE_DAYS = 30       # 연간 재무는 한 달에 한 번꼴로 다시
-REPORT_CHECKS = (2, 10)  # 실적 발표 뒤 이 날수에 다시 받는다 — Yahoo 가 새 재무를 며칠 늦게 넣어 두 번 (2026-11-17)
+REPORT_CHECKS = (1, 10)  # 실적 발표 뒤 이 날수에 다시 받는다 (2026-11-17 은 2 · 10, 11-19 사용자 "실적 나온 다음날 바로")
+NEW_YEAR_WINDOW = 120   # 회계연도가 끝나고 이 날수 안에 낸 실적 = 회계연도 마감 실적 — 새 해 연간 표를 기다린다
+NEW_YEAR_WAIT_DAYS = 60  # 그 실적 발표 뒤 이 날수까지 밤마다 새 해 현금흐름표를 확인한다 (10-K 는 보통 발표 당일 ~ 몇 주 뒤)
+PROBE_BUDGET_MIN = 6.0   # 새 해 확인(종목당 요청 1번)에 쓸 시간 한도 — 재무 받기 시간 한도(BUDGET_MIN) 안에서
 WORKERS = 2             # 4개면 Yahoo 429 가 났다 (2026-11-05 시험)
 MAX_FAIL_STREAK = 25
 PAUSE_SEC = 120.0       # 연속 실패(막힘)면 이만큼 쉬고 이어 받는다 (시간 한도 안에서 PAUSE_MAX 번까지)
@@ -84,7 +92,7 @@ BUDGET_MIN = 20.0
 # ── v2 (2026-11-11) — 시니어식 보강. v1 규칙은 그대로 두고 같은 데이터로 따로 계산해 같은 날부터 기록 · 비교한다.
 #    규칙은 시작일에 고정 — 초반 성적을 보고 고치지 않는다 (바꾸고 싶으면 v3 로 새로 시작).
 BEAR_FCF_CUT = 0.30     # 하방 관문: FCF 30% 감소 · 첫 5년 성장 0 이하에서도 알파 ≥ 0
-SENSITIVE_BETA = 0.6    # 베타 민감 배지: 베타 하한을 0.6 으로 올리면 가격 관문에서 탈락하는지
+SENSITIVE_BETA = 0.6    # 베타 민감 배지: 베타 하한을 0.6 으로 올리면 가격 관문에서 탈락하는지 (베타 최소 1 부터는 안 걸린다)
 TOP_N = 10              # 우선순위 상위 묶음 (v1 필요 하락 작은 순 · v2 괴리 큰 순) — 매달 첫 실행에 다시 고른다
 THEME_TOP = 20          # 업종 집중 경고를 볼 v2 상위 범위
 THEME_WARN = 3          # 그 안에 같은 업종이 이만큼 이상이면 경고
@@ -346,6 +354,87 @@ def retry_info(cache: dict[str, dict[str, Any]], tickers: Iterable[str], today: 
     if want:
         log(f"[예측 모델] 종목 정보 다시 받기: 빈 종목 {len(want)} · 받음 {ok} · 빈 값 {empty}")
     return stats
+
+
+# ── 회계연도 마감 실적 뒤 새 해 기다리기 (2026-11-19 사용자: "최신 실적이 나온 다음날 자료를 바로")
+#    새 해 FCF 는 회사가 10-K(연간 보고서)를 내야 Yahoo 에 들어온다 — 2026-11-19 확인: DLB 는 발표 다음 날 이미 있었고
+#    FFIV(10-28 발표)는 3주쯤 뒤, DHI(10-29 발표)는 3주가 지나도 없음. 정해진 날(2일 · 10일 뒤)에만 받으면 FFIV 처럼
+#    그 뒤에 들어온 해를 한 달(MAX_AGE_DAYS) 뒤에야 받았다. 그래서 들어올 때까지 밤마다 현금흐름표만 한 번 확인한다.
+
+YEAR_ROWS = ("Free Cash Flow", "Operating Cash Flow")
+
+
+def latest_year(ent: Mapping[str, Any]) -> str | None:
+    """캐시 줄의 연간 현금흐름표(FCF · 영업현금흐름 칸) 가장 최근 해 'YYYY-MM-DD'. 없으면 None."""
+    cf = ent.get("cf") or {}
+    cols = [str(d)[:10] for name in YEAR_ROWS for d in (cf.get(name) or {})]
+    return max(cols) if cols else None
+
+
+def awaiting_year(ent: Mapping[str, Any], today: date) -> bool:
+    """회계연도 마감 실적을 냈는데 그 해 현금흐름표가 아직 캐시에 없음 — 발표 뒤 NEW_YEAR_WAIT_DAYS 일까지 밤마다 확인할 종목.
+
+    마감 실적 = 캐시의 마지막 해 + 1년(다음 회계연도 끝) 뒤 NEW_YEAR_WINDOW 일 안에 낸 실적. 1~3분기 실적이나, 캐시에서
+    한 해가 통째로 빠진 종목(Yahoo 에 그 해가 없음 — 발표가 다음 해 끝에서 120일 넘게 지남)은 기다리지 않는다.
+    """
+    rep, last = report_dates.day(ent.get("last_report")), latest_year(ent)
+    if not rep or not last:
+        return False
+    r = date.fromisoformat(rep)
+    fy_end = date.fromisoformat(last) + timedelta(days=365)
+    return fy_end <= r <= fy_end + timedelta(days=NEW_YEAR_WINDOW) and (today - r).days <= NEW_YEAR_WAIT_DAYS
+
+
+def probe_year(ticker: str) -> str | None:
+    """Yahoo 연간 현금흐름표의 가장 최근 해 (요청 1번 — 재무 전부 받기(fetch_one)의 약 1/4). 표가 비면 RuntimeError."""
+    import yfinance as yf  # noqa: PLC0415
+
+    packed = pack_stmt(yf.Ticker(yf_symbol(ticker)).cashflow, YEAR_ROWS)
+    if not packed:
+        raise RuntimeError(f"{ticker}: 현금흐름표 없음")
+    return latest_year({"cf": packed})
+
+
+def probe_new_year(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], today: date, *, budget_sec: float,
+                   probe: Callable[[str], str | None] = probe_year, workers: int = WORKERS,
+                   log: Callable[[str], None] = print) -> tuple[list[str], dict[str, int]]:
+    """새 해를 기다리는 종목(awaiting_year, 오늘 아직 안 받은 것)을 Yahoo 에 확인 → (새 해가 들어온 종목, 통계).
+
+    들어온 종목은 refresh 가 맨 먼저 전부 다시 받는다(first). 오래 기다린 순(발표일 이른 순)으로 확인하고, 시간 한도나
+    연속 MAX_FAIL_STREAK 번 실패(막힘)면 멈춘다 — 남은 종목은 다음 밤. 통계 = {"want", "probed", "new", "fail"}.
+    """
+    today_s = today.isoformat()
+    want = sorted((t for t in tickers if (e := cache.get(t)) and str(e.get("fetched", "")) < today_s
+                   and awaiting_year(e, today)), key=lambda t: (str(cache[t].get("last_report")), t))
+    queue = deque(want)
+    new: list[str] = []
+    probed = fail = streak = 0
+    start = time.monotonic()
+    with ThreadPoolExecutor(max_workers=max(workers, 1)) as pool:
+        running: dict[Any, str] = {}
+        while queue or running:
+            while (queue and len(running) < workers and time.monotonic() - start <= budget_sec
+                   and streak < MAX_FAIL_STREAK):
+                t = queue.popleft()
+                running[pool.submit(probe, t)] = t
+            if not running:
+                break
+            fut = next(as_completed(list(running)))
+            t = running.pop(fut)
+            probed += 1
+            try:
+                got = fut.result()
+                streak = 0
+                if got and got > (latest_year(cache[t]) or ""):
+                    new.append(t)
+            except Exception:  # noqa: BLE001 — 확인 실패는 다음 밤에 다시
+                fail += 1
+                streak += 1
+    stats = {"want": len(want), "probed": probed, "new": len(new), "fail": fail}
+    if want:
+        log(f"[예측 모델] 새 해 현금흐름표 기다리는 {len(want)} · 확인 {probed} · 들어옴 {len(new)} · 실패 {fail} "
+            f"({(time.monotonic() - start) / 60:.1f}분){' — ' + ' '.join(sorted(new)[:20]) if new else ''}")
+    return sorted(new), stats
 
 
 def series(ent: Mapping[str, Any], stmt: str, *names: str) -> pd.Series:
@@ -871,18 +960,21 @@ def lost_statements(old: Mapping[str, Any], new: Mapping[str, Any]) -> list[str]
 
 
 def refresh_order(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], today: date,
-                  backfill: int = V3_BACKFILL) -> list[str]:
-    """다시 받을 종목 — ① 캐시에 없음 ② 실적 발표 뒤 REPORT_CHECKS 일이 됐는데 그 전에 받음 (report_due)
-    ③ MAX_AGE_DAYS 일 넘음 (오래된 순) ④ 받는 항목 판(rows_v)이 ROWS_VERSION 보다 낮음
-    (v3 의 SBC · 희석주식수가 없음 — 오래된 순으로 backfill 개까지)."""
+                  backfill: int = V3_BACKFILL, first: Iterable[str] = ()) -> list[str]:
+    """다시 받을 종목 — ① 캐시에 없음 · 새 해 현금흐름표가 Yahoo 에 들어옴(first — probe_new_year)
+    ② 실적 발표 뒤 REPORT_CHECKS 일이 됐는데 그 전에 받음 (report_due) ③ MAX_AGE_DAYS 일 넘음 (오래된 순)
+    ④ 받는 항목 판(rows_v)이 ROWS_VERSION 보다 낮음 (v3 의 SBC · 희석주식수가 없음 — 오래된 순으로 backfill 개까지)."""
     stale = (today - timedelta(days=MAX_AGE_DAYS)).isoformat()
+    first_set = set(first)
     tiers: list[tuple[int, str, str]] = []
     old_rows: list[tuple[int, str, str]] = []
     for t in tickers:
         ent = cache.get(t) or {}
         fetched = str(ent.get("fetched", ""))
         due = report_due(ent, today) if fetched else None
-        if not fetched:
+        if t in first_set and fetched < today.isoformat():
+            tiers.append((0, "", t))
+        elif not fetched:
             tiers.append((0, "", t))
         elif due and fetched < due:
             tiers.append((1, fetched, t))
@@ -896,12 +988,13 @@ def refresh_order(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]]
 def refresh(tickers: Iterable[str], cache: dict[str, dict[str, Any]], today: date, *, budget_sec: float,
             fetch: Fetch = fetch_one, workers: int = WORKERS, log: Callable[[str], None] = print,
             pause_sec: float = PAUSE_SEC, pause_max: int = PAUSE_MAX,
-            sleep: Callable[[float], None] = time.sleep) -> dict[str, int]:
+            sleep: Callable[[float], None] = time.sleep, first: Iterable[str] = ()) -> dict[str, int]:
     """시간 한도 안에서 cache 를 고쳐 쓴다 → {"want", "ok", "fail", "left", "pauses"}. 못 받은 종목은 전에 받은 값 그대로.
     연속 MAX_FAIL_STREAK 번 실패하면 Yahoo 가 막은 것 — 시간이 남으면 pause_sec 쉬고 그 종목들부터 이어 받는다
     (pause_max 번까지). 2026-11-12 로컬: 670종목째에서 막혔다 (대상을 넓힌 첫 밤엔 1,600종목 넘게 새로 받는다).
-    전에 있던 재무표가 통째로 빈 반쪽 응답(lost_statements)도 실패 — 예전 자료를 그대로 둔다."""
-    order = refresh_order(tickers, cache, today)
+    전에 있던 재무표가 통째로 빈 반쪽 응답(lost_statements)도 실패 — 예전 자료를 그대로 둔다.
+    first = 새 해 현금흐름표가 들어온 종목 (probe_new_year) — 맨 먼저 받는다."""
+    order = refresh_order(tickers, cache, today, first=first)
     queue = deque(order)
     start = time.monotonic()
     ok = pauses = 0
@@ -1632,10 +1725,11 @@ def screen(tickers: Iterable[str], cache: Mapping[str, Mapping[str, Any]], px: p
         if not (math.isfinite(rate) and rate > 0):
             count("no_data", mine)
             continue
-        beta = monthly_beta(px, t, bench_of(t))
-        beta = min(max(beta, BETA_RANGE[0]), BETA_RANGE[1]) if math.isfinite(beta) else 1.0
+        beta_raw = monthly_beta(px, t, bench_of(t))
+        beta = min(max(beta_raw, BETA_RANGE[0]), BETA_RANGE[1]) if math.isfinite(beta_raw) else 1.0
         res = analyze(ent, price=price, mcap_fc=mcap_now / rate, beta=beta, rf=rf, int_fin=(int_fin or {}).get(t),
                       fin_ccy=fin)
+        res["beta_raw"] = beta_raw  # 자르기 전 베타 — 사이트 '베타 1 (계산 0.12)' 표시용
         s = px[t].dropna() if t in px.columns else pd.Series(dtype=float)
         res["dd_3y"] = float(s.iloc[-1] / s.iloc[-756:].max() - 1) if len(s) > 260 else NAN
         res.update({"ticker": t, "name": info.get("shortName"), "sector": info.get("sector"),
@@ -1715,7 +1809,7 @@ def research_rows(px: pd.DataFrame, rows_by: Mapping[str, Mapping[str, Any]]) ->
 def web_row(r: Mapping[str, Any], cov: Sequence[Mapping[str, Any]] | None = None,
             author_cos: Mapping[str, str] | None = None) -> dict[str, Any]:
     """사이트에 보낼 한 줄 (숫자는 반올림, NaN 은 null). own = 우리 대상 종목인지 (False = 저자 종목 비교용)."""
-    keys4 = ("roe", "roe_cv", "roic", "roic_cv", "wacc", "beta", "ke", "g1", "fcf_y", "sh_y", "irr", "alpha",
+    keys4 = ("roe", "roe_cv", "roic", "roic_cv", "wacc", "beta", "beta_raw", "ke", "g1", "fcf_y", "sh_y", "irr", "alpha",
              "alpha_author", "drop", "dd_3y", "implied_g", "gap", "alpha_bear", "alpha_b06")
     row: dict[str, Any] = {"ticker": r["ticker"], "name": r.get("name"), "sector": r.get("sector"),
                            "industry": r.get("industry"), "ccy": r.get("ccy"), "price": _r(r.get("price"), 2),
@@ -1771,7 +1865,7 @@ def build_model(rows: list[dict[str, Any]], funnel: Mapping[str, int], *, price_
         "params": {"rf": _r(rf), "rf_src": rf_src, "erp": ERP, "term_g": TERM_G, "alpha_min": ALPHA_MIN,
                    "stage1_years": STAGE1_YEARS, "roe_min": ROE_MIN, "roic_min": ROIC_MIN, "cv_max": CV_MAX,
                    "altman_min": ALTMAN_MIN, "beneish_max": BENEISH_MAX, "universe": dict(universe or {}),
-                   "beta_min": BETA_RANGE[0]},  # 베타 하한 — 사이트 '베타 하한' 표시 (2026-11-17)
+                   "beta_min": BETA_RANGE[0], "beta_min_from": BETA_MIN_FROM},  # 베타 하한 — 사이트 표시 (11-17 · 11-19 최소 1)
         "funnel": dict(funnel),
         "fetch": dict(fetch_stats or {}),
         "rows": [web_row(r, cov, author_cos) for r in keep],
@@ -1797,6 +1891,41 @@ def build_model(rows: list[dict[str, Any]], funnel: Mapping[str, int], *, price_
         # 다음 밤 load_interest_fin 이 일주일 안이면 그대로 쓰고, SEC 를 못 받은 밤에도 이 표를 쓴다.
         "int_fin": dict(int_meta or {"at": None, "src": "none", "asked": 0, "tickers": {}}),
     }
+
+
+def current_lists(model: Mapping[str, Any] | None) -> dict[str, list[str]]:
+    """사이트 명단 — 주니어 · 시니어 통과(우리 대상), 주니어 · 시니어 상위 10, 수석 PM 포트폴리오 (value_model.json 모양에서)."""
+    model = model or {}
+    rows = [r for r in model.get("rows") or [] if r.get("own", True)]
+    tops = (model.get("v2") or {}).get("top") or {}
+    return {"v1": [r["ticker"] for r in rows if r.get("pass")],
+            "v2": [r["ticker"] for r in rows if r.get("pass_v2")],
+            "v1_top": list(tops.get("v1") or []), "v2_top": list(tops.get("v2") or []),
+            "v3": list((model.get("v3") or {}).get("top") or [])}
+
+
+def list_changes(prev_model: Mapping[str, Any] | None, now: Mapping[str, list[str]], day: str) -> dict[str, dict[str, Any]]:
+    """명단마다 마지막으로 종목 구성이 바뀐 날 (2026-11-19 사용자 — 사이트 '명단 바뀐 날').
+
+    → {키: {"t": 지금 명단, "d": 바뀐 날(종가 날짜) 또는 None, "add": 들어온 종목, "drop": 빠진 종목, "since": 확인을 시작한 날}}.
+    순서만 바뀐 건 변화가 아니다. 전날 파일의 명단과 같으면 전날 값을 그대로 둔다. 전날 파일에 이 칸이 없으면(첫 밤) 그 파일의
+    줄로 명단을 만들어 비교하고, 같으면 바뀐 날을 모른다(d = None — 사이트는 '그대로 · since 부터 확인').
+    """
+    old_lists: Mapping[str, Any] = (prev_model or {}).get("lists") or {}
+    derived = current_lists(prev_model) if prev_model and not old_lists else {}
+    out: dict[str, dict[str, Any]] = {}
+    for k, t in now.items():
+        old = old_lists.get(k) or {}
+        before = old.get("t") if old else derived.get(k)
+        if before is None:
+            out[k] = {"t": list(t), "d": None, "add": [], "drop": [], "since": day}
+        elif set(before) != set(t):
+            out[k] = {"t": list(t), "d": day, "add": sorted(set(t) - set(before)), "drop": sorted(set(before) - set(t)),
+                      "since": old.get("since") or day}
+        else:
+            out[k] = {"t": list(t), "d": old.get("d"), "add": list(old.get("add") or []),
+                      "drop": list(old.get("drop") or []), "since": old.get("since") or day}
+    return out
 
 
 def universe_tickers() -> list[str]:
@@ -1906,9 +2035,14 @@ def main(argv: list[str] | None = None) -> int:
     fetch_stats: dict[str, int] | None = None
     try:
         if not args.no_fetch:
-            fetch_stats = refresh(tickers, cache, today, budget_sec=args.budget_min * 60)
+            t0 = time.monotonic()
+            arrived, year_stats = probe_new_year(tickers, cache, today,
+                                                 budget_sec=min(PROBE_BUDGET_MIN, args.budget_min) * 60)
+            left = max(args.budget_min * 60 - (time.monotonic() - t0), 60.0)
+            fetch_stats = refresh(tickers, cache, today, budget_sec=left, first=arrived)
             fetch_stats["info"] = retry_info(cache, tickers, today)["ok"]
-            fetch_stats.update({"report_known": known, "report_due": due_n})
+            fetch_stats.update({"report_known": known, "report_due": due_n,
+                                "year_wait": year_stats["want"], "year_new": year_stats["new"]})
     finally:
         size = save_cache(snap / CACHE_NAME, cache, keep=set(tickers))
         print(f"[예측 모델] 재무 캐시 {len(cache)}종목 · {size / 1e6:.2f}MB")
@@ -1985,6 +2119,12 @@ def main(argv: list[str] | None = None) -> int:
         model["price_fill"] = {"n": len(filled), "date": max(filled.values())}
     # 주가 출처 — 같은 밤 전체분석 종가를 쓴 종목 · 직접 받은 종목 (2026-11-17 중복 정리 확인용)
     model["price_src"] = {"scan": int(px.attrs.get("reused") or 0), "yahoo": int(px.attrs.get("fetched") or 0)}
+    # 명단 바뀐 날 (2026-11-19) — 주니어 · 시니어 · 수석 PM 칸 위 '명단 바뀐 날'. 전날 파일(prev_model)과 비교
+    model["lists"] = list_changes(prev_model, current_lists(model), price_date)
+    moved = {k: v for k, v in model["lists"].items() if v["d"] == price_date}
+    if moved:
+        print("[예측 모델] 명단 바뀜 — " + " · ".join(f"{k} +{','.join(v['add']) or '-'} −{','.join(v['drop']) or '-'}"
+                                                 for k, v in moved.items()))
     body = json.dumps(model, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     (out_dir / OUT_NAME).write_text(body, "utf-8")
     print(f"[예측 모델] {price_date} · 대상 {funnel['universe']} · 계산 {funnel['computed']} (+비교용 {funnel['extra']}) · "

@@ -775,19 +775,93 @@ def test_note_reports_uses_sec_and_passed_yahoo_dates():
     assert "last_report" not in cache["RY.TO"] and cache["RY.TO"]["next_report"] == "2026-12-03"
 
 
-def test_refresh_order_puts_after_report_first_at_day_2_and_10():
+def test_refresh_order_puts_after_report_first_at_day_1_and_10():
+    """실적 발표 다음 날 · 10일 뒤 (2026-11-19 사용자: "실적 나온 다음날 바로" — 그 전엔 2 · 10일)."""
     ent = {"fetched": "2026-11-13", "last_report": "2026-11-18", "rows_v": vm.ROWS_VERSION}
-    assert vm.report_due(ent, date(2026, 11, 19)) is None                 # 발표 다음 날은 아직 (Yahoo 가 늦게 넣는다)
-    assert vm.report_due(ent, date(2026, 11, 20)) == "2026-11-20"         # 2일 뒤
+    assert vm.report_due(ent, date(2026, 11, 18)) is None                 # 발표한 날은 아직
+    assert vm.report_due(ent, date(2026, 11, 19)) == "2026-11-19"         # 다음 날
     assert vm.report_due(ent, date(2026, 11, 29)) == "2026-11-28"         # 10일 뒤
     cache = {"BRBR": dict(ent),
              "STALE": {"fetched": "2026-10-01", "rows_v": vm.ROWS_VERSION},
              "OLDV": {"fetched": "2026-11-12"},
-             "FRESH": {"fetched": "2026-11-20", "last_report": "2026-11-18", "rows_v": vm.ROWS_VERSION}}
-    assert vm.refresh_order(list(cache), cache, date(2026, 11, 20)) == ["BRBR", "STALE", "OLDV"]
-    cache["BRBR"]["fetched"] = "2026-11-20"                                  # 2일 뒤에 받음 → 10일 뒤까지 쉼
+             "FRESH": {"fetched": "2026-11-19", "last_report": "2026-11-18", "rows_v": vm.ROWS_VERSION}}
+    assert vm.refresh_order(list(cache), cache, date(2026, 11, 19)) == ["BRBR", "STALE", "OLDV"]
+    cache["BRBR"]["fetched"] = "2026-11-19"                                  # 다음 날 받음 → 10일 뒤까지 쉼
     assert "BRBR" not in vm.refresh_order(list(cache), cache, date(2026, 11, 27))
     assert vm.refresh_order(["BRBR"], cache, date(2026, 11, 28)) == ["BRBR"]
+
+
+def _cf(*years: str) -> dict[str, dict[str, float]]:
+    return {"Free Cash Flow": {y: 1.0 for y in years}, "Operating Cash Flow": {y: 2.0 for y in years}}
+
+
+def test_awaiting_year_only_after_fiscal_year_end_report():
+    """회계연도 마감 실적(마지막 해 + 1년 뒤 120일 안)만 새 해를 기다린다 — 분기 실적 · 한 해가 빠진 종목 · 60일 넘으면 안 기다림."""
+    fy = {"cf": _cf("2024-09-30", "2025-09-30"), "last_report": "2026-11-18"}  # BRBR — 9월 결산, 11-18 발표
+    assert vm.latest_year(fy) == "2025-09-30"
+    assert vm.awaiting_year(fy, date(2026, 11, 18))                        # 발표한 밤부터
+    assert vm.awaiting_year(fy, date(2027, 1, 17))                         # 60일째까지
+    assert not vm.awaiting_year(fy, date(2027, 1, 18))                     # 그 뒤엔 한 달 주기로만
+    assert not vm.awaiting_year({**fy, "cf": _cf("2025-09-30", "2026-09-30")}, date(2026, 11, 19))  # 이미 들어옴
+    q1 = {"cf": _cf("2026-09-30"), "last_report": "2027-02-04"}            # 다음 해 1분기 실적
+    assert not vm.awaiting_year(q1, date(2027, 2, 5))
+    gap = {"cf": _cf("2024-12-31"), "last_report": "2026-11-04"}           # Yahoo 에 2025 년이 통째로 없음 (TRAX)
+    assert not vm.awaiting_year(gap, date(2026, 11, 5))
+    assert not vm.awaiting_year({"cf": _cf("2025-09-30")}, date(2026, 11, 19))  # 실적일 모름
+    assert not vm.awaiting_year({"last_report": "2026-11-18"}, date(2026, 11, 19))  # 현금흐름표 없음
+
+
+def test_probe_new_year_puts_arrived_first_and_stops_when_blocked():
+    """Yahoo 에 새 해가 들어온 종목만 refresh 맨 앞에 — 안 들어온 종목 · 오늘 받은 종목은 그대로, 막히면 멈춘다."""
+    old = _cf("2024-09-30", "2025-09-30")
+    cache = {"DLB": {"cf": old, "last_report": "2026-11-18", "fetched": "2026-11-17", "rows_v": vm.ROWS_VERSION},
+             "DHI": {"cf": old, "last_report": "2026-10-29", "fetched": "2026-11-17", "rows_v": vm.ROWS_VERSION},
+             "TODAY": {"cf": old, "last_report": "2026-11-18", "fetched": "2026-11-19", "rows_v": vm.ROWS_VERSION},
+             "STALE": {"cf": old, "fetched": "2026-10-01", "rows_v": vm.ROWS_VERSION}}
+    seen: list[str] = []
+
+    def probe(t: str) -> str | None:
+        seen.append(t)
+        return "2026-09-30" if t == "DLB" else "2025-09-30"
+
+    today = date(2026, 11, 19)
+    new, stats = vm.probe_new_year(list(cache), cache, today, budget_sec=60, probe=probe, workers=1, log=lambda _m: None)
+    assert new == ["DLB"] and seen == ["DHI", "DLB"]                       # 오래 기다린 순, 오늘 받은 종목은 안 봄
+    assert stats == {"want": 2, "probed": 2, "new": 1, "fail": 0}
+    order = vm.refresh_order(list(cache), cache, today, first=new)
+    assert order[0] == "DLB" and "DHI" not in order                        # DHI 는 다음 날(1일) · 10일 뒤도 지나 쉼
+
+    def blocked(t: str) -> str | None:
+        raise RuntimeError("429")
+
+    many = {f"T{i}": dict(cache["DHI"]) for i in range(vm.MAX_FAIL_STREAK + 10)}
+    _, st = vm.probe_new_year(list(many), many, today, budget_sec=60, probe=blocked, workers=1, log=lambda _m: None)
+    assert st["probed"] == vm.MAX_FAIL_STREAK and st["fail"] == vm.MAX_FAIL_STREAK
+
+
+def test_list_changes_keeps_date_until_members_change():
+    """명단 바뀐 날 — 첫 밤은 전날 줄로 비교, 순서만 바뀐 건 변화 아님, 바뀌면 그날 · 들어온/빠진 종목 (2026-11-19)."""
+    prev = {"rows": [{"ticker": "BRBR", "own": True, "pass": True, "pass_v2": True},
+                     {"ticker": "STNG", "own": True, "pass": True, "pass_v2": True},
+                     {"ticker": "CGI", "own": False, "pass": True}],          # 대상 밖 비교용은 명단에 안 넣는다
+            "v2": {"top": {"v1": ["BRBR", "STNG"], "v2": ["BRBR"]}}, "v3": {"top": ["BRBR", "STNG"]}}
+    now = {"v1": ["BRBR", "STNG"], "v2": ["BRBR"], "v1_top": ["STNG", "BRBR"], "v2_top": ["BRBR"], "v3": ["BRBR"]}
+    first = vm.list_changes(prev, now, "2026-11-19")
+    assert first["v1"] == {"t": ["BRBR", "STNG"], "d": None, "add": [], "drop": [], "since": "2026-11-19"}
+    assert first["v1_top"]["d"] is None                                      # 순서만 바뀜
+    assert first["v2"] == {"t": ["BRBR"], "d": "2026-11-19", "add": [], "drop": ["STNG"], "since": "2026-11-19"}
+    assert first["v3"]["d"] == "2026-11-19" and first["v3"]["drop"] == ["STNG"]
+    nxt = vm.list_changes({"lists": first}, {**now, "v1": ["BRBR", "STNG", "DOX"]}, "2026-11-20")
+    assert nxt["v2"]["d"] == "2026-11-19" and nxt["v2"]["drop"] == ["STNG"]  # 그대로면 전날 값
+    assert nxt["v1"] == {"t": ["BRBR", "STNG", "DOX"], "d": "2026-11-20", "add": ["DOX"], "drop": [], "since": "2026-11-19"}
+    assert vm.list_changes(None, now, "2026-11-19")["v3"]["d"] is None       # 전날 파일 없음
+    assert vm.current_lists(prev)["v1"] == ["BRBR", "STNG"]
+
+
+def test_beta_floor_is_one():
+    """베타 최소 1 (2026-11-19) — 요구수익률이 시장 평균(국채 + ERP)보다 낮게 잡히지 않는다."""
+    assert vm.BETA_RANGE[0] == 1.0
+    assert min(max(0.12, vm.BETA_RANGE[0]), vm.BETA_RANGE[1]) == 1.0
 
 
 def test_refresh_keeps_report_dates_after_refetch():
