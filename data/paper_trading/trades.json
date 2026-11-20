@@ -1458,5 +1458,23 @@
     "defer_count": 0,
     "entry_rsi": 55.01343113604785,
     "actual_max_upside_pct": 0.0252
+  },
+  {
+    "ticker": "MORN",
+    "entry_date": "2026-11-09",
+    "exit_date": "2026-11-19",
+    "entry_price": 246.15,
+    "exit_price": 232.89999389648438,
+    "return_pct": -0.0538,
+    "holding_days": 10,
+    "highest_price": 248.64999389648438,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (11.5)",
+    "ccs_score": 0.5802,
+    "sector": "Financial Services",
+    "exit_reason": "트레일링(-6.3%)",
+    "defer_count": 0,
+    "entry_rsi": 72.56768201993417,
+    "actual_max_upside_pct": 0.0102
   }
 ]

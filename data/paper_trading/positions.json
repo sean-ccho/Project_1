@@ -1,20 +1,5 @@
 [
   {
-    "ticker": "MORN",
-    "entry_price": 246.15,
-    "entry_date": "2026-11-09",
-    "strategy": "📈 모멘텀",
-    "star_rating": "★★★★★ (11.5)",
-    "ccs_score": 0.5802,
-    "sector": "Financial Services",
-    "highest_price": 248.64999389648438,
-    "defer_count": 0,
-    "trailing_stop_override": null,
-    "last_defer_date": null,
-    "defer_debug": null,
-    "entry_rsi": 72.56768201993417
-  },
-  {
     "ticker": "LIVN",
     "entry_price": 94.54000091552734,
     "entry_date": "2026-11-18",
@@ -28,5 +13,20 @@
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 69.46142656154906
+  },
+  {
+    "ticker": "AXTI",
+    "entry_price": 34.84000015258789,
+    "entry_date": "2026-11-19",
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (6.2)",
+    "ccs_score": 0.528,
+    "sector": "Technology",
+    "highest_price": 34.84000015258789,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 35.483031914650354
   }
 ]
