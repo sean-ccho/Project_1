@@ -15,18 +15,18 @@
     "entry_rsi": 69.46142656154906
   },
   {
-    "ticker": "AXTI",
-    "entry_price": 34.84000015258789,
-    "entry_date": "2026-11-19",
-    "strategy": "📉 바닥반등",
-    "star_rating": "★★★★★ (6.2)",
-    "ccs_score": 0.528,
-    "sector": "Technology",
-    "highest_price": 34.84000015258789,
+    "ticker": "APP",
+    "entry_price": 348.2900085449219,
+    "entry_date": "2026-11-20",
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (9.0)",
+    "ccs_score": 0.4729,
+    "sector": "Communication Services",
+    "highest_price": 348.2900085449219,
     "defer_count": 0,
     "trailing_stop_override": null,
     "last_defer_date": null,
     "defer_debug": null,
-    "entry_rsi": 35.483031914650354
+    "entry_rsi": 51.98110906163726
   }
 ]
