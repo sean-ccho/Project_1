@@ -1,0 +1,1133 @@
+============================================================
+[1단계] 전 종목 리스트 수집 및 기본 필터링
+============================================================
+[ticker_fetcher] 나스닥 FTP 서버에서 종목 리스트 다운로드 중...
+[ticker_fetcher] 총 5897개 종목 로드 → 비표준 심볼 462개 제거 → 5435개 보통주
+[ticker_fetcher] 1단계 필터링 배치 1/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 2/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 3/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 4/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 5/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 6/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 7/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 8/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 9/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 10/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 11/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 12/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 13/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 14/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 15/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 16/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 17/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 18/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 19/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 20/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 21/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 22/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 23/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 24/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 25/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 26/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 27/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 28/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 29/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 30/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 31/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 32/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 33/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 34/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 35/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 36/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 37/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 38/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 39/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 40/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 41/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 42/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 43/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 44/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 45/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 46/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 47/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 48/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 49/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 50/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 51/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 52/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 53/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 54/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 55/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 56/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 57/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 58/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 59/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 60/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 61/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 62/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 63/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 64/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 65/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 66/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 67/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 68/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 69/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 70/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 71/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 72/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 73/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 74/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 75/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 76/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 77/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 78/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 79/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 80/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 81/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 82/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 83/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 84/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 85/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 86/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 87/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 88/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 89/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 90/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 91/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 92/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 93/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 94/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 95/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 96/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 97/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 98/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 99/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 100/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 101/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 102/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 103/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 104/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 105/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 106/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 107/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 108/109 (50개 종목)...
+[ticker_fetcher] 1단계 필터링 배치 109/109 (35개 종목)...
+[ticker_fetcher] 1단계 필터링 완료: 5435개 → 3796개 (가격 ≥ $1.0, 평균 거래량 ≥ 100,000)
+
+============================================================
+[2단계] 바닥 탈출 / 강세 돌파 후보 선별
+============================================================
+[2단계] 배치 1/76 (50개 종목 분석 중)...
+[2단계] 배치 2/76 (50개 종목 분석 중)...
+[2단계] 배치 3/76 (50개 종목 분석 중)...
+[2단계] 배치 4/76 (50개 종목 분석 중)...
+[2단계] 배치 5/76 (50개 종목 분석 중)...
+[2단계] 배치 6/76 (50개 종목 분석 중)...
+[2단계] 배치 7/76 (50개 종목 분석 중)...
+[2단계] 배치 8/76 (50개 종목 분석 중)...
+[2단계] 배치 9/76 (50개 종목 분석 중)...
+[2단계] 배치 10/76 (50개 종목 분석 중)...
+[2단계] 배치 11/76 (50개 종목 분석 중)...
+[2단계] 배치 12/76 (50개 종목 분석 중)...
+[2단계] 배치 13/76 (50개 종목 분석 중)...
+[2단계] 배치 14/76 (50개 종목 분석 중)...
+[2단계] 배치 15/76 (50개 종목 분석 중)...
+[2단계] 배치 16/76 (50개 종목 분석 중)...
+[2단계] 배치 17/76 (50개 종목 분석 중)...
+[2단계] 배치 18/76 (50개 종목 분석 중)...
+[2단계] 배치 19/76 (50개 종목 분석 중)...
+[2단계] 배치 20/76 (50개 종목 분석 중)...
+[2단계] 배치 21/76 (50개 종목 분석 중)...
+[2단계] 배치 22/76 (50개 종목 분석 중)...
+[2단계] 배치 23/76 (50개 종목 분석 중)...
+[2단계] 배치 24/76 (50개 종목 분석 중)...
+[2단계] 배치 25/76 (50개 종목 분석 중)...
+[2단계] 배치 26/76 (50개 종목 분석 중)...
+[2단계] 배치 27/76 (50개 종목 분석 중)...
+[2단계] 배치 28/76 (50개 종목 분석 중)...
+[2단계] 배치 29/76 (50개 종목 분석 중)...
+[2단계] 배치 30/76 (50개 종목 분석 중)...
+[2단계] 배치 31/76 (50개 종목 분석 중)...
+[2단계] 배치 32/76 (50개 종목 분석 중)...
+[2단계] 배치 33/76 (50개 종목 분석 중)...
+[2단계] 배치 34/76 (50개 종목 분석 중)...
+[2단계] 배치 35/76 (50개 종목 분석 중)...
+[2단계] 배치 36/76 (50개 종목 분석 중)...
+[2단계] 배치 37/76 (50개 종목 분석 중)...
+[2단계] 배치 38/76 (50개 종목 분석 중)...
+[2단계] 배치 39/76 (50개 종목 분석 중)...
+[2단계] 배치 40/76 (50개 종목 분석 중)...
+[2단계] 배치 41/76 (50개 종목 분석 중)...
+[2단계] 배치 42/76 (50개 종목 분석 중)...
+[2단계] 배치 43/76 (50개 종목 분석 중)...
+[2단계] 배치 44/76 (50개 종목 분석 중)...
+[2단계] 배치 45/76 (50개 종목 분석 중)...
+[2단계] 배치 46/76 (50개 종목 분석 중)...
+[2단계] 배치 47/76 (50개 종목 분석 중)...
+[2단계] 배치 48/76 (50개 종목 분석 중)...
+[2단계] 배치 49/76 (50개 종목 분석 중)...
+[2단계] 배치 50/76 (50개 종목 분석 중)...
+[2단계] 배치 51/76 (50개 종목 분석 중)...
+[2단계] 배치 52/76 (50개 종목 분석 중)...
+[2단계] 배치 53/76 (50개 종목 분석 중)...
+[2단계] 배치 54/76 (50개 종목 분석 중)...
+[2단계] 배치 55/76 (50개 종목 분석 중)...
+[2단계] 배치 56/76 (50개 종목 분석 중)...
+[2단계] 배치 57/76 (50개 종목 분석 중)...
+[2단계] 배치 58/76 (50개 종목 분석 중)...
+[2단계] 배치 59/76 (50개 종목 분석 중)...
+[2단계] 배치 60/76 (50개 종목 분석 중)...
+[2단계] 배치 61/76 (50개 종목 분석 중)...
+[2단계] 배치 62/76 (50개 종목 분석 중)...
+[2단계] 배치 63/76 (50개 종목 분석 중)...
+[2단계] 배치 64/76 (50개 종목 분석 중)...
+[2단계] 배치 65/76 (50개 종목 분석 중)...
+[2단계] 배치 66/76 (50개 종목 분석 중)...
+[2단계] 배치 67/76 (50개 종목 분석 중)...
+[2단계] 배치 68/76 (50개 종목 분석 중)...
+[2단계] 배치 69/76 (50개 종목 분석 중)...
+[2단계] 배치 70/76 (50개 종목 분석 중)...
+[2단계] 배치 71/76 (50개 종목 분석 중)...
+[2단계] 배치 72/76 (50개 종목 분석 중)...
+[2단계] 배치 73/76 (50개 종목 분석 중)...
+[2단계] 배치 74/76 (50개 종목 분석 중)...
+[2단계] 배치 75/76 (50개 종목 분석 중)...
+[2단계] 배치 76/76 (46개 종목 분석 중)...
+[2단계] 필터링 완료: 3796개 → 990개 후보 선별
+
+============================================================
+[3단계] 990개 후보 종목 정밀 분석
+============================================================
+[OHLCV] 배치 다운로드 1/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 2/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 3/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 4/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 5/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 6/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 7/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 8/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 9/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 10/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 11/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 12/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 13/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 14/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 15/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 16/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 17/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 18/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 19/20 (50개 종목, period=5y)...
+[OHLCV] 배치 다운로드 20/20 (40개 종목, period=5y)...
+[분할 보정] 13건 — Yahoo 가 아직 반영 안 한 분할을 그 전 가격에 반영: CHOW 1:10 (10-26 +861% → -4%), EMBJ 4:1 (11-17 -76% → -4%), KALA 1:30 (11-17 +2368% → -18%), MKDW 1:20 (11-18 +1912% → +1%), NCT 1:8 (11-17 +1194% → +62%), NUWE 1:9 (10-27 +1591% → +88%), RETO 1:8 (11-02 +647% → -7%), SCAG 1:15 (10-28 +1235% → -11%), SGRX 1:8 (11-17 +607% → -12%), TGL 1:24 (11-17 +1917% → -16%), TOPS 1:10 (11-09 +884% → -2%), VCIG 1:18 (11-02 +4728% → +168%), YMT 1:10 (11-16 +933% → +3%)
+[DataValidator] 데이터 품질 경고 218건 — 정보용, 데이터는 그대로 씀
+  최근 1년 하루 ±50% 넘는 변동 (대부분 실제 급등락, 스플릿/데이터 오류 가능) — 208종목: AAOI +57%(2026-02-27), ACXP +108%(2026-03-11), ADCT -57%(2026-06-04), ADGM +74%(2026-08-04), ADXN +83%(2026-11-12), AEHL +178%(2026-11-05), AHMA +198%(2025-12-01), AIMD +119%(2026-11-12), AIXI +634%(2026-01-02), AKAN +214%(2026-04-22), ALMS +95%(2026-01-06), AMCI +168%(2025-12-15), ANPA +259%(2026-01-09), APUS +115%(2026-09-24), ARAI +86%(2026-04-14), ARTV +91%(2025-12-15), ATOM +64%(2026-02-13), AUUD -64%(2026-04-24), BAND +52%(2026-04-30), BDAI +351%(2026-06-01), BDSX -57%(2026-11-06), BIOA -64%(2026-07-31), BIRD +582%(2026-04-15), BKYI +86%(2026-09-29), BLZE +64%(2026-05-05), BNAI +277%(2026-01-26), BNC +50%(2026-09-08), BRAI +79%(2026-02-25), BWEN +117%(2026-05-12), CAPR +371%(2025-12-03), CDLR -71%(2026-11-05), CDNL -62%(2026-11-12), CHOW +109%(2026-06-10), CHRN +94%(2025-12-30), CIIT +81%(2026-06-23), CISS -81%(2025-12-11), CLRO +166%(2026-08-06), CMTG +67%(2026-11-04), CPSH +85%(2026-05-26), CRE +165%(2026-08-26), CRVO +82%(2026-06-16), CRVS +166%(2026-01-20), CTNT -90%(2026-04-15), CUE +106%(2026-05-01), CXAI +60%(2026-06-04), CYAB +56%(2026-11-16), CYCU +496%(2026-07-30), DFNS +201%(2026-07-27), DGNX +59%(2026-06-29), DRK +112%(2026-06-01), DRUG -52%(2026-11-02), EDHL +71%(2026-06-11), EDSA +91%(2026-03-03), EHGO +126%(2026-06-22), ELAB +134%(2026-04-01), ELTX -73%(2026-06-15), EMBC -58%(2026-05-05), ENGN -81%(2026-05-07), EVMN +71%(2026-02-10), FCUV +517%(2026-07-31), FFTT +310%(2026-09-25), FLYE +252%(2025-12-01), FMFC +141%(2026-07-31), FRMM +81%(2026-04-17), FSLY +72%(2026-02-12), FTFT +179%(2026-09-14), FTH +188%(2026-02-18), FULC -51%(2026-06-02), GCL +72%(2026-05-20), GDC -88%(2026-05-07), GLAS +60%(2025-12-12), GLND +140%(2026-09-21), GMM +147%(2026-07-10), GOGO +72%(2026-11-06), GOSS -80%(2026-02-23), GOVX +80%(2026-05-18), GP +406%(2026-01-02), GPCR +102%(2025-12-08), GRML +231%(2026-09-21), HQ +63%(2026-06-15), HTCO +240%(2026-04-27), HUBC +137%(2026-05-29), HURA +60%(2026-02-10), ICMB +72%(2026-11-12), INHD +3661%(2026-06-08), INOD +86%(2026-05-08), IPST +236%(2026-08-17), IRLA +306%(2026-02-10), JANX -53%(2025-12-02), JLHL +318%(2026-07-09), JYD -66%(2026-05-19), JZ +326%(2026-06-01), KXIN -88%(2026-01-30), KZIA +51%(2025-11-25), LBGJ -91%(2026-07-20), LICN -86%(2026-11-10), LPCN -78%(2026-04-02), MASK +199%(2026-05-28), MEDS +275%(2026-09-16), MF +113%(2026-03-31), MGN +176%(2026-09-09), MKDW +70%(2026-03-25), MNDR +258%(2026-10-12), MNTK -57%(2026-11-10), MNTN -55%(2026-11-05), MNTS +110%(2026-05-26), MOBX +533%(2026-03-03), MOVE +140%(2026-01-23), MPLT -73%(2026-07-27), MPU +68%(2026-11-19), MRKR +55%(2026-11-19), MSS +63%(2026-11-20), MWC +51%(2026-05-20), MXL +76%(2026-04-24), NCT -90%(2026-09-03), NEXR +131%(2026-01-16), NFE +4768%(2026-01-02), NKTR +51%(2026-02-10), NTCL +110%(2026-05-27), NUWE +135%(2026-07-30), NWGL -78%(2026-10-14), OBAI +109%(2026-06-16), OCC +54%(2026-06-08), OFAL +91%(2026-08-12), OIO -58%(2026-04-24), OMH +433%(2026-11-04), ONCO -61%(2026-05-19), ONEG +108%(2026-10-30), ORKT +148%(2025-12-08), OSS +57%(2026-05-06), PAVS -93%(2025-12-01), PCLA +194%(2026-05-22), PMN -70%(2026-10-30), POAS +234%(2026-11-12), POM +353%(2026-10-21), PRIM -50%(2026-05-06), PSIG -88%(2026-06-26), PSQL +95%(2026-08-28), QMCO +65%(2026-08-11), QNTM +53%(2026-03-24), QTTB +91%(2026-07-13), QURE +78%(2026-06-17), RCON -85%(2026-08-05), RCT +77%(2026-04-13), REED -52%(2025-12-05), RETO +676%(2026-09-15), RGC +60%(2026-01-07), RILY +54%(2025-12-16), RLMD +61%(2026-03-09), RXT +227%(2026-02-18), RZLT -87%(2025-12-11), SAIQ +261%(2026-10-05), SBFM +80%(2026-05-18), SCAG +195%(2026-06-05), SCNI +62%(2026-04-24), SEAT +63%(2026-11-19), SGRX +84%(2026-10-30), SION -91%(2026-08-10), SKYA +90%(2026-11-18), SLQT +52%(2026-05-05), SMTK +105%(2026-06-08), SMX +251%(2025-11-28), SNAL +351%(2026-04-14), SNWV -61%(2026-11-05), STAK +602%(2026-07-24), STFS +97%(2026-05-06), STI +351%(2026-06-04), STKH +167%(2026-07-28), STRL +52%(2026-05-05), SWMR +77%(2026-03-18), TCRT +189%(2026-10-13), TDIC +877%(2026-05-13), TDUP -50%(2026-08-06), TENX -90%(2026-08-10), TGL +276%(2025-12-05), TNMG +107%(2026-06-29), TNON +117%(2026-09-10), TPET +167%(2026-03-02), TRDA -57%(2026-05-07), TRT +67%(2026-04-23), TVRD +61%(2026-07-08), TWG +266%(2025-12-08), ULBI +145%(2026-10-28), UMAC +57%(2026-05-28), UPC +311%(2026-06-29), VCIG +168%(2026-11-02), VCYT -54%(2026-11-05), VEEA +149%(2026-09-15), VELO +56%(2025-12-11), VERU +88%(2026-06-04), VLN +59%(2026-01-09), VRRM -71%(2026-05-27), VRXA -56%(2026-06-16), VSA +140%(2026-03-26), WCT +179%(2026-06-03), WFF +500%(2026-10-09), WOK +206%(2026-05-11), WORX +116%(2026-06-23), WVE +147%(2025-12-08), WYHG +194%(2026-08-06), WYY -51%(2026-09-25), XCH +52%(2026-06-23), XLAB +118%(2026-11-12), XNDU +70%(2026-04-15), XOS +235%(2026-06-03), XRPN +68%(2026-10-02), ZNTL +60%(2026-04-09), ZONE -55%(2026-08-11)
+  최근 1년 거래량 0 이 5일 이상 연속 (상장폐지/거래정지 가능) — 10종목: ADXN 5일, APUS 21일, CTNT 7일, HUBC 15일, INHD 36일, NANO 5일, NVA 10일, NWCL 7일, SAIQ 5일, ZONE 9일
+[차트 가격] [분할 보정] 1건 — Yahoo 가 아직 반영 안 한 분할을 그 전 가격에 반영: CHOW 1:10 (10-26 +861% → -4%)
+[차트 가격] [분할 보정] 1건 — Yahoo 가 아직 반영 안 한 분할을 그 전 가격에 반영: EMBJ 4:1 (11-17 -76% → -4%)
+[차트 가격] [분할 보정] 1건 — Yahoo 가 아직 반영 안 한 분할을 그 전 가격에 반영: KALA 1:30 (11-17 +2368% → -18%)
+[차트 가격] [분할 보정] 1건 — Yahoo 가 아직 반영 안 한 분할을 그 전 가격에 반영: MKDW 1:20 (11-18 +1912% → +1%)
+[차트 가격] [분할 보정] 2건 — Yahoo 가 아직 반영 안 한 분할을 그 전 가격에 반영: NCT 1:8 (11-17 +1194% → +62%), NUWE 1:9 (10-27 +1591% → +88%)
+[차트 가격] [분할 보정] 1건 — Yahoo 가 아직 반영 안 한 분할을 그 전 가격에 반영: RETO 1:8 (11-02 +647% → -7%)
+[차트 가격] [분할 보정] 2건 — Yahoo 가 아직 반영 안 한 분할을 그 전 가격에 반영: SCAG 1:15 (10-28 +1235% → -11%), SGRX 1:8 (11-17 +607% → -12%)
+[차트 가격] [분할 보정] 2건 — Yahoo 가 아직 반영 안 한 분할을 그 전 가격에 반영: TGL 1:24 (11-17 +1917% → -16%), TOPS 1:10 (11-09 +884% → -2%)
+[차트 가격] [분할 보정] 1건 — Yahoo 가 아직 반영 안 한 분할을 그 전 가격에 반영: VCIG 1:18 (11-02 +4728% → +168%)
+[차트 가격] [분할 보정] 1건 — Yahoo 가 아직 반영 안 한 분할을 그 전 가격에 반영: YMT 1:10 (11-16 +933% → +3%)
+[차트 가격] 분할만 반영 · 상장 이후 전체: 990종목 받음 · 못 받음 0개
+[[NASDAQ/NYSE 분석]] ⚠️ 종목 정보 막힘 (Yahoo 요청 제한 추정) — 990/990개 남음, 60초 쉬고 확인
+[[NASDAQ/NYSE 분석]] 아직 막혀 있음
+[[NASDAQ/NYSE 분석]] ⚠️ 종목 정보 막힘 (Yahoo 요청 제한 추정) — 990/990개 남음, 120초 쉬고 확인
+[[NASDAQ/NYSE 분석]] 풀림 — 남은 990개 이어서 받기
+[[NASDAQ/NYSE 분석]] 다시 받기 완료: 990/990개 받음
+[[NASDAQ/NYSE 분석]] 강한 섹터: {'Health Care', 'Industrials', 'Materials', 'Communication Services', 'Consumer Discretionary', 'Utilities', 'Real Estate', 'Consumer Staples', 'Financials'}
+[OHLCV] 배치 다운로드 1/5 (50개 종목, period=2y)...
+[OHLCV] 배치 다운로드 2/5 (50개 종목, period=2y)...
+[OHLCV] 배치 다운로드 3/5 (50개 종목, period=2y)...
+[OHLCV] 배치 다운로드 4/5 (50개 종목, period=2y)...
+[OHLCV] 배치 다운로드 5/5 (48개 종목, period=2y)...
+[분할 보정] 1건 — Yahoo 가 아직 반영 안 한 분할을 그 전 가격에 반영: EMBJ 4:1 (11-17 -76% → -4%)
+[DataValidator] 데이터 품질 경고 12건 — 정보용, 데이터는 그대로 씀
+  최근 1년 하루 ±50% 넘는 변동 (대부분 실제 급등락, 스플릿/데이터 오류 가능) — 12종목: AAOI +57%(2026-02-27), AKAN +214%(2026-04-22), CAPR +371%(2025-12-03), FCUV +517%(2026-07-31), FSLY +72%(2026-02-12), INOD +86%(2026-05-08), MXL +76%(2026-04-24), OMH +433%(2026-11-04), PRIM -50%(2026-05-06), QURE +78%(2026-06-17), STRL +52%(2026-05-05), VCYT -54%(2026-11-05)
+[[NASDAQ/NYSE 분석]] Extreme model 'label_low' ROC 0.57, AP 0.48
+[[NASDAQ/NYSE 분석]] Extreme model 'label_high' ROC 0.59, AP 0.58
+[[NASDAQ/NYSE 분석]] Google Sheets 업데이트 완료 (248개 종목)
+
+============================================================
+[[NASDAQ/NYSE 차트분석]] 이메일 대상 종목 차트 분석 시작
+============================================================
+[[NASDAQ/NYSE 차트분석]] 차트분석 대상 124개 종목: ['MRVL', 'VCYT', 'BABA', 'TRIP', 'FLYW', 'XPEV', 'FIG', 'FCN', 'HUBS', 'XE', 'CAR', 'WDC', 'ARWR', 'ALNY', 'LBRT', 'INTC', 'UCTT', 'KLIC', 'MNDY', 'FPS', 'ALB', 'IOVA', 'LEGN', 'APTV', 'AXON', 'CLMT', 'CLS', 'KEEL', 'SBSW', 'RIVN', 'CRS', 'AA', 'BTDR', 'WULF', 'USAR', 'EXK', 'RKLB', 'COLM', 'GKOS', 'WOLF', 'CGON', 'STNE', 'CLSK', 'BTU', 'BWXT', 'NRIX', 'MSTR', 'HYMC', 'CELC', 'INFQ', 'HUT', 'VCEL', 'ATEC', 'MTZ', 'SNDX', 'NXE', 'CORZ', 'EQX', 'WGS', 'IESC', 'WHR', 'SIMO', 'IONQ', 'STLA', 'JOBY', 'GDS', 'TPL', 'STRL', 'BIP', 'XP', 'XERS', 'AZTA', 'TME', 'AXGN', 'FCEL', 'ACMR', 'ALM', 'GT', 'FLEX', 'NBIS', 'APLD', 'BROS', 'TER', 'VSH', 'SMCI', 'BIDU', 'KYMR', 'TNL', 'AMAT', 'ADT', 'CRML', 'ECG', 'UEC', 'FLO', 'GIL', 'BULL', 'EMBJ', 'PEGA', 'LRCX', 'IREN', 'Z', 'STX', 'HIMS', 'INSP', 'FIS', 'BE', 'JAN', 'FUTU', 'AMKR', 'NIO', 'KRMN', 'CIEN', 'OPEN', 'LUMN', 'VNT', 'IBN', 'SBET', 'CRWV', 'TFX', 'PLMR', 'IONS', 'AG', 'GLW', 'BMNR']
+[[NASDAQ/NYSE 차트분석]] TradingView 차트 캡처 시작...
+[TradingView] COLM 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] COLM 차트 5개 처리 완료
+[TradingView] BIP 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] BIP 차트 5개 처리 완료
+[TradingView] IBN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] IBN 차트 5개 처리 완료
+[TradingView] TNL 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] TNL 차트 5개 처리 완료
+[TradingView] AXGN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] AXGN 차트 5개 처리 완료
+[TradingView] CGON 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] CGON 차트 5개 처리 완료
+[TradingView] VCEL 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] VCEL 차트 5개 처리 완료
+[TradingView] GKOS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] GKOS 차트 5개 처리 완료
+[TradingView] FLYW 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] FLYW 차트 5개 처리 완료
+[TradingView] ADT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] ADT 차트 5개 처리 완료
+[TradingView] TFX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] TFX 차트 5개 처리 완료
+[TradingView] VNT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] VNT 차트 5개 처리 완료
+[TradingView] PLMR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] PLMR 차트 5개 처리 완료
+[TradingView] KYMR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] KYMR 차트 5개 처리 완료
+[TradingView] XERS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] XERS 차트 5개 처리 완료
+[TradingView] FCN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] FCN 차트 5개 처리 완료
+[TradingView] CAR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] CAR 차트 5개 처리 완료
+[TradingView] AZTA 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] AZTA 차트 5개 처리 완료
+[TradingView] IOVA 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] IOVA Monthly 로딩 타임아웃
+[[NASDAQ/NYSE 차트분석]] IOVA 차트 4개 처리 완료
+[TradingView] EMBJ 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] EMBJ 차트 5개 처리 완료
+[TradingView] TME 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] TME 차트 5개 처리 완료
+[TradingView] JAN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] JAN 차트 5개 처리 완료
+[TradingView] BE 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] BE 차트 5개 처리 완료
+[TradingView] VCYT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] VCYT 차트 5개 처리 완료
+[TradingView] INSP 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] INSP 차트 5개 처리 완료
+[TradingView] LRCX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] LRCX 차트 5개 처리 완료
+[TradingView] WHR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] WHR 차트 5개 처리 완료
+[TradingView] KLIC 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] KLIC 차트 5개 처리 완료
+[TradingView] AMAT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] AMAT 차트 5개 처리 완료
+[TradingView] CLMT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] CLMT 차트 5개 처리 완료
+[TradingView] MRVL 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] MRVL 차트 5개 처리 완료
+[TradingView] BTU 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] BTU 차트 5개 처리 완료
+[TradingView] AG 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] AG 차트 5개 처리 완료
+[TradingView] CRML 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] CRML 차트 5개 처리 완료
+[TradingView] AA 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] AA 차트 5개 처리 완료
+[TradingView] ALM 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] ALM 차트 5개 처리 완료
+[TradingView] APLD 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] APLD 차트 5개 처리 완료
+[TradingView] FCEL 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] FCEL 차트 5개 처리 완료
+[TradingView] IREN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] IREN 차트 5개 처리 완료
+[TradingView] NBIS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] NBIS 차트 5개 처리 완료
+[TradingView] SBSW 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] SBSW 차트 5개 처리 완료
+[TradingView] TER 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] TER 차트 5개 처리 완료
+[TradingView] APTV 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] APTV 차트 5개 처리 완료
+[TradingView] CRWV 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] CRWV 차트 5개 처리 완료
+[TradingView] FLO 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] FLO 차트 5개 처리 완료
+[TradingView] IESC 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] IESC 차트 5개 처리 완료
+[TradingView] NIO 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] NIO 차트 5개 처리 완료
+[TradingView] CIEN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] CIEN 차트 5개 처리 완료
+[TradingView] GLW 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] GLW 차트 5개 처리 완료
+[TradingView] SIMO 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] SIMO 차트 5개 처리 완료
+[TradingView] STX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] STX 차트 5개 처리 완료
+[TradingView] WDC 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] WDC 차트 5개 처리 완료
+[TradingView] FPS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] FPS 차트 5개 처리 완료
+[TradingView] FUTU 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] FUTU 차트 5개 처리 완료
+[TradingView] NRIX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] NRIX 차트 5개 처리 완료
+[TradingView] ALNY 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] ALNY 차트 5개 처리 완료
+[TradingView] GDS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] GDS 차트 5개 처리 완료
+[TradingView] MSTR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] MSTR 차트 5개 처리 완료
+[TradingView] TPL 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] TPL 차트 5개 처리 완료
+[TradingView] BTDR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] BTDR 차트 5개 처리 완료
+[TradingView] BULL 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] BULL 차트 5개 처리 완료
+[TradingView] CLS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] CLS 차트 5개 처리 완료
+[TradingView] SMCI 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] SMCI 차트 5개 처리 완료
+[TradingView] UEC 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] UEC 차트 5개 처리 완료
+[TradingView] BIDU 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] BIDU 차트 5개 처리 완료
+[TradingView] HIMS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] HIMS 차트 5개 처리 완료
+[TradingView] KEEL 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] KEEL 차트 5개 처리 완료
+[TradingView] SBET 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] SBET 차트 5개 처리 완료
+[TradingView] BMNR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] BMNR 차트 5개 처리 완료
+[TradingView] CLSK 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] CLSK 차트 5개 처리 완료
+[TradingView] JOBY 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] JOBY 차트 5개 처리 완료
+[TradingView] XP 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] XP 차트 5개 처리 완료
+[TradingView] ARWR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] ARWR 차트 5개 처리 완료
+[TradingView] ATEC 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] ATEC 차트 5개 처리 완료
+[TradingView] AXON 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] AXON 차트 5개 처리 완료
+[TradingView] BABA 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] BABA 차트 5개 처리 완료
+[TradingView] CELC 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] CELC 차트 5개 처리 완료
+[TradingView] CRS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] CRS 차트 5개 처리 완료
+[TradingView] GIL 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] GIL 차트 5개 처리 완료
+[TradingView] IONS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] IONS 차트 5개 처리 완료
+[TradingView] MTZ 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] MTZ 차트 5개 처리 완료
+[TradingView] OPEN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] OPEN 차트 5개 처리 완료
+[TradingView] RIVN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] RIVN 차트 5개 처리 완료
+[TradingView] SNDX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] SNDX 차트 5개 처리 완료
+[TradingView] STLA 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] STLA 차트 5개 처리 완료
+[TradingView] STRL 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] STRL 차트 5개 처리 완료
+[TradingView] UCTT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] UCTT 차트 5개 처리 완료
+[TradingView] USAR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] USAR 차트 5개 처리 완료
+[TradingView] WGS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] WGS 차트 5개 처리 완료
+[TradingView] FLEX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] FLEX 차트 5개 처리 완료
+[TradingView] BROS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] BROS 차트 5개 처리 완료
+[TradingView] BWXT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] BWXT 차트 5개 처리 완료
+[TradingView] HUT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] HUT 차트 5개 처리 완료
+[TradingView] XE 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] XE 차트 5개 처리 완료
+[TradingView] FIG 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] FIG 차트 5개 처리 완료
+[TradingView] LEGN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] LEGN 차트 5개 처리 완료
+[TradingView] LUMN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] LUMN 차트 5개 처리 완료
+[TradingView] WULF 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] WULF 차트 5개 처리 완료
+[TradingView] CORZ 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] CORZ 차트 5개 처리 완료
+[TradingView] INTC 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] INTC 차트 5개 처리 완료
+[TradingView] ACMR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] ACMR 차트 5개 처리 완료
+[TradingView] AMKR 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] AMKR 차트 5개 처리 완료
+[TradingView] INFQ 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] INFQ 차트 5개 처리 완료
+[TradingView] IONQ 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] IONQ 차트 5개 처리 완료
+[TradingView] NXE 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] NXE 차트 5개 처리 완료
+[TradingView] VSH 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] VSH 차트 5개 처리 완료
+[TradingView] FIS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] FIS 차트 5개 처리 완료
+[TradingView] LBRT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] LBRT 차트 5개 처리 완료
+[TradingView] STNE 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] STNE 차트 5개 처리 완료
+[TradingView] RKLB 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] RKLB 차트 5개 처리 완료
+[TradingView] EQX 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] EQX 차트 5개 처리 완료
+[TradingView] EXK 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] EXK 차트 5개 처리 완료
+[TradingView] GT 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] GT 차트 5개 처리 완료
+[TradingView] HYMC 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] HYMC 차트 5개 처리 완료
+[TradingView] KRMN 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] KRMN 차트 5개 처리 완료
+[TradingView] ALB 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] ALB 차트 5개 처리 완료
+[TradingView] TRIP 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] TRIP 차트 5개 처리 완료
+[TradingView] XPEV 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] XPEV 차트 5개 처리 완료
+[TradingView] ECG 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] ECG 차트 5개 처리 완료
+[TradingView] Z 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] Z 차트 5개 처리 완료
+[TradingView] PEGA 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] PEGA 차트 5개 처리 완료
+[TradingView] HUBS 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] HUBS 차트 5개 처리 완료
+[TradingView] MNDY 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] MNDY 차트 5개 처리 완료
+[TradingView] WOLF 브라우저 세션 시작...
+[TradingView] 1H 캡처 완료 (60)
+[TradingView] 4H 캡처 완료 (240)
+[TradingView] Daily 캡처 완료 (D)
+[TradingView] Weekly 캡처 완료 (W)
+[TradingView] Monthly 캡처 완료 (M)
+[[NASDAQ/NYSE 차트분석]] WOLF 차트 5개 처리 완료
+[[NASDAQ/NYSE 차트분석]] 차트 캡처 완료
+[[NASDAQ/NYSE 차트분석]] Google Sheets 업데이트 완료 (124개 종목)
+[SEC] 공시 경고: 248/248종목 확인 · 🔴 1 · 🟠 23 (42초)
+[공매도] FINRA 2026-10-30 기준 22,559종목
+[Paper Trading] NASDAQ ranked_df 스냅샷 저장 완료 (248개 종목)
+
+[요약] 전 종목 스캔 완료 – 총 8288.3초 (138.14분) 소요
