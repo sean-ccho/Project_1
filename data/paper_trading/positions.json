@@ -1,20 +1,5 @@
 [
   {
-    "ticker": "LIVN",
-    "entry_price": 94.54000091552734,
-    "entry_date": "2026-11-18",
-    "strategy": "📈 모멘텀",
-    "star_rating": "★★★★★ (14.0)",
-    "ccs_score": 0.5015,
-    "sector": "Healthcare",
-    "highest_price": 94.54000091552734,
-    "defer_count": 0,
-    "trailing_stop_override": null,
-    "last_defer_date": null,
-    "defer_debug": null,
-    "entry_rsi": 69.46142656154906
-  },
-  {
     "ticker": "APP",
     "entry_price": 348.2900085449219,
     "entry_date": "2026-11-20",
@@ -22,11 +7,26 @@
     "star_rating": "★★★★★ (9.0)",
     "ccs_score": 0.4729,
     "sector": "Communication Services",
-    "highest_price": 373.9200134277344,
+    "highest_price": 381.1099853515625,
     "defer_count": 0,
     "trailing_stop_override": null,
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 51.98110906163726
+  },
+  {
+    "ticker": "FCX",
+    "entry_price": 47.72999954223633,
+    "entry_date": "2026-11-24",
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (7.2)",
+    "ccs_score": 0.6684,
+    "sector": "Basic Materials",
+    "highest_price": 47.72999954223633,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 29.140429932173078
   }
 ]

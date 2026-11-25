@@ -1494,5 +1494,23 @@
     "defer_count": 0,
     "entry_rsi": 35.483031914650354,
     "actual_max_upside_pct": 0.0
+  },
+  {
+    "ticker": "LIVN",
+    "entry_date": "2026-11-18",
+    "exit_date": "2026-11-24",
+    "entry_price": 94.54000091552734,
+    "exit_price": 93.93000030517578,
+    "return_pct": -0.0065,
+    "holding_days": 6,
+    "highest_price": 94.54000091552734,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (14.0)",
+    "ccs_score": 0.5015,
+    "sector": "Healthcare",
+    "exit_reason": "교체→FCX",
+    "defer_count": 0,
+    "entry_rsi": 69.46142656154906,
+    "actual_max_upside_pct": 0.0
   }
 ]
