@@ -1,20 +1,5 @@
 [
   {
-    "ticker": "APP",
-    "entry_price": 348.2900085449219,
-    "entry_date": "2026-11-20",
-    "strategy": "📈 모멘텀",
-    "star_rating": "★★★★★ (9.0)",
-    "ccs_score": 0.4729,
-    "sector": "Communication Services",
-    "highest_price": 381.1099853515625,
-    "defer_count": 0,
-    "trailing_stop_override": null,
-    "last_defer_date": null,
-    "defer_debug": null,
-    "entry_rsi": 51.98110906163726
-  },
-  {
     "ticker": "FCX",
     "entry_price": 47.72999954223633,
     "entry_date": "2026-11-24",
@@ -22,11 +7,26 @@
     "star_rating": "★★★★★ (7.2)",
     "ccs_score": 0.6684,
     "sector": "Basic Materials",
-    "highest_price": 48.54999923706055,
+    "highest_price": 50.77000045776367,
     "defer_count": 0,
     "trailing_stop_override": null,
     "last_defer_date": null,
     "defer_debug": null,
     "entry_rsi": 29.140429932173078
+  },
+  {
+    "ticker": "MS",
+    "entry_price": 170.8800048828125,
+    "entry_date": "2026-11-27",
+    "strategy": "📉 바닥반등",
+    "star_rating": "★★★★★ (6.2)",
+    "ccs_score": 0.5967,
+    "sector": "Financial Services",
+    "highest_price": 170.8800048828125,
+    "defer_count": 0,
+    "trailing_stop_override": null,
+    "last_defer_date": null,
+    "defer_debug": null,
+    "entry_rsi": 39.52998344132794
   }
 ]

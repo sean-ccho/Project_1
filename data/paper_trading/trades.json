@@ -1512,5 +1512,23 @@
     "defer_count": 0,
     "entry_rsi": 69.46142656154906,
     "actual_max_upside_pct": 0.0
+  },
+  {
+    "ticker": "APP",
+    "entry_date": "2026-11-20",
+    "exit_date": "2026-11-27",
+    "entry_price": 348.2900085449219,
+    "exit_price": 399.2099914550781,
+    "return_pct": 0.1462,
+    "holding_days": 7,
+    "highest_price": 399.2099914550781,
+    "strategy": "📈 모멘텀",
+    "star_rating": "★★★★★ (9.0)",
+    "ccs_score": 0.4729,
+    "sector": "Communication Services",
+    "exit_reason": "목표가(+14.6%)",
+    "defer_count": 0,
+    "entry_rsi": 51.98110906163726,
+    "actual_max_upside_pct": 0.1462
   }
 ]
