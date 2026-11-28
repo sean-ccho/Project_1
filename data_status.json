@@ -1,0 +1,333 @@
+{
+ "schema": 1,
+ "generated": "2026-11-28T00:09-05:00",
+ "date": "2026-11-27",
+ "files": {
+  "sp500": {
+   "label": "전체분석 · S&P 500",
+   "date": "2026-11-27",
+   "generated": "2026-11-27T22:41:37-05:00",
+   "rows": [
+    {
+     "key": "items",
+     "label": "종목",
+     "got": 500,
+     "zero_red": true,
+     "prev": 500
+    },
+    {
+     "key": "price",
+     "label": "가격",
+     "got": 500,
+     "want": 500,
+     "floor": 0.95
+    },
+    {
+     "key": "isb",
+     "label": "ISB 라벨",
+     "got": 500,
+     "want": 500,
+     "floor": 0.95
+    },
+    {
+     "key": "sqz",
+     "label": "SQZ 모멘텀",
+     "got": 500,
+     "want": 500,
+     "floor": 0.95
+    },
+    {
+     "key": "mcap",
+     "label": "시가총액",
+     "got": 500,
+     "want": 500,
+     "floor": 0.9
+    },
+    {
+     "key": "health",
+     "label": "재무(헬스체크)",
+     "got": 499,
+     "want": 500,
+     "floor": 0.95
+    },
+    {
+     "key": "insider",
+     "label": "내부자 거래",
+     "got": 500,
+     "want": 500,
+     "floor": 0.9
+    },
+    {
+     "key": "jump",
+     "label": "하루 ±50% (시총 $10B+)",
+     "got": 0,
+     "max": 0,
+     "prev": 0
+    }
+   ]
+  },
+  "nasdaq": {
+   "label": "전체분석 · 나스닥·NYSE",
+   "date": "2026-11-27",
+   "generated": "2026-11-28T00:06:54-05:00",
+   "rows": [
+    {
+     "key": "items",
+     "label": "종목",
+     "got": 4814,
+     "zero_red": true,
+     "prev": 4814
+    },
+    {
+     "key": "price",
+     "label": "가격",
+     "got": 4814,
+     "want": 4814,
+     "floor": 0.95
+    },
+    {
+     "key": "isb",
+     "label": "ISB 라벨",
+     "got": 4814,
+     "want": 4814,
+     "floor": 0.95
+    },
+    {
+     "key": "sqz",
+     "label": "SQZ 모멘텀",
+     "got": 4814,
+     "want": 4814,
+     "floor": 0.95
+    },
+    {
+     "key": "mcap",
+     "label": "시가총액",
+     "got": 4726,
+     "want": 4814,
+     "floor": 0.9
+    },
+    {
+     "key": "health",
+     "label": "재무(헬스체크)",
+     "got": 4556,
+     "want": 4814,
+     "floor": 0.85
+    },
+    {
+     "key": "insider",
+     "label": "내부자 거래",
+     "got": 4814,
+     "want": 4814,
+     "floor": 0.9
+    },
+    {
+     "key": "jump",
+     "label": "하루 ±50% (시총 $10B+)",
+     "got": 0,
+     "max": 0,
+     "prev": 0
+    }
+   ]
+  },
+  "new": {
+   "label": "전체분석 · 신규상장",
+   "date": "2026-11-27",
+   "generated": "2026-11-28T00:06:55-05:00",
+   "rows": [
+    {
+     "key": "items",
+     "label": "종목",
+     "got": 135,
+     "zero_red": true,
+     "prev": 139
+    },
+    {
+     "key": "price",
+     "label": "가격",
+     "got": 135,
+     "want": 135,
+     "floor": 0.95
+    },
+    {
+     "key": "isb",
+     "label": "ISB 라벨",
+     "got": 135,
+     "want": 135,
+     "floor": 0.95
+    },
+    {
+     "key": "sqz",
+     "label": "SQZ 모멘텀",
+     "got": 135,
+     "want": 135,
+     "floor": 0.95
+    },
+    {
+     "key": "mcap",
+     "label": "시가총액",
+     "got": 128,
+     "want": 135,
+     "floor": 0.9
+    },
+    {
+     "key": "health",
+     "label": "재무(헬스체크)",
+     "got": 63,
+     "prev": 68
+    },
+    {
+     "key": "insider",
+     "label": "내부자 거래",
+     "got": 135,
+     "want": 135,
+     "floor": 0.9
+    },
+    {
+     "key": "jump",
+     "label": "하루 ±50% (시총 $10B+)",
+     "got": 0,
+     "max": 0,
+     "prev": 0
+    }
+   ]
+  },
+  "extra": {
+   "label": "전체분석 · 번외",
+   "date": "2026-11-27",
+   "generated": "2026-11-27T22:31:40-05:00",
+   "rows": [
+    {
+     "key": "items",
+     "label": "종목",
+     "got": 1,
+     "zero_red": true,
+     "prev": 1
+    },
+    {
+     "key": "price",
+     "label": "가격",
+     "got": 1,
+     "want": 1,
+     "floor": 0.95
+    },
+    {
+     "key": "isb",
+     "label": "ISB 라벨",
+     "got": 1,
+     "want": 1,
+     "floor": 0.95
+    },
+    {
+     "key": "sqz",
+     "label": "SQZ 모멘텀",
+     "got": 1,
+     "want": 1,
+     "floor": 0.95
+    },
+    {
+     "key": "mcap",
+     "label": "시가총액",
+     "got": 1,
+     "want": 1,
+     "floor": 0.9
+    },
+    {
+     "key": "health",
+     "label": "재무(헬스체크)",
+     "got": 1,
+     "prev": 1
+    },
+    {
+     "key": "jump",
+     "label": "하루 ±50% (시총 $10B+)",
+     "got": 0,
+     "max": 0,
+     "prev": 0
+    }
+   ]
+  },
+  "ca": {
+   "label": "전체분석 · 캐나다",
+   "date": "2026-11-27",
+   "generated": "2026-11-27T18:31:53-05:00",
+   "rows": [
+    {
+     "key": "items",
+     "label": "종목",
+     "got": 1934,
+     "zero_red": true,
+     "prev": 1934
+    },
+    {
+     "key": "price",
+     "label": "가격",
+     "got": 1934,
+     "want": 1934,
+     "floor": 0.95
+    },
+    {
+     "key": "isb",
+     "label": "ISB 라벨",
+     "got": 1934,
+     "want": 1934,
+     "floor": 0.95
+    },
+    {
+     "key": "sqz",
+     "label": "SQZ 모멘텀",
+     "got": 1934,
+     "want": 1934,
+     "floor": 0.95
+    },
+    {
+     "key": "mcap",
+     "label": "시가총액",
+     "got": 1908,
+     "want": 1934,
+     "floor": 0.9
+    },
+    {
+     "key": "health",
+     "label": "재무(헬스체크)",
+     "got": 1654,
+     "want": 1934,
+     "floor": 0.75
+    },
+    {
+     "key": "jump",
+     "label": "하루 ±50% (시총 $10B+)",
+     "got": 0,
+     "max": 0,
+     "prev": 0
+    }
+   ]
+  },
+  "value_model": {
+   "label": "예측 모델",
+   "date": "2026-11-27",
+   "generated": "2026-11-28T00:09-05:00",
+   "rows": [
+    {
+     "key": "computed",
+     "label": "계산된 종목",
+     "got": 2050,
+     "want": 2051,
+     "floor": 0.5
+    }
+   ]
+  },
+  "congress": {
+   "label": "국회의원 거래",
+   "date": "2026-11-27",
+   "generated": "2026-11-27T22:31:14-05:00",
+   "rows": [
+    {
+     "key": "recent",
+     "label": "최근 30일 신고",
+     "got": 333,
+     "prev": 365
+    }
+   ]
+  }
+ }
+}
